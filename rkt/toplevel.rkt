@@ -1,0 +1,858 @@
+#lang racket/gui
+;; toplevel.rkt -- toplevel form for the application
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
+
+(require db
+         "about-frame.rkt"
+         "activity-edit.rkt"
+         "al-log.rkt"
+         "al-prefs.rkt"
+         "database.rkt"
+         "edit-labels.rkt"
+         "edit-preferences.rkt"
+         "edit-seasons.rkt"
+         "edit-sport-zones.rkt"
+         "elevation-correction.rkt"
+         "icon-resources.rkt"
+         "map-widget.rkt"
+         "sport-charms.rkt"
+         "time-in-zone.rkt"
+         "view-activities.rkt"
+         "view-athlete-metrics.rkt"
+         "view-calendar.rkt"
+         "view-equipment.rkt"
+         "view-last-import.rkt"
+         "view-reports.rkt"
+         "view-session.rkt"
+         "view-trends.rkt"
+         "widgets.rkt")
+
+(provide toplevel-window%)
+
+
+;;....................................................... make-file-menu ....
+
+(define (make-file-menu menu-bar toplevel)
+
+  ;; Return the GUI object that can export data.  We search from the focus
+  ;; window through the parents for an object that has an
+  ;; 'interactive-export-image method.
+  (define (get-data-exporter)
+
+    (define (can-export-data? o)
+      (object-method-arity-includes? o 'interactive-export-data 1))
+
+    (define (search o)
+      (if (can-export-data? o)
+          o
+          (let ((parent (send o get-parent)))
+            (if parent (search parent) #f))))
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (if w (search w) #f)))
+
+  (define (data-exporter-demand-cb m)
+    (let ((e (get-data-exporter)))
+      (send m enable (not (eq? e #f)))))
+
+  ;; Return the GUI object that can export images.  We search from the focus
+  ;; window through the parents for an object that has an
+  ;; 'interactive-export-image method.
+  (define (get-img-exporter)
+
+    (define (can-export-image? o)
+      (object-method-arity-includes? o 'interactive-export-image 0))
+
+    (define (search o)
+      (if (can-export-image? o)
+          o
+          (let ((parent (send o get-parent)))
+            (if parent (search parent) #f))))
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (if w (search w) #f)))
+
+  (define (img-exporter-demand-cb m)
+    (let ((e (get-img-exporter)))
+      (send m enable (not (eq? e #f)))))
+
+  ;; Return the GUI object that can export SQL queries.  We search from the
+  ;; focus window through the parents for an object that has an
+  ;; 'interactive-export-sql-query method.
+  (define (get-sql-query-exporter)
+    (define (can-export-sql-query? o)
+      (object-method-arity-includes? o 'interactive-export-sql-query 0))
+    (define (search o)
+      (if (can-export-sql-query? o)
+          o
+          (let ((parent (send o get-parent)))
+            (if parent (search parent) #f))))
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (if w (search w) #f)))
+
+  (define (sql-query-exporter-demand-cb m)
+    (let ((e (get-sql-query-exporter)))
+      (send m enable (not (eq? e #f)))))
+
+  ;; Return the GUI object that can generate heat maps.  We search from the
+  ;; focus window through the parents for an object that has an
+  ;; 'interactive-generate-heatmap' method.
+  (define (get-heatmap-generator)
+    (define (can-generate-heatmap? o)
+      (object-method-arity-includes? o 'interactive-generate-heatmap 0))
+    (define (search o)
+      (if (can-generate-heatmap? o)
+          o
+          (let ((parent (send o get-parent)))
+            (if parent (search parent) #f))))
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (if w (search w) #f)))
+
+  (define (generate-heatmap-demand-cb m)
+    (let ((e (get-heatmap-generator)))
+      (send m enable (not (eq? e #f)))))
+
+  (define file-menu (new menu% [parent menu-bar] [label "&File"]))
+
+  (new menu-item%
+       [parent file-menu] [label "&New database..."]
+       [callback (lambda (m e) (send toplevel on-new-database))])
+
+  (new menu-item%
+       [parent file-menu] [label "&Open database..."]
+       [shortcut #\O]
+       [callback (lambda (m e) (send toplevel on-open-database))])
+
+  (new separator-menu-item% [parent file-menu])
+
+  (new menu-item%
+       [parent file-menu] [label  "Import &activity..."]
+       [callback (lambda (m e) (send toplevel on-import-activity))])
+
+  (new menu-item%
+       [parent file-menu] [label  "Import from &directory..."]
+       [shortcut #\I]
+       [callback (lambda (m e) (send toplevel on-import-from-directory))])
+
+  (new separator-menu-item% [parent file-menu])
+
+  (new menu-item%
+       [parent file-menu] [label "Export data (formatted)..."]
+       [demand-callback data-exporter-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((q (get-data-exporter)))
+            (when q (send q interactive-export-data #t))))])
+
+  (new menu-item%
+       [parent file-menu] [label "Export data (unformatted)..."]
+       [demand-callback data-exporter-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((q (get-data-exporter)))
+            (when q (send q interactive-export-data #f))))])
+
+  (new menu-item%
+       [parent file-menu] [label "Export image ..."]
+       [demand-callback img-exporter-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((w (get-img-exporter)))
+            (when w (send w interactive-export-image))))])
+
+  (new menu-item%
+       [parent file-menu] [label "Export SQL query ..."]
+       [demand-callback sql-query-exporter-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((w (get-sql-query-exporter)))
+            (when w (send w interactive-export-sql-query))))])
+
+  (new menu-item%
+       [parent file-menu] [label "Generate HeatMap ..."]
+       [demand-callback generate-heatmap-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((w (get-heatmap-generator)))
+            (when w (send w interactive-generate-heatmap))))])
+
+  (new separator-menu-item% [parent file-menu])
+
+  (new menu-item%
+       [parent file-menu] [label "E&xit"]
+       [shortcut #\Q]
+       [callback (lambda (m e) (send toplevel on-exit))])
+
+  file-menu)
+
+
+;;....................................................... make-edit-menu ....
+
+(define (make-edit-menu menu-bar toplevel)
+
+  (define edit-menu (new menu% [parent menu-bar] [label "&Edit"]))
+  (append-editor-operation-menu-items edit-menu #t)
+
+  (new separator-menu-item% [parent edit-menu])
+
+  (new menu-item%
+       [parent edit-menu] [label "Edit Labels..."]
+       [callback
+        (lambda (m e)
+          (send (get-label-editor) show-dialog
+                (send toplevel get-frame)
+                (send toplevel get-database)))])
+
+  (new menu-item%
+       [parent edit-menu] [label "Edit Seasons..."]
+       [callback
+        (lambda (m e)
+          (send (get-season-editor) show-dialog
+                (send toplevel get-frame)
+                (send toplevel get-database)))])
+
+  (new separator-menu-item% [parent edit-menu])
+
+  (new menu-item%
+       [parent edit-menu] [label "Edit Preferences..."]
+       [shortcut #\;]
+       [callback
+        (lambda (m e)
+          (send (get-preferences-dialog) run
+                (send toplevel get-frame))
+          (send toplevel refresh-current-view))])
+
+  edit-menu)
+
+
+;;....................................................... make-view-menu ....
+
+(define (make-view-menu menu-bar toplevel)
+
+  (define (is-qresults-object? o)
+    (object-method-arity-includes? o 'get-qresults-object 0))
+
+  (define (qresults-demand-cb m)
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (send m enable (and w (is-qresults-object? w)))))
+
+  (define (get-qresults-object)
+    (let ((w (send (send toplevel get-frame) get-focus-window)))
+      (if (and w (is-qresults-object? w))
+          (send w get-qresults-object)
+          #f)))
+
+
+  (define view-menu (new menu% [parent menu-bar] [label "&View"]))
+
+  (new menu-item%
+       [parent view-menu] [label "Refresh current view"]
+       [shortcut #\R]
+       [callback
+        (lambda (m e)
+          (send toplevel refresh-current-view))])
+
+  (new separator-menu-item% [parent view-menu])
+
+  (new menu-item%
+       [parent view-menu] [label "Setup columns..."]
+       [demand-callback qresults-demand-cb]
+       [callback
+        (lambda (m e)
+          (let ((q (get-qresults-object)))
+            (when q (send q interactive-setup-visible-columns))))])
+
+  view-menu)
+
+
+;;.................................................... make-athlete-menu ....
+
+(define (make-athlete-menu menu-bar toplevel)
+
+  (define operations-menu
+    (new athlete-metrics-operations-menu%
+         [target (send toplevel get-athlete-metrics-forwarder)]
+         [menu-bar menu-bar]))
+
+  (let ((menu (send operations-menu get-popup-menu)))
+    (new separator-menu-item% [parent menu])
+    (new menu-item%
+         [parent menu] [label "Edit Sport Zones..."]
+         [callback
+          (lambda (m e)
+            (send (get-sport-zone-editor) show-dialog
+                  (send toplevel get-frame)))])
+    menu))
+
+;;................................................... make-activtiy-menu ....
+
+(define (make-activtiy-menu menu-bar toplevel)
+  (define activity-menu
+    (new activity-operations-menu%
+         [menu-bar menu-bar]
+         [target (send toplevel get-activity-operations-forwarder)]))
+  (send activity-menu get-popup-menu))
+
+
+;;...................................................... make-tools-menu ....
+
+(define (make-tools-menu menu-bar toplevel)
+  (define tools-menu (new menu% [parent menu-bar] [label "&Tools"]))
+
+  (new menu-item%
+       [parent tools-menu] [label "Rebuild elevation data..."]
+       [callback
+        (lambda (m e)
+          (send toplevel rebuild-elevation-data))])
+
+  (new menu-item%
+       [parent tools-menu] [label "Rebuild time in zone data..."]
+       [callback
+        (lambda (m e)
+          (send toplevel rebuild-time-in-zone-data))])
+
+  (new menu-item%
+       [parent tools-menu] [label "Optimize database (vacuum)..."]
+       [callback
+        (lambda (m e)
+          (send toplevel vacuum-database))])
+
+  )
+
+
+;....................................................... make-help-menu ....
+
+(define (make-help-menu menu-bar toplevel)
+  (define help-menu (new menu% [parent menu-bar] [label "&Help"]))
+
+  (new menu-item%
+       [parent help-menu] [label "About..."]
+       [callback
+        (lambda (m e) (send toplevel on-show-about))]))
+
+
+;;........................................ activity-operations-forwarder ....
+
+;; Forward the activity operations to the selected section in the toplevel
+;; window.  This is used by the toplevel menubar to send the menu commands to
+;; the correct section (e.g. Activity List, Import View, etc)
+
+(define activity-operations-forwarder%
+  (class* object% (activity-operations<%>)
+    (init-field toplevel-application)
+    (super-new)
+
+    (define/public (get-top-level-window)
+      (send toplevel-application get-frame))
+
+    (define/public (get-database)
+      (send toplevel-application get-database))
+
+    ;; Return the selected section, but only if it implements the
+    ;; activity-operations<%> interface, return #f otherwise.  The activity
+    ;; menus will be disabled if the selected section does not support
+    ;; activity operations.
+    (define (get-aop-section)
+      (let ((section (send toplevel-application get-selected-section)))
+        (if (and section (is-a? section activity-operations<%>))
+            section
+            #f)))
+
+    (define/public (get-selected-sid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop get-selected-sid) #f)))
+
+    (define/public (get-selected-guid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop get-selected-guid) #f)))
+
+    (define/public (after-update sid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop after-update sid) #f)))
+
+    (define/public (after-new sid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop after-new sid) #f)))
+
+    (define/public (can-delete? sid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop can-delete? sid) #f)))
+
+    (define/public (after-delete sid)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop after-delete sid) #f)))
+
+    (define/public (before-popup)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop before-popup) #f)))
+
+    (define/public (after-popdown)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop before-popup) #f)))))
+
+
+;;........................................... athlete-metrics-forwarder% ....
+
+(define athlete-metrics-forwarder%
+  (class* object% (athlete-metrics-operations<%>)
+    (init-field toplevel-application)
+    (super-new)
+
+    (define/public (get-top-level-window)
+      (send toplevel-application get-frame))
+
+    (define/public (get-database)
+      (send toplevel-application get-database))
+
+    ;; Return the selected section, but only if it implements the
+    ;; athlete-metrics-operations<%> interface, return #f otherwise.  The
+    ;; activity menus will be disabled if the selected section does not
+    ;; support activity operations.
+    (define (get-amop-section)
+      (let ((section (send toplevel-application get-selected-section)))
+        (if (and section (is-a? section athlete-metrics-operations<%>))
+            section
+            #f)))
+
+    (define/public (get-selected-id)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop get-selected-id) #f)))
+
+    (define/public (after-update id)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop after-update id) #f)))
+
+    (define/public (after-new id)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop after-new id) #f)))
+
+    (define/public (can-delete? id)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop can-delete? id) #f)))
+
+    (define/public (after-delete id)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop after-delete id) #f)))
+
+    (define/public (before-popup)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop before-popup) #f)))
+
+    (define/public (after-popdown)
+      (let ((amop (get-amop-section)))
+        (if amop (send amop before-popup) #f)))))
+
+
+;;....................................................... Open db dialog ....
+
+(define (interactive-open-database database-path)
+
+  (define message-box #f)
+  (define progress-bar #f)
+  (define last-msg #f)
+
+  (define (cb msg crt max)
+    ;; Setting the same message causes it to flicker.  Avoid doing that.
+    (when (and msg (not (equal? last-msg msg)))
+      (set! last-msg msg)
+      (send message-box set-label msg))
+    (when (and crt max)
+      (let ((new-progress (exact-round (* 100 (/ crt max)))))
+        (send progress-bar set-value new-progress))))
+
+  (define database #f)
+
+  (define (db-open-thread dialog)
+    (let ((db (db-open-activity-log database-path cb)))
+      (queue-callback
+       (lambda ()
+         (set! database db)
+         (send dialog show #f)))))
+
+  (define interactive-open-database-dialog%
+    (class dialog% (init-field run-fn)
+      (define/override (on-superwindow-show show?)
+        (when show? (thread (lambda () (run-fn this)))))
+      (define/augment (on-close) #f)
+      (super-new)))
+
+  (define dlg
+    (new interactive-open-database-dialog%
+         [run-fn db-open-thread]
+         [min-width 400]
+         [stretchable-width #f]
+         [stretchable-height #f]
+         [label (if (file-exists? database-path)
+                    "Opening database"
+                    "Creating database")]))
+
+  (let ((pane (new horizontal-pane% [parent dlg] [border 20] [spacing 20])))
+    (new message% [parent pane] [label sql-export-icon]
+         [stretchable-height #f] [stretchable-width #f])
+    (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
+      (set! message-box (new message% [parent pane] [label ""] [min-width 200]))
+      (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
+  
+  (send progress-bar set-value 0)
+  (send dlg show #t)
+
+  database)
+
+
+;;..................................................... toplevel-window% ....
+
+(struct tl-section (name tag panel content))
+
+(define toplevel-window%
+  (class object%
+    (init database-path)
+    (super-new)
+
+    (define database (interactive-open-database database-path))
+    (init-sport-charms database)        ; needs to be done early on
+
+    ;;; Construct the toplevel frame and initial panels
+
+    (define tl-frame
+      (let-values (((dir file _1) (split-path database-path)))
+        (let ((dims (al-get-pref 'activity-log:frame-dimensions (lambda () (cons 1200 750)))))
+          (new
+           (class frame% (init) (super-new)
+             ;; Closing by sending show #f
+             (define/override (on-superwindow-show show?)
+               (when (not show?) (on-toplevel-close)))
+             ;; Closing by clicking the close button
+             (define/augment (on-close) (on-toplevel-close)))
+           [width (car dims)] [height (cdr dims)]
+           [style '(fullscreen-button)]
+           [label (format "~a (~a) - ActivityLog2" file dir)]))))
+    ;; Restore the maximization state of the frame (if any)
+    (let ((maximized? (al-get-pref 'activity-log:frame-maximized (lambda () #f))))
+      (send tl-frame maximize maximized?))
+    (send tl-frame create-status-line)
+
+    (define tl-panel            ; Holds all the widgets in the toplevel window
+      (new horizontal-pane% [parent tl-frame] [spacing 0]))
+
+    (define left-panel             ; Holds the section selector and log window
+      (new vertical-pane%
+           [parent tl-panel]
+           [min-width 150]
+           [stretchable-width #f]
+           [spacing 5]))
+
+    ;;; Construct the individual views (sections) of the application
+
+    (define the-sections '())
+    (define the-selected-section #f)
+
+    (define aop-forwarder
+      (new activity-operations-forwarder% [toplevel-application this]))
+
+    (define amop-forwarer
+      (new athlete-metrics-forwarder% [toplevel-application this]))
+
+    (define/public (get-activity-operations-forwarder) aop-forwarder)
+    (define/public (get-athlete-metrics-forwarder) amop-forwarer)
+
+    (define section-selector
+      (new list-box%
+           [label ""]
+           [parent left-panel]
+           [choices '("Unused")]
+           [min-width 150]
+           [callback (lambda (c event)
+                       (switch-to-section-by-num (send c get-selection)))]))
+
+    (begin
+
+      (define (add-section name tag content-constructor-fn)
+        (let* ((panel (new horizontal-panel% [parent tl-panel] [style '(deleted)]))
+               (content (content-constructor-fn panel)))
+          (set! the-sections (cons (tl-section name tag panel content) the-sections))))
+
+      ;; NOTE: sections need to be added in the reverse order in which they
+      ;; will appear in the `section-selector'
+
+      (add-section "Session View" 'session-view
+                   (lambda (parent) (new view-session% [parent parent] [database database])))
+
+      (add-section "Last Import" 'import
+                   (lambda (parent)
+                     (new import-view% [parent parent] [database database]
+                          [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
+
+      (add-section "Equipment" 'equipment
+                   (lambda (parent)
+                     (new view-equipment% [parent parent] [database database])))
+
+      (add-section "Trends" 'trends
+                   (lambda (parent)
+                     (new view-trends% [parent parent] [database database])))
+      
+      (add-section "Reports" 'reports
+                   (lambda (parent)
+                     (new view-reports% [parent parent] [database database])))
+
+      (add-section "Athlete Metrics" 'athlete-metrics
+                   (lambda (parent)
+                     (new view-athlete-metrics% [parent parent] [database database])))
+
+      (add-section "Calendar" 'calendar
+                   (lambda (parent)
+                     (new view-calendar% [parent parent]
+                          [database database]
+                          [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
+
+      (add-section "Activity List" 'activity-list
+                   (lambda (parent)
+                     (new view-activities% [parent parent]
+                          [database database]
+                          [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
+      )
+
+    ;; Configure the section-selector
+
+    (send section-selector clear)
+    (for ((section the-sections))
+      (send section-selector append (tl-section-name section)))
+
+    ;;; Construct the log output window
+
+    (make-log-output-window left-panel)
+
+    ;;; Construct the toplevel menu bar
+
+    (let ((mb (new menu-bar% [parent tl-frame])))
+      (make-file-menu mb this)
+      (make-edit-menu mb this)
+      (make-view-menu mb this)
+      (make-athlete-menu mb this)
+      (make-activtiy-menu mb this)
+      (make-tools-menu mb this)
+      (make-help-menu mb this))
+
+    (define (on-toplevel-close)
+      ;; NOTE: we might be called twice
+
+      ;; Tell all our sections to save their visual layout
+      (for-each (lambda (section)
+                  (send (tl-section-content section) save-visual-layout))
+                the-sections)
+
+      ;; Save the size of the frame, so we can re-open it with the same
+      ;; dimensions
+            (unless (or (send tl-frame is-maximized?) (send tl-frame is-fullscreened?))
+        (let-values (([w h] (send tl-frame get-size)))
+          (al-put-pref 'activity-log:frame-dimensions (cons w h))))
+      (al-put-pref 'activity-log:frame-maximized (send tl-frame is-maximized?))
+
+      ;; Disconnect the database
+      (when database (disconnect database))
+      (set! database #f))
+
+    (define (get-section-by-tag tag)
+      (findf (lambda (s) (eq? tag (tl-section-tag s))) the-sections))
+
+    (define (get-section-index tag)
+      (let loop ((index 0)
+                 (sections the-sections))
+        (cond ((null? sections) #f)
+              ((eq? tag (tl-section-tag (car sections))) index)
+              (#t (loop (+ index 1) (cdr sections))))))
+
+    (define (inspect-session dbid)
+      (with-busy-cursor
+       (lambda ()
+         (let ((s (get-section-by-tag 'session-view)))
+           (send (tl-section-content s) set-session dbid)
+           (switch-to-section s)
+           (send section-selector select (get-section-index 'session-view) #t)))))
+    (set-inspect-callback inspect-session)
+
+    (define (switch-to-section section)
+      (when the-selected-section
+        (send tl-panel delete-child (tl-section-panel the-selected-section)))
+      (set! the-selected-section section)
+      (when the-selected-section
+        (send tl-panel add-child (tl-section-panel the-selected-section))
+        (send tl-frame set-status-text "")
+        (send (tl-section-content section) activated))
+      (send tl-panel reflow-container))
+
+    (define (switch-to-section-by-num n)
+      (let ((p (list-ref the-sections n)))
+        (switch-to-section (if n p #f))))
+
+    (define/public (get-frame) tl-frame)
+    (define/public (get-database) database)
+    (define/public (get-selected-section)
+      (and the-selected-section (tl-section-content the-selected-section)))
+
+    (define/public (refresh-current-view)
+      (when the-selected-section
+        (send (tl-section-content the-selected-section) refresh)))
+
+    ;; Tools implementation
+    (define/public (rebuild-elevation-data)
+      (interactive-fixup-elevation database #f tl-frame))
+
+    (define/public (rebuild-time-in-zone-data)
+      (interactive-update-time-in-zone-data database tl-frame))
+
+    (define/public (vacuum-database)
+
+      (define progress-dialog
+        (new al-progress-dialog%
+             [title "Optimize database (vacuum)"]
+             [can-cancel? #f]
+             [icon sql-export-icon]))
+
+      (define (task progress-dialog)
+        (send progress-dialog set-message "This will take a while...")
+        (query-exec database "vacuum")
+        (vacuum-tile-cache-database)
+        (send progress-dialog set-message "Completed..."))
+
+      (when database
+        (send progress-dialog run tl-frame task)))
+
+    (define/public (run)
+
+      ;; The current arhitecture makes the toplevel-window% object useless
+      ;; after it was closed.  A new one must be re-created and run.
+      (unless database
+        (error "toplevel-window%/run: trying to run the toplevel window after it was closed"))
+
+      (send section-selector set-selection 0)
+      (switch-to-section-by-num 0)
+
+      (send tl-frame show #t)
+
+      ;; Check for some basic things and log them.
+      (unless (al-get-pref 'activity-log:allow-tile-download (lambda () #t))
+        (log-al-warning "Map tile download disabled"))
+      (unless (al-get-pref 'activity-log:wu-api-key (lambda () #f))
+        (log-al-error "No weather API key set"))
+      (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
+        (log-al-warning "Weather data download disabled"))
+      (let ((equipment (get-section-by-tag 'equipment)))
+        (send (tl-section-content equipment) log-due-items))
+
+      )
+
+    (define (open-another-activity-log file)
+      (with-handlers
+       ((db-exn-bad-db-version?
+         (lambda (e)
+           (message-box
+            "Database open error" (db-exn-bad-db-version-message e) #f '(ok stop))))
+        ((lambda (e) #t)
+         (lambda (e)
+           (message-box "Database open error" (format "~a : ~a" file e) #f '(ok stop)))))
+       (let ((tl (new toplevel-window% [database-path file])))
+         ;; Toplevel window was successfully created, save the database file
+         ;; as the new default to open next time.
+         (al-put-pref 'activity-log:database-file
+                      (if (path? file) (path->string file) file))
+         ;; close this window than open the other one.  note that at this
+         ;; moment we cannot have multiple databases open beacuse of
+         ;; `init-sport-charms'.  This could be fixed with a medium effort.
+         (on-exit)
+         (send tl run))))
+
+    (define/public (on-exit)
+      (send tl-frame show #f))
+
+    (define/public (on-new-database)
+      (let ((file (get-file "Create database..." tl-frame
+                            (find-system-path 'doc-dir)
+                            "ActivityLog.db")))
+        (when file (open-another-activity-log file))))
+
+    (define/public (on-open-database)
+      (let ((file (get-file "Open database..." tl-frame
+                            (find-system-path 'doc-dir))))
+        (when file (open-another-activity-log file))))
+
+    (define/public (on-import-activity)
+      (let ((file (get-file "Select activity..." tl-frame)))
+        (when file
+          (let* ((iresult (db-import-activity-from-file file database))
+                 (ecode (car iresult))
+                 (edata (cdr iresult)))
+            (cond ((eq? ecode 'failed)
+                   (message-box
+                    "Import failed" (format "Failed to import ~a: ~a" file edata)
+                    tl-frame '(stop ok)))
+
+                  ((eq? ecode 'already-exists)
+                   (let ((mresult (message-box/custom
+                                   "Import failed"
+                                   (format "~a was previously imported. Force re-import?" file)
+                                   "Re-import" "Cancel" #f tl-frame '(caution default=2))))
+                     (when (eqv? mresult 1)
+                       (let ((aid (db-get-activity-id edata database)))
+                         (db-delete-activity-hard aid database)
+                         (let ((iresult (db-import-activity-from-file file database)))
+                           (refresh-current-view)
+                           (unless (eq? (car iresult) 'ok)
+                             (message-box
+                              "Import failed" (format "Failed to import ~a: ~a" file ecode)
+                              tl-frame '(stop ok))))))))
+
+                  ((eq? ecode 'retired-device)
+                   ;; TODO: force the re-import by un-retiring the device and
+                   ;; retiring it back again.
+                   (message-box
+                    "Import failed" (format "Failed to import ~a: retired device" file)
+                    tl-frame '(stop ok)))
+
+                  ((eq? ecode 'ok)
+                   #t)
+                  (#t
+                   (message-box
+                    "Import failed" (format "Failed to import ~a: ~a" file edata) tl-frame '(stop ok)))))
+          (refresh-current-view))))
+
+    (define/public (on-import-from-directory)
+      (let* ((last-import-dir (al-get-pref 'activity-log:last-import-dir (lambda () #f)))
+             ;; NOTE: we use the platform independent directory selection
+             ;; dialog, because on Windows, the OS one does not accept our
+             ;; `last-import-dir' value.
+             (dir (get-directory "Select directory for import..."
+                                 tl-frame last-import-dir '(common))))
+        (when dir
+          (if (directory-exists? dir)
+              (begin
+                (al-put-pref 'activity-log:last-import-dir (path->string dir))
+                (send (new import-dialog%) run tl-frame database dir)
+                (refresh-current-view)
+                dir)
+              ;; This can happen since the "get-directory" will not check if
+              ;; the initial directory exists (and it might not if it is on a
+              ;; mapped drive that is disconnected.
+              (message-box "Cannot import"
+                           (format "Directory ~a does not exist." dir)
+                           tl-frame
+                           '(stop ok))))
+        #f))
+
+    (define about-frame #f)
+    
+    (define/public (on-show-about)
+      (unless about-frame
+        (set! about-frame (make-about-frame)))
+      (send about-frame show #t))
+
+    ))

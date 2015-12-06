@@ -1,0 +1,15 @@
+# -*- mode: conf -*-
+*.bak
+*.exe
+*.fit
+*~
+\#*\#
+scratch*
+.DS_Store
+Thumbs.db
+# this is a generated file
+ActivityLog2.ico
+# racket puts compiled files in this folder
+compiled/
+# ignore it for now, contains user specific info.
+.dir-locals.el
