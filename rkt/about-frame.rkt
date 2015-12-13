@@ -90,6 +90,10 @@
   (insert-text editor "Copyright (C) 2015, Alex Harsanyi")
   (insert-newline editor)
   (insert-newline editor)
+  (insert-text editor "Project source: ")
+  (insert-hyperlink editor "https://github.com/alex-hhh/ActivityLog2"
+                    (lambda () (send-url "https://github.com/alex-hhh/ActivityLog2")))
+  (insert-newline editor)
   (insert-text editor (format "Racket version: ~a" (version)))
   (insert-newline editor)
   (insert-text editor (format "Requires database version: ~a" (db-get-schema-version)))
@@ -108,14 +112,22 @@
   (insert-newline editor)
   (insert-reference editor "Graphs made using the Plot package" "http://docs.racket-lang.org/plot/")
   (insert-newline editor)
+  (insert-reference editor "Data stored in SQLite" "http://sqlite.org")
+  (insert-newline editor)
   (insert-reference editor "Icons from Icons8" "https://www.icons8.com")
   (insert-newline editor)
   (insert-reference editor "Weather data from Wunderground" "http://www.wunderground.com/")
   (insert-newline editor)
   (insert-reference editor "Maps from OpenStreetMap" "https://www.openstreetmap.org")
-  
+  (insert-newline editor)
+  (insert-newline editor)
+  (insert-heading editor "Acknowlegements")
+  (insert-text editor
+               "Normalized Power® (NP®), Intensity Factor® (IF®), and Training Stress Score® (TSS®) are registered trademarks of Peaksware, LLC ")
+  (insert-hyperlink editor
+                    "http://trainingpeaks.com/"
+                    (lambda () (send-url "http://trainingpeaks.com/")))
   (send editor move-position 'home))
-
 
 (define (make-about-frame)
   (define f (new frame% [label "About ActivityLog2"]
