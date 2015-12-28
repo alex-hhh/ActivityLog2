@@ -25,6 +25,7 @@
 (require data/queue
          plot
          racket/stream
+         "al-prefs.rkt"
          "fmt-util.rkt"
          "activity-util.rkt"
          "plot-axis-def.rkt"
@@ -52,6 +53,20 @@
 
 
 ;........................................... Extract data from sessions ....
+
+;; Number of samples (from the beginning) to smooth in the data series when
+;; FORCE-ZERO-START? is #t
+(define num-samples-to-smooth
+  (let ((tag 'activity-log:num-samples-to-smooth))
+    (al-get-pref tag (lambda () 40))))
+
+;; Number of samples used to compute the average used in smoothing when
+;; FORCE-ZERO-START? is #t, these are the samples right after
+;; num-samples-to-smooth.
+(define num-samples-to-average
+  (let ((tag 'activity-log:num-samples-to-average))
+    (al-get-pref tag (lambda () 40))))
+
 
 ;; Return a function which will extract graph data from a session.  The
 ;; function will accept a SESSION and return a list with the data points.
@@ -113,17 +128,22 @@
                  ))
              (set! data (cons val data))))))
       (let ((data (reverse data)))
-        (define nsamples 20)
-        ;; Compute the average of the first `nsamples' and use that as the
-        ;; first value.  Note that the average is computed naively, not taking
-        ;; into account that the "distance" between data points is not the
-        ;; same (for example, when Garmin smart recording is used).  It does
-        ;; seem to produce suitable results.
-        (when (and force-zero-start? (> (length data) nsamples))
-          (let ((avg (/ (for/sum ([d data] [n (in-range nsamples)])
+        (define nsamples num-samples-to-average)
+        (define start num-samples-to-smooth)
+        ;; Compute the average of the first `nsamples' and use it to smooth
+        ;; the first values.  Note that the average is computed naively, not
+        ;; taking into account that the "distance" between data points is not
+        ;; the same (for example, when Garmin smart recording is used).  It
+        ;; does seem to produce suitable results.
+        (when (and force-zero-start? (> (length data) (+ start nsamples)))
+          (let ((avg (/ (for/sum ([d (list-tail data start)] [n (in-range nsamples)])
                                  (vector-ref d 2))
                         nsamples)))
-            (vector-set! (list-ref data 0) 2 avg)))
+            (for ([d data] [n (in-range start)])
+              (let ((item (list-ref data n))
+                    (split (/ n start)))
+                (vector-set! item 2 (+ (* (vector-ref item 2) split)
+                                       (* avg (- 1 split))))))))
         data))))
 
 ;; Return a filter function based on filter definitions for the X and Y axis
