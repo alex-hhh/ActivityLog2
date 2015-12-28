@@ -731,11 +731,13 @@
 		 (>= lap-num (length lap-markers)))
 	     #f)
 	    ((< lap-num (- (length lap-markers) 1))
-	     (cons (list-ref lap-markers lap-num)
-		   (list-ref lap-markers (+ 1 lap-num))))
+             (let ([start (list-ref lap-markers lap-num)]
+                   [end (list-ref lap-markers (+ 1 lap-num))])
+               (and start end (cons start end))))
 	    (#t
-	     (cons (list-ref lap-markers lap-num)
-		   (vector-ref (last data-series) 0)))))
+	     (let ([start (list-ref lap-markers lap-num)]
+                   [end (vector-ref (last data-series) 0)])
+               (and start end (cons start end))))))
 
     (define/public (get-plot-renderer-for-lap lap-num)
       (unless data-series (prepare-data-series))
