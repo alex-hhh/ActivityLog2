@@ -905,8 +905,10 @@
 
     (define (init-date-range)
       (let-values (([start end] (get-calendar-date-range database)))
-        (let ((start-year (date-year (seconds->date start)))
-              (end-year (date-year (seconds->date end))))
+        (let* ((today (seconds->date (current-seconds)))
+               (start-year (date-year (seconds->date start)))
+               (end-year (max (date-year (seconds->date end))
+                              (date-year today))))
           (send year-choice clear)
           (set! the-start-year start-year)
           (set! the-end-year end-year)
