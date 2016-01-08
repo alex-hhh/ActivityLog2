@@ -1,4 +1,4 @@
-#lang typed/racket/base
+#lang racket/base
 ;; al-prefs.rkt -- store and retrieve preferences
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -17,7 +17,7 @@
 (require racket/file)
 (provide al-get-pref-dir al-get-pref-file al-put-pref al-get-pref)
 
-(: al-get-pref-dir (-> Path))
+;;(: al-get-pref-dir (-> Path))
 (define (al-get-pref-dir)
   (let ((dir (find-system-path 'pref-dir)))
     ;; dir might not exist, but make-directory* never fails
@@ -25,17 +25,17 @@
       (make-directory* pref-dir)
       pref-dir)))
 
-(: al-get-pref-file (-> Path))
+;;(: al-get-pref-file (-> Path))
 (define (al-get-pref-file)
   (build-path (al-get-pref-dir) "ActivityLogPrefs.rktd"))
 
-(: al-put-pref (-> Symbol Any Void))
+;;(: al-put-pref (-> Symbol Any Void))
 (define (al-put-pref name value)
   (put-preferences (list name) (list value) 
                    (lambda (p) (error 'lock-fail "Failed to get the pref file lock" p))
                    (al-get-pref-file)))
 
-(: al-get-pref (-> Symbol (-> Any) Any))
+;;(: al-get-pref (-> Symbol (-> Any) Any))
 (define (al-get-pref name fail-thunk)
   (get-preference name fail-thunk 'timestamp (al-get-pref-file)))
 

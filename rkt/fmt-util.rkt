@@ -28,12 +28,15 @@
     "sport-charms.rkt"
   [val->pct-of-max (-> Real (Listof Real) Real)]
   [val->zone (-> Real (Listof Real) Real)])
+(require/typed
+    "al-prefs.rkt"
+  [al-get-pref (-> Symbol (-> Any) Any)]
+  [al-put-pref (-> Symbol Any Void)])
 
 (require racket/date
          racket/list
          racket/math
          racket/string
-         "al-prefs.rkt"
          "map-util.rkt")
 
 (: identity (All (a) (-> a a)))
