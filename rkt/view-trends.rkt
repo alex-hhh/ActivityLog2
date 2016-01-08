@@ -25,7 +25,8 @@
          "plot-builder.rkt"
          "snip-canvas.rkt"
          "sport-charms.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "plot-hack.rkt")
 
 (provide view-trends%)
 
@@ -230,12 +231,12 @@
     (define/public (invalidate-data)
       #f)
 
-    ;; Construct a new plot snip for the chart.  A new plot snip needs to be
-    ;; constructed every time even if the data for the plot has not changed.
-    ;; This needs to be overriden.
-    (define/public (build-plot-snip)
+    ;; Construct a new plot snip for the chart and insert it into CANVAS.  A
+    ;; new plot snip needs to be constructed every time even if the data for
+    ;; the plot has not changed.  This needs to be overriden.
+    (define/public (put-plot-snip canvas)
       #f)
-
+    
     (define/public (get-settings-dialog)
       (unless settings-dialog (set! settings-dialog (make-settings-dialog)))
       settings-dialog)
@@ -278,8 +279,8 @@
       (send (get-settings-dialog) restore-from data)
       (invalidate-data))
 
-    (define/public (get-plot-snip)
-      (build-plot-snip))
+    (define/public (refresh)
+      (set! params #f))
 
     ))
 
@@ -621,7 +622,7 @@
               ((2) count)
               ((3) tss)))))
 
-(define (vol-trends-plot data y-label)
+(define (vol-trends-plot canvas data y-label)
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -638,7 +639,8 @@
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label y-label])
-    (plot-snip
+    (plot-snip/hack
+     canvas
      (list (y-tick-lines)
            (discrete-histogram
             pdata
@@ -666,14 +668,14 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
-    (define/override (build-plot-snip)
+    (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (and data-valid?
            (let* ((metric (vol-params-metric (send this get-params)))
                   (y-label (case metric
                              ((0) "Time") ((1) "Distance")
                              ((2) "Session Count") ((3) "Trainning Stress"))))
-             (vol-trends-plot chart-data y-label))))
+             (vol-trends-plot canvas chart-data y-label))))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -758,7 +760,7 @@
 (define (trivol-trends-get-data db sql-query)
   (query-rows db sql-query))
 
-(define (trivol-trends-plot data y-label)
+(define (trivol-trends-plot canvas data y-label)
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -776,7 +778,8 @@
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label y-label])
-    (plot-snip
+    (plot-snip/hack
+     canvas
      (list (y-tick-lines)
            (stacked-histogram 
             pdata
@@ -809,13 +812,13 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
-    (define/override (build-plot-snip)
+    (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (and data-valid?
            (let* ((metric (trivol-params-metric (send this get-params)))
                   (y-label (case metric
                              ((0) "Time") ((1) "Distance") ((2) "Session Count"))))
-             (trivol-trends-plot chart-data y-label))))
+             (trivol-trends-plot canvas chart-data y-label))))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -852,11 +855,11 @@
 
 (define *sea-green* '(#x2e #x8b #x57))
 
-(define (bw-trends-plot data)
+(define (bw-trends-plot canvas data)
   (parameterize ([plot-x-ticks (pmc-date-ticks)]
                  [plot-x-label #f]
                  [plot-y-label "Bodyweight"])
-    (plot (list (tick-grid) (lines data #:color *sea-green* #:width 3.0)))))
+    (plot-snip/hack canvas (list (tick-grid) (lines data #:color *sea-green* #:width 3.0)))))
 
 (define bodyweight-trends-chart%
   (class trends-chart%
@@ -876,9 +879,9 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
-    (define/override (build-plot-snip)
+    (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (and data-valid? (bw-trends-plot sql-query-result)))
+      (and data-valid? (bw-trends-plot canvas sql-query-result)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -1049,7 +1052,7 @@
 (define tiz-labels
   (list "z0" "z1" "z2" "z3" "z4" "z5" "z6" "z7" "z8" "z9" "z10"))
    
-(define (tiz-trends-plot data)
+(define (tiz-trends-plot canvas data)
 
   (define (min-zone . zones)
     (let loop ((zones zones)
@@ -1101,7 +1104,8 @@
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label "Time in zone"])
-    (plot-snip
+    (plot-snip/hack
+     canvas
      #:x-min 0
      #:x-max (length pdata)
      #:y-min 0
@@ -1133,9 +1137,9 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
-    (define/override (build-plot-snip)
+    (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (and data-valid? (tiz-trends-plot chart-data)))
+      (and data-valid? (tiz-trends-plot canvas chart-data)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -1449,7 +1453,7 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
-    (define/override (build-plot-snip)
+    (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
       (let ((params (send this get-params)))
         (if params
@@ -1471,8 +1475,10 @@
                   (set! rt (cons daily-tss-renderer rt))))
           
               (parameterize ([plot-x-ticks (pmc-date-ticks)])
-                (plot-snip #:x-min (pmc-params-start-date params)
-                           #:x-label #f #:y-label #f rt)))
+                (plot-snip/hack
+                 canvas
+                 #:x-min (pmc-params-start-date params)
+                 #:x-label #f #:y-label #f rt)))
             #f)))
 
     (define (maybe-build-pmc-data)
@@ -1543,8 +1549,8 @@
         (set! first-activation? #f)))
     
     (define/public (refresh-chart)
-      (let ((snip (send trend-chart get-plot-snip)))
-        (send graph-pb set-snip snip)))
+      (send trend-chart refresh)
+      (send trend-chart put-plot-snip graph-pb))
 
     (define/public (interactive-setup parent)
       (when (send trend-chart interactive-setup parent)
