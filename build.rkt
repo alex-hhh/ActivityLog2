@@ -65,16 +65,18 @@
 
   (unless (file-exists? app-icon-file)
     (create-icon-file app-icon-file make-app-icon icon-sizes))
-  
-  (create-embedding-executable
-   app-exe-file
-   #:modules '((#f "run.rkt"))
-   #:mred? #t
-   #:configure-via-first-module? #t
-   #:literal-expression 
-   (parameterize ([current-namespace (make-base-namespace)])
-     (compile `(namespace-require ''run)))
-   #:aux (build-aux-from-path app-icon-file)))
+  (parameterize
+      ([use-compiled-file-paths (list "compiled")])
+    (create-embedding-executable
+     app-exe-file
+     #:modules '((#f "run.rkt"))
+     #:mred? #t
+     #:configure-via-first-module? #t
+     #:expand-namespace (make-base-namespace)
+     #:literal-expression 
+     (parameterize ([current-namespace (make-base-namespace)])
+       (compile `(namespace-require ''run)))
+     #:aux (build-aux-from-path app-icon-file))))
   
 (define (mkdist)
   (assemble-distribution 
