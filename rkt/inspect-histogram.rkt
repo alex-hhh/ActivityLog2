@@ -24,8 +24,7 @@
          "plot-builder.rkt"
          "snip-canvas.rkt"
          "utilities.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "widgets.rkt")
 
 (provide histogram-plot-panel%)
 
@@ -209,7 +208,7 @@
       (send drb set-filter-amount (expt a 2))
       (unless dont-refresh (refresh-plot)))
 
-    (define (put-plot-snip canvas)
+    (define (get-plot-snip)
       (if (not graph-render-tree)
           #f
           (let ((rt graph-render-tree))
@@ -220,7 +219,7 @@
               (parameterize ([plot-y-label (if show-as-percentage? "pct %" "time (seconds)")]
                              [plot-x-ticks (send y-axis get-axis-ticks)]
                              [plot-x-label (send y-axis get-axis-label)])
-                            (plot-snip/hack canvas rt))))))
+                            (plot-snip rt))))))
 
     (define (refresh-plot)
       (let ((axis (list-ref axis-choices y-axis-index)))
@@ -228,7 +227,8 @@
         (let ((bw (* bucket-width (send axis get-histogram-bucket-slot))))
           (set! graph-render-tree (send drb get-histogram-renderer
                                         bw show-as-percentage? include-zeroes?)))
-        (put-plot-snip graph-pb)))
+        (let ((snip (get-plot-snip)))
+          (send graph-pb set-snip snip))))
 
     (define/public (save-visual-layout)
       (when current-sport

@@ -26,8 +26,7 @@
          "snip-canvas.rkt"
          "spline-interpolation.rkt"
          "utilities.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "widgets.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -162,7 +161,7 @@
       (set! best-avg-render-tree #f)
       (set! best-avg-data #f))
 
-    (define (put-plot-snip canvas)
+    (define (get-plot-snip)
       (if (not best-avg-render-tree)
           #f
           (let ((rt (list best-avg-render-tree)))
@@ -174,7 +173,7 @@
                              [plot-x-transform log-transform]
                              [plot-y-ticks (send best-avg-axis get-axis-ticks)]
                              [plot-y-label (send best-avg-axis get-axis-label)])
-                (plot-snip/hack canvas rt))))))
+                (plot-snip rt))))))
 
     (define (refresh-plot)
       (cond ((eq? best-avg-render-tree 'no-data)
@@ -207,8 +206,9 @@
                     (set! best-avg-render-tree 'no-data))
                 (queue-callback refresh-plot))))
             (#t
-             (send graph-pb set-background-message "...")
-             (put-plot-snip graph-pb))))
+             (let ((snip (get-plot-snip)))
+               (send graph-pb set-background-message "...")
+               (send graph-pb set-snip snip)))))
       
     (define (rebuild-best-avg-data)
       (set! best-avg-data #f)

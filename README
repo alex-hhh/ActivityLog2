@@ -4,6 +4,10 @@ The application can read sport activities from .FIT files (as produced by
 Garmin and some other devices) and display various graphs and allow reportings
 on them.
 
+To run the application, you will need to install Racket (www.racket-lang.org).
+You will need versin 6.1.1, the newer versions have some bugs and the
+resulting application will not display graphs corectly.
+
 To run the application, open "run.rkt" and run it (Ctrl-R).
 
 To build the application, open "build.rkt", evaluate it (Ctrl-R), than run the

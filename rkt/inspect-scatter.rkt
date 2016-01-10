@@ -23,8 +23,7 @@
          "plot-builder.rkt"
          "snip-canvas.rkt"
          "utilities.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "widgets.rkt")
 
 (provide scatter-plot-panel%)
 
@@ -216,7 +215,7 @@
         (send drb set-delay-amount delay-amount)
         (unless dont-refresh (refresh-plot))))
 
-    (define (put-plot-snip canvas)
+    (define (get-plot-snip)
       (if (not graph-render-tree)
           #f
           (let ((rt (list graph-render-tree)))
@@ -228,11 +227,12 @@
                              [plot-x-label (send x-axis get-axis-label)]
                              [plot-y-ticks (send y-axis get-axis-ticks)]
                              [plot-y-label (send y-axis get-axis-label)])
-                (plot-snip/hack canvas rt))))))
+                            (plot-snip rt))))))
 
     (define (refresh-plot)
       (set! graph-render-tree (send drb get-plot-renderer #t))
-      (put-plot-snip graph-pb))
+      (let ((snip (get-plot-snip)))
+        (send graph-pb set-snip snip)))
 
     (define (on-filter-amount a [dont-refresh #f])
       (set! filter-amount a)
