@@ -1543,6 +1543,7 @@
         (set! first-activation? #f)))
     
     (define/public (refresh-chart)
+      (send trend-chart invalidate-data)
       (let ((snip (send trend-chart get-plot-snip)))
         (send graph-pb set-snip snip)))
 
