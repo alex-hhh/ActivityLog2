@@ -16,6 +16,7 @@
 
 (require plot
          (rename-in srfi/48 (format format-48))
+         racket/async-channel
          "activity-util.rkt"
          "al-prefs.rkt"
          "al-widgets.rkt"
@@ -231,8 +232,18 @@
           (plot/dc (full-render-tree) (send bmp make-dc) 0 0 width height))
         bmp))
 
-    (define (make-cached-graph-bitmap width height)
+    (define request-ch (make-async-channel #f))
+    (define worker
       (thread
+       (lambda ()
+         (let loop ((item (async-channel-get request-ch)))
+           (when (procedure? item)      ; anthing else terminates the thread
+             (item)
+             (loop (async-channel-get request-ch)))))))
+
+    (define (make-cached-graph-bitmap width height)
+      (async-channel-put
+       request-ch
        (lambda ()
          (let ((bmp (get-cached-graph-bitmap width height)))
            (queue-callback
