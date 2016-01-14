@@ -249,6 +249,8 @@ select S.name as title,
                 ssid)))
            (let ((sid (db-get-last-pk "A_SESSION" db)))
              (maybe-update-session-tss sid db)
+             (send labels-input update-session-tags sid)
+             (send equipment-input update-session-tags sid)
              sid)))))
 
     (define/public (show-dialog parent db session-id)
