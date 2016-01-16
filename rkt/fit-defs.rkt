@@ -710,6 +710,7 @@
     (2238 . edge20)
     (2262 . d2_bravo)
     (2276 . varia_remote )
+    (2327 . hrm4)
     (10007 . sdm4)
     (20119 . training-center)
     (65532 . android-antplus-plugin)

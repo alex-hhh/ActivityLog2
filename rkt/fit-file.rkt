@@ -877,6 +877,8 @@
           ((or (and (eq? manufacturer 'garmin) (eq? product 'hrm-run))
                (eq? product 'hrm-run-single-byte-product-id))
            "Heart Rate Monitor (HRM-RUN)")
+          ((and (eq? manufacturer 'garmin) (eq? product 'hrm4))
+           "Heart Rate Monitor (HRM4)")
           ((and (eq? manufacturer 'garmin)
                 (member product '(vector vector_s vector2 vector2_s))
                 (eq? antdev 'bike-power))
