@@ -48,7 +48,8 @@
 
 (define (div-by-10 v) (/ v 10.0))
 (define (div-by-100 v) (/ v 100.0))
-(define (div-by-1000 v) (/ v 1000.00))
+(define (div-by-1000 v) (/ v 1000.0))
+(define (div-by-10000 v) (/ v 10000.0))
 (define (div-by-128 v) (/ v 128.0))
 (define (div-by-2 v) (/ v 2.0))
 
@@ -154,7 +155,10 @@
     (69 . left-pp)
     (70 . left-peak-pp)
     (71 . right-pp)
-    (72 . right-peak-pp)))
+    (72 . right-peak-pp)
+    (83 . vertical-ratio)
+    (84 . stance-time-balance)
+    (85 . stride-length)))
 
 (define *lap-fields*
   '((254 . message-index)
@@ -253,7 +257,10 @@
     (106 . avg-power-position)
     (107 . max-power-position)
     (108 . avg-cadence-position)
-    (109 . max-cadence-position)))
+    (109 . max-cadence-position)
+    (118 . avg-vertical-ratio)
+    (119 . stance-time-balance)
+    (120 . avg-stride-length)))
 
 (define *session-fields*
   '((254 . message-index)
@@ -362,7 +369,10 @@
     (120 . avg-power-position)
     (121 . max-power-position)
     (122 . avg-cadence-position)
-    (123 . max-cadence-position)))
+    (123 . max-cadence-position)
+    (132 . avg-vertical-ratio)
+    (133 . stance-time-balance)
+    (134 . avg-stride-length)))
 
 (define *activity-fields*
   '((253 . timestamp)
@@ -970,7 +980,10 @@
     (avg-left-torque-effectiveness . ,div-by-2)
     (avg-right-torque-effectiveness . ,div-by-2)
     (avg-left-pedal-smoothness . ,div-by-2)
-    (avg-right-pedal-smoothness . ,div-by-2)))
+    (avg-right-pedal-smoothness . ,div-by-2)
+    (avg-vertical-ratio       . ,div-by-100)
+    (stance-time-balance  . ,div-by-100)
+    (avg-stride-length        . ,div-by-10000)))
 
 (define *lap-conversions*
   `((timestamp             . ,fit-time->unix-time)
@@ -1003,7 +1016,10 @@
     (avg-right-torque-effectiveness . ,div-by-2)
     (avg-left-pedal-smoothness . ,div-by-2)
     (avg-right-pedal-smoothness . ,div-by-2)
-    (time-standing . ,div-by-1000)))
+    (time-standing . ,div-by-1000)
+    (avg-vertical-ratio       . ,div-by-100)
+    (stance-time-balance  . ,div-by-100)
+    (avg-stride-length        . ,div-by-10000)))
 
 (define *length-conversions*
   `((timestamp          . ,fit-time->unix-time)
@@ -1037,7 +1053,10 @@
     (left-torque-effectiveness . ,div-by-2)
     (right-torque-effectiveness . ,div-by-2)
     (left-pedal-smoothness . ,div-by-2)
-    (right-pedal-smoothness . ,div-by-2)))
+    (right-pedal-smoothness . ,div-by-2)
+    (vertical-ratio       . ,div-by-100)
+    (stance-time-balance  . ,div-by-100)
+    (stride-length        . ,div-by-10000)))
 
 (define *event-conversions*
   `((timestamp  . ,fit-time->unix-time)

@@ -591,6 +591,12 @@
         ;; Swimming activites have a different name for total cycles.
         (total-cycles . ,(lambda (t)
                            (or (assq1 'total-cycles t) (assq1 'total-strokes t))))
+
+        ;; Gen2 Running Dynamics introduces GCT balance, we roll it into
+        ;; left-right-balance
+        (left-right-balance . ,(lambda (t)
+                                 (or (assq1 'left-right-balance t)
+                                     (assq1 'stance-time-balance t))))
         
         ;; Power phase start and end values are stored as a vector of values,
         ;; we store each individual value separately.  Same for peak power
