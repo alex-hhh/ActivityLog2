@@ -207,7 +207,7 @@
 ;; a vector of [X Y].  The Y values are grouped into buckets of BUCKET-WIDTH
 ;; (see `val->bucket` inside this function).  The value accumulated in the
 ;; buckets is the delta X difference between two datapoints (since data points
-;; might not be equally spaced, for example in Gramin smart recording).
+;; might not be equally spaced, for example in Garmin smart recording).
 ;;
 ;; NOTE: stop detection is not performed on the data series!
 ;;
@@ -224,41 +224,83 @@
 ;;
 (define (make-histogram data-series bucket-width as-percentage? include-zeroes?)
   (when (equal? bucket-width 0) (set! bucket-width 1))
-
+  (define delta-series (make-delta-series data-series))
   ;; NOTE: using `exact-truncate' instead of `exact-round' works more
   ;; correctly for distributing values into buckets for zones.  The bucket
   ;; value is the start of the interval (as opposed to the middle of the
   ;; interval if `exact-round` would be used.
-  (define (val->bucket v)
-    (exact-truncate (/ v bucket-width)))
+  (define (val->bucket v) (exact-truncate (/ v bucket-width)))
+  (define histogram (make-hash))
+  (define total 0)
+  
+  (for ([item delta-series])
+    (match-define (vector dx dy _) item)
+    (when (> dx 0)
+      (define val (/ dy dx))
+      (define bucket (val->bucket val))
+      (when (or (not (zero? bucket)) include-zeroes?)
+        (set! total (+ total dx))
+        (let ((old-dx (hash-ref histogram bucket 0)))
+          (hash-set! histogram bucket (+ dx old-dx))))))
 
-  (let ((histogram (make-hash))
-        (total 0))
+  (hash->histogram histogram total bucket-width as-percentage?))
 
-    (when (cons? data-series)
-      (let loop ((prev data-series)
-                 (next (cdr data-series)))
-        (when (cons? next)
-          (let ((delta (- (vector-ref (car next) 0)
-                          (vector-ref (car prev) 0)))
-                (bucket (let ((y (/ (+ (vector-ref (car next) 1)
-                                       (vector-ref (car prev) 1))
-                                    2)))
-                          (val->bucket y))))
-            (when (or (not (eq? bucket 0)) include-zeroes?)
-              (set! total (+ total delta))
-              (let ((value (hash-ref histogram bucket 0)))
-                (hash-set! histogram bucket (+ delta value)))))
-          (loop (cdr prev) (cdr next)))))
-          
-    (let ((result (for/vector
-                   ((k (sort (hash-keys histogram) <)))
-                   (vector (* k bucket-width)
-                           (let ((val (hash-ref histogram k #f)))
-                             (if (and as-percentage? (> total 0))
-                                 (* 100 (/ val total))
-                                 val))))))
-      (if (= (vector-length result) 0) #f result))))
+;; Same as `make-histogram`, but only the Y value in the data series is
+;; considered and has a weihgt of 1.  This is used for histograms of metrics
+;; in swim activities, where all the data is stored by lengths, not
+;; track-points.
+(define (make-histogram/discrete data-series bucket-width as-percentage? include-zeroes?)
+  ;; NOTE: using `exact-truncate' instead of `exact-round' works more
+  ;; correctly for distributing values into buckets for zones.  The bucket
+  ;; value is the start of the interval (as opposed to the middle of the
+  ;; interval if `exact-round` would be used.
+  (define (val->bucket v) (exact-truncate (/ v bucket-width)))
+  (define histogram (make-hash))
+  (define total 0)
+  
+  (for ([item data-series])
+    (match-define (vector x y) item)
+    (define bucket (val->bucket y))
+    (when (or (not (zero? bucket)) include-zeroes?)
+      (set! total (add1 total))
+      (let ((old-y (hash-ref histogram bucket 0)))
+        (hash-set! histogram bucket (add1 old-y)))))
+
+  (hash->histogram histogram total bucket-width as-percentage?))
+
+;; Convert a histogram from a hash table to a vector, adding empty buckets as
+;; needed.
+(define (hash->histogram histogram total bucket-width as-percentage?)
+  (let ((buckets (sort (hash-keys histogram) <)))
+    (if (> (length buckets) 0)
+        (let ([min (first buckets)]
+              [max (last buckets)])
+          (for/vector ([bucket (in-range min (add1 max))])
+            (vector (* bucket bucket-width)
+                    (let ((val (hash-ref histogram bucket 0)))
+                      (if (and as-percentage? (> total 0))
+                          (* 100 (/ val total))
+                          val)))))
+        #f)))
+
+;; Drop buckets from boths ends of HISTOGRAM which have elements less than
+;; PERCENT of the total.  We stop at the first bucket which has more than
+;; PERCENT elements.  Note that empty buckets in the middle are still kept.
+;; This is used to make the histogram look nicer on a graph.
+(define (trim-outliers/histogram histogram [percent 0.001])
+  (define total (for/sum ([b histogram]) (vector-ref b 1)))
+  (define min (for/first ([b histogram]
+                          [index (vector-length histogram)]
+                          #:when (> (/ (vector-ref b 1) total) percent))
+                index))
+  (define max (for/last ([b histogram]
+                         [index (vector-length histogram)]
+                         #:when (> (/ (vector-ref b 1) total) percent))
+                index))
+  (if (and min max)
+      (for/vector ([index (in-range min (add1 max))])
+        (vector-ref histogram index))
+      histogram))
 
 ;; Return a list of the buckets in a histogram (as made by `make-histogram`).
 (define (get-histogram-buckets h)
@@ -538,11 +580,11 @@
      (for/list [(tick ticks)]
        (duration->string (pre-tick-value tick))))))
 
-
 ;; Given a data series (Listof (Vector X Y)), compute the delta series by
 ;; combining adjacent samples.  The result is a (Listof (Vector Delta-X
-;; Slice-Y)), where Delta-X is the difference between two adjacent X values
-;; and Slice-Y is the "area" (integral) of the slice between the two X values.
+;; Slice-Y Pos-X)), where Delta-X is the difference between two adjacent X
+;; values and Slice-Y is the "area" (integral) of the slice between the two X
+;; values and Pos-X is the X position in the DATA-SERIES for this slice.
 (define (make-delta-series data-series)
   (for/list ([first data-series]
              [second (cdr data-series)])
@@ -613,6 +655,7 @@
                                         ; (e.g. left, right torque efficiency)
     (define filter-amount 0)            ; used by `get-filter-function`, which see
     (define delay-amount 0)
+    (define outlier-trim 0)
 
     (define data-series #f)              ; (Listof (Vector X Y))
     (define secondary-data-series #f)
@@ -672,6 +715,11 @@
       (set! filter-amount a)
       (invalidate-data-series))
 
+    (define/public (set-outlier-trim o)
+      (set! outlier-trim o)
+      ;; NOTE: no need to invalidate the data series
+      )
+
     (define/public (set-x-axis x)
       (set! x-axis x)
       (invalidate-data-series))
@@ -714,7 +762,10 @@
     (define (get-histogram-renderer/single bucket-width as-percentage? include-zeroes?)
       (let ((data (make-histogram data-series bucket-width as-percentage? include-zeroes?)))
         (if data
-            (list (make-histogram-renderer data (get-axis-plot-color y-axis)))
+            (begin
+              (when (> outlier-trim 0)
+                (set! data (trim-outliers/histogram data outlier-trim)))
+              (list (make-histogram-renderer data (get-axis-plot-color y-axis))))
             #f)))
 
     ;; Retun a histogram renderer for two data series.  Assumes two data
@@ -723,16 +774,22 @@
       (let* ((data (make-histogram data-series bucket-width as-percentage? include-zeroes? ))
              (data2 (make-histogram secondary-data-series bucket-width as-percentage? include-zeroes?)))
         (if (and data data2)
-            (let ((nbuckets (merge-lists (get-histogram-buckets data) (get-histogram-buckets data2))))
-              (set! data (normalize-histogram data nbuckets))
-              (set! data2 (normalize-histogram data2 nbuckets))
-              (let ((h1 (make-histogram-renderer
-                         data (get-axis-plot-color y-axis)
-                         #:skip 2.5 #:x-min 0 #:label (send y-axis get-series-label)))
-                    (h2 (make-histogram-renderer
-                         data2 (get-axis-plot-color secondary-y-axis)
-                         #:skip 2.5 #:x-min 1 #:label (send secondary-y-axis get-series-label))))
-                (list h1 h2)))
+            (begin
+              (when (> outlier-trim 0)
+                (set! data (trim-outliers/histogram data outlier-trim))
+                (set! data2 (trim-outliers/histogram data2 outlier-trim)))
+              (let ((nbuckets (merge-lists (get-histogram-buckets data) (get-histogram-buckets data2))))
+                (set! data (normalize-histogram data nbuckets))
+                (set! data2 (normalize-histogram data2 nbuckets))
+                (let ((h1 (make-histogram-renderer
+                           data
+                           (get-axis-plot-color y-axis)
+                           #:skip 2.5 #:x-min 0 #:label (send y-axis get-series-label)))
+                      (h2 (make-histogram-renderer
+                           data2
+                           (get-axis-plot-color secondary-y-axis)
+                           #:skip 2.5 #:x-min 1 #:label (send secondary-y-axis get-series-label))))
+                  (list h1 h2))))
             #f)))
 
     (define/public (get-histogram-renderer bucket-width as-percentage? include-zeroes?)
@@ -897,6 +954,8 @@
     (define min-graph-y #f)
     (define max-graph-y #f)
 
+    (define outlier-trim 0)
+
     (define (invalidate-data-series)
       (set! data-series #f)
       (set! lap-markers #f)
@@ -970,6 +1029,10 @@
     (define/public (set-delay-amount d) ; not implemented
       #f)
 
+    (define/public (set-outlier-trim o)
+      ;; NOTE: no need to invalidate the data series
+      (set! outlier-trim o))
+
     (define/public (set-session session)
       (set! the-session session)
       (invalidate-data-series))
@@ -1020,13 +1083,16 @@
 
       (unless data-series (prepare-data-series))
       (if data-series
-          (let ((data (make-histogram (mk-series data-series)
-                                      bucket-width as-percentage? include-zeroes?)))
-            (if (not data)
+          (let ((data (make-histogram/discrete (mk-series data-series)
+                                               bucket-width as-percentage? include-zeroes?)))
+            (if data
+                (begin
+                  (when (> outlier-trim 0)
+                    (set! data (trim-outliers/histogram data outlier-trim)))
+                  (list (make-histogram-renderer data (get-line-color))))
                 ;; Can happen if BUCKET-WIDTH is large enough for all samples
                 ;; to get into bucked 0 and INCLUDE-ZEROES? is #t
-                #f
-                (list (make-histogram-renderer data (get-line-color)))))
+                #f))
           #f))
       
     (define/public (get-lap-start-end lap-num)

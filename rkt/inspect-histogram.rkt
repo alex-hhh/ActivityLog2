@@ -74,9 +74,11 @@
     (define y-axis-index 0)
     (define show-grid? #f)
     (define show-as-percentage? #f)
+
     (define include-zeroes? #t)
     (define bucket-width 1)
     (define filter-amount 0)
+    (define outlier-trim 0)
 
     (define default-drb (new plot-builder%))
     (define swim-drb (new swim-plot-builder%))
@@ -90,6 +92,10 @@
     (define show-as-percentage-check-box #f)
     (define include-zeroes-check-box #f)
     (define filter-amount-choice #f)
+    (define outlier-trim-field #f)
+
+    (define inhibit-refresh #f)
+    (define lap-swimming? #f)           ; when #t, we are inspecting a lap swimming activity
 
     ;; The selection for the Y axis and bucket width is stored per sport in a
     ;; hash table, to be restored when a similar sport is selected.  This hash
@@ -97,14 +103,17 @@
     (define current-sport #f)
     (define axis-choice-by-sport (make-hash))
 
+    ;; Some parameters are saved based on a per axis basis
+    (define params-by-axis (make-hash))
+
     ;; Restore the preferences now. 
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 5))
-        (set! show-grid? (first pref))
-        (set! show-as-percentage? (second pref))
-        (set! include-zeroes? (third pref))
-        (set! axis-choice-by-sport (hash-copy (fourth pref)))
-        (set! filter-amount (fifth pref))))
+      (when (and pref (> (length pref) 0) (eq? (car pref) 'gen1))
+        (match-define (list tag abs pba grid? as-pct?) pref)
+        (set! axis-choice-by-sport (hash-copy abs))
+        (set! params-by-axis (hash-copy pba))
+        (set! show-grid? grid?)
+        (set! show-as-percentage? as-pct?)))
 
     (define panel (new (class vertical-panel%
                          (init)
@@ -127,6 +136,23 @@
                  [label "Data to plot: "]
                  [callback (lambda (c e)
                              (on-y-axis-changed (send c get-selection)))]))
+
+      (set! show-grid-check-box
+            (new check-box% [parent cp]
+                 [value show-grid?]
+                 [label "Show Grid"]
+                 [callback (lambda (c e)
+                             (set! show-grid? (send c get-value))
+                             (refresh-plot))]))
+      
+      (set! show-as-percentage-check-box
+            (new check-box% [parent cp]
+                 [value show-as-percentage?]
+                 [label "Show as Percentage"]
+                 [callback (lambda (c e)
+                             (set! show-as-percentage? (send c get-value))
+                             (refresh-plot))]))
+
       (set! bucket-width-field
             (new number-input-field%
                  [parent cp] 
@@ -139,14 +165,6 @@
                  [valid-value-cb 
                   (lambda (v) (unless (eq? v 'empty) (on-bucket-width v)))]))
 
-      (set! show-as-percentage-check-box
-            (new check-box% [parent cp]
-                 [value show-as-percentage?]
-                 [label "Show as Percentage"]
-                 [callback (lambda (c e)
-                             (set! show-as-percentage? (send c get-value))
-                             (refresh-plot))]))
-
       (set! include-zeroes-check-box
             (new check-box% [parent cp]
                  [value include-zeroes?]
@@ -155,20 +173,24 @@
                              (set! include-zeroes? (send c get-value))
                              (refresh-plot))]))
 
-      (set! show-grid-check-box
-            (new check-box% [parent cp]
-                 [value show-grid?]
-                 [label "Show Grid"]
-                 [callback (lambda (c e)
-                             (set! show-grid? (send c get-value))
-                             (refresh-plot))]))
-
       (set! filter-amount-choice
             (new choice% [parent cp]
                  [label "Filter Amount: "]
                  [choices '("None" "Small" "Medium" "Large" "Huge")]
                  [callback (lambda (c e)
                              (on-filter-amount (send c get-selection)))]))
+
+      (set! outlier-trim-field
+            (new number-input-field%
+                 [parent cp] 
+                 [label "Outlier Trim (%) "]
+                 [cue-text "0 .. 100%"]
+                 [min-value 0]
+                 [max-value 100]
+                 [stretchable-width #f]
+                 ;; [min-width 100]
+                 [valid-value-cb 
+                  (lambda (v) (unless (eq? v 'empty) (on-outlier-trim (/ v 100))))]))
       )
 
     ;; Update the axis selection checkboxes with AXIS-CHOICE-LIST
@@ -187,6 +209,9 @@
 
     (define (on-y-axis-changed new-axis-index)
       (unless (equal? y-axis-index new-axis-index)
+        (set! inhibit-refresh #t)
+        (save-params-for-axis current-sport y-axis-index)
+        (restore-params-for-axis current-sport new-axis-index)
         (set! y-axis-index new-axis-index)
         (let ([axis (list-ref axis-choices y-axis-index)])
           (if (list? axis)
@@ -196,6 +221,7 @@
               (begin
                 (send drb set-y-axis axis)
                 (send drb set-secondary-y-axis #f))))
+        (set! inhibit-refresh #f)
         (refresh-plot)))
 
     (define (on-bucket-width new-width)
@@ -203,10 +229,34 @@
         (set! bucket-width new-width)
         (refresh-plot)))
 
-    (define (on-filter-amount a [dont-refresh #f])
+    (define (on-filter-amount a)
       (set! filter-amount a)
       (send drb set-filter-amount (expt a 2))
-      (unless dont-refresh (refresh-plot)))
+      (refresh-plot))
+
+    (define (on-outlier-trim a)
+      (set! outlier-trim a)
+      (send drb set-outlier-trim outlier-trim)
+      (refresh-plot))
+
+    (define (save-params-for-axis sport index)
+      (define key (cons sport index))
+      (hash-set! params-by-axis key
+                 (list bucket-width include-zeroes? filter-amount outlier-trim)))
+
+    (define (restore-params-for-axis sport index)
+      (define key (cons sport index))
+      (define val (hash-ref params-by-axis key (lambda () #f)))
+      (when val
+        (match-define (list bw incz filt trim) val)
+        (send bucket-width-field set-numeric-value bw)
+        (on-bucket-width bw)
+        (send include-zeroes-check-box set-value incz)
+        (set! include-zeroes? incz)
+        (send filter-amount-choice set-selection filt)
+        (on-filter-amount filt)
+        (send outlier-trim-field set-numeric-value (* trim 100))
+        (on-outlier-trim trim)))
 
     (define (get-plot-snip)
       (if (not graph-render-tree)
@@ -216,26 +266,28 @@
               (set! rt (cons (tick-grid) rt)))
             (let ((y-axis (list-ref axis-choices y-axis-index)))
               (when (list? y-axis) (set! y-axis (second y-axis)))
-              (parameterize ([plot-y-label (if show-as-percentage? "pct %" "time (seconds)")]
+              (parameterize ([plot-y-label (if show-as-percentage? "pct %"
+                                               (if lap-swimming? "# of lengths" "time (seconds)"))]
                              [plot-x-ticks (send y-axis get-axis-ticks)]
                              [plot-x-label (send y-axis get-axis-label)])
                             (plot-snip rt))))))
 
     (define (refresh-plot)
-      (let ((axis (list-ref axis-choices y-axis-index)))
-        (when (list? axis) (set! axis (second axis)))
-        (let ((bw (* bucket-width (send axis get-histogram-bucket-slot))))
-          (set! graph-render-tree (send drb get-histogram-renderer
-                                        bw show-as-percentage? include-zeroes?)))
-        (let ((snip (get-plot-snip)))
-          (send graph-pb set-snip snip))))
+      (unless inhibit-refresh
+        (let ((axis (list-ref axis-choices y-axis-index)))
+          (when (list? axis) (set! axis (second axis)))
+          (let ((bw (* bucket-width (send axis get-histogram-bucket-slot))))
+            (set! graph-render-tree (send drb get-histogram-renderer
+                                          bw show-as-percentage? include-zeroes?)))
+          (let ((snip (get-plot-snip)))
+            (send graph-pb set-snip snip)))))
 
     (define/public (save-visual-layout)
       (when current-sport
-        (hash-set! axis-choice-by-sport current-sport 
-                  (cons bucket-width y-axis-index)))
-      (al-put-pref pref-tag (list show-grid? show-as-percentage? include-zeroes? 
-                                  axis-choice-by-sport filter-amount)))
+        (save-params-for-axis current-sport y-axis-index)
+        (hash-set! axis-choice-by-sport current-sport y-axis-index))
+      (al-put-pref pref-tag
+                   (list 'gen1 axis-choice-by-sport params-by-axis show-grid? show-as-percentage?)))
 
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f #f "png" '()
@@ -246,59 +298,55 @@
     (define generation -1)
 
     (define/public (set-session session)
+      (set! inhibit-refresh #t)
+      
       ;; maybe save previous sport settings
       (when current-sport
-        (hash-set! axis-choice-by-sport current-sport 
-                  (cons bucket-width y-axis-index)))
+        (save-params-for-axis current-sport y-axis-index)
+        (hash-set! axis-choice-by-sport current-sport y-axis-index))
       
       (set! generation (+ 1 generation))
 
-      (let ((lap-swimming? 
-             (let ((sport (session-sport session))
-                   (sub-sport (session-sub-sport session)))
-               (and (equal? sport 5) (equal? sub-sport 17)))))
+      (set! lap-swimming? 
+            (let ((sport (session-sport session))
+                  (sub-sport (session-sub-sport session)))
+               (and (equal? sport 5) (equal? sub-sport 17))))
 
-        (set! axis-choices (if lap-swimming? (swim-axis-choices) (default-axis-choices)))
-        (set! drb (if lap-swimming? swim-drb default-drb))
-        ;; the set-x-axis call is dummy and used only to make the data render
-        ;; builder happy.
-        (send drb set-x-axis (if lap-swimming? axis-swim-time axis-timer-time))
-        (install-axis-choices axis-choices)
+      (set! axis-choices (if lap-swimming? (swim-axis-choices) (default-axis-choices)))
+      (set! drb (if lap-swimming? swim-drb default-drb))
+      ;; the set-x-axis call is dummy and used only to make the data render
+      ;; builder happy.
+      (send drb set-x-axis (if lap-swimming? axis-swim-time axis-timer-time))
+      (install-axis-choices axis-choices)
 
-        (set! current-sport
-              (cons (session-sport session) (session-sub-sport session)))
+      (set! current-sport
+            (cons (session-sport session) (session-sub-sport session)))
 
-        (let ((xy-index (hash-ref axis-choice-by-sport current-sport
-                                  (lambda () (cons 1 0)))))
-          (set! bucket-width (car xy-index))
-          (set! y-axis-index (cdr xy-index)))
+      (let ((index (hash-ref axis-choice-by-sport current-sport 0)))
+        (set! y-axis-index index))
 
-        (when (equal? bucket-width 0)
-          (set! bucket-width 1))
-
-        (let ([axis (list-ref axis-choices y-axis-index)])
-          (if (list? axis)
-              (begin
-                (send drb set-y-axis (second axis))
-                (send drb set-secondary-y-axis (third axis)))
-              (begin
-                (send drb set-y-axis axis)
-                (send drb set-secondary-y-axis #f))))
-        (send drb set-session session)
-        (send bucket-width-field set-value (number->string bucket-width))
-        (send y-axis-choice set-selection y-axis-index)
-
-        (if lap-swimming?
+      (let ([axis (list-ref axis-choices y-axis-index)])
+        (if (list? axis)
             (begin
-              (send filter-amount-choice set-selection 0)
-              (send drb set-filter-amount 0)
-              (send filter-amount-choice enable #f))
+              (send drb set-y-axis (second axis))
+              (send drb set-secondary-y-axis (third axis)))
             (begin
-              (send filter-amount-choice set-selection filter-amount)
-              (on-filter-amount filter-amount #f)
-              (send filter-amount-choice enable #t)))
-
-        (refresh-plot)))
+              (send drb set-y-axis axis)
+              (send drb set-secondary-y-axis #f))))
+      
+      (send drb set-session session)
+      (if lap-swimming?
+          (begin
+            (send drb set-filter-amount 0)
+            (send filter-amount-choice set-selection 0)
+            (send filter-amount-choice enable #f))
+          (begin
+            (send filter-amount-choice enable #t)))
+      
+      (send y-axis-choice set-selection y-axis-index)
+      (restore-params-for-axis current-sport y-axis-index)
+      (set! inhibit-refresh #f)
+      (refresh-plot))
 
     (define/public (get-generation) generation)
 
