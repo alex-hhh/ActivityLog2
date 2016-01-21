@@ -37,6 +37,7 @@
 (provide best-avg-ticks)
 (provide important-best-avg-durations)
 (provide make-best-avg)
+(provide make-best-avg-aux)
 (provide make-delta-series)
 (provide make-histogram)
 (provide make-histogram-renderer)
@@ -570,15 +571,42 @@
 ;;         (length important-best-avg-durations))
 
 ;; Plot ticks for the best-avg plot.  Produces ticks at
-;; important-best-avg-durations locations.
+;; important-best-avg-durations locations (among other places).
 (define (best-avg-ticks)
-  (ticks
-   (lambda (start end)
-     (for/list ((d important-best-avg-durations) #:when (and (>= d start) (<= d end)))
-       (pre-tick d #t)))
-   (lambda (start end ticks)
+
+  (define (->ticks duration-list)
+    (for/list ([d duration-list]) (pre-tick d #t)))
+
+  ;; Truncate VAL so it is a multiple of NEAREST.
+  (define (trunc val nearest)
+    (* nearest (quotient (exact-truncate val) nearest)))
+
+  ;; Generate numbers between START and END, at least MARK-COUNT of them.
+  ;; Marks will be generated at a rate that is a multiple of BASE-SKIP.  The
+  ;; start position is "rounded" down to a multiple of NEAREST-START.
+  (define (generate-marks start end mark-count base-skip nearest-start)
+    (let ((interval (max 1 (trunc (/ (- end start) mark-count) base-skip)))
+          (actual-start (trunc start nearest-start)))
+      (for/list ([d (in-range actual-start end interval)]) d)))
+
+  (define (merge c1 c2)
+    (sort (remove-duplicates (append c1 c2)) <))
+    
+  (define (generate-ticks start end)
+    (define candidates
+      (for/list ([d important-best-avg-durations]
+                 #:when (and (>= d start) (<= d end)))
+        d))
+    (if (>= (length candidates) 5)
+        (->ticks candidates)
+        (let ((marks (generate-marks start end 10 5 30)))
+          (->ticks (merge candidates marks)))))
+
+  (define (format-ticks start end ticks)
      (for/list [(tick ticks)]
-       (duration->string (pre-tick-value tick))))))
+       (duration->string (pre-tick-value tick))))
+  
+  (ticks generate-ticks format-ticks))
 
 ;; Given a data series (Listof (Vector X Y)), compute the delta series by
 ;; combining adjacent samples.  The result is a (Listof (Vector Delta-X
@@ -640,6 +668,41 @@
       (let ((delta-series (make-delta-series data)))
         (for/list ([d durations])
           (get-best-avg delta-series d inverted?)))))
+
+;; Compute an average in DELTA-SERIES starting at POSITION over the specified
+;; DURATION.
+(define (compute-avg-at-position delta-series duration position)
+  (let ((xtotal 0)
+        (ytotal 0))
+    (for ([item delta-series] #:break (>= xtotal duration))
+      (match-define (vector dx dy pos) item)
+      (when (>= pos position)
+        (let ((remaining (- duration xtotal)))
+          (if (> remaining dx)
+              (begin
+                (set! xtotal (+ dx xtotal))
+                (set! ytotal (+ dy ytotal)))
+              (begin
+                (let ((slice (/ remaining dx)))
+                  (set! xtotal (+ remaining xtotal))
+                  (set! ytotal (+ (* slice dy) ytotal))))))))
+    (if (> xtotal 0)
+        (/ ytotal xtotal)
+        #f)))
+
+;; Compute auxiliary averages on DATA-SERIES based on a BEST-AVG graph.  For
+;; each value in BEST-AVG we compute the corresponding average in DATA-SERIES
+;; (at the same position and duration).
+;;
+;; For example, for a power best-avg, we can compute the average cadence for
+;; the segment on which the best power-duration item was computed.
+(define (make-best-avg-aux data-series best-avg)
+  (let ((delta-series (make-delta-series data-series)))
+    (for/list ([best best-avg])
+      (match-define (vector d _ p) best)
+      (if p
+          (vector d (compute-avg-at-position delta-series d p) p)
+          (vector d #f #f)))))
 
 ;; Builds various plot renderers for sessions.  Allows setting the X and Y
 ;; axes plus the session and maintains a cached state to minimize
