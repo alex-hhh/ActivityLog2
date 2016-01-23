@@ -319,6 +319,23 @@
     #:mode 'binary
     #:exists 'replace))
 
+(define (wr-all)
+  ;; NOTE: the FR920 identifies the workouts by the timestamp they were
+  ;; created (and possibly by the serial number, which we always put as 1).
+  ;; We sleep between generating the workouts, otherwise, they would all be
+  ;; identical as far as the watch is concerned.
+  (wr "z2-strides.fit" (wk-z2-strides))
+  (sleep 3)
+  (wr "run-fthr-test.fit" (wk-lthr-test))
+  (sleep 3)
+  (wr "moneghetti.fit" (wk-the-moneghetti))
+  (sleep 3)
+  (wr "rowlandtempo.fit" (wk-the-rowlandtempo))
+  (sleep 3)
+  (wr "switchblade.fit" (wk-the-switchblade))
+  (sleep 3)
+  (wr "icecream.fit" (wk-icecream-sandwitch)))
+
 (define workout-builder% 
   (class fit-event-dispatcher%
     (init)
@@ -341,7 +358,7 @@
     ))
 
 (define (rd file)
-  (let ((stream (make-fit-data-stream-from-file file))
+  (let ((stream (make-fit-data-stream file))
         (consumer (new workout-builder%)))
     (printf "made the stream~%")
     (read-fit-records stream consumer)))
