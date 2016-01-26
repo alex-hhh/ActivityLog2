@@ -17,6 +17,7 @@
 (require db
          "activity-edit.rkt"
          "fmt-util.rkt"
+         "dbglog.rkt"
          "icon-resources.rkt"
          "import.rkt"
          "sport-charms.rkt"
@@ -91,27 +92,30 @@
     (define import-directory #f)
 
     (define (begin-import)
-      (thread (lambda ()
-                (with-handlers
-                  (((lambda (e) #t)
-                    (lambda (e)
-                      (message-box "Import error error" (format "~a" e) toplevel-window '(ok stop)))))
-                  (import-new-activities-from-directory
-                   import-directory
-                   database 
-                   (lambda (file status detail)
-                     (queue-callback 
-                      (lambda () (on-file-progress file status detail))))
-                   (lambda (message)
-                     (queue-callback
-                      (lambda ()
-                        (send status-message set-label message))))))
-                (queue-callback 
-                 (lambda () 
-                   (send status-message set-label "Import complete.")
-                   (send export-button enable #t)
-                   (send close-button enable #t))))))
-
+      (thread/dbglog
+       #:name "import-dialog%/begin-import"
+       (lambda ()
+         (with-handlers
+           (((lambda (e) #t)
+             (lambda (e)
+               (dbglog (format "import error: ~a" e))
+               (message-box "Import error error" (format "~a" e) toplevel-window '(ok stop)))))
+           (import-new-activities-from-directory
+            import-directory
+            database 
+            (lambda (file status detail)
+              (queue-callback 
+               (lambda () (on-file-progress file status detail))))
+            (lambda (message)
+              (queue-callback
+               (lambda ()
+                 (send status-message set-label message))))))
+         (queue-callback 
+          (lambda () 
+            (send status-message set-label "Import complete.")
+            (send export-button enable #t)
+            (send close-button enable #t))))))
+    
     (define (on-file-progress file status detail)
       (send import-list
             add-row

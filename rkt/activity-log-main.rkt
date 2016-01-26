@@ -18,35 +18,41 @@
          (rename-in srfi/48 (format format-48))
          "al-prefs.rkt"
          "database.rkt"
+         "dbglog.rkt"
          "first-run.rkt"
          "toplevel.rkt")
 
 (provide main)
 
 (define (main)
-  (define database-file (al-get-pref 'activity-log:database-file (lambda () #f)))
-  (unless (and database-file (file-exists? database-file))
-    (let ((first-run-dlg (new first-run-dialog%)))
-      (set! database-file (send first-run-dlg run))))
-  (when database-file
-    (maybe-backup-database database-file)
-    (with-handlers
-     ((db-exn-bad-db-version?
-       (lambda (e)
-         (message-box
-          "Database open error" (db-exn-bad-db-version-message e) #f '(ok stop))))
-      ((lambda (e) #t)
-       (lambda (e)
-         (message-box "Database open error" (format "~a : ~a" database-file e) #f '(ok stop)))))
-     (let ((tl (new toplevel-window% [database-path database-file])))
-       ;; Toplevel window was successfully created, save the database file as
-       ;; the new default to open next time.
-       (al-put-pref 'activity-log:database-file
-                    (if (path? database-file)
-                        (path->string database-file)
-                        database-file))
-       (send tl run)))
-    ))
+  (dbglog "main started")
+  (with-handlers
+    (((lambda (e) #t)
+      (lambda (e) (dbglog (format "caught exception in main: ~a" e)))))
+    (define database-file (al-get-pref 'activity-log:database-file (lambda () #f)))
+    (cond ((not database-file)
+           (dbglog "no database file stored in preferences"))
+          ((and database-file (not (file-exists? database-file)))
+           (dbglog (format "missing ~a" database-file)))
+          (#t
+           (dbglog (format "will try to open ~a" database-file))))
+    (unless (and database-file (file-exists? database-file))
+      (let ((first-run-dlg (new first-run-dialog%)))
+        (dbglog (format "running first-run-dialog%"))
+        (set! database-file (send first-run-dlg run))
+        (dbglog (format "database file is now ~a" database-file))))
+    (if database-file
+        (begin
+          (maybe-backup-database database-file)
+          (let ((tl (new toplevel-window% [database-path database-file])))
+            ;; Toplevel window was successfully created, save the database
+            ;; file as the new default to open next time.
+            (al-put-pref 'activity-log:database-file
+                         (if (path? database-file)
+                             (path->string database-file)
+                             database-file))
+            (send tl run)))
+        (dbglog "no database file, exiting application"))))
 
 
 ;;...................................................... database backup ....

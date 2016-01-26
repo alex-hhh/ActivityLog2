@@ -29,6 +29,7 @@
 (require db
          racket/flonum
          "fmt-util.rkt"
+         "dbglog.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
          "widgets.rkt")
@@ -346,14 +347,17 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
      (update-summary-altitude-for-session db session-id))))
   
 (define (fixup-elevation-for-session db session-id [progress-monitor #f])
+  (dbglog (format "fixup-elevation-for-session ~a started" session-id))
   (when progress-monitor
     (send progress-monitor begin-stage "Fetching altitude data..." 0))
   (define altidude-data (populate-altitude-data db #t))
   (fixup-elevation-for-session-internal db session-id altidude-data progress-monitor)
   (when progress-monitor 
-    (send progress-monitor finished)))
+    (send progress-monitor finished))
+  (dbglog (format "fixup-elevation-for-session ~a completed" session-id)))
 
 (define (fixup-elevation-for-all-sessions db [progress-monitor #f])
+  (dbglog "fixup-elevation-for-all-sessions started")
   (when progress-monitor
     (send progress-monitor begin-stage "Fetching altitude data..." 0))
   (define altidude-data (populate-altitude-data db #t))
@@ -370,7 +374,8 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
       (fixup-elevation-for-session-internal db s altidude-data #f)))
 
   (when progress-monitor 
-    (send progress-monitor finished)))
+    (send progress-monitor finished))
+  (dbglog "fixup-elevation-for-all-sessions completed"))
 
 (define (interactive-fixup-elevation database session-id [parent-window #f])
 

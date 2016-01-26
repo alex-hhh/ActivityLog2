@@ -20,6 +20,7 @@
          racket/date
          (rename-in srfi/48 (format format-48))
          "al-log.rkt"
+         "dbglog.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt")
 
@@ -1714,7 +1715,8 @@
             (set! start-timestamp (current-inexact-milliseconds))
             (unless can-cancel? (send cancel-button enable #f))
             (set! update-thread
-                  (thread
+                  (thread/dbglog
+                   #:name "al-progress-dialog% worker"
                    (lambda ()
                      (task-fn this)
                      (set! update-complete-flag #t)

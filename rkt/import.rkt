@@ -16,6 +16,7 @@
 
 (require db
          "al-prefs.rkt"
+         "dbglog.rkt"
          "database.rkt"
          "edit-session-tss.rkt"
          "elevation-correction.rkt"
@@ -26,32 +27,34 @@
 
 (define (import-new-activities-from-directory dir db [file-callback #f] [global-callback #f])
   (query-exec db "delete from LAST_IMPORT")
+  (dbglog (format "importing activities from ~a" dir))
   (when global-callback
     (global-callback (format "Importing activities from ~a~%" dir)))
   (db-import-activities-from-directory dir db file-callback)
-  (do-post-import-tasks db global-callback))
+  (let ((num-imported (query-value db "select count(*) from LAST_IMPORT")))
+    (when (> num-imported 0)
+      (do-post-import-tasks db global-callback))
+    (dbglog (format "import complete (~a activities imported)" num-imported))))
 
 ;; Perform database maintenance tasks after an import.  `global-callback' will
 ;; be used to report progress.
 (define (do-post-import-tasks db [global-callback #f])
-  (when global-callback
-    (global-callback "Updating old style equipment serial numbers..."))
+  (define (show-progress msg)
+    (dbglog msg)
+    (when global-callback (global-callback msg)))
+
+  (show-progress "updating old style equipment serial numbers...")
   (update-old-style-equipment-serial db)
-  (when global-callback
-    (global-callback "Updating equipment use..."))
+  (show-progress "updating equipment use...")
   (update-equipment-part-of db)
-  (when global-callback
-    (global-callback "Updating corrected elevation..."))
+  (show-progress "updating corrected elevation...")
   (populate-altitude-data db #t)
   (update-elevation-for-new-sessions db)
-  (when global-callback
-    (global-callback "Updating weather data..."))
+  (show-progress "updating weather data...")
   (update-weather-for-new-sessions db)
-  (when global-callback
-    (global-callback "Updating training stress score..."))
+  (show-progress "updating training stress score...")
   (update-tss-for-new-sessions db)
-  (when global-callback
-    (global-callback "Updating time in zone..."))
+  (show-progress "updating time in zone...")
   (update-tiz-for-new-sessions db))
 
 ;; Some Garmin firmware versions reported only the lower two bytes of the
@@ -92,7 +95,7 @@ select SM.neid, OSU.sid
        db
    "delete from EQUIPMENT_USE
  where equipment_id in
-       (select EQ1.id 
+       (select EQ1.id
           from EQUIPMENT EQ1, EQUIPMENT EQ2
          where EQ1.serial_number < 65536
            and EQ2.serial_number >= 65536
@@ -174,4 +177,4 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
           (n (in-range (length sessions))))
       (update-time-in-zone-data sid db)
       (when progress-monitor
-        (send progress-monitor set-progress (+ n 1))))))  
+        (send progress-monitor set-progress (+ n 1))))))

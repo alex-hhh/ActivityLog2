@@ -20,6 +20,7 @@
          "al-log.rkt"
          "al-prefs.rkt"
          "database.rkt"
+         "dbglog.rkt"
          "edit-labels.rkt"
          "edit-preferences.rkt"
          "edit-seasons.rkt"
@@ -457,7 +458,7 @@
 
 (define (interactive-open-database database-path)
 
-  (define message-box #f)
+  (define message-field #f)
   (define progress-bar #f)
   (define last-msg #f)
 
@@ -465,7 +466,7 @@
     ;; Setting the same message causes it to flicker.  Avoid doing that.
     (when (and msg (not (equal? last-msg msg)))
       (set! last-msg msg)
-      (send message-box set-label msg))
+      (send message-field set-label msg))
     (when (and crt max)
       (let ((new-progress (exact-round (* 100 (/ crt max)))))
         (send progress-bar set-value new-progress))))
@@ -473,16 +474,29 @@
   (define database #f)
 
   (define (db-open-thread dialog)
-    (let ((db (db-open-activity-log database-path cb)))
-      (queue-callback
-       (lambda ()
-         (set! database db)
-         (send dialog show #f)))))
+    (with-handlers
+      (((lambda (e) #t)
+        (lambda (e)
+          (let ((msg (cond ((db-exn-bad-db-version? e)
+                            (db-exn-bad-db-version-message e))
+                           (#t
+                            (format "~a : ~a" database-path e)))))
+            (dbglog (format "interactive-open-database: ~a" msg))
+            (message-box "Database open error" msg dialog '(ok stop))
+            (queue-callback (lambda () (send dialog show #f)))))))
+      (let ((db (db-open-activity-log database-path cb)))
+        (queue-callback
+         (lambda ()
+           (set! database db)
+           (send dialog show #f))))))
 
   (define interactive-open-database-dialog%
     (class dialog% (init-field run-fn)
       (define/override (on-superwindow-show show?)
-        (when show? (thread (lambda () (run-fn this)))))
+        (when show?
+          (thread/dbglog
+           #:name "interactive-open-database-dialog%/run-fn"
+           (lambda () (run-fn this)))))
       (define/augment (on-close) #f)
       (super-new)))
 
@@ -500,7 +514,7 @@
     (new message% [parent pane] [label sql-export-icon]
          [stretchable-height #f] [stretchable-width #f])
     (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
-      (set! message-box (new message% [parent pane] [label ""] [min-width 200]))
+      (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
       (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
   
   (send progress-bar set-value 0)
@@ -515,10 +529,11 @@
 
 (define toplevel-window%
   (class object%
-    (init database-path)
+    (init-field database-path)
     (super-new)
 
     (define database (interactive-open-database database-path))
+    (unless database (raise (format "failed to open database at ~a" database-path)))
     (init-sport-charms database)        ; needs to be done early on
 
     ;;; Construct the toplevel frame and initial panels
@@ -719,16 +734,18 @@
              [icon sql-export-icon]))
 
       (define (task progress-dialog)
+        (dbglog "vacuum-database thread started (main database)")
         (send progress-dialog set-message "This will take a while...")
         (query-exec database "vacuum")
+        (dbglog "vacuum-database thread started (tile cache database)")
         (vacuum-tile-cache-database)
+        (dbglog "vacuum-database thread completed")
         (send progress-dialog set-message "Completed..."))
 
       (when database
         (send progress-dialog run tl-frame task)))
 
     (define/public (run)
-
       ;; The current arhitecture makes the toplevel-window% object useless
       ;; after it was closed.  A new one must be re-created and run.
       (unless database
@@ -747,31 +764,27 @@
       (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
         (log-al-warning "Weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
-        (send (tl-section-content equipment) log-due-items))
-
-      )
+        (send (tl-section-content equipment) log-due-items)))
 
     (define (open-another-activity-log file)
+      (dbglog (format "open-another-activity-log: will try to open ~a" file))
       (with-handlers
-       ((db-exn-bad-db-version?
-         (lambda (e)
-           (message-box
-            "Database open error" (db-exn-bad-db-version-message e) #f '(ok stop))))
-        ((lambda (e) #t)
-         (lambda (e)
-           (message-box "Database open error" (format "~a : ~a" file e) #f '(ok stop)))))
-       (let ((tl (new toplevel-window% [database-path file])))
-         ;; Toplevel window was successfully created, save the database file
-         ;; as the new default to open next time.
-         (al-put-pref 'activity-log:database-file
-                      (if (path? file) (path->string file) file))
-         ;; close this window than open the other one.  note that at this
-         ;; moment we cannot have multiple databases open beacuse of
-         ;; `init-sport-charms'.  This could be fixed with a medium effort.
-         (on-exit)
-         (send tl run))))
+        (((lambda (e) #t)
+          (lambda (e)
+            (dbglog (format "open-another-activity-log: ~a" e)))))
+        (let ((tl (new toplevel-window% [database-path file])))
+          ;; Toplevel window was successfully created, save the database file
+          ;; as the new default to open next time.
+          (al-put-pref 'activity-log:database-file
+                       (if (path? file) (path->string file) file))
+          ;; close this window than open the other one.  note that at this
+          ;; moment we cannot have multiple databases open beacuse of
+          ;; `init-sport-charms'.  This could be fixed with a medium effort.
+          (on-exit)
+          (send tl run))))
 
     (define/public (on-exit)
+      (dbglog (format "closing toplevel% for ~a" database-path))
       (send tl-frame show #f))
 
     (define/public (on-new-database)

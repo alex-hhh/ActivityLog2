@@ -172,14 +172,12 @@
 (define schema-version 12)
 (define (db-get-schema-version) schema-version)
 
-(struct db-exn-bad-db-version (file expected actual))
+(struct db-exn-bad-db-version (file expected actual) #:transparent)
 (define (db-exn-bad-db-version-message e)
   (format
-   "Bad schema version for ~a:~% expected versiom ~a, actual version ~a"
-   (db-exn-bad-db-version-file e)
+   "bad schema version: expected ~a, actual ~a"
    (db-exn-bad-db-version-expected e)
    (db-exn-bad-db-version-actual e)))
-
 
 (define (db-open-activity-log database-file [progress-callback #f])
   (let ((db (sqlite3-connect #:database database-file #:mode 'create)))

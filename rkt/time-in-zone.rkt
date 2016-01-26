@@ -17,6 +17,7 @@
 (require db
          "database.rkt"
          "fmt-util.rkt"
+         "dbglog.rkt"
          "icon-resources.rkt"
          "plot-axis-def.rkt"
          "plot-builder.rkt"
@@ -37,7 +38,7 @@
     (let-values ([(data lap-markers min-x max-x min-y max-y)
                   (extract-data session axis-elapsed-time axis-def 0)])
       data))
-  (make-histogram zone-data 1 #f #t))
+  (if zone-data (make-histogram zone-data 1 #f #t) #f))
 
 ;; Store time in zone data in the TIME_IN_ZONE table in the database.  SID is
 ;; the session id, ZID is the zone definition id, DATA is what
@@ -101,11 +102,18 @@
        "select distinct session_id from V_SPORT_ZONE_FOR_SESSION where zone_metric_id in (1, 3)"))
     (define num-sessions (length sessions))
     (send progress-dialog set-message "Starting update...")
+    (dbglog "interactive-update-time-in-zone-data started")
     (for ([sid sessions]
           [n (in-range num-sessions)])
       #:break (let ((progress (exact-round (* 100 (/ (+ 1 n) num-sessions)))))
                 (not (send progress-dialog set-progress progress)))
-      (update-time-in-zone-data sid database)))
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e)                   ; log the exception, than propagate it
+            (dbglog (format "while updating session ~a: ~a" sid e))
+            (raise e))))
+        (update-time-in-zone-data sid database)))
+    (dbglog "interactive-update-time-in-zone-data complete"))
   
   (send progress-dialog run parent-window task))
 
