@@ -163,6 +163,7 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
     (define target-cal-days-field #f)
 
     (define start-date-field #f)
+    (define end-date-field #f)
 
     (define equipment-ids '())
 
@@ -180,7 +181,8 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
         (set! target-mileage-field (new number-input-field% [parent p1] [cue-text "Km"] [style '(single deleted)]))
         (set! target-cal-date-field (new date-input-field% [parent p1] [style '(single deleted)]))
         (set! target-cal-days-field (new number-input-field% [parent p1] [cue-text "Days"] [style '(single deleted)])))
-      (set! start-date-field (new date-input-field% [parent p] [label "Start tracking on : "])))
+      (set! start-date-field (new date-input-field% [parent p] [label "Start tracking on: "]))
+      (set! end-date-field (new date-input-field% [parent p] [label "Completion date: "])))
 
     (define (on-tracking-choice sel)
       (send tracking-target-panel
@@ -216,12 +218,15 @@ select E.id, ifnull(E.name, E.device_name) as ename
 
     (define (setup-for-service-log db svid)
       (let ((row (query-row db "
-select equipment_id, name, start_date, service_type, target
+select equipment_id, name, start_date, service_type, target, end_date
 from EQUIPMENT_SERVICE_LOG where id = ?" svid)))
         (select-equipment (vector-ref row 0))
         (send name-text-field set-value (vector-ref row 1))
         (send start-date-field set-date-value (vector-ref row 2))
-        (set-target (vector-ref row 3) (vector-ref row 4))))
+        (set-target (vector-ref row 3) (vector-ref row 4))
+        (if (sql-null? (vector-ref row 5))
+            (send end-date-field set-value "")
+            (send end-date-field set-date-value (vector-ref row 5)))))
 
     (define (setup-for-new-service-log)
       ;; NOTE: we leave the tracking type choice untouched for now
@@ -278,27 +283,30 @@ from EQUIPMENT_SERVICE_LOG where id = ?" svid)))
         (let ((eqid (get-selected-eqid))
               (name (string-trim (send name-text-field get-value)))
               (start-date (send start-date-field get-converted-value))
+              (end-date (let ((v (send end-date-field get-converted-value)))
+                          (if (eq? v 'empty) sql-null v)))
               (target-type (get-target-type))
               (target-value (get-target-value)))
           (if svid
               (begin
                 (query-exec db "
 update EQUIPMENT_SERVICE_LOG
-set equipment_id = ?, name = ?, start_date = ?, service_type = ?, target = ?
-where id = ?" eqid name start-date target-type target-value svid)
+set equipment_id = ?, name = ?, start_date = ?, service_type = ?, target = ?, end_date = ?
+where id = ?" eqid name start-date target-type target-value end-date svid)
                 svid)
               (begin
                 (query-exec db "
 insert into EQUIPMENT_SERVICE_LOG(
-  equipment_id, name, start_date, service_type, target)
-values(?, ?, ?, ?, ?)" eqid name start-date target-type target-value)
+  equipment_id, name, start_date, service_type, target, end_date)
+values(?, ?, ?, ?, ?)" eqid name start-date target-type target-value end-date)
                 (query-value db "select max(id) from EQUIPMENT_SERVICE_LOG"))))))
 
     (define/override (has-valid-data?)
       (let ((name (string-trim (send name-text-field get-value)))
             (start-date (send start-date-field get-converted-value))
+            (end-date (send end-date-field get-converted-value))
             (target-value (get-target-value)))
-        (and (not (equal? name "")) start-date target-value)))
+        (and (not (equal? name "")) start-date target-value end-date)))
 
     (define/public (begin-edit parent database eqid svid [duplicate? #f])
       (setup-equipment-choice database eqid)
