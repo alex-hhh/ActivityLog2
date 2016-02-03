@@ -534,7 +534,7 @@
                "Stride (m)" "Stride (ft)"))
          (define/override (should-filter?) #t)
          (define/override (should-force-zero-start?) #t)
-         (define/override (get-histogram-bucket-slot) 0.1)
+         (define/override (get-histogram-bucket-slot) 0.01)
          (define/override (get-line-color) *yellow*))))
 (provide axis-stride)
 
@@ -555,6 +555,7 @@
          (define/override (should-filter?) #t)
          (define/override (should-force-zero-start?) #t)
          (define/override (get-line-color) *yellow*)
+         (define/override (get-histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t))))
 (provide axis-vertical-oscillation)
 
@@ -577,6 +578,7 @@
          (define/override (should-filter?) #t)
          (define/override (should-force-zero-start?) #t)
          (define/override (get-line-color) *yellow*)
+         (define/override (get-histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t))))
 (provide axis-stance-time-percent)
 
