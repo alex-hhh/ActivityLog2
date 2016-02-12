@@ -298,7 +298,7 @@ where id = ?" eqid name start-date target-type target-value end-date svid)
                 (query-exec db "
 insert into EQUIPMENT_SERVICE_LOG(
   equipment_id, name, start_date, service_type, target, end_date)
-values(?, ?, ?, ?, ?)" eqid name start-date target-type target-value end-date)
+values(?, ?, ?, ?, ?, ?)" eqid name start-date target-type target-value end-date)
                 (query-value db "select max(id) from EQUIPMENT_SERVICE_LOG"))))))
 
     (define/override (has-valid-data?)
