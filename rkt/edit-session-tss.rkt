@@ -159,6 +159,20 @@
                  (set! tss (+ tss (zone->tss (val->zone hr zones) duration))))))))))
     tss))
 
+(define (get-athlete-ftp db)
+  (let ((v (query-maybe-value db "select ftp from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-ftp db ftp)
+  (query-exec db "update ATHLETE set ftp = ?" (or ftp sql-null)))
+
+(define (get-athlete-swim-tpace db)
+  (let ((v (query-maybe-value db "select swim_tpace from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-swim-tpace db swim-tpace)
+  (query-exec db "update ATHLETE set swim_tpace = ?" (or swim-tpace sql-null)))
+
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
     (init)
@@ -383,10 +397,10 @@
       (send rpe-scale set-selection
             (let ((rpe (effort-rpe effort)))
               (or rpe 0)))
-      (let ((ftp (al-get-pref 'activity-log:athlete-ftp (lambda () #f))))
+      (let ((ftp (get-athlete-ftp db)))
         (when ftp
           (send threshold-power set-value (n->string ftp))))
-      (let ((tpace (al-get-pref 'activity-log:athlete-swim-tpace (lambda () #f))))
+      (let ((tpace (get-athlete-swim-tpace db)))
         (when tpace
           (send swim-tpace set-value (swim-pace->string tpace))))
       
@@ -420,11 +434,11 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
           ((swim-tpace)
            (let ((tpace (send swim-tpace get-converted-value)))
              (when (number? tpace)
-               (al-put-pref 'activity-log:athlete-swim-tpace tpace))))
+               (put-athlete-swim-tpace db tpace))))
           ((normalized-power)
            (let ((ftp (send threshold-power get-converted-value)))
              (when ftp
-               (al-put-pref 'activity-log:athlete-ftp ftp)))))))
+               (put-athlete-ftp db ftp)))))))
     
     (define/override (has-valid-data?)
       (number? computed-tss))
@@ -456,11 +470,11 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
   (let ((duration (effort-duration  effort)))
     (if duration
         (or (let ((np (effort-np effort))
-                  (ftp (al-get-pref 'activity-log:athlete-ftp (lambda () #f))))
+                  (ftp (get-athlete-ftp db)))
               (and np ftp (np->tss ftp np duration)))
             (let ((sport (sql-column-ref effort 0 #f))
                   (dist (effort-distance effort))
-                  (tpace (al-get-pref 'activity-log:athlete-swim-tpace (lambda () #f))))
+                  (tpace (get-athlete-swim-tpace db)))
               (and sport (eq? sport 5) dist tpace
                    ;; For swim sessions, we use the normalized speed (total
                    ;; distance/total time), which includes pauses.  The

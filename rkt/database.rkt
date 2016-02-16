@@ -169,7 +169,7 @@
              (progress-callback "Executing SQL statement..." (+ n 1) num-statements))))))))
 
 (define-runtime-path *schema-file* "../sql/db-schema.sql")
-(define schema-version 12)
+(define schema-version 13)
 (define (db-get-schema-version) schema-version)
 
 (struct db-exn-bad-db-version (file expected actual) #:transparent)

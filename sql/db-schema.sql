@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(12);
+insert into SCHEMA_VERSION(version) values(13);
 
 
 --........................................................ Enumerations ....
@@ -614,6 +614,30 @@ create table SEASON (
   start_date integer not null,
   end_date integer not null,
   check (start_date < end_date));
+
+
+--............................................................. Athlete ....
+
+create table ATHLETE (
+  -- trick to ensure there is only one entry in this table, every insert will
+  -- need to *explicitely* specify an ID of 0.
+  id integer primary key check (id = 0),
+  name text not null,
+  gender integer check (gender >= 0 and gender <= 1), -- 0 female, 1 male
+  dob text not null,                                  -- YYYY-MM-DD format
+  height integer check (height > 0),                  -- meters
+
+  -- NOTE: the parameters below are changing over time, but we don't record
+  -- that.  We only record the 'current' value.
+
+  ftp integer,                          -- Functional Threshol Power (watts)
+  swim_tpace integer                    -- Swim Threshold Pace (meters / sec)
+  );
+
+-- Insert the only row in the ATHLETE table now.  It will only need to be
+-- udpated from now on.
+insert into ATHLETE (id, name, gender, dob, height)
+values (0, 'Athlete', 1, '2000-01-01', 1.80);
 
 
 --......................................................... Last import ....
