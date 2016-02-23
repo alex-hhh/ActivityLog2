@@ -19,6 +19,8 @@
          "activity-edit.rkt"
          "al-log.rkt"
          "al-prefs.rkt"
+         "dbutil.rkt"
+         "dbapp.rkt"
          "database.rkt"
          "dbglog.rkt"
          "edit-labels.rkt"
@@ -477,14 +479,14 @@
     (with-handlers
       (((lambda (e) #t)
         (lambda (e)
-          (let ((msg (cond ((db-exn-bad-db-version? e)
-                            (db-exn-bad-db-version-message e))
+          (let ((msg (cond ((db-exn-bad-version? e)
+                            (db-exn-bad-version-message e))
                            (#t
                             (format "~a : ~a" database-path e)))))
             (dbglog (format "interactive-open-database: ~a" msg))
             (message-box "Database open error" msg dialog '(ok stop))
             (queue-callback (lambda () (send dialog show #f)))))))
-      (let ((db (db-open-activity-log database-path cb)))
+      (let ((db (open-activity-log database-path cb)))
         (queue-callback
          (lambda ()
            (set! database db)
@@ -533,11 +535,11 @@
     (super-new)
 
     (define database (interactive-open-database database-path))
-    (unless database (raise (format "failed to open database at ~a" database-path)))
-    (init-sport-charms database)        ; needs to be done early on
+    (unless database
+      (raise (format "failed to open database at ~a" database-path)))
+    (current-database database)         ; set this as current
 
     ;;; Construct the toplevel frame and initial panels
-
     (define tl-frame
       (let-values (((dir file _1) (split-path database-path)))
         (let ((dims (al-get-pref 'activity-log:frame-dimensions (lambda () (cons 1200 750)))))
@@ -667,14 +669,14 @@
 
       ;; Save the size of the frame, so we can re-open it with the same
       ;; dimensions
-            (unless (or (send tl-frame is-maximized?) (send tl-frame is-fullscreened?))
+      (unless (or (send tl-frame is-maximized?) (send tl-frame is-fullscreened?))
         (let-values (([w h] (send tl-frame get-size)))
           (al-put-pref 'activity-log:frame-dimensions (cons w h))))
       (al-put-pref 'activity-log:frame-maximized (send tl-frame is-maximized?))
 
-      ;; Disconnect the database
-      (when database (disconnect database))
-      (set! database #f))
+      (when database
+        (disconnect database)
+        (set! database #f)))
 
     (define (get-section-by-tag tag)
       (findf (lambda (s) (eq? tag (tl-section-tag s))) the-sections))

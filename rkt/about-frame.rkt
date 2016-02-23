@@ -17,7 +17,7 @@
 (require browser/external
          images/icons/stickman
          images/icons/style
-         "database.rkt"
+         "dbapp.rkt"
          "snip-canvas.rkt")
 
 (define hyperlink-style
@@ -96,7 +96,7 @@
   (insert-newline editor)
   (insert-text editor (format "Racket version: ~a" (version)))
   (insert-newline editor)
-  (insert-text editor (format "Requires database version: ~a" (db-get-schema-version)))
+  (insert-text editor (format "Requires database version: ~a" (schema-version)))
   (insert-newline editor)
   (insert-newline editor)
   (insert-heading editor "Licence")

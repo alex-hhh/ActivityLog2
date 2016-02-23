@@ -16,7 +16,7 @@
 
 (require db
          "al-widgets.rkt"
-         "database.rkt"
+         "dbutil.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "utilities.rkt"

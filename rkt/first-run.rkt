@@ -18,7 +18,7 @@
          racket/draw
          racket/runtime-path
          "al-prefs.rkt"
-         "database.rkt")
+         "dbapp.rkt")
 
 (provide first-run-dialog%)
 
@@ -100,7 +100,7 @@
                   (loop (+ try 1))
                   (set! db-file file)))))
         (thread (lambda ()
-                  (let ((db (db-open-activity-log db-file progress-callback)))
+                  (let ((db (open-activity-log db-file progress-callback)))
                     (queue-callback
                      (lambda ()
                        (set! dialog-result db-file)

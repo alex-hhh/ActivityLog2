@@ -19,7 +19,8 @@
          racket/contract
          racket/draw
          racket/runtime-path
-         "database.rkt")
+         "dbapp.rkt"
+         "dbutil.rkt")
 
 (define (color? c) (is-a? c color%))
 (define (bitmap? b) (is-a? b bitmap%))
@@ -30,7 +31,6 @@
 (define sport-zones? (or/c #f (listof number?)))
 
 (provide/contract
- [init-sport-charms (-> connection? any/c)]
  [get-sport-color (-> sport-id? sport-id? color?)]
  [get-sport-name (-> sport-id? sport-id? string?)]
  [get-sport-letter (-> sport-id? sport-id? string?)]
@@ -68,8 +68,6 @@
 (define-runtime-path stopwatch-icon-file "../img/stopwatch-64.png")
 (define-runtime-path yoga-icon-file "../img/yoga-64.png")
 (define-runtime-path note-icon-file "../img/note-64.png")
-
-
 
 (define *large-bitmaps*
   (hash
@@ -127,11 +125,8 @@
 (define *sub-sport-info* #f)
 (define *swim-stroke-names* #f)
 (define *sport-names* '())
-(define *db* #f)
 
 (define (init-sport-charms db)
-
-  (set! *db* db)
 
   (let ((h (make-hash)))
     (for (((id name color icon) 
@@ -163,6 +158,8 @@
                                      (sport-info-id sport) (sport-info-id sub-sport))
                                     sport-names)))))
       (set! *sport-names* (reverse sport-names)))))
+
+(add-db-open-callback init-sport-charms)
 
 (define (get-sport-info sport sub-sport)
   (if (or (not sub-sport) (= sub-sport 0))
@@ -234,7 +231,7 @@
 ;; 17) we add the "Swimming" activity (5, #f)
 
 (define (get-sport-names-in-use)
-  (let ((in-use (query-rows *db* "select distinct S.sport_id, S.sub_sport_id from A_SESSION S")))
+  (let ((in-use (query-rows (current-database) "select distinct S.sport_id, S.sub_sport_id from A_SESSION S")))
     (filter (lambda (s)
               (let ((sport (vector-ref s 1))
                     (sub-sport (vector-ref s 2)))
@@ -271,26 +268,26 @@ select zone_id from V_SPORT_ZONE
   
   (cond ((and sport sub-sport)
          (or (query-maybe-value 
-              *db* q1 sport sub-sport zone-metric timestamp)
+              (current-database) q1 sport sub-sport zone-metric timestamp)
              (query-maybe-value
-              *db* q2 sport zone-metric timestamp)))
+              (current-database) q2 sport zone-metric timestamp)))
         (sport
          (query-maybe-value 
-          *db* q2 sport zone-metric timestamp))
+          (current-database) q2 sport zone-metric timestamp))
         (#t
          #f)))
 
 (define (get-zone-definition-id-for-session session zone-metric)
   (define q1
     "select zone_id from V_SPORT_ZONE_FOR_SESSION where session_id = ? and zone_metric_id = ?")
-  (query-maybe-value *db* q1 session zone-metric))
+  (query-maybe-value (current-database) q1 session zone-metric))
   
 (define (get-sport-zones sport sub-sport zone-metric [timestamp #f])
-  (if *db*
+  (if (current-database)
       (let ((zid (get-zone-definition-id sport sub-sport zone-metric timestamp)))
         (if zid
             (query-list
-             *db*
+             (current-database)
              "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
              zid)
             #f))
@@ -298,12 +295,12 @@ select zone_id from V_SPORT_ZONE
 
 
 (define (get-session-sport-zones session-id zone-metric)
-  (if *db*
+  (if (current-database)
       (begin
         (let ((zid (get-zone-definition-id-for-session session-id zone-metric)))
           (if zid
               (query-list
-               *db*
+               (current-database)
                "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
                zid)
               #f)))
@@ -311,17 +308,17 @@ select zone_id from V_SPORT_ZONE
 
 (define (put-sport-zones sport sub-sport zone-metric zones)
   (call-with-transaction
-   *db*
+   (current-database)
    (lambda ()
      (when (> (length zones) 3)
-       (query-exec *db* 
+       (query-exec (current-database) 
                    "insert into SPORT_ZONE(sport_id, sub_sport_id, zone_metric_id, valid_from)
                     values (?, ?, ?, ?)"
                    sport (if sub-sport sub-sport sql-null) zone-metric (current-seconds))
-       (let ((zid (db-get-last-pk "SPORT_ZONE" *db*)))
+       (let ((zid (db-get-last-pk "SPORT_ZONE" (current-database))))
          (for ((zone (in-list zones))
                (znum (in-range (length zones))))
-           (query-exec *db*
+           (query-exec (current-database)
                        "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
                       values(?, ?, ?)" zid znum zone)))))))
                      

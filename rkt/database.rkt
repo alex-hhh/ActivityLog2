@@ -20,7 +20,8 @@
          racket/runtime-path
          "fit-defs.rkt"
          "fit-file.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "dbutil.rkt")
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)
@@ -31,15 +32,9 @@
 (provide db-delete-session)
 (provide db-delete-activity)
 (provide db-delete-activity-hard)
-(provide db-open-activity-log)
-(provide maybe-create-schema)
 (provide db-export-raw-data)
-(provide db-get-last-pk)
 (provide db-get-activity-id)
 (provide db-get-seasons)
-(provide db-get-schema-version)
-(provide (struct-out db-exn-bad-db-version)
-         db-exn-bad-db-version-message)
 
 
 ;................................................... database utilities ....
@@ -51,13 +46,6 @@
               (#t sql-null)))
       sql-null))
 
-(define db-get-last-pk
-  (let ((stmt (virtual-statement
-               (lambda (dbsys)
-                 "select seq from SQLITE_SEQUENCE where name = ?"))))
-    (lambda (table-name db)
-      (query-value db stmt table-name))))
-
 (define (db-row->alist fields row)
   (let ((result '())
         (index 0))
@@ -68,126 +56,6 @@
                           (set! result (cons (cons field data) result)))))
               fields)
     (reverse result)))
-
-
-;.................................................. create-new-database ....
-
-;; Read the next SQL statement from PORT, an input port.  The statement is
-;; assumed to be terminate by the #\; character.
-(define (read-next-statement port)
-  (let ((out (open-output-string))
-        (in-string? #f))
-    
-    ;; Return the next character in the input stream PORT, collapsing all
-    ;; whitespace to a single space and skipping all comments.  Comments start
-    ;; with "--" and extend until the end of the line.  Strings are being
-    ;; tracked for.
-    (define (get-next-char)
-      (let ((ch (read-char port)))
-        
-        (when (eqv? ch #\')
-          (set! in-string? (not in-string?)))
-        
-        (cond ((eqv? ch eof) ch)
-              
-              ((and (char-whitespace? ch)
-                    (let ((ch-next (peek-char port)))
-                      (or (eqv? ch-next eof)
-                          (char-whitespace? ch-next))))
-               ;; Colapse all whitespace into one single space
-               (get-next-char))
-              
-              ((and (not in-string?)
-                    (eqv? ch #\-)
-                    (eqv? (peek-char port) #\-))
-               ;; This is a comment, skip it until end of line
-               (for ((v (in-producer (lambda () (read-char port)) #\newline)))
-                 (begin #f))
-               #\ )
-              
-              ((char-whitespace? ch) #\ ) ; all whitespace converted to space
-              (#t ch))))
-    
-    ;; read from the input stream using GET-NEXT-CHAR until a semi-colon (#\;)
-    ;; is seen.  Intermediate read chars are written to OUT.  The full
-    ;; statement is returned, or #f on EOF.
-    (define (loop)
-      (let ((ch (get-next-char)))
-        (cond ((eqv? ch eof) ; incomplete statement
-               #f)
-              ((and (eqv? ch #\;) (not in-string?))
-               (get-output-string out))
-              (#t
-               (write-char ch out)
-               (loop)))))
-       
-    (loop)))
-
-(define (collect-statements-from-file file-name)
-  (call-with-input-file file-name
-    (lambda (input)
-      (let loop ((statements '()))
-        (if (eqv? (peek-char input) eof)
-            (reverse statements)
-            (let ((stmt (read-next-statement input)))
-              (loop (if stmt (cons stmt statements) statements))))))))
-
-
-;; Read SQL statements from FILE-NAME and run them against DB.  Statements are
-;; executed for side effects (e.g CREATE TABLE)
-(define (execute-statements-from-file file-name db)
-  (call-with-input-file file-name
-    (lambda (input)
-      (define (loop)
-        (unless (eqv? (peek-char input) eof)
-          (let ((stmt (read-next-statement input)))
-            (when stmt
-              (query-exec db stmt)))
-          (loop)))
-      (loop))))
-
-(define (maybe-create-schema database-file schema-file db [progress-callback #f])
-  ;; A database that has no tables (no entries in SQLITE_MASTER) is considered
-  ;; to be newly created.  In that case, we run the schema-file script on it
-  ;; to create the initial database schema.
-  (let ((new-database? (= 0 (query-value db "select count(*) from SQLITE_MASTER"))))
-    (when new-database?
-      (with-handlers
-       (((lambda (e) #t)
-         (lambda (e)
-           (disconnect db)
-           ;; database-file can be 'memory for in memory databases
-           (when (path-string? database-file)
-             (delete-file database-file))
-           (raise e))))
-       (let* ((statements (collect-statements-from-file schema-file))
-              (num-statements (length statements)))
-         (for ([stmt statements]
-               [n num-statements])
-           (query-exec db stmt)
-           (when progress-callback
-             (progress-callback "Executing SQL statement..." (+ n 1) num-statements))))))))
-
-(define-runtime-path *schema-file* "../sql/db-schema.sql")
-(define schema-version 13)
-(define (db-get-schema-version) schema-version)
-
-(struct db-exn-bad-db-version (file expected actual) #:transparent)
-(define (db-exn-bad-db-version-message e)
-  (format
-   "bad schema version: expected ~a, actual ~a"
-   (db-exn-bad-db-version-expected e)
-   (db-exn-bad-db-version-actual e)))
-
-(define (db-open-activity-log database-file [progress-callback #f])
-  (let ((db (sqlite3-connect #:database database-file #:mode 'create)))
-    (maybe-create-schema database-file *schema-file* db progress-callback)
-    (query-exec db "pragma foreign_keys = on")
-    (let ((sv (query-value db "select version from SCHEMA_VERSION")))
-      (unless (and (number? sv) (= sv schema-version))
-        (disconnect db)
-        (raise (db-exn-bad-db-version database-file schema-version sv)))
-    db)))
 
 
 ;................................................... db-insert-activity ....

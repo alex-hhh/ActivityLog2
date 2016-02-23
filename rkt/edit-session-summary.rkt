@@ -17,7 +17,7 @@
 (require db
          "al-prefs.rkt"
          "al-widgets.rkt"
-         "database.rkt"
+         "dbutil.rkt"
          "edit-session-tss.rkt"
          "sport-charms.rkt"
          "utilities.rkt"

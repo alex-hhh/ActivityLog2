@@ -25,7 +25,7 @@
          (rename-in srfi/48 (format format-48))
          "al-log.rkt"
          "al-prefs.rkt"
-         "database.rkt"
+         "dbutil.rkt"
          "map-util.rkt")
 
 (provide (struct-out wstation)
@@ -259,10 +259,10 @@
 (define-runtime-path wucache-schema-file "../sql/wucache-schema.sql")
 
 (define (open-wucache-database database-file)
-  (let ((db (sqlite3-connect #:database database-file #:mode 'create)))
-    (maybe-create-schema database-file wucache-schema-file db)
-    (query-exec db "pragma foreign_keys = on")
-    db))
+  (db-open
+   database-file
+   #:schema-file wucache-schema-file
+   #:expected-version 1))
 
 (define wstation-find-sql
   (virtual-statement
