@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; about-frame.rkt -- show the about dialog for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -17,6 +17,8 @@
 (require browser/external
          images/icons/stickman
          images/icons/style
+         racket/class
+         racket/gui/base
          "dbapp.rkt"
          "snip-canvas.rkt")
 

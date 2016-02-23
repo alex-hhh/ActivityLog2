@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; widgets.rkt -- some extra GUI widgets built on top of racket/gui
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -17,11 +17,15 @@
 (require embedded-gui
          file/md5
          pict
+         racket/class
          racket/date
+         racket/gui/base
          (rename-in srfi/48 (format format-48))
+         racket/list
+         racket/string
          "al-log.rkt"
-         "dbglog.rkt"
          "al-prefs.rkt"
+         "dbglog.rkt"
          "fmt-util.rkt")
 
 (provide validating-input-field%)
@@ -1159,13 +1163,13 @@
 (define (snip-x snip)
   (let ((pasteboard (snip-parent snip))
         (left (box 0)))
-    (send pasteboard get-snip-location snip left (box 0) false)
+    (send pasteboard get-snip-location snip left (box 0) #f)
     (unbox left)))
 
 (define (snip-y snip)
   (let ((pasteboard (snip-parent snip))
         (right (box 0)))
-    (send pasteboard get-snip-location snip (box 0) right false)
+    (send pasteboard get-snip-location snip (box 0) right #f)
     (unbox right)))
 
 ;; Pasteboard for holding and arraging tags

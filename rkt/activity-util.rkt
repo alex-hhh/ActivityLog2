@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,7 @@
 ;; more details.
 
 (require racket/date
+         racket/math
          "utilities.rkt")
 
 ;; NOTE: this file is littered with provide calls throughout it.  They should
@@ -30,6 +31,8 @@
 (provide map-session-lengths)
 (provide compute-summary-data)
 (provide ->start-time ->seconds make-manual-activity)
+
+(define identity (lambda (x) x))
 
 
 ;;................................................ map over trackpoinnts ....

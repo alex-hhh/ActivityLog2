@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -22,7 +22,13 @@
 ;; The structure of a FIT file is described in the FIT SDK which you can
 ;; download form https://www.thisisant.com/resources/fit/
 
-(require "activity-util.rkt"
+(require racket/class
+         racket/file
+         racket/list
+         racket/match
+         racket/math
+         racket/port
+         "activity-util.rkt"
          "fit-defs.rkt"
          "utilities.rkt")
 

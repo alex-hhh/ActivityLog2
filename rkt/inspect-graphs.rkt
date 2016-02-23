@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,8 +15,11 @@
 ;; more details.
 
 (require plot
-         (rename-in srfi/48 (format format-48))
          racket/async-channel
+         racket/class
+         racket/gui/base
+         (rename-in srfi/48 (format format-48))
+         racket/list
          "activity-util.rkt"
          "al-prefs.rkt"
          "al-widgets.rkt"
@@ -29,6 +32,8 @@
 
 (provide graph-panel%)
 (provide elevation-graph%)
+
+(define identity (lambda (x) x))
 
 (define *header-font*
   (send the-font-list find-or-create-font 15 'default 'normal 'normal))

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -14,18 +14,18 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require pict
-         plot
+(require plot
+         racket/class
+         racket/gui/base
+         racket/list
+         racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
-         "al-widgets.rkt"
-         "fmt-util.rkt"
          "plot-axis-def.rkt"
          "plot-builder.rkt"
+         "plot-hack.rkt"
          "snip-canvas.rkt"
-         "utilities.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "widgets.rkt")
 
 (provide histogram-plot-panel%)
 

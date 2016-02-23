@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "al-prefs.rkt"
          "al-widgets.rkt"
          "dbutil.rkt"

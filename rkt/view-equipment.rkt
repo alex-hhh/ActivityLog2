@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-equipment.rkt -- equipment and service log management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,7 +15,10 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          (rename-in srfi/48 (format format-48))
+         racket/string
          "al-log.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"

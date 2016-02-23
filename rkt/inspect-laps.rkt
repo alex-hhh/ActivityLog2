@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; inspect-laps.rkt -- lap summary view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -14,7 +14,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "activity-util.rkt"
+(require racket/class
+         racket/gui/base
+         "activity-util.rkt"
          "al-widgets.rkt")
 
 (provide laps-panel%)

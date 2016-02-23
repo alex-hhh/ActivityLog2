@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-athlete-metrics.rkt -- athelte metrics panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "al-widgets.rkt"
          "database.rkt"
          "edit-athlete-metrics.rkt"

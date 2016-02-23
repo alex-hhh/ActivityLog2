@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-seasions.rkt -- manage the seasons in the database (add, edit,
 ;; delete).  Seasons are defined date ranges which can be used to filter
 ;; activities and reports.
@@ -17,7 +17,9 @@
 ;; more details.
 
 (require db
-         "database.rkt"
+         racket/class
+         racket/gui/base
+         racket/list
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"

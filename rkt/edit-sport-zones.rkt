@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-sport-zones.rkt -- the sport zone editor dialog box
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,7 +15,10 @@
 ;; more details.
 
 (require db
-         "database.rkt"
+         racket/class
+         racket/gui/base
+         racket/list
+         racket/string
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"

@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; plot-builder.rkt -- produce plot render functions for track data in
 ;; sessions
 ;;
@@ -24,10 +24,15 @@
 
 (require data/queue
          plot
+         racket/class
+         racket/list
+         racket/match
+         racket/math
          racket/stream
+         racket/vector
+         "activity-util.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"
-         "activity-util.rkt"
          "plot-axis-def.rkt"
          "sport-charms.rkt"
          "utilities.rkt")
@@ -51,6 +56,8 @@
 
 (define (get-axis-plot-color axis-def)
   (or (send axis-def get-line-color) default-plot-color))
+
+(define identity (lambda (x) x))
 
 
 ;........................................... Extract data from sessions ....

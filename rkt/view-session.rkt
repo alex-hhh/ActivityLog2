@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,15 +15,14 @@
 ;; more details.
 
 (require db
-         pict
-         plot
+         racket/class
          racket/date
+         racket/gui/base
          (rename-in srfi/48 (format format-48))
          "activity-edit.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
          "database.rkt"
-         "fit-defs.rkt"
          "inspect-best-avg.rkt"
          "inspect-graphs.rkt"
          "inspect-histogram.rkt"

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-preferences.rkt -- edit global preferences
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -14,12 +14,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "al-log.rkt"
+(require racket/class
+         racket/gui/base
+         "al-log.rkt"
          "al-prefs.rkt"
-         "fmt-util.rkt"                 ; for al-pref-measurement-system
+         "fmt-util.rkt"
          "icon-resources.rkt"
-         "map-widget.rkt"               ; for al-pref-allow-tile-download
-         "weather.rkt" ; for al-pref-allow-weather-download, al-pref-wu-api-key
+         "map-widget.rkt"
+         "weather.rkt"
          "widgets.rkt")
 
 (provide get-preferences-dialog)

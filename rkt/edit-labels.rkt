@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-labels.rkt -- edit the session labels (add, edit, delete)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "database.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"

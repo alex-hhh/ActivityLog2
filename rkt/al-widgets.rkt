@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,9 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
+         racket/math
          "activity-util.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
@@ -29,6 +32,8 @@
 (provide mini-lap-view%)
 (provide swim-lengths-view%)
 (provide get-sql-export-dialog)
+
+(define identity (lambda (x) x))
 
 
 ;;....................................................... sport-selector ....

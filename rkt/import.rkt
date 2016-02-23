@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,9 +15,9 @@
 ;; more details.
 
 (require db
-         "al-prefs.rkt"
-         "dbglog.rkt"
+         racket/class
          "database.rkt"
+         "dbglog.rkt"
          "edit-session-tss.rkt"
          "elevation-correction.rkt"
          "time-in-zone.rkt"

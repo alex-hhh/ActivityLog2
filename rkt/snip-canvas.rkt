@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 
 ;; The snip-canvas% class from unstable gui, with the folowing modifications
 ;;
@@ -6,7 +6,8 @@
 ;; displayed in the center
 ;; -- the snip can be replaced with another one at any time.
 
-(require racket/class)
+(require racket/class
+         racket/gui/base)
 
 (provide snip-canvas%)
 (provide read-only-text%)

@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -16,8 +16,10 @@
 
 (require db
          pict
+         racket/class
          racket/contract
          racket/draw
+         racket/list
          racket/runtime-path
          "dbapp.rkt"
          "dbutil.rkt")

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-last-import.rkt -- panel showing activies that were last imported
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,9 +15,11 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "activity-edit.rkt"
-         "fmt-util.rkt"
          "dbglog.rkt"
+         "fmt-util.rkt"
          "icon-resources.rkt"
          "import.rkt"
          "sport-charms.rkt"

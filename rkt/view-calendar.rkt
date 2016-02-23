@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -16,9 +16,13 @@
 
 (require db
          pict
+         racket/class
          racket/date
+         racket/gui/base
+         racket/list
+         racket/math
+         racket/string
          "activity-edit.rkt"
-         "al-widgets.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"

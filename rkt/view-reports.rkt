@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-reports.rkt -- provide reporting on activities in the database.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -21,8 +21,11 @@
 ;; widget).
 
 (require db
-         racket/date
          (rename-in srfi/48 (format format-48))
+         racket/class
+         racket/date
+         racket/gui/base
+         racket/list
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"

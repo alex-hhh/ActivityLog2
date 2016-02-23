@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; first-run.rkt -- dialog displayed when the applicaiton is first run
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,7 +15,10 @@
 ;; more details.
 
 (require db
+         racket/class
          racket/draw
+         racket/gui/base
+         racket/math
          racket/runtime-path
          "al-prefs.rkt"
          "dbapp.rkt")

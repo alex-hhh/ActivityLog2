@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-session-tss.rkt -- edit (update) the training stress score for a
 ;; session
 ;;
@@ -16,6 +16,9 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
+         racket/string
          "activity-util.rkt"
          "al-prefs.rkt"
          "database.rkt"

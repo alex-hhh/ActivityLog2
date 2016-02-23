@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; heatmap.rkt -- quick hack to export a heat map from a list of activities.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,7 +15,8 @@
 ;; more details.
 
 (require browser/external
-         db)
+         db
+         racket/gui/base)
 
 (provide interactive-generate-heatmap)
 
@@ -102,6 +103,7 @@ google.maps.event.addDomListener(window,'load',initialize);
 
 (define (m->scale m)
   (define earth-radius 6371000.0)
+  (define pi 3.1415926)
   (let ((earth-circumference (* 2 pi earth-radius)))
     (/ (/ earth-circumference 360.0) m)))
 

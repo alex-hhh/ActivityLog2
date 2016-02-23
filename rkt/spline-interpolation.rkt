@@ -1,4 +1,4 @@
-#lang typed/racket
+#lang typed/racket/base
 ;; spline-interpolation.rkt -- provides spline interpolation for plots
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -20,7 +20,8 @@
 ;; The implementation is based on
 ;; https://en.wikipedia.org/wiki/Spline_interpolation
 
-(require math/matrix)
+(require math/matrix
+         racket/match)
 (provide mk-spline-fn)
 
 (define-type Data-Point (Vector Real Real))

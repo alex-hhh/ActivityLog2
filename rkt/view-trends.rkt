@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -16,22 +16,29 @@
 
 (require db
          plot
+         racket/class
          racket/date
+         racket/gui/base
+         racket/list
+         racket/match
+         racket/math
          racket/stream
          "al-prefs.rkt"
          "al-widgets.rkt"
          "database.rkt"
          "icon-resources.rkt"
          "plot-builder.rkt"
+         "plot-hack.rkt"
          "snip-canvas.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "widgets.rkt")
 
 (provide view-trends%)
 
 
 ;;..................................................... helper functions ....
+
+(define identity (lambda (x) x))
 
 ;; Convert a date received from SQLite (e.g 2014-12-01) to a unix timestamp
 (define (str->date s)

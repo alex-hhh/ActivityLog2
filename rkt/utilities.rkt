@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,8 +15,11 @@
 ;; more details.
 
 (require db
-         racket/date
+         racket/class
+         racket/gui/base
          (rename-in srfi/48 (format format-48))
+         racket/list
+         racket/string
          "activity-edit.rkt"
          "al-prefs.rkt"
          "al-widgets.rkt"
@@ -25,11 +28,12 @@
          "heatmap.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "weather.rkt"
          "widgets.rkt")
 
 (provide view-activities%)
+
+(define identity (lambda (x) x))
 
 (define (make-col-name->col-id-hash db-headers)
   (let ((result (make-hash)))

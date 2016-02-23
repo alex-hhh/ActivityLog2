@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -17,11 +17,14 @@
 (require db
          file/gunzip
          file/gzip
+         racket/class
+         racket/file
+         racket/list
          racket/runtime-path
+         "dbutil.rkt"
          "fit-defs.rkt"
          "fit-file.rkt"
-         "utilities.rkt"
-         "dbutil.rkt")
+         "utilities.rkt")
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-athlete-metrics.rkt -- edit or update bodyweight, sleep quality, etc
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "al-widgets.rkt"
          "dbutil.rkt"
          "fmt-util.rkt"

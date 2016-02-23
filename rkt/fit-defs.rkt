@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; fit-defs.rkt -- field definitions for enums in the FIT file format, this
 ;; file is based on data from Profile.xls from the FIT SDK.  You can download
 ;; the SDK from https://www.thisisant.com/resources/fit/

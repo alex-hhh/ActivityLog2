@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; al-log.rkt -- logging facilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -14,7 +14,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require pict)
+(require pict
+         racket/class
+         racket/gui/base
+         racket/string)
 
 (provide log-al-fatal
          log-al-error

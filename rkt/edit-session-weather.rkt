@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "fmt-util.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
@@ -24,6 +26,8 @@
          "widgets.rkt")
 
 (provide get-weather-editor)
+
+(define identity (lambda (x) x))
 
 
 ;;........................................................ weather-edit% ....

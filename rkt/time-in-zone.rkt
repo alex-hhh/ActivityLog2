@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; time-in-zone.rkt -- time spent in each sport zone for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,8 +15,10 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/match
+         racket/math
          "database.rkt"
-         "fmt-util.rkt"
          "dbglog.rkt"
          "icon-resources.rkt"
          "plot-axis-def.rkt"

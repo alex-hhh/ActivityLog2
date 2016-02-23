@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; inspect-best-avg.rkt -- best-avg plot view for a session.  This is not
 ;; supported for swimming activites.
 ;;
@@ -15,19 +15,18 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require pict
-         plot
-         racket/draw
+(require plot
+         racket/class
+         racket/gui/base
+         racket/list
+         racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
-         "fmt-util.rkt"
          "plot-axis-def.rkt"
          "plot-builder.rkt"
+         "plot-hack.rkt"
          "snip-canvas.rkt"
-         "spline-interpolation.rkt"
-         "utilities.rkt"
-         "widgets.rkt"
-         "plot-hack.rkt")
+         "spline-interpolation.rkt")
 
 (provide best-avg-plot-panel%)
 

@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
          "database.rkt"
          "edit-session-summary.rkt"
          "edit-session-tss.rkt"

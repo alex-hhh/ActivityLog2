@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -16,7 +16,11 @@
 
 (require db
          pict
+         racket/class
+         racket/gui/base
          (rename-in srfi/48 (format format-48))
+         racket/list
+         racket/math
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
@@ -26,6 +30,8 @@
          "weather.rkt")
 
 (provide inspect-overview-panel%)
+
+(define identity (lambda (x) x))
 
 
 ;;.............................................. badge field definitions ....

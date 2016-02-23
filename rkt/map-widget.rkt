@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; map-widget.rkt -- a map widget which allows displaying a primary and
 ;; secondary GPS track plus open-street map tiles for the map itself.  Map
 ;; tiles retrieved from the net are cached locally in a persistent store.
@@ -20,8 +20,12 @@
          math/base
          net/url
          racket/async-channel
+         racket/class
          racket/draw
          racket/flonum
+         racket/gui/base
+         racket/list
+         racket/port
          "al-log.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"

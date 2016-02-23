@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -15,14 +15,17 @@
 ;; more details.
 
 (require db
+         racket/class
+         racket/gui/base
+         racket/math
          "about-frame.rkt"
          "activity-edit.rkt"
          "al-log.rkt"
          "al-prefs.rkt"
-         "dbutil.rkt"
-         "dbapp.rkt"
          "database.rkt"
+         "dbapp.rkt"
          "dbglog.rkt"
+         "dbutil.rkt"
          "edit-labels.rkt"
          "edit-preferences.rkt"
          "edit-seasons.rkt"
@@ -30,7 +33,6 @@
          "elevation-correction.rkt"
          "icon-resources.rkt"
          "map-widget.rkt"
-         "sport-charms.rkt"
          "time-in-zone.rkt"
          "view-activities.rkt"
          "view-athlete-metrics.rkt"

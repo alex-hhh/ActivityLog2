@@ -1,4 +1,4 @@
-#lang racket/gui
+#lang racket/base
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -27,9 +27,12 @@
 ;; anything usefull for a route that is traversed only once.
 
 (require db
+         racket/class
          racket/flonum
-         "fmt-util.rkt"
+         racket/gui/base
+         racket/math
          "dbglog.rkt"
+         "fmt-util.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
          "widgets.rkt")
