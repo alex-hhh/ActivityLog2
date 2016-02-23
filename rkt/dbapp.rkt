@@ -26,7 +26,7 @@
 (provide/contract
  [schema-version (parameter/c exact-positive-integer?)]
  [current-database (parameter/c (or/c #f connection?))]
- [open-activity-log (->* (path-string?) ((or/c #f progress-callback/c)) connection?)]
+ [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)]
  [add-db-open-callback (-> (-> connection? any/c) any/c)]
  [del-db-open-callback (-> (-> connection? any/c) any/c)])
 

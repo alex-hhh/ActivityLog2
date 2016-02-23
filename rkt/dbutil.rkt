@@ -30,7 +30,7 @@
 
 (provide/contract
  [db-open (->*
-           (path-string?)
+           ((or/c 'memory path-string?))
            (#:schema-file (or/c #f path-string?)
             #:expected-version exact-positive-integer?
             #:progress-callback (or/c #f progress-callback/c))

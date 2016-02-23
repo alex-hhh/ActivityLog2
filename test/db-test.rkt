@@ -1,4 +1,4 @@
-#lang racket                            ; -*- mode: scheme -*-
+#lang racket
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
 ;;
@@ -16,6 +16,7 @@
 (require rackunit)
 (require rackunit/gui)
 (require db)
+(require "../rkt/dbapp.rkt")
 (require "../rkt/database.rkt")
 (require "../rkt/sport-charms.rkt")
 (require "../rkt/fit-file.rkt")
@@ -190,7 +191,7 @@ select count(T.id),
 
    (test-case
     "Cycling dynamics import / export"
-    (let ((db (db-open-activity-log 'memory)))
+    (let ((db (open-activity-log 'memory)))
       (printf "Importing ~a~%" a9)
       (db-import-activity-from-file/check a9 db)
 
@@ -217,12 +218,12 @@ select count(T.id),
     "Create fresh database"
     ;; This should catch any problems with db-schema.sql
     (check-not-exn
-     (lambda () (disconnect (db-open-activity-log 'memory)))))
+     (lambda () (disconnect (open-activity-log 'memory)))))
 
    (test-case
     "Importing first activity"
     (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-      (let ((db (db-open-activity-log 'memory)))
+      (let ((db (open-activity-log 'memory)))
         (printf "About to import ~a~%" file)
         (db-import-activity-from-file/check file db)
         (check = 1 (activity-count db))
@@ -230,17 +231,17 @@ select count(T.id),
 
    (test-case
     "Subsequent imports"
-    (let ((db (db-open-activity-log 'memory)))
+    (let ((db (open-activity-log 'memory)))
       (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-        (printf "About to import ~a~%" file)
+        (printf "About to im port ~a~%" file)
         (db-import-activity-from-file/check file db))
       (check = 8 (activity-count db))
       (disconnect db)))
 
    (test-case
      "Get Sport Zones"
-     (let ((db (db-open-activity-log 'memory)))
-       (init-sport-charms db)
+     (let ((db (open-activity-log 'memory)))
+       (current-database db)
        (for ((sport (in-list (query-list db "select id from E_SPORT"))))
          (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
            ;; No Sport zones are defined
