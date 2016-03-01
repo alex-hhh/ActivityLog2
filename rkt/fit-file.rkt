@@ -43,6 +43,7 @@
 (provide mk-fit-string)
 (provide fit-workout-file%)
 (provide fit-sport-file%)
+(provide fit-settings-file%)
 
 
 
@@ -1242,6 +1243,68 @@
              (high-value . ,(exact-round (* 1000.0 val)))
              (name . ,(mk-fit-string "" 10)))))))
                               
+    (define/override (get-fit-data)
+      (write-settings)
+      (super get-fit-data))
+    
+    ))
+
+
+;;................................................... fit-settings-file% ....
+
+(define fit-settings-file%
+  ;; Create a fit settings file (this atthlete info such as heiht, body
+  ;; weight, etc)
+  (class fit-output-file%
+    (init)
+    (init-field [date-of-birth #f]
+                [gender #f]
+                [weight #f]
+                [height #f]
+                [activity-class #f]
+                [collect-hrv-data? #f])
+    (super-new [file-type 2])           ; settings
+    (inherit put-message-definition put-message)
+
+    (define user-profile-message 3)
+    (define user-profile-message-definition
+      '((gender 1 1 enum)
+        (age 2 1 uint8)
+        (height 3 1 uint8)
+        (weight 4 1 uint16)
+        (activity-class 17 1 enum)
+        (birth-year 24 1 uint8)))
+
+    (define hrm-profile-message 4)
+    (define hrm-profile-message-definition
+      '((log-hrv 2 1 enum)))
+
+    (define (write-settings)
+
+      (define age
+        (and date-of-birth
+             (exact-round (/ (- (current-seconds) date-of-birth) (* 3600 24 365)))))
+
+      (define birth-year
+        (and date-of-birth
+             (let ((date (seconds->date date-of-birth)))
+               (- (date-year date) 1900))))
+      
+      (put-message-definition user-profile-message 0 user-profile-message-definition)
+      (put-message
+       user-profile-message
+       `((gender . ,gender)
+         (age . ,age)
+         (height . ,(if height (exact-round (* height 100)) #f))
+         (weight . ,(if weight (exact-round (* weight 10)) #f))
+         (activity-class . ,(if activity-class (exact-round (* activity-class 10)) #f))
+         (birth-year . ,birth-year)))
+
+      (put-message-definition hrm-profile-message 0 hrm-profile-message-definition)
+      (put-message
+       hrm-profile-message
+       `((log-hrv . ,(if collect-hrv-data? 1 0)))))
+    
     (define/override (get-fit-data)
       (write-settings)
       (super get-fit-data))

@@ -135,7 +135,7 @@
       (new message% 
            [label "No zones are defined"] [parent zinput-panel] [style '(deleted)]))
 
-    (define (on-sport-selected index)
+    (define (on-sport-selected index (zone-metric-index 0))
       (set! sport-index index)
       (let ((d (list-ref sport-zone-data index)))
         (set! sport (second d))
@@ -145,7 +145,7 @@
       (for ((x (in-list zone-data)))
         (send zmetric-choice append (first x)))
       (send zmetric-choice set-selection 0)
-      (on-zone-metric-selected 0))
+      (on-zone-metric-selected zone-metric-index))
 
     (define (on-zone-metric-selected index)
       (let ((d (list-ref zone-data index)))
@@ -254,11 +254,29 @@
       (and (= (length invalid-zinputs) 0)
            (valid-zones? (collect-zones))))
 
-    (define/public (show-dialog parent)
+    (define/public (show-dialog parent (sport #f) (sub-sport #f) (zone-metric #f))
+
+      (define zone-metric-index 0)
+      
+      (when sport
+        (set! sport-index
+              (for/first ([zd sport-zone-data]
+                          [index (in-range 0 100)]
+                          #:when (and (equal? (second zd) sport)
+                                      (equal? (third zd) sub-sport)))
+                index)))
+
+      (when zone-metric
+        (set! zone-metric-index
+              (for/first ([zm (fourth (list-ref sport-zone-data sport-index))]
+                          [index (in-range 0 100)]
+                          #:when (equal? zone-metric (second zm)))
+                index)))
+
       ;; Re-select last sport (will cause zone values to be read from the
       ;; database.
       (send sport-choice set-selection sport-index)
-      (on-sport-selected sport-index)
+      (on-sport-selected sport-index zone-metric-index)
       
       (when (send this do-edit parent)
         (put-sport-zones sport sub-sport zmetric (collect-zones))))

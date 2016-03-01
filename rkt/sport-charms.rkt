@@ -45,7 +45,17 @@
  [get-sport-zones (->* (sport-id? sport-id? zone-metric?) ((or/c positive-number? #f)) sport-zones?)]
  [get-session-sport-zones (-> positive-number? zone-metric? sport-zones?)]
  [put-sport-zones (-> sport-id? sport-id? zone-metric? sport-zones? any/c)]
- 
+ [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
+ [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
+ [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
+ [put-athlete-swim-tpace (->* (positive-number?) (connection?) any/c)]
+ [get-athlete-gender (->* (connection?) () (or/c 0 1))]
+ [put-athlete-gender (->* ((or/c 0 1)) (connection?) any/c)]
+ [get-athlete-dob (->* (connection?) () positive-number?)]
+ [put-athlete-dob (->* (positive-number?) (connection?) any/c)]
+ [get-athlete-height (->* (connection?) () positive-number?)]
+ [put-athlete-height (->* (positive-number?) (connection?) any/c)]
+
  ;; NOTE: we might not want these to be contracts, as they are called too many
  ;; times...
  ;; [val->pct-of-max (-> number? sport-zones? number?)]
@@ -255,14 +265,14 @@
   (unless timestamp (set! timestamp (current-seconds)))
   
   (define q1 "
-select zone_id from V_SPORT_ZONE 
+select max(zone_id) from V_SPORT_ZONE 
  where sport_id = ? 
    and sub_sport_id = ? 
    and zone_metric_id = ?
    and ? between valid_from and valid_until")
 
   (define q2 "
-select zone_id from V_SPORT_ZONE 
+select max(zone_id) from V_SPORT_ZONE 
  where sport_id = ? 
    and sub_sport_id is null 
    and zone_metric_id = ?
@@ -343,3 +353,41 @@ select zone_id from V_SPORT_ZONE
          (drop-right zones 1)
          (drop zones 1)))
 
+(define (get-athlete-ftp (db (current-database)))
+  (let ((v (query-maybe-value db "select ftp from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-ftp ftp (db (current-database)))
+  (query-exec db "update ATHLETE set ftp = ?" (or ftp sql-null)))
+
+(define (get-athlete-swim-tpace (db (current-database)))
+  (let ((v (query-maybe-value db "select swim_tpace from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-swim-tpace swim-tpace (db (current-database)))
+  (query-exec db "update ATHLETE set swim_tpace = ?" (or swim-tpace sql-null)))
+
+(define (get-athlete-gender (db (current-database)))
+  (let ((v (query-maybe-value db "select gender from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-gender gender (db (current-database)))
+  (query-exec db "update ATHLETE set gender = ?" (or gender sql-null)))
+
+(define (get-athlete-dob (db (current-database)))
+  (let ((v (query-maybe-value db "select strftime('%s', dob) from ATHLETE")))
+    (cond
+      ((sql-null? v) #f)
+      ((string? v) (string->number v))
+      ((number? v) v)
+      (#t (error "get-athlete-dob")))))
+
+(define (put-athlete-dob dob (db (current-database)))
+  (query-exec db "update ATHLETE set dob = date(?, 'unixepoch')" (or dob sql-null)))
+
+(define (get-athlete-height (db (current-database)))
+  (let ((v (query-maybe-value db "select height from ATHLETE")))
+    (if (sql-null? v) #f v)))
+
+(define (put-athlete-height height (db (current-database)))
+  (query-exec db "update ATHLETE set height = ?" (or height sql-null)))

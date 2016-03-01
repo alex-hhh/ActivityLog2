@@ -241,7 +241,7 @@
                 ;; Limit the year to a reasonable range, as a big year range
                 ;; causes performance problems in different places.  If this
                 ;; app is still in use after 2100, it is a succesful one :-)
-                (if (or (> year 2100) (< year 2000))
+                (if (or (> year 2100) (< year 1900))
                     #f
                     (with-handlers (((lambda (e) #t) (lambda (e) #f)))
                                    (find-seconds 0 0 0 day month year))))

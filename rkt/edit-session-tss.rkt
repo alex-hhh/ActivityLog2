@@ -162,20 +162,6 @@
                  (set! tss (+ tss (zone->tss (val->zone hr zones) duration))))))))))
     tss))
 
-(define (get-athlete-ftp db)
-  (let ((v (query-maybe-value db "select ftp from ATHLETE")))
-    (if (sql-null? v) #f v)))
-
-(define (put-athlete-ftp db ftp)
-  (query-exec db "update ATHLETE set ftp = ?" (or ftp sql-null)))
-
-(define (get-athlete-swim-tpace db)
-  (let ((v (query-maybe-value db "select swim_tpace from ATHLETE")))
-    (if (sql-null? v) #f v)))
-
-(define (put-athlete-swim-tpace db swim-tpace)
-  (query-exec db "update ATHLETE set swim_tpace = ?" (or swim-tpace sql-null)))
-
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
     (init)
@@ -437,11 +423,11 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
           ((swim-tpace)
            (let ((tpace (send swim-tpace get-converted-value)))
              (when (number? tpace)
-               (put-athlete-swim-tpace db tpace))))
+               (put-athlete-swim-tpace tpace db))))
           ((normalized-power)
            (let ((ftp (send threshold-power get-converted-value)))
              (when ftp
-               (put-athlete-ftp db ftp)))))))
+               (put-athlete-ftp ftp db)))))))
     
     (define/override (has-valid-data?)
       (number? computed-tss))

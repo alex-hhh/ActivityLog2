@@ -31,6 +31,7 @@
          "edit-seasons.rkt"
          "edit-sport-zones.rkt"
          "elevation-correction.rkt"
+         "export-fit-settings.rkt"
          "icon-resources.rkt"
          "map-widget.rkt"
          "time-in-zone.rkt"
@@ -297,6 +298,14 @@
           (lambda (m e)
             (send (get-sport-zone-editor) show-dialog
                   (send toplevel get-frame)))])
+
+    (new menu-item%
+         [parent menu] [label "Export Settings to Device..."]
+         [callback
+          (lambda (m e)
+            (send (get-export-settings-dialog) show-dialog
+                  (send toplevel get-frame)
+                  (send toplevel get-database)))])
     menu))
 
 ;;................................................... make-activtiy-menu ....
