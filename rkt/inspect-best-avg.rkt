@@ -151,7 +151,7 @@
         data)))
 
 (define (make-best-avg-plot-render-tree best-avg-data best-avg-axis aux-data aux-axis zero-base?)
-  (define data-fn (best-avg->plot-fn best-avg-data))
+  (define data-fn (if best-avg-data (best-avg->plot-fn best-avg-data) #f))
   (define data-color (get-axis-plot-color best-avg-axis))
 
   (if (not data-fn)
