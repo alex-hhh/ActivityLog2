@@ -324,7 +324,9 @@
               (set! rt (cons (tick-grid) rt)))
             (let ((best-avg-axis (get-series-axis))
                   (aux-axis (get-aux-axis)))
-              (if aux-axis
+              ;; aux data might not exist, if an incorrect/invalid aux-axis is
+              ;; selected
+              (if best-avg-aux-data
                   (let ((ivs (mk-inverse best-avg-aux-data best-avg-data zero-base?)))
                     (parameterize ([plot-x-ticks (best-avg-ticks)]
                                    [plot-x-label "Duration"]
