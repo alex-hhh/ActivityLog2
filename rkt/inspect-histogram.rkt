@@ -261,7 +261,9 @@
 
     (define (put-plot-snip canvas)
       (if (not graph-render-tree)
-          #f
+          (begin
+            (send canvas set-background-message "No data for graph")
+            (send canvas set-snip #f))
           (let ((rt graph-render-tree))
             (when show-grid?
               (set! rt (cons (tick-grid) rt)))
