@@ -486,6 +486,7 @@
     (define/public (on-workout workout) #f)
     (define/public (on-workout-step workout-step) #f)
     (define/public (on-sport sport) #f)
+    (define/public (on-hrv data) #f)
 
     ;; NOTE: on-activity and on-session are also events, so the user could
     ;; call on-event for those as well if needed.  this could be important if
@@ -514,6 +515,7 @@
               ((eq? message-type 'workout) (on-workout record))
               ((eq? message-type 'workout-step) (on-workout-step record))
               ((eq? message-type 'sport) (on-sport record))
+              ((eq? message-type 'hrv) (on-hrv record))
               (#t (on-other message-type record)))))
 
     ))

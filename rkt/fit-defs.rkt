@@ -75,7 +75,8 @@
     (53 . speed-zone)
     (9 . power-zone)
     (7 . zones-target)
-    (3 . user-profile)))
+    (3 . user-profile)
+    (78 . hrv)))
 
 (provide *global-message-number*)
 

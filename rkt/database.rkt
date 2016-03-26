@@ -38,6 +38,7 @@
 (provide db-export-raw-data)
 (provide db-get-activity-id)
 (provide db-get-seasons)
+(provide db-extract-activity-raw-data)
 
 
 ;................................................... database utilities ....
