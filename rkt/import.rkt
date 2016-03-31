@@ -48,7 +48,6 @@
   (show-progress "updating equipment use...")
   (update-equipment-part-of db)
   (show-progress "updating corrected elevation...")
-  (populate-altitude-data db #t)
   (update-elevation-for-new-sessions db)
   (show-progress "updating weather data...")
   (update-weather-for-new-sessions db)
@@ -140,11 +139,10 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
     (when progress-monitor
       (send progress-monitor
             begin-stage "Fixup elevation data for new sessions" (length sessions)))
-    (for ((sid (in-list sessions))
-          (n (in-range (length sessions))))
-      (fixup-elevation-for-session db sid #f)
-      (when progress-monitor
-        (send progress-monitor set-progress (+ n 1))))))
+    (update-tile-codes db)
+    (fixup-elevation-for-session db sessions #f)
+    (when progress-monitor
+      (send progress-monitor set-progress (- (length sessions) 1)))))
 
 (define (update-weather-for-new-sessions db [progress-monitor #f])
   (let ((sessions (get-new-sessions db)))

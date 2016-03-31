@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(13);
+insert into SCHEMA_VERSION(version) values(14);
 
 
 --........................................................ Enumerations ....
@@ -300,13 +300,15 @@ create table A_TRACKPOINT (
   left_ppp_end real,                    -- degrees, clockwise, 0 at the top
   right_ppp_start real,
   right_ppp_end real,
+  tile_code integer,                    -- see elevation-correction.rkt
 
   foreign key (length_id) references A_LENGTH(id)
   );
 
 create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
 
--- create index IX0_A_TRACKPOINT on A_TRACKPOINT(timestamp);
+create index IX1_A_TRACKPOINT on A_TRACKPOINT(tile_code);
+
 
 
 --......................................................... Sport Zones ....
