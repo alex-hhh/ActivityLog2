@@ -1704,7 +1704,7 @@
       (send progress-bar set-value (inexact->exact pct))
       (when (> pct 0)
         (let* ((elapsed (- (current-inexact-milliseconds) start-timestamp))
-               (remaining (/ elapsed (/ pct 100))))
+               (remaining (- (/ elapsed (/ pct 100)) elapsed)))
           (send message-box set-label
                 (format "Remaining time: ~a (elapsed ~a)"
                         (duration->string (/ remaining 1000))
