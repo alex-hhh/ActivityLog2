@@ -36,7 +36,8 @@
     (provide (all-defined-out))
     (define-type Set-Snip
       (-> (Instance Editor-Canvas%) Any Void)))
-  (module untyped-functions racket/gui
+  (module untyped-functions racket/base
+    (require racket/class)
     (define (set-snip canvas snip)
       (send canvas set-snip snip)
       (void))
