@@ -277,8 +277,16 @@
                (lambda (dbsys)
                  "select id from EQUIPMENT where serial_number = ?")))
         (stmt2 (virtual-statement
-               (lambda (dbsys)
-                 "select id from EQUIPMENT where (serial_number % 65536) = ?"))))
+                (lambda (dbsys)
+                  ;; NOTE: when using the lower 16 bits of the equipment
+                  ;; serial, we might have duplicates, in that case, just
+                  ;; select the biggest serial number.
+                  "select id
+                     from EQUIPMENT
+                    where serial_number = (
+                     select max(E1.serial_number)
+                       from EQUIPMENT E1
+                      where (E1.serial_number % 65536) = ?)"))))
     (lambda (serial-number db)
       (or (query-maybe-value db stmt serial-number)
           (query-maybe-value db stmt2 serial-number)))))
