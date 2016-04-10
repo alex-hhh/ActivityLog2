@@ -128,7 +128,7 @@
                           ((eq? status 'failed) (format "~a" detail))))))
 
     (define (on-export-info)
-      (send import-list interactive-export-data #t))
+      (send import-list on-interactive-export-data #t))
 
     (define (on-close-dialog)
       (send toplevel-window show #f))
