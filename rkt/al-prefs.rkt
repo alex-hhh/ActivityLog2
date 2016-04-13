@@ -17,9 +17,17 @@
 (require racket/file)
 (provide al-get-pref-dir al-get-pref-file al-put-pref al-get-pref)
 
+(define (get-pref-dir)
+  (if (eq? 'windows (system-type 'os))
+      (let ([pref-dir (getenv "LOCALAPPDATA")])
+        (if pref-dir
+            (string->path pref-dir)
+            (find-system-path 'pref-dir)))
+      (find-system-path 'pref-dir)))
+
 ;;(: al-get-pref-dir (-> Path))
 (define (al-get-pref-dir)
-  (let ((dir (find-system-path 'pref-dir)))
+  (let ((dir (get-pref-dir)))
     ;; dir might not exist, but make-directory* never fails
     (let ((pref-dir (build-path dir "ActivityLog")))
       (make-directory* pref-dir)
