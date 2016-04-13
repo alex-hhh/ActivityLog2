@@ -24,6 +24,7 @@
          "dbutil.rkt"
          "fit-defs.rkt"
          "fit-file.rkt"
+         "elevation-correction.rkt"
          "utilities.rkt")
 
 (provide db-import-activity-from-file)
@@ -244,8 +245,8 @@
                    left_torque_effectiveness, right_torque_effectiveness,
                    left_pedal_smoothness, right_pedal_smoothness,
                    left_pco, right_pco, left_pp_start, left_pp_end, right_pp_start, right_pp_end,
-                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end)
-                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, tile_code)
+                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields
          `(timestamp position-lat position-long altitude distance cadence
                      speed heart-rate vertical-oscillation
@@ -255,14 +256,18 @@
                      left-pedal-smoothness right-pedal-smoothness
                      left-pco right-pco
                      left-pp-start left-pp-end right-pp-start right-pp-end
-                     left-ppp-start left-ppp-end right-ppp-start right-ppp-end)))
+                     left-ppp-start left-ppp-end right-ppp-start right-ppp-end
+                     ,(lambda (tp)
+                        (let ((lat (assq1 'position-lat tp))
+                              (lon (assq1 'position-long tp)))
+                          (and lat lon (lat-lon->tile-code lat lon)))))))
     (lambda (trackpoint length-id db)
       (let ((values (map (lambda (x) 
                            (let ((y (if (procedure? x)
                                         (x trackpoint)
                                         (assq1 x trackpoint))))
-                             (cond (y)
-                                   ((void? y) sql-null)
+                             (cond ((void? y) sql-null)
+                                   (y)
                                    (#t sql-null))))
                          fields)))
         ;; Bulk import ocasionally fails here...

@@ -52,6 +52,16 @@
        (check-pred cons? result "Bad import result format")
        (check-eq? (car result) 'ok (format "~a" (cdr result)))))))
 
+(define (db-check-tile-code db)
+  (let ((cnt (query-value db "
+select count(*)
+  from A_TRACKPOINT
+ where tile_code is null
+   and (position_lat is not null
+        or position_long is not null)")))
+    (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
+             
+
 
 
 ;;.................................... cycling dynamics import and fetch ....
@@ -227,6 +237,7 @@ select count(T.id),
         (printf "About to import ~a~%" file)
         (db-import-activity-from-file/check file db)
         (check = 1 (activity-count db))
+        (db-check-tile-code db)
         (disconnect db))))
 
    (test-case

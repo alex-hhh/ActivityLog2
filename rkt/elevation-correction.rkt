@@ -73,6 +73,10 @@ where position_lat is not null
         (y (exact-truncate (* tile-mult (map-point-y mp)))))
     (bitwise-ior (arithmetic-shift x tile-level) y)))
 
+(define (lat-lon->tile-code lat lon)
+  (map-point->tile-code (lat-lon->map-point lat lon)))
+(provide lat-lon->tile-code)
+
 (define (update-tile-codes db)
   ;; Update the tile code for any trackpoints in the database that don't have
   ;; one.
@@ -82,7 +86,7 @@ where position_lat is not null
    (lambda ()
      (for ([tp tp-canditates])
        (match-define (vector id lat lon) tp)
-       (let ((tile-code (map-point->tile-code (lat-lon->map-point lat lon))))
+       (let ((tile-code (lat-lon->tile-code lat lon)))
          (query-exec db tile-update-stmt tile-code id))))))
 
 (define (candidate-tile-codes mp)
