@@ -18,6 +18,8 @@
 (require db
          "../rkt/activity-util.rkt"
          "../rkt/al-prefs.rkt"
+         "../rkt/dbapp.rkt"
+         "../rkt/dbutil.rkt"
          "../rkt/database.rkt"
          "../rkt/edit-session-tss.rkt"
          "../rkt/utilities.rkt")
@@ -25,9 +27,9 @@
 (define database-file
   (al-get-pref 'activity-log:database-file (lambda () #f)))
 
-(define *db* (db-open-activity-log database-file))
+(define *db* (open-activity-log database-file))
 
-(define a (db-fetch-session 1232 *db*))
+(define a (db-fetch-session 1655 *db*))
 
 (define (analyze session)
   (let ((avg-cadence (session-avg-strokes-per-length session)))
