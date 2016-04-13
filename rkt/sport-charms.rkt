@@ -277,17 +277,21 @@ select max(zone_id) from V_SPORT_ZONE
    and sub_sport_id is null 
    and zone_metric_id = ?
    and ? between valid_from and valid_until")
-  
-  (cond ((and sport sub-sport)
-         (or (query-maybe-value 
-              (current-database) q1 sport sub-sport zone-metric timestamp)
-             (query-maybe-value
-              (current-database) q2 sport zone-metric timestamp)))
-        (sport
-         (query-maybe-value 
-          (current-database) q2 sport zone-metric timestamp))
-        (#t
-         #f)))
+
+  (define (get-zid)
+    (cond ((and sport sub-sport)
+           (or (query-maybe-value 
+                (current-database) q1 sport sub-sport zone-metric timestamp)
+               (query-maybe-value
+                (current-database) q2 sport zone-metric timestamp)))
+          (sport
+           (query-maybe-value 
+            (current-database) q2 sport zone-metric timestamp))
+          (#t
+           #f)))
+
+  (let ((zid (get-zid)))
+    (if (sql-null? zid) #f zid)))
 
 (define (get-zone-definition-id-for-session session zone-metric)
   (define q1
