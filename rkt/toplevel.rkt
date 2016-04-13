@@ -33,7 +33,7 @@
          "elevation-correction.rkt"
          "export-fit-settings.rkt"
          "icon-resources.rkt"
-         "map-widget.rkt"
+         "map-tiles.rkt"
          "time-in-zone.rkt"
          "view-activities.rkt"
          "view-athlete-metrics.rkt"

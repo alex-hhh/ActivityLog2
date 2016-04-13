@@ -20,7 +20,7 @@
          "al-prefs.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
-         "map-widget.rkt"
+         "map-tiles.rkt"
          "weather.rkt"
          "widgets.rkt")
 

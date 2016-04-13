@@ -18,236 +18,19 @@
 
 (require db
          math/base
-         net/url
-         racket/async-channel
          racket/class
          racket/draw
          racket/flonum
          racket/gui/base
          racket/list
-         racket/port
          "al-log.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"
-         "map-util.rkt")
+         "map-util.rkt"
+         "map-tiles.rkt")
 
 (provide map-widget%)
 (provide get-max-zoom-level get-min-zoom-level)
-(provide vacuum-tile-cache-database)
-
-
-;;................................................... tile cache manager ....
-
-;; Implement a cache for OpenStreetMap tiles.  Tiles are stored locally in an
-;; SQLite database and only retrieved from the server when needed.
-
-;; See also: http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
-
-;; Tiles are provided at zoom levels between 1 and 18
-(define (valid-zoom-level? z)
-  (and (integer? z) (>= z 1) (<= z 18)))
-
-(struct tile (zoom x y)
-  #:transparent
-  #:guard
-  (lambda (zoom x y name)
-    (unless (valid-zoom-level? zoom)
-      (error (format "Invalid zoom level (~a): ~a" name zoom)))
-    (let ((max-val (expt 2 zoom)))
-      (unless (and (integer? x) (>= x 0) (< x max-val))
-        (error (format "~a - bad x: ~a (valid range 0..~a)" name x max-val)))
-      (unless (and (integer? y) (>= y 0) (< y max-val))
-        (error (format "~a - bad y: ~a (valid range 0..~a)" name y max-val))))
-    (values zoom x y)))
-
-(define (random-select l)
-  (let ((n (random (length l))))
-    (list-ref l n)))
-
-(define (tile->osm-url tile)
-  (let ((top (random-select '("a" "b" "c"))))
-    (format "http://~a.tile.openstreetmap.org/~a/~a/~a.png"
-            top (tile-zoom tile) (tile-x tile) (tile-y tile))))
-
-;;; Tile cache database
-
-(define (get-default-db-file-name)
-  (build-path (al-get-pref-dir) "OsmTileCache.db"))
-
-(define (open-tcache-database file-name)
-  (let ((db (sqlite3-connect #:database file-name #:mode 'create)))
-    (query-exec db "pragma foreign_keys = on")
-    (let ((new-database? (= 0 (query-value db "select count(*) from SQLITE_MASTER"))))
-      (when new-database?
-        ;; The db schema is simple for now, so we just create it in line here
-        ;; for now.
-        (query-exec db "
-create table SCHEMA_VERSION(version integer)")
-        (query-exec db "
-insert into SCHEMA_VERSION(version) values(1)")
-        (query-exec db "
-create table TILE_CACHE (
-  zoom_level integer not null,
-  x_coord integer not null,
-  y_coord integer not null,
-  timestamp integer not null, -- unix timestamp when the tile was retrieved
-  url text not null,          -- URL from which tile was retrieved
-  data blob not null)")
-        (query-exec db "
-create unique index IX0_TILE_CACHE on TILE_CACHE(zoom_level, x_coord, y_coord)")))
-    db))
-
-;; return a (cons data timestamp) for the TILE, or #f if the tile is not found
-(define (fetch-tile tile db)
-  (let ((data (query-rows db "
-select data, timestamp from TILE_CACHE
-where zoom_level = ? and x_coord = ? and y_coord = ?"
-                          (tile-zoom tile) (tile-x tile) (tile-y tile))))
-    (if (= 0 (length data))
-        #f
-        (cons (vector-ref (car data) 0)
-              (vector-ref (car data) 1)))))
-
-(define tstore-insert-sql "
-insert into TILE_CACHE(url, timestamp, data, zoom_level, x_coord, y_coord)
-values (?, ?, ?, ?, ?, ?)")
-
-(define tstore-update-sql "
-update TILE_CACHE set url = ?, timestamp = ?, data = ?
-where zoom_level = ? and x_coord = ? and y_coord = ?")
-
-(define (store-tile tile url data db)
-  (call-with-transaction
-   db
-   (lambda ()
-     (if (fetch-tile tile db)
-         (query-exec db tstore-update-sql url (current-seconds) data
-                     (tile-zoom tile) (tile-x tile) (tile-y tile))
-         (query-exec db tstore-insert-sql  url (current-seconds) data
-                     (tile-zoom tile) (tile-x tile) (tile-y tile))))))
-
-
-;;; Tile downloading
-
-(define (download-tile tile)
-  (with-handlers
-   (((lambda (e) #t)
-     (lambda (e)
-       (printf "Failed to download tile ~a~%" e)
-       #f)))
-   (let* ((url (tile->osm-url tile))
-          (data (port->bytes (get-pure-port (string->url url)))))
-     (list tile url data))))
-
-(define (make-tile-download-thread request-ach reply-ach)
-  (thread
-   (lambda ()
-     (let loop ((backlog '()))
-       (let fill-backlog
-           ((tile ((if (null? backlog) async-channel-get async-channel-try-get)
-                   request-ach)))
-         (when tile
-           (set! backlog (cons tile backlog))
-           (fill-backlog (async-channel-try-get request-ach))))
-       (when backlog
-         (printf "*** tile backlog size ~a~%" (length backlog))
-         (let ((data (download-tile (car backlog))))
-           (when data
-             (async-channel-put reply-ach data)))
-         (loop (cdr backlog)))))))
-
-
-;; Read some tile data from ACH (as produced by download-tile), store them in
-;; the database, DB, and add them to BITMAP-HASH (a hash table).  LIMIT
-;; specifies how many responses to process (#f means unlimited), less might be
-;; processed if there is no data available in ACH
-(define (process-some-replies ach db bitmap-hash [limit #f])
-  (let loop ((count 0)
-             (reply (async-channel-try-get ach)))
-    (when reply
-      (let ((tile (first reply))
-            (url (second reply))
-            (data (third reply)))
-        (let ((bmp (call-with-input-bytes data read-bitmap)))
-          (hash-set! bitmap-hash tile bmp))
-        (store-tile tile url data db))
-      (when (or (not limit) (< count limit))
-        (loop (+ count 1) (async-channel-try-get ach))))))
-
-
-
-(define tcache-file-name 
-  (al-get-pref 'activity-log:tile-cache-file
-               (lambda () (get-default-db-file-name))))
-
-;; Map tile download will not work if the internet access needs to be done via
-;; a proxy.  This will prevent the downloader from even trying.
-(define al-pref-allow-tile-download
-  (let* ((tag 'activity-log:allow-tile-download)
-         (val (al-get-pref tag (lambda () #t))))
-    (make-parameter
-     val
-     (lambda (new-val)
-       ;; Write the value back to the store
-       (al-put-pref tag new-val)
-       (if new-val
-           (log-al-info "Map tile download enabled")
-           (log-al-warning "Map tile download disabled"))
-       new-val))))
-(provide al-pref-allow-tile-download)
-
-;; Tiles older than this will be refreshed, value is in seconds, but the value
-;; stored in the preference file is in days.
-(define tile-refresh-interval 
-  (* 60 60 24
-     (al-get-pref 'activity-log:tile-refresh-interval
-                  (lambda () 60))))
-
-(define tcache-db #f)
-(define bitmap-cache (make-hash))
-
-(define fetch-request (make-async-channel #f))
-(define fetch-reply (make-async-channel #f))
-(define download-thread (make-tile-download-thread fetch-request fetch-reply))
-
-(define (request-tile tile)
-  (when (al-pref-allow-tile-download)
-    (async-channel-put fetch-request tile)))
-
-(define (get-tile tile)
-  ;; This is called from the map widget paint method, and if we throw an
-  ;; exception from that,the whole thing locks up.
-  (with-handlers
-   (((lambda (e) #t)
-     (lambda (e)
-       (printf "get-tile(~a): a~%" tile e)
-       #f)))
-   (unless tcache-db
-     (set! tcache-db (open-tcache-database tcache-file-name)))
-
-   (process-some-replies fetch-reply tcache-db bitmap-cache 5)
-
-   (cond ((hash-ref bitmap-cache tile #f)
-          ;; filter out delayed values
-          => (lambda (v) (if (eq? v 'delayed) #f v)))
-         (#t
-          (let ((data (fetch-tile tile tcache-db)))
-            (if data
-                (let ((bmp (call-with-input-bytes (car data) read-bitmap)))
-                  (hash-set! bitmap-cache tile bmp)
-                  ;; This tile is old, refresh it
-                  (when (> (- (current-seconds) (cdr data)) tile-refresh-interval)
-                    (request-tile tile))
-                  bmp)
-                (begin
-                  (request-tile tile)
-                  (hash-set! bitmap-cache tile 'delayed)
-                  #f)))))))
-
-(define (vacuum-tile-cache-database)
-  (unless tcache-db
-    (set! tcache-db (open-tcache-database tcache-file-name)))
-  (query-exec tcache-db "vacuum"))
 
 (define tile-size 256)                  ; size of the map tiles, in pixels
 (define earth-radius (->fl 6371000))    ; meters
@@ -262,6 +45,13 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")
   (let ((n (/ (* 2 pi earth-radius) mpp)))
     (- (/ (log n) (log 2)) 8)))
 
+;; Maximum zoom level we allow for the map widget.
+(define max-zoom-level
+  (al-get-pref 'activity-log:max-map-zoom-level (lambda () 16)))
+(define min-zoom-level 1)
+
+(define (get-max-zoom-level) max-zoom-level)
+(define (get-min-zoom-level) min-zoom-level)
 
 
 ;;........................................................... gps-track% ....
@@ -604,14 +394,6 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")
                 (ty (- ch oy 3 h)))
             (send dc draw-text label tx ty)))))))
 
-;; Maximum zoom level we allow for the map widget.
-(define max-zoom-level
-  (al-get-pref 'activity-log:max-map-zoom-level (lambda () 16)))
-(define min-zoom-level 1)
-
-(define (get-max-zoom-level) max-zoom-level)
-(define (get-min-zoom-level) min-zoom-level)
-
 (define map-widget%
   (class object%
     (init parent) (super-new)
@@ -747,13 +529,13 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")
                 (let ((tile-x (+ tile0-x x))
                       (tile-y (+ tile0-y y)))
                   (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
-                    (let ((bmp (or (get-tile (tile zoom-level tile-x tile-y))
+                    (let ((bmp (or (get-tile-bitmap (map-tile zoom-level tile-x tile-y))
                                    (begin (set! request-redraw? #t) empty-bmp))))
                       (send dc draw-bitmap bmp
                             (- (* x tile-size) xofs)
                             (- (* y tile-size) yofs)))))))
 
-        (when request-redraw? (send redraw-timer start 2000))))
+        (when request-redraw? (send redraw-timer start 500))))
 
     (define canvas
       (new (class canvas% (init) (super-new)

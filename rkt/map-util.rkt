@@ -29,6 +29,7 @@
          bbox-center/ndcs
          bbox-size
          (struct-out map-bbox)
+         (struct-out map-tile)
          degrees->wind-rose)
 
 
@@ -172,3 +173,24 @@
          (adjusted-deg 
           (modulo (exact-round (- deg (/ slice 2))) 360)))
     (vector-ref wind-rose (exact-truncate (/ adjusted-deg slice)))))
+
+
+;; Tiles are provided at zoom levels between 1 and 18
+(: valid-zoom-level? (-> Integer Boolean))
+(define (valid-zoom-level? z) (and (>= z 1) (<= z 18)))
+
+;; A map is drawn as a set of tiles, each tile is a 256x256 pixel image.  See
+;; also: http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+(struct: map-tile ((zoom : Integer) (x : Integer) (y : Integer))
+  #:transparent
+  #:guard
+  (lambda (zoom x y name)
+    (unless (valid-zoom-level? zoom)
+      (error (format "Invalid zoom level (~a): ~a" name zoom)))
+    (let ((max-val (expt 2 zoom)))
+      (unless (and (>= x 0) (< x max-val))
+        (error (format "~a - bad x: ~a (valid range 0..~a)" name x max-val)))
+      (unless (and (>= y 0) (< y max-val))
+        (error (format "~a - bad y: ~a (valid range 0..~a)" name y max-val))))
+    (values zoom x y)))
+
