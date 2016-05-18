@@ -32,7 +32,8 @@
          "inspect-scatter.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "session-df.rkt")
 
 (provide view-session%)
 
@@ -286,6 +287,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
     (define session-id #f)
     (define session #f)
+    (define session-df #f)
     (define generation -1)
     (define the-database database)
 
@@ -296,12 +298,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
         (with-busy-cursor
          (lambda ()
            (when (< (send v get-generation) generation)
-             (send v set-session session))))))
+             (send v set-session session session-df))))))
 
     (define/public (set-session sid)
       (set! generation (+ 1 generation))
       (set! session-id sid)
       (set! session (db-fetch-session sid the-database))
+      (set! session-df (make-session-data-frame the-database sid))
 
       (send header set-session session)
       (send header set-database the-database)

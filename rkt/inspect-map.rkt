@@ -16,11 +16,13 @@
 
 (require racket/class
          racket/gui/base
+         racket/list
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
          "map-widget.rkt"
          "plot-axis-def.rkt"
+         "data-frame.rkt"
          "utilities.rkt")
 
 (provide map-panel%)
@@ -28,31 +30,19 @@
 (define *header-font*
   (send the-font-list find-or-create-font 18 'default 'normal 'normal))
 
-(define (extract-track-from-session session)
-  (filter
-   (lambda (x) (and x (vector-ref x 0) (vector-ref x 1) (vector-ref x 2)))
-   (map-session-trackpoints
-    session
-    (lambda (prev current)
-      (let ((lat (assq 'position-lat current))
-            (long (assq 'position-long current)))
-        (if (and lat long)
-            (vector 0 (cdr lat) (cdr long))
-            #f)))
-    )))
+(define (extract-track data-frame)
+  (send data-frame select* "lat" "lon" #:filter valid-only))
 
-(define (extract-track-from-lap lap)
-  (filter
-   (lambda (x) (and x (vector-ref x 0) (vector-ref x 1) (vector-ref x 2)))
-   (map-lap-trackpoints
-    lap
-    (lambda (prev current)
-      (let ((lat (assq 'position-lat current))
-            (long (assq 'position-long current)))
-        (if (and lat long)
-            (vector 0 (cdr lat) (cdr long))
-            #f)))
-    )))
+(define (extract-track-for-lap data-frame lap-num)
+  (let* ((laps (send data-frame get-property 'laps))
+         (start (vector-ref laps lap-num))
+         (end (if (>= (+ 1 lap-num) (vector-length laps))
+                  #f
+                  (vector-ref laps (+ 1 lap-num))))
+         (idx (send data-frame get-index* "timestamp" start end)))
+    (send data-frame select* "lat" "lon" #:filter valid-only
+          #:start (first idx)
+          #:end (second idx))))
 
 (define map-panel%
   (class object%
@@ -144,10 +134,10 @@
       (send map-view resize-to-fit))
 
     (define (highlight-lap n lap)
-      (send map-view set-selected-section
-            (extract-track-from-lap lap))
       (let ((lap-num (assq1 'lap-num lap)))
         (when lap-num
+          (send map-view set-selected-section
+                (extract-track-for-lap data-frame (- lap-num 1)))
           (send elevation-graph highlight-lap (- lap-num 1))))
       (when zoom-to-lap?
         (send map-view resize-to-fit #t)))
@@ -162,16 +152,17 @@
           (send map-view export-image-to-file file))))
 
     (define generation -1)
+    (define data-frame #f)
 
-    (define/public (set-session session)
+    (define/public (set-session session df)
       (set! generation (+ 1 generation))
       (set! the-session session)
+      (set! data-frame df)
       (send mini-lap-view set-session session)
-      (send elevation-graph set-session session)
+      (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
       (send elevation-graph show-grid #t)
-      (send map-view set-track
-            (extract-track-from-session session))
+      (send map-view set-track (extract-track data-frame))
       
       ;; label nearby weather stations (TODO: should be optional)
       ;; (for ((ws (in-list (get-nearby-wstations (assq1 'database-id session)))))

@@ -720,7 +720,7 @@
 
     (define generation -1)
 
-    (define/public (set-session session)
+    (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
       (set! generation (+ 1 generation))
       (send badge-pb set-session session)

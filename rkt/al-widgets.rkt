@@ -444,7 +444,7 @@ values (?, ?)" session-id id))
                       "Rest"))
             lap)))))
 
-    (define/public (set-session session)
+    (define/public (set-session session [df #f])
       (set! the-session session)
       (let ((sport (session-sport the-session)))
         (send lb setup-column-defs (lap-field-definitions sport))

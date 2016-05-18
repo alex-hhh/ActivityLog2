@@ -78,8 +78,7 @@
    (lambda ()
      (with-handlers
        (((lambda (e) #t)
-         (lambda (e) 
-           (dbglog (format "uncaught exception in thread <~a>: ~a" name e)))))
+         (lambda (e) (dbglog (format "thread <~a>: ~a" name e)))))
        (when log-start (dbglog (format "thread <~a> started" name)))
        (thunk)
        (when log-finish (dbglog (format "thread <~a> completed" name)))))))

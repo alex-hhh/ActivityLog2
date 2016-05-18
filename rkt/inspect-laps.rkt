@@ -52,7 +52,7 @@
 
     (define generation -1)
 
-    (define/public (set-session session)
+    (define/public (set-session session df)
       (set! generation (+ 1 generation))
       (when the-session
         (let ((sport (session-sport the-session)))

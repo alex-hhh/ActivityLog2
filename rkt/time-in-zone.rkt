@@ -21,8 +21,8 @@
          "database.rkt"
          "dbglog.rkt"
          "icon-resources.rkt"
-         "plot-axis-def.rkt"
-         "plot-builder.rkt"
+         "data-frame.rkt"
+         "session-df.rkt"
          "widgets.rkt")
 
 (provide update-time-in-zone-data)
@@ -35,12 +35,8 @@
 ;; Returns a (Vectorof (Vector Zone Duration)), or #f if no zone data can be
 ;; calculated.  We cannot calculate zone data either if no zones are defined
 ;; for this session, or the session does not have the resquired data.
-(define (time-in-zone session axis-def)
-  (define zone-data
-    (let-values ([(data lap-markers min-x max-x min-y max-y)
-                  (extract-data session axis-elapsed-time axis-def 0)])
-      data))
-  (if zone-data (make-histogram zone-data 1 #f #t) #f))
+(define (time-in-zone session series)
+  (df-histogram session series #:bucket-width 1 #:as-percentage? #f))
 
 ;; Store time in zone data in the TIME_IN_ZONE table in the database.  SID is
 ;; the session id, ZID is the zone definition id, DATA is what
@@ -75,15 +71,15 @@
 ;; power zones are updated (if available).  Previous data for this session is
 ;; deleted.
 (define (update-time-in-zone-data sid db)
-  (let ((session (db-fetch-session sid db))
+  (let ((session (make-session-data-frame db sid))
         (pwr-zone-id (get-zone-id sid 3 db))
         (hr-zone-id (get-zone-id sid 1 db)))
-    (when pwr-zone-id
-      (let ((data (time-in-zone session axis-power-zone)))
+    (when (send session contains? "pwr-zone")
+      (let ((data (time-in-zone session "pwr-zone")))
         (when data
           (store-time-in-zone sid pwr-zone-id data db))))
-    (when hr-zone-id
-      (let ((data (time-in-zone session axis-hr-zone)))
+    (when (send session contains? "hr-zone")
+      (let ((data (time-in-zone session "hr-zone")))
         (when data
           (store-time-in-zone sid hr-zone-id data db))))))
 

@@ -15,6 +15,7 @@
 
 (require rackunit)
 (require rackunit/gui)
+(require rackunit/text-ui)
 (require db)
 (require "../rkt/dbapp.rkt")
 (require "../rkt/database.rkt")
@@ -244,7 +245,7 @@ select count(T.id),
     "Subsequent imports"
     (let ((db (open-activity-log 'memory)))
       (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-        (printf "About to im port ~a~%" file)
+        (printf "About to import ~a~%" file)
         (db-import-activity-from-file/check file db))
       (check = 8 (activity-count db))
       (disconnect db)))
@@ -262,5 +263,8 @@ select count(T.id),
 
    cyd-tests
    ))
+
+(module+ test
+  (run-tests db-tests))
 
 ;; (test/gui db-tests)

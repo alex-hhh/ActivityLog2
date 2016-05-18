@@ -59,6 +59,7 @@
          n->string
          stride->string
          vosc->string
+         vratio->string
          stance-time->string
          stance-time-pct->string
          stance->string
@@ -84,6 +85,7 @@
  m/s->sec/mi
  m/s->sec/100m
  m/s->sec/100yd
+ m/s->swim-pace
  m->km
  m->mi
  m->yd
@@ -371,10 +373,16 @@
                  (if unit-label (string-append " " vertical-oscillation-label) ""))
       ""))
 
+(: vratio->string (->* (Real) (Boolean) String))
+(define (vratio->string vratio [unit-label #f])
+  (if (> vratio 0)
+      (format-48 "~1,1F~a" vratio (if unit-label " %" ""))
+      ""))
+
 (: stance-time->string (->* (Real) (Boolean) String))
 (define (stance-time->string stime [unit-label #f])
   (if (> stime 0)
-      (format-48 "~F~a" stime (if unit-label " ms" ""))
+      (format-48 "~F~a" (exact-round stime) (if unit-label " ms" ""))
       ""))
 
 (: stance-time-pct->string (->* (Real) (Boolean) String))

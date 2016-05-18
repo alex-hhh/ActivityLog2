@@ -18,15 +18,27 @@
          racket/class
          racket/gui/base
          racket/list
+         racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
          "plot-axis-def.rkt"
-         "plot-builder.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
+         "data-frame.rkt"
          "widgets.rkt")
 
 (provide scatter-plot-panel%)
+
+(define (filter-axis-choices data-frame axis-choices)
+  (for/list ([axis axis-choices]
+             #:when (send data-frame contains? (send axis get-series-name)))
+    axis))
+
+(define (find-axis axis-choices series-name)
+  (for/first ([axis axis-choices]
+              [index (in-range (length axis-choices))]
+              #:when (equal? series-name (send axis get-series-name)))
+    index))
 
 ;; Axis choices for all non lap swimming sports.  Any pair of axis from this
 ;; list is valid for the scatter plot.
@@ -48,14 +60,12 @@
    axis-stance-time
    axis-stance-time-percent
    axis-stride
+   axis-vratio
    axis-power
    axis-power-zone
-   axis-torque
    axis-left-right-balance
-   axis-torque-effectiveness
    axis-left-torque-effectiveness
    axis-right-torque-effectiveness
-   axis-pedal-smoothness
    axis-left-pedal-smoothness
    axis-right-pedal-smoothness
    axis-left-platform-centre-offset
@@ -94,20 +104,14 @@
     (define x-axis-index 0)
     (define y-axis-index 0)
     (define show-grid? #f)
-    (define filter-amount 0)
     (define delay-amount #f)
 
-    (define default-drb (new plot-builder%))
-    (define swim-drb (new swim-plot-builder%))
-
-    (define drb default-drb)
     (define axis-choices '())
 
     (define x-axis-choice #f)
     (define y-axis-choice #f)
     (define delay-amount-field #f)
     (define show-grid-check-box #f)
-    (define filter-amount-choice #f)
 
     ;; The selection for the X-Y axis is stored per sport in a hash table, to
     ;; be restored when a similar sport is selected.  This hash table is also
@@ -115,13 +119,13 @@
     (define current-sport #f)
     (define axis-choice-by-sport (make-hash))
 
+    (define data-series #f)
+    
     ;; Restore the preferences now. 
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 4))
+      (when (and pref (eqv? (length pref) 2))
         (set! show-grid? (first pref))
-        (set! axis-choice-by-sport (hash-copy (second pref)))
-        (set! filter-amount (third pref))
-        (set! delay-amount (fourth pref))))
+        (set! axis-choice-by-sport (hash-copy (second pref)))))
 
     (define panel (new (class vertical-panel%
                          (init)
@@ -159,13 +163,6 @@
                              (set! show-grid? (send c get-value))
                              (refresh-plot))]))
 
-      (set! filter-amount-choice
-            (new choice% [parent cp]
-                 [label "Filter Amount: "]
-                 [choices '("None" "Small" "Medium" "Large" "Huge")]
-                 [callback (lambda (c e)
-                             (on-filter-amount (send c get-selection)))]))
-
       (set! delay-amount-field
             (new number-input-field%
                  [parent cp] 
@@ -199,13 +196,13 @@
     (define (on-x-axis-changed new-axis-index)
       (unless (equal? x-axis-index new-axis-index)
         (set! x-axis-index new-axis-index)
-        (send drb set-x-axis (list-ref axis-choices x-axis-index))
+        (set! data-series #f)
         (refresh-plot)))
 
     (define (on-y-axis-changed new-axis-index)
       (unless (equal? y-axis-index new-axis-index)
         (set! y-axis-index new-axis-index)
-        (send drb set-y-axis (list-ref axis-choices y-axis-index))
+        (set! data-series #f)
         (refresh-plot)))
 
     (define (on-delay-amount new-delay [dont-refresh #f])
@@ -213,7 +210,6 @@
         (set! new-delay #f))
       (unless (equal? delay-amount new-delay)
         (set! delay-amount new-delay)
-        (send drb set-delay-amount delay-amount)
         (unless dont-refresh (refresh-plot))))
 
     (define (put-plot-snip canvas)
@@ -233,19 +229,47 @@
                 (plot-snip/hack canvas rt))))))
 
     (define (refresh-plot)
-      (set! graph-render-tree (send drb get-plot-renderer #t))
+      (set! graph-render-tree #f)
+      (unless data-series
+        (let* ((x (list-ref axis-choices x-axis-index))
+               (y (list-ref axis-choices y-axis-index))
+               (xnam (send x get-series-name))
+               (ynam (send y get-series-name)))
+          (when (send data-frame contains? xnam ynam)
+            (set! data-series
+                  (send data-frame select*
+                        xnam ynam
+                        "elapsed"
+                        #:filter valid-only)))))
+      (when data-series
+        (let ((x (list-ref axis-choices x-axis-index))
+              (y (list-ref axis-choices y-axis-index)))
+          (let* ((maybe-delayed
+                  (if delay-amount
+                    (time-delay-series data-series delay-amount)
+                    data-series))
+                 (grouped
+                  (group-samples maybe-delayed
+                                 (send x get-fractional-digits)
+                                 (send y get-fractional-digits))))
+            (set! graph-render-tree
+                  (make-scatter-group-renderer
+                   grouped
+                   (send y get-line-color))))))
       (put-plot-snip graph-pb))
 
-    (define (on-filter-amount a [dont-refresh #f])
-      (set! filter-amount a)
-      (send drb set-filter-amount (expt a 2))
-      (unless dont-refresh (refresh-plot)))
+    (define (save-params-for-sport)
+      (when current-sport
+        (let* ((x (list-ref axis-choices x-axis-index))
+               (y (list-ref axis-choices y-axis-index))
+               (xseries (send x get-series-name))
+               (yseries (send y get-series-name)))
+          (hash-set! axis-choice-by-sport current-sport 
+                     (list xseries yseries delay-amount)))))
 
     (define/public (save-visual-layout)
-      (when current-sport
-        (hash-set! axis-choice-by-sport current-sport 
-                  (cons x-axis-index y-axis-index)))
-      (al-put-pref pref-tag (list show-grid? axis-choice-by-sport filter-amount delay-amount)))
+      (save-params-for-sport)
+      (al-put-pref pref-tag (list show-grid? axis-choice-by-sport)))
 
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f #f "png" '()
@@ -254,53 +278,50 @@
           (send graph-pb export-image-to-file file))))
 
     (define generation -1)
+    (define data-frame #f)
 
-    (define/public (set-session session)
-      ;; maybe save previous sport settings
-      (when current-sport
-        (hash-set! axis-choice-by-sport current-sport 
-                  (cons x-axis-index y-axis-index)))
+    (define/public (set-session session df)
+      (save-params-for-sport)
       
       (set! generation (+ 1 generation))
+      (set! data-frame df)
+      (define lap-swimming? (send data-frame get-property 'is-lap-swim?))
+      (set! axis-choices
+            (filter-axis-choices
+             data-frame
+             (if lap-swimming? (swim-axis-choices) (default-axis-choices))))
+      (install-axis-choices axis-choices)
+      (set! data-series #f)
+      (set! current-sport (send data-frame get-property 'sport))
 
-      (let ((lap-swimming? 
-             (let ((sport (session-sport session))
-                   (sub-sport (session-sub-sport session)))
-               (and (equal? sport 5) (equal? sub-sport 17)))))
-        (set! axis-choices (if lap-swimming? (swim-axis-choices) (default-axis-choices)))
-        (set! drb (if lap-swimming? swim-drb default-drb))
-        (install-axis-choices axis-choices)
-
-        (set! current-sport
-              (cons (session-sport session) (session-sub-sport session)))
-
-        (let ((xy-index (hash-ref axis-choice-by-sport current-sport
-                                  (lambda () (cons 0 0)))))
-          (set! x-axis-index (car xy-index))
-          (set! y-axis-index (cdr xy-index)))
-
-        (send drb set-x-axis (list-ref axis-choices x-axis-index))
-        (send drb set-y-axis (list-ref axis-choices y-axis-index))
-        (send drb set-session session)
-        (send x-axis-choice set-selection x-axis-index)
-        (send y-axis-choice set-selection y-axis-index)
-
-        (if lap-swimming?
+      (let ((data (hash-ref axis-choice-by-sport current-sport #f)))
+        (if data
+            (let ()
+              (match-define (list xseries yseries delay) data)
+              (set! x-axis-index (find-axis axis-choices xseries))
+              (set! y-axis-index (find-axis axis-choices yseries))
+              (set! delay-amount delay))
             (begin
-              (send filter-amount-choice set-selection 0)
-              (send drb set-filter-amount 0)
-              (send filter-amount-choice enable #f)
-              (send delay-amount-field enable #f))
-            (begin
-              (send filter-amount-choice set-selection filter-amount)
-              (on-filter-amount filter-amount #t)
-              (let ((amt delay-amount))
-                (set! delay-amount #f)
-                (on-delay-amount amt #t))
-              (send filter-amount-choice enable #t)
-              (send delay-amount-field enable #t)))
+              (set! x-axis-index 0)
+              (set! y-axis-index 0)
+              (set! delay-amount #f))))
+      
+      (send x-axis-choice set-selection x-axis-index)
+      (send y-axis-choice set-selection y-axis-index)
+      (if (number? delay-amount)
+          (send delay-amount-field set-numeric-value delay-amount)
+          (send delay-amount-field set-value ""))
+
+      (if lap-swimming?
+          (begin
+            (send delay-amount-field enable #f))
+          (begin
+            (let ((amt delay-amount))
+              (set! delay-amount #f)
+              (on-delay-amount amt #t))
+            (send delay-amount-field enable #t)))
         
-        (refresh-plot)))
+      (refresh-plot))
 
     (define/public (get-generation) generation)
 

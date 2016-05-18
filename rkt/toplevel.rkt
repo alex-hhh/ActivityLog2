@@ -43,7 +43,8 @@
          "view-reports.rkt"
          "view-session.rkt"
          "view-trends.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "al-profiler.rkt")
 
 (provide toplevel-window%)
 
@@ -686,8 +687,15 @@
       (al-put-pref 'activity-log:frame-maximized (send tl-frame is-maximized?))
 
       (when database
+
+        (call-with-output-file "profile.txt"
+          #:mode 'text
+          #:exists 'append
+          profile-display)
+        
         (disconnect database)
-        (set! database #f)))
+        (set! database #f))
+      )
 
     (define (get-section-by-tag tag)
       (findf (lambda (s) (eq? tag (tl-section-tag s))) the-sections))

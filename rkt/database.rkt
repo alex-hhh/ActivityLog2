@@ -25,7 +25,8 @@
          "fit-defs.rkt"
          "fit-file.rkt"
          "elevation-correction.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "al-profiler.rkt")
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)
@@ -521,64 +522,66 @@
       (for/list ((session (in-list (query-rows db stmt activity-id))))
                 (db-extract-session session db)))))
 
-(define db-fetch-session
-  (let ((stmt (virtual-statement
-               (lambda (dbsys)
-                 "select S.id,
-                         S.start_time,
-                         S.name,
-                         S.description,
-                         SS.total_timer_time,
-                         SS.total_elapsed_time,
-                         SS.total_distance,
-                         SS.total_calories,
-                         SS.avg_speed,
-                         SS.max_speed,
-                         SS.avg_heart_rate,
-                         SS.max_heart_rate,
-                         SS.avg_cadence,
-                         SS.max_cadence,
-                         SS.total_cycles,
-                         SS.avg_cycle_distance,
-                         SS.total_ascent,
-                         SS.total_descent,
-                         SS.total_corrected_ascent,
-                         SS.total_corrected_descent,
-                         SS.swim_stroke_id,
-                         S.sport_id,
-                         S.sub_sport_id,
-                         S.pool_length,
-                         S.pool_length_unit,
-                         SS.avg_vertical_oscillation,
-                         SS.avg_stance_time,
-                         SS.avg_stance_time_percent,
-                         S.training_effect,
-                         SS.avg_power,
-                         SS.max_power,
-                         SS.normalized_power,
-                         SS.left_right_balance,
-                         SS.avg_left_torque_effectiveness,
-                         SS.avg_right_torque_effectiveness,
-                         SS.avg_left_pedal_smoothness,
-                         SS.avg_right_pedal_smoothness,
-                         S.training_stress_score,
-                         S.intensity_factor,
-                         S.rpe_scale,
-                         SS.avg_left_pco,
-                         SS.avg_right_pco,
-                         SS.avg_left_pp_start,
-                         SS.avg_left_pp_end,
-                         SS.avg_right_pp_start,
-                         SS.avg_right_pp_end,
-                         SS.avg_left_ppp_start,
-                         SS.avg_left_ppp_end,
-                         SS.avg_right_ppp_start,
-                         SS.avg_right_ppp_end
-                    from A_SESSION S, SECTION_SUMMARY SS
-                   where S.summary_id = SS.id
-                     and S.id = ?"))))
-    (lambda (session-id db)
-      (db-extract-session (query-row db stmt session-id) db))))
+(define fetch-session-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select S.id,
+            S.start_time,
+            S.name,
+            S.description,
+            SS.total_timer_time,
+            SS.total_elapsed_time,
+            SS.total_distance,
+            SS.total_calories,
+            SS.avg_speed,
+            SS.max_speed,
+            SS.avg_heart_rate,
+            SS.max_heart_rate,
+            SS.avg_cadence,
+            SS.max_cadence,
+            SS.total_cycles,
+            SS.avg_cycle_distance,
+            SS.total_ascent,
+            SS.total_descent,
+            SS.total_corrected_ascent,
+            SS.total_corrected_descent,
+            SS.swim_stroke_id,
+            S.sport_id,
+            S.sub_sport_id,
+            S.pool_length,
+            S.pool_length_unit,
+            SS.avg_vertical_oscillation,
+            SS.avg_stance_time,
+            SS.avg_stance_time_percent,
+            S.training_effect,
+            SS.avg_power,
+            SS.max_power,
+            SS.normalized_power,
+            SS.left_right_balance,
+            SS.avg_left_torque_effectiveness,
+            SS.avg_right_torque_effectiveness,
+            SS.avg_left_pedal_smoothness,
+            SS.avg_right_pedal_smoothness,
+            S.training_stress_score,
+            S.intensity_factor,
+            S.rpe_scale,
+            SS.avg_left_pco,
+            SS.avg_right_pco,
+            SS.avg_left_pp_start,
+            SS.avg_left_pp_end,
+            SS.avg_right_pp_start,
+            SS.avg_right_pp_end,
+            SS.avg_left_ppp_start,
+            SS.avg_left_ppp_end,
+            SS.avg_right_ppp_start,
+            SS.avg_right_ppp_end
+       from A_SESSION S, SECTION_SUMMARY SS
+      where S.summary_id = SS.id
+        and S.id = ?")))
+
+
+(define (db-fetch-session session-id db)
+  (db-extract-session (query-row db fetch-session-stmt session-id) db))
 
 (define (db-extract-session session-row db)
   (let ((fields '(database-id start-time name description total-timer-time total-elapsed-time 

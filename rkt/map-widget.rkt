@@ -23,6 +23,8 @@
          racket/flonum
          racket/gui/base
          racket/list
+         racket/sequence
+         racket/stream
          "al-log.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"
@@ -72,8 +74,8 @@
                                (mpp->zoom-level mpp-height)))
              1)))))
 
-(define (point-lat p) (vector-ref p 1))
-(define (point-long p) (vector-ref p 2))
+(define (point-lat p) (vector-ref p 0))
+(define (point-long p) (vector-ref p 1))
 
 ;; Return a track that has fewer points than TRACK but should display OK at
 ;; ZOOM-LEVEL.  We drop points from TRACK such that there is a minimum
@@ -102,26 +104,28 @@
     (map-distance/degrees
      (point-lat p1) (point-long p1) (point-lat p2) (point-long p2)))
 
-  (if (< (length track) 3)
-      track ;; cannot simplify a short track
-      (let ((new-track (list (car track))))
-        (let loop ((start (car track))
-                   (follow (car (cdr track)))
-                   (rest (cdr (cdr track)))
-                   (initial-bearing (bear (car track) (car (cdr track)))))
-          (if (null? rest)
-              (set! new-track (cons follow new-track)) ; last point
-              (let* ((candidate (car rest))
-                     (new-dist (dist start candidate))
-                     (new-bearing (bear start candidate)))
-                (if (or (>  new-dist min-dist)
-                        (> (abs (- new-bearing initial-bearing)) max-bdev))
+  (if (< (sequence-length track) 3)
+      (sequence->list track)            ; cannot simplify a short track
+      (let* ((strack (sequence->stream track))
+             (ntrack (list (stream-first strack)))) ; we always keep the first point
+        (let loop ((start (stream-first strack))
+                   (follow (stream-first (stream-rest strack)))
+                   (rest (stream-rest (stream-rest strack)))
+                   (bearing (bear (stream-first strack)
+                                  (stream-first (stream-rest strack)))))
+          (if (stream-empty? rest)
+              (set! ntrack (cons follow ntrack)) ; last point
+              (let* ((candidate (stream-first rest))
+                     (ndist (dist start candidate))
+                     (nbearing (bear start candidate)))
+                (if (or (>  ndist min-dist)
+                        (> (abs (- nbearing bearing)) max-bdev))
                     (begin
-                      (set! new-track (cons follow new-track))
-                      (loop follow (car rest) (cdr rest) (bear follow (car rest))))
+                      (set! ntrack (cons follow ntrack))
+                      (loop follow candidate (stream-rest rest) (bear follow candidate)))
                     (begin
-                      (loop start (car rest) (cdr rest) initial-bearing))))))
-        (reverse new-track))))
+                      (loop start candidate (stream-rest rest) bearing))))))
+        (reverse ntrack))))
 
 ;; Construct a dc-path% that draws the TRACK at ZOOM-LEVEL
 (define (track->dc-path track zoom-level)
@@ -229,19 +233,15 @@
     (define show-labels? display-start-end-labels?)
 
     (define first-point
-      (if (null? track)
-          #f
-          (let ((p (first track)))
-            (lat-lon->map-point (point-lat p) (point-long p)))))
+      (let ((p (for/first ([point track]) point)))
+        (lat-lon->map-point (point-lat p) (point-long p))))
 
     (define first-point-label-color (make-color 0 135 36))
 
     (define last-point
-      (if (null? track)
-          #f
-          (let ((p (last track)))
-            (lat-lon->map-point (point-lat p) (point-long p)))))
-
+      (let ((p (for/last ([point track]) point)))
+        (lat-lon->map-point (point-lat p) (point-long p))))
+            
     (define last-point-label-color (make-color 150 33 33))
 
     (define bounding-box (track-bbox track))
@@ -583,7 +583,7 @@
     (define/public (set-track track)
       (send canvas suspend-flush)
       (set! main-track
-            (if (and track (not (null? track)))
+            (if track
                 (new gps-track%
                      [track track]
                      [pen main-track-pen]
