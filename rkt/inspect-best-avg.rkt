@@ -26,7 +26,8 @@
          "data-frame.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
-         "spline-interpolation.rkt")
+         "spline-interpolation.rkt"
+         "workers.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -247,7 +248,8 @@
             ((eq? best-avg-render-tree #f)
              (send graph-pb set-background-message "Working...")
              (send graph-pb set-snip #f)
-             (thread
+             (queue-task
+              "inspect-best-avg%/refresh-plot"
               (lambda ()
                 (unless best-avg-data (rebuild-best-avg-data))
                 (set! best-avg-render-tree

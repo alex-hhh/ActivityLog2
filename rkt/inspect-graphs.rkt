@@ -15,7 +15,6 @@
 ;; more details.
 
 (require plot
-         racket/async-channel
          racket/class
          racket/gui/base
          (rename-in srfi/48 (format format-48))
@@ -36,7 +35,8 @@
          "widgets.rkt"
          "dbglog.rkt"
          "al-profiler.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "workers.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph%)
@@ -243,19 +243,9 @@
           (plot/dc (full-render-tree) (send bmp make-dc) 0 0 width height))
         bmp))
 
-    (define request-ch (make-async-channel #f))
-    (define worker
-      (thread/dbglog
-       #:name (format "~a worker" tag)
-       (lambda ()
-         (let loop ((item (async-channel-get request-ch)))
-           (when (procedure? item)      ; anthing else terminates the thread
-             (item)
-             (loop (async-channel-get request-ch)))))))
-
     (define (make-cached-graph-bitmap width height)
-      (async-channel-put
-       request-ch
+      (queue-task
+       "graph-view%/make-cached-graph-bitmap"
        (lambda ()
          (let ((bmp (get-cached-graph-bitmap width height)))
            (queue-callback
@@ -317,8 +307,8 @@
                 (y-axis2 y-axis2)
                 (filter-amount filter-amount))
             (set! graph-render-tree 'working)
-            (async-channel-put
-             request-ch
+            (queue-task
+             "graph-view%/prepare-render-tree"
              (lambda ()
                (define ds
                  (or data-series
@@ -385,6 +375,7 @@
                   (set! factored-data fdata)
                   (set! graph-render-tree rt)
                   (set! cached-bitmap-dirty? #t)
+                  (highlight-lap selected-lap)
                   (send graph-canvas refresh))))))
           (set! graph-render-tree #f)))
 
@@ -428,7 +419,6 @@
           (on-y-axis-selected y-axis-index)))
       (set! selected-lap #f)
       (prepare-render-tree)
-      (highlight-lap selected-lap)
       (resume-flush))
 
     (define/public (zoom-to-lap zoom)
@@ -446,8 +436,7 @@
       (set! data-series #f)
       (set! data-series2 #f)
       (set! factored-data #f)
-      (prepare-render-tree)
-      (highlight-lap selected-lap))
+      (prepare-render-tree))
 
     (define/public (show-average-line show)
       (set! show-avg? show)
@@ -459,8 +448,7 @@
       (set! data-series #f)
       (set! data-series2 #f)
       (set! factored-data #f)
-      (prepare-render-tree)
-      (highlight-lap selected-lap))
+      (prepare-render-tree))
 
     (define/public (set-y-axis new-y-axis (new-y-axis2 #f))
       (set! y-axis new-y-axis)
@@ -471,8 +459,7 @@
       (set! factor-fn #f)
       (set! factor-colors #f)
       (set! data-series2 #f)
-      (prepare-render-tree)
-      (highlight-lap selected-lap))
+      (prepare-render-tree))
 
     (define/public (highlight-lap lap-num)
 

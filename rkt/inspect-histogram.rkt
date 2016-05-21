@@ -25,7 +25,8 @@
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "workers.rkt")
 
 (provide histogram-plot-panel%)
 
@@ -289,34 +290,38 @@
       
       (unless inhibit-refresh
         (set! graph-render-tree #f)
-        (let* ((axis (list-ref axis-choices y-axis-index))
-               (axis1 (if (list? axis) (second axis) axis))
-               (axis2 (if (list? axis) (third axis) #f))
-               (sname1 (send axis1 get-series-name))
-               (sname2 (if axis2 (send axis2 get-series-name) #f))
-               (bw (* bucket-width (send axis1 get-histogram-bucket-slot)))
-               (h1 (df-histogram data-frame sname1
-                                 #:bucket-width bw
-                                 #:include-zeroes? include-zeroes?
-                                 #:as-percentage? show-as-percentage?
-                                 #:trim-outliers outlier-trim))
-               (h2 (if sname2
-                       (df-histogram data-frame sname2
-                                     #:bucket-width bw
-                                     #:include-zeroes? include-zeroes?
-                                     #:as-percentage? show-as-percentage?
-                                     #:trim-outliers outlier-trim)
-                       #f)))
-          (set! graph-render-tree
-                (if (and axis2 h1 h2)
-                    (make-histogram-renderer/dual h1 (send axis1 get-series-label)
-                                                  h2 (send axis2 get-series-label)
-                                                  #:color1 (get-color axis1)
-                                                  #:color2 (get-color axis2))
-                    (if h1
-                        (list (make-histogram-renderer h1 #:color (get-color axis1)))
-                        #f)))
-          (put-plot-snip graph-pb))))
+        (send graph-pb set-background-message "Working...")
+        (queue-task
+         "inspect-histogram%/refresh-plot"
+         (lambda ()
+           (let* ((axis (list-ref axis-choices y-axis-index))
+                  (axis1 (if (list? axis) (second axis) axis))
+                  (axis2 (if (list? axis) (third axis) #f))
+                  (sname1 (send axis1 get-series-name))
+                  (sname2 (if axis2 (send axis2 get-series-name) #f))
+                  (bw (* bucket-width (send axis1 get-histogram-bucket-slot)))
+                  (h1 (df-histogram data-frame sname1
+                                    #:bucket-width bw
+                                    #:include-zeroes? include-zeroes?
+                                    #:as-percentage? show-as-percentage?
+                                    #:trim-outliers outlier-trim))
+                  (h2 (if sname2
+                          (df-histogram data-frame sname2
+                                        #:bucket-width bw
+                                        #:include-zeroes? include-zeroes?
+                                        #:as-percentage? show-as-percentage?
+                                        #:trim-outliers outlier-trim)
+                          #f)))
+             (set! graph-render-tree
+                   (if (and axis2 h1 h2)
+                       (make-histogram-renderer/dual h1 (send axis1 get-series-label)
+                                                     h2 (send axis2 get-series-label)
+                                                     #:color1 (get-color axis1)
+                                                     #:color2 (get-color axis2))
+                       (if h1
+                           (list (make-histogram-renderer h1 #:color (get-color axis1)))
+                           #f)))
+             (put-plot-snip graph-pb))))))
 
     (define (save-params-for-sport)
       (when current-sport

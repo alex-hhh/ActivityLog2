@@ -25,7 +25,8 @@
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "workers.rkt")
 
 (provide scatter-plot-panel%)
 
@@ -230,33 +231,37 @@
 
     (define (refresh-plot)
       (set! graph-render-tree #f)
-      (unless data-series
-        (let* ((x (list-ref axis-choices x-axis-index))
-               (y (list-ref axis-choices y-axis-index))
-               (xnam (send x get-series-name))
-               (ynam (send y get-series-name)))
-          (when (send data-frame contains? xnam ynam)
-            (set! data-series
-                  (send data-frame select*
-                        xnam ynam
-                        "elapsed"
-                        #:filter valid-only)))))
-      (when data-series
-        (let ((x (list-ref axis-choices x-axis-index))
-              (y (list-ref axis-choices y-axis-index)))
-          (let* ((maybe-delayed
-                  (if delay-amount
-                    (time-delay-series data-series delay-amount)
-                    data-series))
-                 (grouped
-                  (group-samples maybe-delayed
-                                 (send x get-fractional-digits)
-                                 (send y get-fractional-digits))))
-            (set! graph-render-tree
-                  (make-scatter-group-renderer
-                   grouped
-                   (send y get-line-color))))))
-      (put-plot-snip graph-pb))
+      (send graph-pb set-background-message "Working...")
+      (queue-task
+       "inspect-scatter%/refresh-plot"
+       (lambda ()
+         (unless data-series
+           (let* ((x (list-ref axis-choices x-axis-index))
+                  (y (list-ref axis-choices y-axis-index))
+                  (xnam (send x get-series-name))
+                  (ynam (send y get-series-name)))
+             (when (send data-frame contains? xnam ynam)
+               (set! data-series
+                     (send data-frame select*
+                           xnam ynam
+                           "elapsed"
+                           #:filter valid-only)))))
+          (when data-series
+            (let ((x (list-ref axis-choices x-axis-index))
+                  (y (list-ref axis-choices y-axis-index)))
+              (let* ((maybe-delayed
+                      (if delay-amount
+                          (time-delay-series data-series delay-amount)
+                          data-series))
+                     (grouped
+                      (group-samples maybe-delayed
+                                     (send x get-fractional-digits)
+                                     (send y get-fractional-digits))))
+                (set! graph-render-tree
+                      (make-scatter-group-renderer
+                       grouped
+                       (send y get-line-color))))))
+         (put-plot-snip graph-pb))))
 
     (define (save-params-for-sport)
       (when current-sport
