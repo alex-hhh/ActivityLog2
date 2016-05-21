@@ -271,6 +271,7 @@
 
  session-avg-hr
  session-max-hr
+ session-aerobic-decoupling
 
  session-avg-cadence
  session-avg-vertical-oscillation
@@ -284,6 +285,7 @@
  session-max-cadence
  session-total-cycles
  session-avg-stride
+ session-avg-vratio
 
  session-total-ascent
  session-total-descent
@@ -357,6 +359,9 @@
 (define (session-max-hr session)
   (assq1 'max-heart-rate session))
 
+(define (session-aerobic-decoupling session)
+  (assq1 'aerobic-decoupling session))
+
 (define (session-avg-cadence session)
   (assq1 'avg-cadence session))
 
@@ -393,6 +398,11 @@
     (if (and total-distance total-cycles)
 	(/ total-distance (* 2 total-cycles))
 	#f)))
+
+(define (session-avg-vratio session)
+  (let ((stride (session-avg-stride session))
+        (vosc (session-avg-vertical-oscillation session)))
+    (if (and stride (> stride 0)) (* 100.0 (/ vosc (* stride 1000))) #f)))
 
 (define (session-total-ascent session)
   (or 
@@ -526,11 +536,13 @@
 
  lap-avg-hr
  lap-max-hr
+ lap-aerobic-decoupling
 
  lap-avg-cadence
  lap-max-cadence
  lap-total-cycles
  lap-avg-stride
+ lap-avg-vratio
  lap-avg-vertical-oscillation
  lap-avg-stance-time
  lap-avg-stance-time-percent
@@ -567,11 +579,13 @@
 
 (define lap-avg-hr session-avg-hr)
 (define lap-max-hr session-max-hr)
+(define lap-aerobic-decoupling session-aerobic-decoupling)
 
 (define lap-avg-cadence session-avg-cadence)
 (define lap-max-cadence session-max-cadence)
 (define lap-total-cycles session-total-cycles)
 (define lap-avg-stride session-avg-stride)
+(define lap-avg-vratio session-avg-vratio)
 
 (define lap-avg-vertical-oscillation session-avg-vertical-oscillation)
 (define lap-avg-stance-time session-avg-stance-time)

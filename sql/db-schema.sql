@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(14);
+insert into SCHEMA_VERSION(version) values(15);
 
 
 --........................................................ Enumerations ....
@@ -144,6 +144,7 @@ create table SECTION_SUMMARY (
 
   avg_heart_rate integer,
   max_heart_rate integer,
+  aerobic_decoupling real,
 
   -- For bike, this is cadence, for running we store here steps and stride
   -- length, for swimming we store strokes and stroke length
@@ -736,6 +737,7 @@ create view V_ACTIVITY_LIST as
          SS.avg_left_ppp_end as lpppend,
          SS.avg_right_ppp_start as rpppstart,
          SS.avg_right_ppp_end as rpppend,
+         SS.aerobic_decoupling as adecl,
          (select AM1.body_weight
             from ATHLETE_METRICS AM1
            where AM1.timestamp = (

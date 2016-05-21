@@ -308,6 +308,13 @@
        (let ((fn (lambda (row) (db-row-ref row "max_hr" headers 0))))
          (column-info "Max HR" (lambda (row) (n->string (fn row))) fn))
 
+       (let ((fn (lambda (row) (db-row-ref row "adecl" headers #f))))
+         (column-info "A Decl"
+                      (lambda (row)
+                        (let ((val (fn row)))
+                          (if val (pct->string val) "")))
+                      fn))
+
        (let ((fn (lambda (row) (db-row-ref row "cadence" headers 0))))
          (column-info "Cadence" (lambda (row) (n->string (fn row))) fn))
 
@@ -322,13 +329,25 @@
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "vosc" headers 0))))
-         (column-info "Vertical Oscillation"
+         (column-info "VOSC"
                       (lambda (row) (vosc->string (fn row) #t))
+                      fn))
+
+       (let ((fn (lambda (row)
+                   (let ((st (db-row-ref row "stride" headers #f))
+                         (vosc (db-row-ref row "vosc" headers #f)))
+                     (if (and st vosc (> st 0) (> vosc 0))
+                         (* 100.0 (/ vosc (* st 1000)))
+                         0)))))
+         (column-info "VRATIO"
+                      (lambda (row)
+                        (let ((vratio (fn row)))
+                          (if (> vratio 0) (pct->string (fn row)) "")))
                       fn))
 
        (let ((fn1 (lambda (row) (db-row-ref row "gct" headers 0)))
              (fn2 (lambda (row) (db-row-ref row "gct_pct" headers 0))))
-         (column-info "Ground Contact Time"
+         (column-info "GCT"
                       (lambda (row) (stance->string (fn1 row) (fn2 row)))
                       fn1))
 
@@ -348,35 +367,35 @@
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "lrbal" headers 0))))
-         (column-info "Left-Right Balance"
+         (column-info "L-R Bal"
                       (lambda (row)
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F%" v) "")))
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "ltorqeff" headers 0))))
-         (column-info "Left Torque Effectiveness"
+         (column-info "Left TEff"
                       (lambda (row)
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F%" v) "")))
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "rtorqeff" headers 0))))
-         (column-info "Right Torque Effectiveness"
+         (column-info "Right TEff"
                       (lambda (row)
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F%" v) "")))
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "lpdlsmth" headers 0))))
-         (column-info "Left Pedal Smoothness"
+         (column-info "Left PSmth"
                       (lambda (row)
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F%" v) "")))
                       fn))
        
        (let ((fn (lambda (row) (db-row-ref row "rpdlsmth" headers 0))))
-         (column-info "Right Pedal Smoothness"
+         (column-info "Right PSmth"
                       (lambda (row)
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F%" v) "")))

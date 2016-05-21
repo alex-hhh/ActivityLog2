@@ -57,6 +57,7 @@
          time-of-day->string
          date-time->string
          n->string
+         pct->string
          stride->string
          vosc->string
          vratio->string
@@ -469,3 +470,6 @@
 (define (n->string val)
   (if (= val 0) "" (number->string (exact-round val))))
 
+(: pct->string (-> Real String))
+(define (pct->string val)
+  (format-48 "~1,1F %" val))

@@ -513,7 +513,18 @@
                          SS.avg_right_pedal_smoothness,
                          S.training_stress_score,
                          S.intensity_factor,
-                         S.rpe_scale
+                         S.rpe_scale,
+                         SS.avg_left_pco,
+                         SS.avg_right_pco,
+                         SS.avg_left_pp_start,
+                         SS.avg_left_pp_end,
+                         SS.avg_right_pp_start,
+                         SS.avg_right_pp_end,
+                         SS.avg_left_ppp_start,
+                         SS.avg_left_ppp_end,
+                         SS.avg_right_ppp_start,
+                         SS.avg_right_ppp_end,
+                         SS.aerobic_decoupling
                     from A_SESSION S, SECTION_SUMMARY SS
                    where S.summary_id = SS.id
                      and S.activity_id = ?
@@ -574,7 +585,8 @@
             SS.avg_left_ppp_start,
             SS.avg_left_ppp_end,
             SS.avg_right_ppp_start,
-            SS.avg_right_ppp_end
+            SS.avg_right_ppp_end,
+            SS.aerobic_decoupling
        from A_SESSION S, SECTION_SUMMARY SS
       where S.summary_id = SS.id
         and S.id = ?")))
@@ -598,7 +610,7 @@
                   training-stress-score intensity-factor rpe-scale
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling)))
     (let ((session-data (db-row->alist fields session-row)))
       (cons (cons 'weather (db-extract-weater-for-session (vector-ref session-row 0) db))
             (cons (cons 'laps (db-extract-laps-for-session (vector-ref session-row 0) db))
@@ -646,7 +658,8 @@
                          SS.avg_left_ppp_start,
                          SS.avg_left_ppp_end,
                          SS.avg_right_ppp_start,
-                         SS.avg_right_ppp_end
+                         SS.avg_right_ppp_end,
+                         SS.aerobic_decoupling
                     from A_LAP L, SECTION_SUMMARY SS
                    where L.summary_id = SS.id
                      and L.session_id = ?
@@ -668,7 +681,7 @@
                   avg-left-pedal-smoothness avg-right-pedal-smoothness
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling)))
 
     (let ((lap-data (db-row->alist fields lap-row)))
       (cons (cons 'lengths (db-extract-lengths-for-lap (vector-ref lap-row 0) db))

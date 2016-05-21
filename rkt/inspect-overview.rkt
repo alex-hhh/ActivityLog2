@@ -83,7 +83,10 @@
                         (if max-hr (list sid max-hr) #f)))
                     (lambda (v)
                       (let ((zones (get-session-sport-zones (first v) 1)))
-                        (heart-rate->string/full (second v) zones))))))
+                        (heart-rate->string/full (second v) zones))))
+   (badge-field-def "Aerobic Decoupling: "
+                    session-aerobic-decoupling
+                    (lambda (v) (if v (pct->string v) "")))))
 
 (define *elevation-fields*
   (list
@@ -122,6 +125,7 @@
    (badge-field-def "Avg Stride Length: " session-avg-stride (lambda (v) (stride->string v #t)))
    (badge-field-def "Avg Vertical Oscillation: " session-avg-vertical-oscillation
                     (lambda (v) (vosc->string v #t)))
+   (badge-field-def "Avg Vertical Ratio: " session-avg-vratio pct->string)
    (badge-field-def "Avg Ground Contact: "
                     (lambda (session)
                       (let ((stime (session-avg-stance-time session))
@@ -131,6 +135,11 @@
                             #f)))
                     (lambda (v)
                       (stance->string (car v) (cdr v))))
+   (badge-field-def "Left-Righ Balance: " session-left-right-balance
+                    (lambda (v)
+                      (let ((dev (- v 50.0)))
+                        (format-48 "~1,1F% (~1,1F% ~a)" v
+                                   dev (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Total Vertical Travel: "
                     session-total-vertical-travel
                     (lambda (v) (vertical-distance->string v #t)))))
@@ -179,7 +188,9 @@
    (badge-field-def "Normalized Power: " session-normalized-power (lambda (v) (power->string v #t)))
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
-                      (format-48 "~1,1F% Right" v)))
+                      (let ((dev (- v 50.0)))
+                        (format-48 "~1,1F% (~1,1F% ~a)" v
+                                   dev (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Torque Effectiveness: " 
                     (lambda (session)
                       (let ((left (session-avg-left-torque-effectiveness session))

@@ -18,6 +18,7 @@
          racket/class
          racket/match
          racket/math
+         math/statistics
          "database.rkt"
          "dbglog.rkt"
          "icon-resources.rkt"
@@ -27,6 +28,30 @@
 
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)
+
+(define (decoupling df s1 s2 #:start (start 0) #:end (end (send df get-row-count)))
+  (let ((half-point (exact-truncate (/ (+ start end) 2))))
+    (let ((stat-s1-1 (df-statistics df s1 #:start start #:end half-point))
+          (stat-s1-2 (df-statistics df s1 #:start half-point #:end end))
+          (stat-s2-1 (df-statistics df s2 #:start start #:end half-point))
+          (stat-s2-2 (df-statistics df s2 #:start half-point #:end end)))
+      (let ((r1 (/ (statistics-mean stat-s1-1)
+                   (statistics-mean stat-s2-1)))
+            (r2 (/ (statistics-mean stat-s1-2)
+                   (statistics-mean stat-s2-2))))
+        (* 100.0 (/ (- r1 r2) r1))))))
+
+(define (decoupling/laps df s1 s2)
+  (let* ((laps (send df get-property 'laps))
+         (limit (vector-length laps)))
+    (for/list ([idx (in-range 0 (vector-length laps))])
+      (define start
+        (send df get-index "timestamp" (vector-ref laps idx)))
+      (define end
+        (if (< idx (- limit 1))
+            (send df get-index "timestamp" (vector-ref laps (+ idx 1)))
+            (send df get-row-count)))
+      (decoupling df s1 s2 #:start start #:end end))))
 
 ;; Compute the time spend in each zone for SESSION (as returned by
 ;; db-fetch-session).  The zones are defined by the AXIS-DEF (can be
@@ -38,6 +63,17 @@
 (define (time-in-zone session series)
   (df-histogram session series #:bucket-width 1 #:as-percentage? #f))
 
+(define delete-tiz-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "delete from TIME_IN_ZONE where session_id = ? and sport_zone_id = ?")))
+
+(define insert-tiz-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into TIME_IN_ZONE(session_id, sport_zone_id, zone_id, duration)
+         values(?, ?, ?, ?)")))
+
 ;; Store time in zone data in the TIME_IN_ZONE table in the database.  SID is
 ;; the session id, ZID is the zone definition id, DATA is what
 ;; `time-in-hr-zone' or `time-in-power-zone' returns and DB is the database.
@@ -45,35 +81,58 @@
   (call-with-transaction
    db
    (lambda ()
-     (query-exec
-      db
-      "delete from TIME_IN_ZONE where session_id = ? and sport_zone_id = ?"
-      sid zid)
+     (query-exec db delete-tiz-stmt sid zid)
      (for ([zd data])
        (match-define (vector zone-id duration) zd)
-       (query-exec
-        db
-        "insert into TIME_IN_ZONE(session_id, sport_zone_id, zone_id, duration)
-         values(?, ?, ?, ?)"
-        sid zid zone-id duration)))))
+       (query-exec db insert-tiz-stmt sid zid zone-id duration)))))
+
+(define select-zone-id-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select zone_id from V_SPORT_ZONE_FOR_SESSION
+    where session_id = ? and zone_metric_id = ?")))
 
 ;; Find the definition id that corresponds to SID, a session ID.  METRIC-ID is
 ;; 1 for heart rate and 3 for power (see the E_ZONE_METRIC table in the
 ;; database schema)
 (define (get-zone-id sid metric-id db)
-  (query-maybe-value
-   db
-   "select zone_id from V_SPORT_ZONE_FOR_SESSION
-    where session_id = ? and zone_metric_id = ?"
-   sid metric-id))
+  (query-maybe-value db select-zone-id-stmt sid metric-id))
 
+(define update-adec-session-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update SECTION_SUMMARY set aerobic_decoupling = ?
+where id = (select summary_id from A_SESSION where id = ?)")))
+
+(define (update-aerobic-decoupling-for-session db sid adec)
+  (query-exec db update-adec-session-stmt adec sid))
+
+(define update-adec-laps-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update SECTION_SUMMARY set aerobic_decoupling = ?
+where id = (select summary_id from A_LAP where id = ?)")))
+
+(define (update-aerobic-decoupling-for-lap db lapid adec)
+  (query-exec db update-adec-laps-stmt adec lapid))
+
+(define fetch-lap-ids
+  (virtual-statement
+   (lambda (dbsys)
+     "
+select P.id
+  from A_LAP P
+ where P.session_id = ?
+ order by P.start_time")))
+  
 ;; Update the TIME_IN_ZONE table with data for a session.  Both heart rate and
 ;; power zones are updated (if available).  Previous data for this session is
 ;; deleted.
 (define (update-time-in-zone-data sid db)
-  (let ((session (make-session-data-frame db sid))
-        (pwr-zone-id (get-zone-id sid 3 db))
-        (hr-zone-id (get-zone-id sid 1 db)))
+  (let* ((session (make-session-data-frame db sid))
+         (sport (send session get-property 'sport))
+         (pwr-zone-id (get-zone-id sid 3 db))
+         (hr-zone-id (get-zone-id sid 1 db)))
     (when (send session contains? "pwr-zone")
       (let ((data (time-in-zone session "pwr-zone")))
         (when data
@@ -81,7 +140,27 @@
     (when (send session contains? "hr-zone")
       (let ((data (time-in-zone session "hr-zone")))
         (when data
-          (store-time-in-zone sid hr-zone-id data db))))))
+          (store-time-in-zone sid hr-zone-id data db))))
+    (cond
+      ((and (equal? (vector-ref sport 0) 2) ; bike
+            (send session contains? "pwr" "hr"))
+       (let ((adec (decoupling session "pwr" "hr")))
+         (update-aerobic-decoupling-for-session db sid adec))
+       (let ((adec/laps (decoupling/laps session "pwr" "hr"))
+             (id/laps (query-list db fetch-lap-ids sid)))
+         (for ([adec adec/laps]
+               [lapid id/laps])
+           (update-aerobic-decoupling-for-lap db lapid adec))))
+      ((and (equal? (vector-ref sport 0) 1) ; run
+            (send session contains? "spd" "hr"))
+       (let ((adec (decoupling session "spd" "hr")))
+         (update-aerobic-decoupling-for-session db sid adec))
+       (let ((adec/laps (decoupling/laps session "spd" "hr"))
+             (id/laps (query-list db fetch-lap-ids sid)))
+         (for ([adec adec/laps]
+               [lapid id/laps])
+           (update-aerobic-decoupling-for-lap db lapid adec)))))
+    ))
 
 ;; Update the time in zone information for all sessions in the database.
 ;; Provides a progress bar and allows the user to cancel the operation.
@@ -94,10 +173,7 @@
 
   (define (task progress-dialog)
     (send progress-dialog set-message "Fetching list of sessions...")
-    (define sessions
-      (query-list
-       database
-       "select distinct session_id from V_SPORT_ZONE_FOR_SESSION where zone_metric_id in (1, 3)"))
+    (define sessions (query-list database "select id from A_SESSION"))
     (define num-sessions (length sessions))
     (send progress-dialog set-message "Starting update...")
     (dbglog "interactive-update-time-in-zone-data started")

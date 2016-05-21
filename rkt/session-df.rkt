@@ -231,10 +231,13 @@
     ;; Patch first element
     (or (vector-ref distance 0)
         (vector-set! distance 0 0))
-    ;; Patch the rest of the series
+    ;; Patch the rest of the series so that it is increasing (errors in data
+    ;; can have non increasing distance)
     (for ([idx (in-range 1 (vector-length distance))])
-      (or (vector-ref distance idx)
-          (vector-set! distance idx (vector-ref distance (- idx 1)))))
+      (let ((prev-point (vector-ref distance (- idx 1)))
+            (current-point (vector-ref distance idx)))
+        (when (or (not current-point) (< current-point prev-point))
+          (vector-set! distance idx prev-point))))
 
     (send df add-series
           (new data-series% [name "distance"] [data distance]))
@@ -309,7 +312,7 @@
                 (let ()
                   (match-define (vector pdst palt) prev-val)
                   (match-define (vector dst alt) val)
-                  (if (and pdst palt dst alt)
+                  (if (and pdst palt dst alt (> dst pdst))
                       (* 100 (/ (- alt palt) (- dst pdst)))
                       #f))
                 0)))))
