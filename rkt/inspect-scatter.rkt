@@ -95,6 +95,28 @@
    axis-swim-swolf
    axis-swim-pace))
 
+(define (find-bounds data-series)
+  (let ((xmin #f)
+        (xmax #f)
+        (ymin #f)
+        (ymax #f))
+    (for ([item data-series])
+      (define x (vector-ref item 0))
+      (define y (vector-ref item 1))
+      (set! xmin (if xmin (min xmin x) x))
+      (set! xmax (if xmax (max xmax x) x))
+      (set! ymin (if ymin (min ymin y) y))
+      (set! ymax (if ymax (max ymax y) y)))
+    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+    (when xrange
+      (when xmin (set! xmin (- xmin (* xrange 0.05))))
+      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+    (when yrange
+      (when ymin (set! ymin (- ymin (* yrange 0.05))))
+      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+    (values xmin xmax ymin ymax)))
+
 (define scatter-plot-panel%
   (class object%
     (init parent)
@@ -121,6 +143,10 @@
     (define axis-choice-by-sport (make-hash))
 
     (define data-series #f)
+    (define x-min #f)
+    (define x-max #f)
+    (define y-min #f)
+    (define y-max #f)
     
     ;; Restore the preferences now. 
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
@@ -227,7 +253,7 @@
                              [plot-x-label (send x-axis get-axis-label)]
                              [plot-y-ticks (send y-axis get-axis-ticks)]
                              [plot-y-label (send y-axis get-axis-label)])
-                (plot-snip/hack canvas rt))))))
+                (plot-snip/hack canvas rt #:x-min x-min #:x-max x-max #:y-min y-min #:y-max y-max))))))
 
     (define (refresh-plot)
       (set! graph-render-tree #f)
@@ -246,21 +272,26 @@
                            xnam ynam
                            "elapsed"
                            #:filter valid-only)))))
-          (when data-series
-            (let ((x (list-ref axis-choices x-axis-index))
-                  (y (list-ref axis-choices y-axis-index)))
-              (let* ((maybe-delayed
-                      (if delay-amount
-                          (time-delay-series data-series delay-amount)
-                          data-series))
-                     (grouped
-                      (group-samples maybe-delayed
-                                     (send x get-fractional-digits)
-                                     (send y get-fractional-digits))))
-                (set! graph-render-tree
-                      (make-scatter-group-renderer
-                       grouped
-                       (send y get-line-color))))))
+         (when data-series
+           (let-values (((xmin xmax ymin ymax) (find-bounds data-series)))
+             (set! x-min xmin)
+             (set! x-max xmax)
+             (set! y-min ymin)
+             (set! y-max ymax))
+           (let ((x (list-ref axis-choices x-axis-index))
+                 (y (list-ref axis-choices y-axis-index)))
+             (let* ((maybe-delayed
+                     (if delay-amount
+                         (time-delay-series data-series delay-amount)
+                         data-series))
+                    (grouped
+                     (group-samples maybe-delayed
+                                    (send x get-fractional-digits)
+                                    (send y get-fractional-digits))))
+               (set! graph-render-tree
+                     (make-scatter-group-renderer
+                      grouped
+                      (send y get-line-color))))))
          (put-plot-snip graph-pb))))
 
     (define (save-params-for-sport)

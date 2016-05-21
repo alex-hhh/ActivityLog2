@@ -1072,7 +1072,7 @@
   (let ((kwd '()) (val '()))
     (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
     (add-arg '#:sym 'fullcircle)
-    (add-arg '#:size (+ (point-size) size))
+    (add-arg '#:size (* (point-size) size))
     ;; (add-arg '#:line-width 2)
     (when label
       (add-arg '#:label label))
@@ -1085,4 +1085,4 @@
 (define (make-scatter-group-renderer group color [label #f])
   (for/list ([key (in-hash-keys group)])
     (define data (hash-ref group key))
-    (make-scatter-renderer data color key label)))
+    (make-scatter-renderer data color (+ 1 (log key)) label)))
