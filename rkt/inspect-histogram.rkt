@@ -44,7 +44,8 @@
                            (send a2 get-series-name)))
                    (send df contains? (send axis get-series-name))))
       axis))
-  (sort al string<? #:key (lambda (a) (send a get-axis-title))))
+  (sort al string<?
+        #:key (lambda (a) (if (list? a) (first a) (send a get-axis-title)))))
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
