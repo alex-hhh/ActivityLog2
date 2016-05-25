@@ -312,10 +312,15 @@
              (lambda ()
                (define ds
                  (or data-series
-                     (let ([ds (extract-data data-frame x-axis y-axis filter-amount)])
-                       (if (is-lap-swimming? data-frame)
-                           (add-verticals ds)
-                           ds))))
+                     ;; NOTE: a graph can be configured for multiple Y axis,
+                     ;; and some of them might not exist. We need to check
+                     ;; that the series exists.
+                     (if (send data-frame contains? (send y-axis get-series-name))
+                         (let ([ds (extract-data data-frame x-axis y-axis filter-amount)])
+                           (if (is-lap-swimming? data-frame)
+                               (add-verticals ds)
+                               ds))
+                         #f)))
                (define fdata
                  (or factored-data
                      (if factor-fn
@@ -323,7 +328,10 @@
                          #f)))
                (define ds2
                  (or data-series2
-                     (if y-axis2
+                     ;; NOTE: a graph can be configured for multiple Y axis,
+                     ;; and some of them might not exist. We need to check
+                     ;; that the series exists.
+                     (if (and y-axis2 (send data-frame contains? (send y-axis2 get-series-name)))
                          (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
