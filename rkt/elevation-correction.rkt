@@ -216,7 +216,7 @@ from A_TRACKPOINT where tile_code = ?
         (set! sum-div (accumulate-average-altitude r-lat r-long points sum-div))))
     (if (> (cdr sum-div) 0)
         (fl/ (car sum-div) (cdr sum-div))
-        0.0)))
+        #f)))
 
 (define session-trackpoints-query
   ;; SQL query to return all track points for a session.  Note that the
