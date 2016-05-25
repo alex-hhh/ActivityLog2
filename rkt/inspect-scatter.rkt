@@ -30,20 +30,26 @@
 
 (provide scatter-plot-panel%)
 
-(define (filter-axis-choices data-frame axis-choices)
-  (for/list ([axis axis-choices]
-             #:when (send data-frame contains? (send axis get-series-name)))
-    axis))
+;; Filter AXIS-LIST to remove any axis definition that don't have a data
+;; series in DF, a data-frame%
+(define (filter-axis-list df axis-list)
+  (define al
+    (for/list ([axis axis-list]
+               #:when (let ((sn (send axis get-series-name)))
+                        (send df contains? sn)))
+      axis))
+  (sort al string<? #:key (lambda (a) (send a get-axis-title))))
 
-(define (find-axis axis-choices series-name)
-  (for/first ([axis axis-choices]
-              [index (in-range (length axis-choices))]
+;; Find an axis that works in SERIES-NAME and return its position in
+;; AXIS-LIST.  Return #f is not found
+(define (find-axis series-name axis-list)
+  (for/first ([(axis index) (in-indexed axis-list)]
               #:when (equal? series-name (send axis get-series-name)))
     index))
 
 ;; Axis choices for all non lap swimming sports.  Any pair of axis from this
 ;; list is valid for the scatter plot.
-(define (default-axis-choices)
+(define default-axis-choices
   (list
    axis-distance
    axis-elapsed-time
@@ -86,7 +92,7 @@
    ))
 
 ;; Axis choices for lap swimming
-(define (swim-axis-choices)
+(define swim-axis-choices
   (list
    axis-swim-distance
    axis-swim-time
@@ -115,249 +121,297 @@
     (when yrange
       (when ymin (set! ymin (- ymin (* yrange 0.05))))
       (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
-    (values xmin xmax ymin ymax)))
+    (vector xmin xmax ymin ymax)))
+
+(define (extract-data data-frame x-axis y-axis)
+  (let ((xnam (send x-axis get-series-name))
+        (ynam (send y-axis get-series-name)))
+    (when (send data-frame contains? xnam ynam)
+      (send data-frame select*
+            xnam ynam "elapsed"
+            #:filter valid-only))))
 
 (define scatter-plot-panel%
-  (class object%
-    (init parent)
-    (super-new)
-
+  (class object% (init parent) (super-new)
     (define pref-tag 'activity-log:scatter-plot)
 
+    ;; Variables that control the look of the plot
+
+    (define axis-choices '())
     (define x-axis-index 0)
     (define y-axis-index 0)
     (define show-grid? #f)
     (define delay-amount #f)
-
-    (define axis-choices '())
-
-    (define x-axis-choice #f)
-    (define y-axis-choice #f)
-    (define delay-amount-field #f)
-    (define show-grid-check-box #f)
-
-    ;; The selection for the X-Y axis is stored per sport in a hash table, to
-    ;; be restored when a similar sport is selected.  This hash table is also
-    ;; stored as a preference to persist accross sessions.
-    (define current-sport #f)
-    (define axis-choice-by-sport (make-hash))
-
-    (define data-series #f)
-    (define x-min #f)
-    (define x-max #f)
-    (define y-min #f)
-    (define y-max #f)
     
-    ;; Restore the preferences now. 
+    ;; Map a sport to an X-Y axis selection, to be restored when a similar
+    ;; sport is selected.
+    (define axis-by-sport (make-hash))
+
+    ;; Map a delay value to an X-Y-Sport axsis selection, to be restored when
+    ;; a similar axis choice is present.
+    (define params-by-axis (make-hash))
+    
+    ;; Restore the preferences now, we do it so the controls can be
+    ;; initialized with the correct values.
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 2))
-        (set! show-grid? (first pref))
-        (set! axis-choice-by-sport (hash-copy (second pref)))))
+      (when (and pref (eqv? (length pref) 3))
+        (match-define (list sg? abs dba) pref)
+        (set! show-grid? sg?)
+        (set! axis-by-sport (hash-copy abs))
+        (set! params-by-axis (hash-copy dba))))
+    
+    ;; Root widget of the entire scatter plot panel
+    (define panel
+      (new (class vertical-panel% (init) (super-new)
+             (define/public (interactive-export-image)
+               (on-interactive-export-image)))
+           [parent parent] [border 5] [spacing 5]
+           [alignment '(center top)]))
 
-    (define panel (new (class vertical-panel%
-                         (init)
-                         (super-new)
-                         (define/public (interactive-export-image)
-                           (on-interactive-export-image)))
-		       [parent parent]
-		       [border 5]
-		       [spacing 5]
-		       [alignment '(center top)]))
+    ;;; Holds the widgets that control the look of the plot
+    (define control-panel
+      (new horizontal-panel% 
+           [parent panel] [spacing 10] [border 0]
+           [alignment '(center center)]
+           [stretchable-height #f]))
+    
+    (define x-axis-choice
+      (new choice% [parent control-panel] [choices '()] [min-width 300]
+           [label "X Axis: "]
+           [callback (lambda (c e) (on-x-axis-changed (send c get-selection)))]))
+    
+    (define y-axis-choice
+      (new choice% [parent control-panel] [choices '()] [min-width 300]
+           [label "Y Axis: "]
+           [callback (lambda (c e) (on-y-axis-changed (send c get-selection)))]))
+    
+    (define show-grid-check-box
+      (new check-box% [parent control-panel] [value show-grid?]
+           [label "Show Grid"]
+           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
 
-    (let ((cp (new horizontal-panel% 
-                   [parent panel] [spacing 10] [border 0]
-                   [alignment '(center center)]
-                   [stretchable-height #f])))
-      (set! x-axis-choice
-            (new choice% [parent cp]
-                 [choices '()]
-                 [min-width 300]
-                 [label "X Axis: "]
-                 [callback (lambda (c e)
-                             (on-x-axis-changed (send c get-selection)))]))
-      (set! y-axis-choice
-            (new choice% [parent cp]
-                 [choices '()]
-                 [min-width 300]
-                 [label "Y Axis: "]
-                 [callback (lambda (c e)
-                             (on-y-axis-changed (send c get-selection)))]))
-      (set! show-grid-check-box
-            (new check-box% [parent cp]
-                 [value show-grid?]
-                 [label "Show Grid"]
-                 [callback (lambda (c e)
-                             (set! show-grid? (send c get-value))
-                             (refresh-plot))]))
+    (define delay-amount-field
+      (new number-input-field% [parent control-panel] 
+           [label "Delay Amount: "] [cue-text "seconds"] [min-value 0]
+           [stretchable-width #f]
+           [valid-value-cb (lambda (v) (on-delay-amount v))]))
 
-      (set! delay-amount-field
-            (new number-input-field%
-                 [parent cp] 
-                 [label "Delay Amount: "]
-                 [cue-text "seconds"]
-                 [min-value 0]
-                 [stretchable-width #f]
-                 ;; [min-width 100]
-                 [valid-value-cb (lambda (v) (on-delay-amount v))]))
-      
-      (if (number? delay-amount)
-          (send delay-amount-field set-numeric-value delay-amount)
-          (send delay-amount-field set-value ""))
+    ;; Initialize the delay-amount field
+    (if (number? delay-amount)
+        (send delay-amount-field set-numeric-value delay-amount)
+        (send delay-amount-field set-value ""))
 
-      )
+    ;; Pasteboard to hold the actual plot
+    (define plot-pb (new snip-canvas% [parent panel]))
 
-    ;; Update the axis selection checkboxes with AXIS-CHOICE-LIST
-    (define (install-axis-choices axis-choice-list)
+    ;;; Data from the session we inspect
+    (define generation -1)
+    (define data-frame #f)
+    (define data-series #f)
+    (define data-bounds (vector #f #f #f #f))
+    (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
+    (define plot-rt #f)                 ; plot render tree
+
+    (define (current-sport)
+      (if data-frame (send data-frame get-property 'sport) #f))
+
+    (define (invalidate-data)
+      (set! data-series #f)
+      (set! data-bounds #f)
+      (set! plot-rt #f)
+      (refresh-plot))
+
+    ;; Update the axis selection checkboxes with AXIS-LIST
+    (define (install-axis-choices axis-list)
       (send x-axis-choice clear)
       (send y-axis-choice clear)
-      (for ((a (in-list axis-choice-list)))
-        (let ((n (send a get-axis-label)))
+      (for ([a axis-list])
+        (let ((n (send a get-axis-title)))
           (send x-axis-choice append n)
           (send y-axis-choice append n))))
 
-    (define graph-render-tree #f)
+    (define (on-x-axis-changed new-index)
+      (unless (equal? x-axis-index new-index)
+        (save-params-for-axis)
+        (set! x-axis-index new-index)
+        (restore-params-for-axis)
+        (invalidate-data)))
 
-    ;; Pasteboard to display the actual plot
-    (define graph-pb (new snip-canvas% [parent panel]))
+    (define (on-y-axis-changed new-index)
+      (unless (equal? y-axis-index new-index)
+        (save-params-for-axis)
+        (set! y-axis-index new-index)
+        (restore-params-for-axis)
+        (invalidate-data)))
 
-    (define (on-x-axis-changed new-axis-index)
-      (unless (equal? x-axis-index new-axis-index)
-        (set! x-axis-index new-axis-index)
-        (set! data-series #f)
+    (define (on-show-grid flag)
+      (unless (equal? show-grid? flag)
+        (set! show-grid? flag)
+        ;; no need to invalidate the data
+        (put-plot-snip)))
+
+    (define (on-delay-amount amount)
+      (when (eq? amount 'empty)
+        (set! amount #f))
+      (unless (equal? delay-amount amount)
+        (set! delay-amount amount)
+        ;; no need to invalidate the data
         (refresh-plot)))
 
-    (define (on-y-axis-changed new-axis-index)
-      (unless (equal? y-axis-index new-axis-index)
-        (set! y-axis-index new-axis-index)
-        (set! data-series #f)
-        (refresh-plot)))
+    ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
+    ;; render tree is ready (if it is #f, there is no data for the plot).
+    (define (put-plot-snip)
+      (when plot-rt
+        (let ((rt (list plot-rt)))
+          (when show-grid?
+            (set! rt (cons (tick-grid) rt)))
+          (let ((x-axis (list-ref axis-choices x-axis-index))
+                (y-axis (list-ref axis-choices y-axis-index)))
+            (parameterize ([plot-x-ticks (send x-axis get-axis-ticks)]
+                           [plot-x-label (send x-axis get-axis-label)]
+                           [plot-y-ticks (send y-axis get-axis-ticks)]
+                           [plot-y-label (send y-axis get-axis-label)])
+              (match-define (vector x-min x-max y-min y-max) data-bounds)
+              (plot-snip/hack plot-pb rt
+                              #:x-min x-min #:x-max x-max
+                              #:y-min y-min #:y-max y-max))))))
 
-    (define (on-delay-amount new-delay [dont-refresh #f])
-      (when (eq? new-delay 'empty)
-        (set! new-delay #f))
-      (unless (equal? delay-amount new-delay)
-        (set! delay-amount new-delay)
-        (unless dont-refresh (refresh-plot))))
-
-    (define (put-plot-snip canvas)
-      (if (not graph-render-tree)
-          (begin
-            (send canvas set-background-message "No data for graph")
-            (send canvas set-snip #f))
-          (let ((rt (list graph-render-tree)))
-            (when show-grid?
-              (set! rt (cons (tick-grid) rt)))
-            (let ((x-axis (list-ref axis-choices x-axis-index))
-                  (y-axis (list-ref axis-choices y-axis-index)))
-              (parameterize ([plot-x-ticks (send x-axis get-axis-ticks)]
-                             [plot-x-label (send x-axis get-axis-label)]
-                             [plot-y-ticks (send y-axis get-axis-ticks)]
-                             [plot-y-label (send y-axis get-axis-label)])
-                (plot-snip/hack canvas rt #:x-min x-min #:x-max x-max #:y-min y-min #:y-max y-max))))))
-
+    ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
+    ;; that procesing happens in a separate task, and the render tree will
+    ;; become available at a later time.  Once the new render tree is
+    ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
-      (set! graph-render-tree #f)
-      (send graph-pb set-background-message "Working...")
-      (queue-task
-       "inspect-scatter%/refresh-plot"
-       (lambda ()
-         (unless data-series
-           (let* ((x (list-ref axis-choices x-axis-index))
-                  (y (list-ref axis-choices y-axis-index))
-                  (xnam (send x get-series-name))
-                  (ynam (send y get-series-name)))
-             (when (send data-frame contains? xnam ynam)
-               (set! data-series
-                     (send data-frame select*
-                           xnam ynam
-                           "elapsed"
-                           #:filter valid-only)))))
-         (when data-series
-           (let-values (((xmin xmax ymin ymax) (find-bounds data-series)))
-             (set! x-min xmin)
-             (set! x-max xmax)
-             (set! y-min ymin)
-             (set! y-max ymax))
-           (let ((x (list-ref axis-choices x-axis-index))
-                 (y (list-ref axis-choices y-axis-index)))
-             (let* ((maybe-delayed
-                     (if delay-amount
-                         (time-delay-series data-series delay-amount)
-                         data-series))
-                    (grouped
-                     (group-samples maybe-delayed
-                                    (send x get-fractional-digits)
-                                    (send y get-fractional-digits))))
-               (set! graph-render-tree
-                     (make-scatter-group-renderer
-                      grouped
-                      (send y get-line-color))))))
-         (put-plot-snip graph-pb))))
 
+      ;; HACK: some get-line-color methods return 'smart, we should fix this
+      (define (get-color axis)
+        (let ((color (send axis get-line-color)))
+          (if (or (not color) (eq? color 'smart))
+              '(0 148 255)
+              color)))
+      
+      (unless inhibit-refresh
+        (set! plot-rt #f)
+        (send plot-pb set-background-message "Working...")
+        (send plot-pb set-snip #f)
+        ;; Capture all relavant vars, as we are about to queue up a separate
+        ;; task
+        (let ((x (list-ref axis-choices x-axis-index))
+              (y (list-ref axis-choices y-axis-index))
+              (df data-frame)
+              (ds data-series)
+              (damt delay-amount))
+          (queue-task
+           "inspect-scatter%/refresh-plot"
+           (lambda ()
+             (let ((ds (or ds (extract-data df x y))))
+               (if ds
+                   (let* ((x-digits (send x get-fractional-digits))
+                          (y-digits (send y get-fractional-digits))
+                          (color (get-color y))
+                          (bounds (find-bounds ds))
+                          (delayed (if damt (time-delay-series ds damt) ds))
+                          (grouped (group-samples delayed x-digits y-digits))
+                          (renderer (make-scatter-group-renderer grouped color)))
+                     (queue-callback
+                      (lambda ()
+                        (set! data-series ds)
+                        (set! data-bounds bounds)
+                        (set! plot-rt renderer)
+                        (put-plot-snip))))
+                   (queue-callback
+                    (lambda ()
+                      (send plot-pb set-background-message "No data to plot"))))))))))
+
+    ;; Store the plot parameters for the current sport, this includes axis
+    ;; selection and the parameters for the current axis selection.
     (define (save-params-for-sport)
-      (when current-sport
-        (let* ((x (list-ref axis-choices x-axis-index))
+      (when (current-sport)
+        (let* ((sport (current-sport))
+               (x (list-ref axis-choices x-axis-index))
                (y (list-ref axis-choices y-axis-index))
                (xseries (send x get-series-name))
                (yseries (send y get-series-name)))
-          (hash-set! axis-choice-by-sport current-sport 
-                     (list xseries yseries delay-amount)))))
+          (hash-set! axis-by-sport sport (list xseries yseries))
+          (hash-set! params-by-axis (list sport xseries yseries) delay-amount))))
+
+    ;; Save the parameters for the currently selected axis combination
+    (define (save-params-for-axis)
+      (let* ((sport (current-sport))
+             (x (list-ref axis-choices x-axis-index))
+             (y (list-ref axis-choices y-axis-index))
+             (xseries (send x get-series-name))
+             (yseries (send y get-series-name)))
+        (hash-set! params-by-axis (list sport xseries yseries) delay-amount)))
+
+    ;; Restore parameters for rhe current sport.  This assumes that a new
+    ;; sport (data frame) was installed, it will set the axis selection and
+    ;; axis parameters to what was uses last for the same sport.
+    (define (restore-params-for-sport)
+      (when (current-sport)
+        (let ((data (hash-ref axis-by-sport (current-sport) (lambda () (list 0 0)))))
+          (match-define (list xseries yseries) data)
+          (set! x-axis-index (or (find-axis xseries axis-choices) 0))
+          (set! y-axis-index (or (find-axis yseries axis-choices) 0)))
+        (let ((sport (current-sport))
+              (xseries (if (< x-axis-index (length axis-choices))
+                           (send (list-ref axis-choices x-axis-index) get-series-name)
+                           #f))
+              (yseries (if (< y-axis-index (length axis-choices))
+                           (send (list-ref axis-choices y-axis-index) get-series-name)
+                           #f)))
+          (set! delay-amount (hash-ref params-by-axis (list sport xseries yseries) #f)))
+        (when (> (send x-axis-choice get-number) x-axis-index)
+          (send x-axis-choice set-selection x-axis-index))
+        (when (> (send y-axis-choice get-number) y-axis-index)
+          (send y-axis-choice set-selection y-axis-index))
+        (if (number? delay-amount)
+            (send delay-amount-field set-numeric-value delay-amount)
+            (send delay-amount-field set-value ""))))
+
+    ;; Restore parameters for the current axis selection.  This assumes a new
+    ;; axis was selected and will set the parameters for that axis
+    ;; combination.
+    (define (restore-params-for-axis)
+      (when (current-sport)
+        (let ((sport (current-sport))
+              (xseries (if (< x-axis-index (length axis-choices))
+                           (send (list-ref axis-choices x-axis-index) get-series-name)
+                           #f))
+              (yseries (if (< y-axis-index (length axis-choices))
+                           (send (list-ref axis-choices y-axis-index) get-series-name)
+                           #f)))
+          (set! delay-amount (hash-ref params-by-axis (list sport xseries yseries) #f)))
+        (if (number? delay-amount)
+            (send delay-amount-field set-numeric-value delay-amount)
+            (send delay-amount-field set-value ""))))
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (al-put-pref pref-tag (list show-grid? axis-choice-by-sport)))
+      (let ((data (list show-grid? axis-by-sport params-by-axis)))
+        (al-put-pref pref-tag data)))
 
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f #f "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
-          (send graph-pb export-image-to-file file))))
-
-    (define generation -1)
-    (define data-frame #f)
+          (send plot-pb export-image-to-file file))))
 
     (define/public (set-session session df)
+      (set! inhibit-refresh #f)
       (save-params-for-sport)
-      
       (set! generation (+ 1 generation))
       (set! data-frame df)
+      (set! delay-amount #f)
       (define lap-swimming? (send data-frame get-property 'is-lap-swim?))
       (set! axis-choices
-            (filter-axis-choices
+            (filter-axis-list
              data-frame
-             (if lap-swimming? (swim-axis-choices) (default-axis-choices))))
+             (if lap-swimming? swim-axis-choices default-axis-choices)))
       (install-axis-choices axis-choices)
-      (set! data-series #f)
-      (set! current-sport (send data-frame get-property 'sport))
-
-      (let ((data (hash-ref axis-choice-by-sport current-sport #f)))
-        (if data
-            (let ()
-              (match-define (list xseries yseries delay) data)
-              (set! x-axis-index (find-axis axis-choices xseries))
-              (set! y-axis-index (find-axis axis-choices yseries))
-              (set! delay-amount delay))
-            (begin
-              (set! x-axis-index 0)
-              (set! y-axis-index 0)
-              (set! delay-amount #f))))
-      
-      (send x-axis-choice set-selection x-axis-index)
-      (send y-axis-choice set-selection y-axis-index)
-      (if (number? delay-amount)
-          (send delay-amount-field set-numeric-value delay-amount)
-          (send delay-amount-field set-value ""))
-
-      (if lap-swimming?
-          (begin
-            (send delay-amount-field enable #f))
-          (begin
-            (let ((amt delay-amount))
-              (set! delay-amount #f)
-              (on-delay-amount amt #t))
-            (send delay-amount-field enable #t)))
-        
-      (refresh-plot))
+      (restore-params-for-sport)
+      (send delay-amount-field enable (not lap-swimming?))
+      (set! inhibit-refresh #f)
+      (invalidate-data))
 
     (define/public (get-generation) generation)
 

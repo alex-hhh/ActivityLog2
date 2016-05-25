@@ -64,6 +64,7 @@
     (define/public (get-histogram-bucket-slot) 1.0)
     (define/public (inverted-best-avg?) #f)
     (define/public (get-axis-ticks) (linear-ticks))
+    (define/public (get-axis-title) (get-axis-label))
     (define/public (get-axis-label) (raise "no axis label defined"))
     (define/public (get-series-label) #f)
     (define/public (get-line-color) #f)
@@ -326,6 +327,7 @@
          (define/override (should-filter?) #t)
          (define/override (get-y-range) (cons 0 100))
          (define/override (get-line-color) *coral*)
+         (define/override (get-axis-title) "Torque Effectiveness, Left Pedal (%)")
          (define/override (get-series-label) "Left Pedal")
          (define/override (get-series-name) "lteff")
          (define/override (get-fractional-digits) 1)
@@ -338,6 +340,7 @@
          (define/override (should-filter?) #t)
          (define/override (get-y-range) (cons 0 100))
          (define/override (get-line-color) *cornflower-blue*)
+         (define/override (get-axis-title) "Torque Effectiveness, Right Pedal (%)")
          (define/override (get-series-label) "Right Pedal")
          (define/override (get-series-name) "rteff")
          (define/override (get-fractional-digits) 1))))
@@ -346,6 +349,7 @@
 
 (define axis-left-pedal-smoothness
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Pedal Smoothness, Left Pedal (%)")
          (define/override (get-axis-label) "Pedal Smoothness (%)")
          (define/override (should-filter?) #t)
          (define/override (get-y-range) (cons 0 50))
@@ -358,6 +362,7 @@
 
 (define axis-right-pedal-smoothness
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Pedal Smoothness, Right Pedal (%)")
          (define/override (get-axis-label) "Pedal Smoothness (%)")
          (define/override (should-filter?) #t)
          (define/override (get-y-range) (cons 0 50))
@@ -369,6 +374,7 @@
 
 (define axis-left-platform-centre-offset
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Platform Centre Offset, Left Pedal (mm)")
          (define/override (get-axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -378,6 +384,7 @@
 
 (define axis-right-platform-centre-offset
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Platform Centre Offset, Right Pedal (mm)")
          (define/override (get-axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -387,6 +394,7 @@
 
 (define axis-left-power-phase-start
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase Start, Left Pedal")
          (define/override (get-axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -397,6 +405,7 @@
 
 (define axis-left-power-phase-end
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase End, Left Pedal")
          (define/override (get-axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -406,6 +415,7 @@
 
 (define axis-left-power-phase-angle
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase Angle, Left Pedal")
          (define/override (get-axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -415,6 +425,7 @@
 
 (define axis-right-power-phase-start
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase Start, Right Pedal")
          (define/override (get-axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -425,6 +436,7 @@
 
 (define axis-right-power-phase-end
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase End, Right Pedal")
          (define/override (get-axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -434,6 +446,7 @@
 
 (define axis-right-power-phase-angle
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Power Phase Angle, Right Pedal")
          (define/override (get-axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -443,6 +456,7 @@
 
 (define axis-left-peak-power-phase-start
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase Start, Left Pedal")
          (define/override (get-axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -453,6 +467,7 @@
 
 (define axis-left-peak-power-phase-end
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase End, Left Pedal")
          (define/override (get-axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -462,6 +477,7 @@
 
 (define axis-left-peak-power-phase-angle
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase Angle, Left Pedal")
          (define/override (get-axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
@@ -471,6 +487,7 @@
 
 (define axis-right-peak-power-phase-start
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase Start, Right Pedal")
          (define/override (get-axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -480,6 +497,7 @@
 
 (define axis-right-peak-power-phase-end
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase End, Right Pedal")
          (define/override (get-axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)
@@ -489,6 +507,7 @@
 
 (define axis-right-peak-power-phase-angle
   (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-title) "Peak Power Phase Angle, Right Pedal")
          (define/override (get-axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *cornflower-blue*)

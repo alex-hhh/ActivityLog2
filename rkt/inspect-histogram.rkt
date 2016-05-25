@@ -30,31 +30,35 @@
 
 (provide histogram-plot-panel%)
 
-(define (filter-axis-choices data-frame axis-choices)
-  (for/list ([axis axis-choices]
-             #:when
-             (if (list? axis)
-                 (let ()
-                   (match-define (list name a1 a2) axis)
-                   (send data-frame contains?
-                         (send a1 get-series-name)
-                         (send a2 get-series-name)))
-                 (send data-frame contains? (send axis get-series-name))))
-    axis))
+;; Filter AXIS-LIST to remove any axis definition that don't have a data
+;; series in DF, a data-frame%
+(define (filter-axis-list df axis-list)
+  (define al
+    (for/list ([axis axis-list]
+               #:when
+               (if (list? axis)
+                   (let ()
+                     (match-define (list name a1 a2) axis)
+                     (send df contains?
+                           (send a1 get-series-name)
+                           (send a2 get-series-name)))
+                   (send df contains? (send axis get-series-name))))
+      axis))
+  (sort al string<? #:key (lambda (a) (send a get-axis-title))))
 
-(define (find-axis axis-choices axis-name)
-  (for/first ([axis axis-choices]
-              [index (in-range (length axis-choices))]
+;; Find an axis that works in SERIES-NAME and return its position in
+;; AXIS-LIST.  Return #f is not found
+(define (find-axis series-name axis-list)
+  (for/first ([(axis index) (in-indexed axis-list)]
               #:when
-              (if (list? axis)
-                  (let ()
-                    (define name (car axis))
-                    (equal? name axis-name))
-                  (equal? axis-name (send axis get-axis-label))))
+              (let ((sn (if (list? axis)
+                            (send (second axis) get-series-name)
+                            (send axis get-series-name))))
+                (equal? series-name sn)))
     index))
 
 ;; Axis choices for all non lap swimming sports.
-(define (default-axis-choices)
+(define default-axis-choices
   (list
    axis-speed
    axis-pace
@@ -83,7 +87,7 @@
    ))
 
 ;; Axis choices for lap swimming
-(define (swim-axis-choices)
+(define swim-axis-choices
   (list
    axis-swim-avg-cadence
    axis-swim-stroke-count
@@ -91,194 +95,168 @@
    axis-swim-pace))
 
 (define histogram-plot-panel%
-  (class object%
-    (init parent)
-    (super-new)
-
+  (class object% (init parent) (super-new)
     (define pref-tag 'activity-log:histogram-plot)
 
+    ;; Variables that control the look of the plot
+    (define axis-choices '())    
     (define y-axis-index 0)
     (define show-grid? #f)
     (define show-as-percentage? #f)
-
     (define include-zeroes? #t)
     (define bucket-width 1)
     (define outlier-trim 0)
 
-    (define axis-choices '())
+    ;; Map a sport to an Y axis selection, to be restored when a similar sport
+    ;; is selected.
+    (define axis-by-sport (make-hash))
 
-    (define y-axis-choice #f)
-    (define show-grid-check-box #f)
-    (define bucket-width-field #f)
-    (define show-as-percentage-check-box #f)
-    (define include-zeroes-check-box #f)
-    (define outlier-trim-field #f)
-
-    (define inhibit-refresh #f)
-    (define lap-swimming? #f)           ; when #t, we are inspecting a lap swimming activity
-
-    ;; The selection for the Y axis and bucket width is stored per sport in a
-    ;; hash table, to be restored when a similar sport is selected.  This hash
-    ;; table is also stored as a preference to persist accross sessions.
-    (define current-sport #f)
-    (define axis-choice-by-sport (make-hash))
-
-    ;; Some parameters are saved based on a per axis basis
+    ;; Map a (sport, axis) selection to histogram parameters.  Each sport axis
+    ;; combination have their own parameters.
     (define params-by-axis (make-hash))
 
     ;; Restore the preferences now. 
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
       (when (and pref (> (length pref) 0) (eq? (car pref) 'gen1))
         (match-define (list tag abs pba grid? as-pct?) pref)
-        (set! axis-choice-by-sport (hash-copy abs))
+        (set! axis-by-sport (hash-copy abs))
         (set! params-by-axis (hash-copy pba))
         (set! show-grid? grid?)
         (set! show-as-percentage? as-pct?)))
+    
+    ;; Root widget of the entire scatter plot panel
+    (define panel
+      (new (class vertical-panel%
+             (init) (super-new)
+             (define/public (interactive-export-image)
+               (on-interactive-export-image)))
+           [parent parent] [border 5] [spacing 5]
+           [alignment '(center top)]))
 
-    (define panel (new (class vertical-panel%
-                         (init)
-                         (super-new)
-                         (define/public (interactive-export-image)
-                           (on-interactive-export-image)))
-		       [parent parent]
-		       [border 5]
-		       [spacing 5]
-		       [alignment '(center top)]))
+    ;; Holds the widgets that control the look of the plot
+    (define control-panel
+      (new horizontal-panel% 
+           [parent panel] [spacing 10] [border 0]
+           [alignment '(center center)]
+           [stretchable-height #f]))
 
-    (let ((cp (new horizontal-panel% 
-                   [parent panel] [spacing 10] [border 0]
-                   [alignment '(center center)]
-                   [stretchable-height #f])))
-      (set! y-axis-choice
-            (new choice% [parent cp]
-                 [choices '()]
-                 [min-width 300]
-                 [label "Data to plot: "]
-                 [callback (lambda (c e)
-                             (on-y-axis-changed (send c get-selection)))]))
+    (define y-axis-choice
+      (new choice% [parent control-panel]
+           [choices '()] [min-width 300] [label "Data to plot: "]
+           [callback (lambda (c e) (on-y-axis-changed (send c get-selection)))]))
 
-      (set! show-grid-check-box
-            (new check-box% [parent cp]
-                 [value show-grid?]
-                 [label "Show Grid"]
-                 [callback (lambda (c e)
-                             (set! show-grid? (send c get-value))
-                             (refresh-plot))]))
+    (define show-grid-check-box
+      (new check-box% [parent control-panel]
+           [value show-grid?] [label "Show Grid"]
+           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
       
-      (set! show-as-percentage-check-box
-            (new check-box% [parent cp]
-                 [value show-as-percentage?]
-                 [label "Show as Percentage"]
-                 [callback (lambda (c e)
-                             (set! show-as-percentage? (send c get-value))
-                             (refresh-plot))]))
+    (define show-as-percentage-check-box
+      (new check-box% [parent control-panel]
+           [value show-as-percentage?] [label "Show as Percentage"]
+           [callback (lambda (c e) (on-show-as-percentage (send c get-value)))]))
 
-      (set! bucket-width-field
-            (new number-input-field%
-                 [parent cp] 
-                 [label "Bucket Width "]
-                 [cue-text "1 to 100"]
-                 [min-value 1]
-                 [max-value 100]
-                 [stretchable-width #f]
-                 ;; [min-width 100]
-                 [valid-value-cb 
-                  (lambda (v) (unless (eq? v 'empty) (on-bucket-width v)))]))
+    (define bucket-width-field
+      (new number-input-field% [parent control-panel] 
+           [label "Bucket Width "] [cue-text "1 to 100"]
+           [min-value 1] [max-value 100]
+           [stretchable-width #f]
+           [valid-value-cb (lambda (v) (on-bucket-width (if (eq? v 'empty) 1 v)))]))
 
-      (set! include-zeroes-check-box
-            (new check-box% [parent cp]
-                 [value include-zeroes?]
-                 [label "Include Zeroes"]
-                 [callback (lambda (c e)
-                             (set! include-zeroes? (send c get-value))
-                             (refresh-plot))]))
+    (define include-zeroes-check-box
+      (new check-box% [parent control-panel]
+           [value include-zeroes?] [label "Include Zeroes"]
+           [callback (lambda (c e) (on-include-zeroes (send c get-value)))]))
 
-      (set! outlier-trim-field
-            (new number-input-field%
-                 [parent cp] 
-                 [label "Outlier Trim (%) "]
-                 [cue-text "0 .. 100%"]
-                 [min-value 0]
-                 [max-value 100]
-                 [stretchable-width #f]
-                 ;; [min-width 100]
-                 [valid-value-cb 
-                  (lambda (v) (unless (eq? v 'empty) (on-outlier-trim (/ v 100))))]))
-      )
+    (define outlier-trim-field
+      (new number-input-field% [parent control-panel] 
+           [label "Outlier Trim (%) "] [cue-text "0 .. 100%"]
+           [min-value 0] [max-value 100]
+           [stretchable-width #f]
+           [valid-value-cb 
+            (lambda (v) (let ((trim (if (eq? v 'empty) 0 v)))
+                          (on-outlier-trim (/ trim 100))))]))
 
-    (define graph-render-tree #f)
+    ;; Pasteboard to hold the actual plot
+    (define plot-pb (new snip-canvas% [parent panel]))
 
-    ;; Pasteboard to display the actual plot
-    (define graph-pb (new snip-canvas% [parent panel]))
+    ;; Data from the session we inspect
+    (define generation -1)
+    (define data-frame #f)
+    (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
+    (define plot-rt #f)                 ; plot render tree
 
+    (define (current-sport)
+      (if data-frame (send data-frame get-property 'sport) #f))
+
+    (define (lap-swimming?)
+      (if data-frame (send data-frame get-property 'is-lap-swim?) #f))
+
+    ;; get the label of the axis at INDEX.  This is compicated by the fact
+    ;; that some entries in AXIS-CHOICES are dual axes.
     (define (get-axis-label index)
       (let ((axis (list-ref axis-choices index)))
         (if (list? axis)
             (car axis)
             (send axis get-axis-label))))
 
-    ;; Update the axis selection checkboxes with AXIS-CHOICE-LIST
-    (define (install-axis-choices axis-choice-list)
+    ;; Update the axis selection checkboxes with AXIS-LIST
+    (define (install-axis-choices axis-list)
       (send y-axis-choice clear)
-      (for ([a axis-choice-list])
-        (let ((n (if (list? a)
-                     (car a)
-                     (send a get-axis-label))))
+      (for ([a axis-list])
+        (let ((n (if (list? a) (car a) (send a get-axis-label))))
           (send y-axis-choice append n))))
 
-    (define (on-y-axis-changed new-axis-index)
-      (unless (equal? y-axis-index new-axis-index)
-        (set! inhibit-refresh #t)
-        (save-params-for-axis current-sport y-axis-index)
-        (restore-params-for-axis current-sport new-axis-index)
-        (set! y-axis-index new-axis-index)
-        (set! inhibit-refresh #f)
+    (define (on-y-axis-changed new-index)
+      (unless (equal? y-axis-index new-index)
+        (save-params-for-axis)
+        (set! y-axis-index new-index)
+        (restore-params-for-axis)
         (refresh-plot)))
 
-    (define (on-bucket-width new-width)
-      (unless (equal? bucket-width new-width)
-        (set! bucket-width new-width)
+    (define (on-show-grid flag)
+      (unless (equal? show-grid? flag)
+        (set! show-grid? flag)
         (refresh-plot)))
 
-    (define (on-outlier-trim a)
-      (set! outlier-trim a)
-      (refresh-plot))
+    (define (on-show-as-percentage flag)
+      (unless (equal? show-as-percentage? flag)
+        (set! show-as-percentage? flag)
+        (refresh-plot)))
 
-    (define (save-params-for-axis sport index)
-      (define axis-name (get-axis-label index))
-      (define key (cons sport axis-name))
-      (hash-set! params-by-axis key
-                 (list bucket-width include-zeroes? outlier-trim)))
+    (define (on-bucket-width width)
+      (unless (equal? bucket-width width)
+        (set! bucket-width width)
+        (refresh-plot)))
 
-    (define (restore-params-for-axis sport index)
-      (define axis-name (get-axis-label index))
-      (define key (cons sport axis-name))
-      (define val (hash-ref params-by-axis key (lambda () #f)))
-      (when val
-        (match-define (list bw incz trim) val)
-        (send bucket-width-field set-numeric-value bw)
-        (on-bucket-width bw)
-        (send include-zeroes-check-box set-value incz)
-        (set! include-zeroes? incz)
-        (send outlier-trim-field set-numeric-value (* trim 100))
-        (on-outlier-trim trim)))
+    (define (on-include-zeroes flag)
+      (unless (equal? include-zeroes? flag)
+        (set! include-zeroes? flag)
+        (refresh-plot)))
+    
+    (define (on-outlier-trim trim)
+      (unless (equal? outlier-trim trim)
+        (set! outlier-trim trim)
+        (refresh-plot)))
 
-    (define (put-plot-snip canvas)
-      (if (not graph-render-tree)
-          (begin
-            (send canvas set-background-message "No data for graph")
-            (send canvas set-snip #f))
-          (let ((rt graph-render-tree))
-            (when show-grid?
-              (set! rt (cons (tick-grid) rt)))
-            (let ((y-axis (list-ref axis-choices y-axis-index)))
-              (when (list? y-axis) (set! y-axis (second y-axis)))
-              (parameterize ([plot-y-label (if show-as-percentage? "pct %"
-                                               (if lap-swimming? "# of lengths" "time (seconds)"))]
-                             [plot-x-ticks (send y-axis get-axis-ticks)]
-                             [plot-x-label (send y-axis get-axis-label)])
-                            (plot-snip/hack canvas rt))))))
+    ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
+    ;; render tree is ready (if it is #f, there is no data for the plot).
+    (define (put-plot-snip)
+      (when plot-rt
+        (let ((rt plot-rt))
+          (when show-grid?
+            (set! rt (cons (tick-grid) rt)))
+          (let ((y-axis (list-ref axis-choices y-axis-index)))
+            (when (list? y-axis) (set! y-axis (second y-axis)))
+            (parameterize ([plot-y-label (if show-as-percentage? "pct %"
+                                             (if (lap-swimming?) "# of lengths" "time (seconds)"))]
+                           [plot-x-ticks (send y-axis get-axis-ticks)]
+                           [plot-x-label (send y-axis get-axis-label)])
+              (plot-snip/hack plot-pb rt))))))
 
+    ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
+    ;; that procesing happens in a separate task, and the render tree will
+    ;; become available at a later time.  Once the new render tree is
+    ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
 
       ;; HACK: some get-line-color methods return 'smart, we should fix this
@@ -287,83 +265,115 @@
           (if (or (not color) (eq? color 'smart))
               '(0 148 255)
               color)))
-      
-      (unless inhibit-refresh
-        (set! graph-render-tree #f)
-        (send graph-pb set-background-message "Working...")
-        (queue-task
-         "inspect-histogram%/refresh-plot"
-         (lambda ()
-           (let* ((axis (list-ref axis-choices y-axis-index))
-                  (axis1 (if (list? axis) (second axis) axis))
-                  (axis2 (if (list? axis) (third axis) #f))
-                  (sname1 (send axis1 get-series-name))
-                  (sname2 (if axis2 (send axis2 get-series-name) #f))
-                  (bw (* bucket-width (send axis1 get-histogram-bucket-slot)))
-                  (h1 (df-histogram data-frame sname1
-                                    #:bucket-width bw
-                                    #:include-zeroes? include-zeroes?
-                                    #:as-percentage? show-as-percentage?
-                                    #:trim-outliers outlier-trim))
-                  (h2 (if sname2
-                          (df-histogram data-frame sname2
-                                        #:bucket-width bw
-                                        #:include-zeroes? include-zeroes?
-                                        #:as-percentage? show-as-percentage?
-                                        #:trim-outliers outlier-trim)
-                          #f)))
-             (set! graph-render-tree
-                   (if (and axis2 h1 h2)
-                       (make-histogram-renderer/dual h1 (send axis1 get-series-label)
-                                                     h2 (send axis2 get-series-label)
-                                                     #:color1 (get-color axis1)
-                                                     #:color2 (get-color axis2))
-                       (if h1
-                           (list (make-histogram-renderer h1 #:color (get-color axis1)))
-                           #f)))
-             (put-plot-snip graph-pb))))))
 
+      (unless inhibit-refresh
+        (set! plot-rt #f)
+        (send plot-pb set-background-message "Working...")
+        (send plot-pb set-snip #f)
+        ;; Capture all relevant vars, as we are about to queue up a separate
+        ;; task
+        (let ((axis (list-ref axis-choices y-axis-index))
+              (df data-frame)
+              (as-pct? show-as-percentage?)
+              (zeroes? include-zeroes?)
+              (trim outlier-trim)
+              (bw bucket-width))
+          (queue-task
+           "inspect-histogram%/refresh-plot"
+           (lambda ()
+             (let* ((axis1 (if (list? axis) (second axis) axis))
+                    (axis2 (if (list? axis) (third axis) #f))
+                    (sname1 (send axis1 get-series-name))
+                    (sname2 (if axis2 (send axis2 get-series-name) #f))
+                    (bw (* bw (send axis1 get-histogram-bucket-slot)))
+                    (h1 (df-histogram df sname1
+                                      #:bucket-width bw #:include-zeroes? zeroes?
+                                      #:as-percentage? as-pct? #:trim-outliers trim))
+                    (h2 (if sname2
+                            (df-histogram df sname2
+                                          #:bucket-width bw #:include-zeroes? zeroes?
+                                          #:as-percentage? as-pct? #:trim-outliers trim)
+                            #f))
+                    (rt (cond
+                          ((and axis2 h1 h2)
+                           (make-histogram-renderer/dual h1 (send axis1 get-series-label)
+                                                         h2 (send axis2 get-series-label)
+                                                         #:color1 (get-color axis1)
+                                                         #:color2 (get-color axis2)))
+                          (h1
+                           (list (make-histogram-renderer h1 #:color (get-color axis1))))
+                          (#t #f))))
+               (queue-callback
+                (lambda ()
+                  (if rt
+                      (begin
+                        (set! plot-rt rt)
+                        (put-plot-snip))
+                      (send plot-pb set-background-message "No data to plot"))))))))))
+
+    ;; Save the axis specific plot parameters for the current axis
+    (define (save-params-for-axis)
+      (when (current-sport)
+        (let* ((sport (current-sport))
+               (axis-name (get-axis-label y-axis-index))
+               (key (cons sport axis-name)))
+          (hash-set! params-by-axis key
+                     (list bucket-width include-zeroes? outlier-trim)))))
+
+    ;; Restore the axis specific parameters for the current axis
+    (define (restore-params-for-axis)
+      (when (current-sport)
+        (let* ((sport (current-sport))
+               (axis-name (get-axis-label y-axis-index))
+               (key (cons sport axis-name))
+               (val (hash-ref params-by-axis key (lambda () (list 1 #t 0)))))
+          (match-define (list bw incz trim) val)
+          (send bucket-width-field set-numeric-value bw)
+          (on-bucket-width bw)
+          (send include-zeroes-check-box set-value incz)
+          (set! include-zeroes? incz)
+          (send outlier-trim-field set-numeric-value (* trim 100))
+          (on-outlier-trim trim))))
+
+    ;; Save all parameters (axis and their associated parameters) for the
+    ;; current sport.
     (define (save-params-for-sport)
-      (when current-sport
-        (save-params-for-axis current-sport y-axis-index)
+      (when (current-sport)
+        (save-params-for-axis)
         (let ((name (get-axis-label y-axis-index)))
-          (hash-set! axis-choice-by-sport current-sport name))))
+          (hash-set! axis-by-sport (current-sport) name))))
+
+    ;; Restore the selected axis and its parameters for the current sport.
+    (define (restore-params-for-sport)
+      (when (current-sport)
+        (let ((name (hash-ref axis-by-sport (current-sport) #f)))
+          (let ((index (find-axis name axis-choices)))
+            (set! y-axis-index (or index 0)))))
+      (send y-axis-choice set-selection y-axis-index)
+      (restore-params-for-axis))
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (al-put-pref pref-tag
-                   (list 'gen1 axis-choice-by-sport params-by-axis show-grid? show-as-percentage?)))
+      (let ((data (list 'gen1 axis-by-sport params-by-axis show-grid? show-as-percentage?)))
+        (al-put-pref pref-tag data)))
 
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f #f "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
-          (send graph-pb export-image-to-file file))))
-
-    (define generation -1)
-    (define data-frame #f)
+          (send plot-pb export-image-to-file file))))
 
     (define/public (set-session session df)
       (set! inhibit-refresh #t)
-      
-      ;; maybe save previous sport settings
       (save-params-for-sport)
       (set! generation (+ 1 generation))
       (set! data-frame df)
-      (set! lap-swimming? (send data-frame get-property 'is-lap-swim?)) 
       (set! axis-choices
-            (filter-axis-choices
+            (filter-axis-list
              data-frame
-             (if lap-swimming? (swim-axis-choices) (default-axis-choices))))
+             (if (lap-swimming?) swim-axis-choices default-axis-choices)))
       (install-axis-choices axis-choices)
-      (set! current-sport (send data-frame get-property 'sport))
-
-      (let ((name (hash-ref axis-choice-by-sport current-sport 0)))
-        (let ((index (find-axis axis-choices name)))
-          (set! y-axis-index (or index 0))))
-
-      (send y-axis-choice set-selection y-axis-index)
-      (restore-params-for-axis current-sport y-axis-index)
+      (restore-params-for-sport)
       (set! inhibit-refresh #f)
       (refresh-plot))
 
