@@ -398,7 +398,7 @@
       (format-48 "~F ms (~F %)" (exact-round stime) (exact-round pct))
       ""))
 
-(: cadence->string (->* (Positive-Real (U Symbol Positive-Integer)) (Boolean) String))
+(: cadence->string (->* (Real (U Symbol Nonnegative-Integer)) (Boolean) String))
 (define (cadence->string cadence sport [unit-label #f])
   (if (> cadence 0)
       (format-48 "~F ~a" (exact-truncate cadence)
