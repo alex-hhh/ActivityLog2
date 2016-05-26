@@ -92,6 +92,7 @@
   (list
    axis-swim-avg-cadence
    axis-swim-stroke-count
+   axis-swim-stroke-length
    axis-swim-swolf
    axis-swim-pace))
 

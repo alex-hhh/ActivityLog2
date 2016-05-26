@@ -545,6 +545,17 @@
          )))
 (provide axis-swim-stroke-count)
 
+(define axis-swim-stroke-length
+  (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-label) "Stride")
+         (define/override (get-y-range) (cons 0 #f))
+         (define/override (get-line-color) *red*)
+         (define/override (get-series-name) "stride")
+         (define/override (get-fractional-digits) 2)
+         (define/override (get-histogram-bucket-slot) 0.01)
+         )))
+(provide axis-swim-stroke-length)
+
 (define axis-swim-avg-cadence
   (new (class axis-definition% (init) (super-new)
          (define/override (get-axis-label) "Strokes / Min")
