@@ -30,6 +30,7 @@
          "inspect-map.rkt"
          "inspect-overview.rkt"
          "inspect-scatter.rkt"
+         "inspect-quadrant.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
@@ -255,7 +256,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define detail-panel 
       (new tab-panel%
            [stretchable-height #t]
-           [choices '("Overview" "Graphs" "Scatter" "Histogram" "Best Avg" "Laps" "Map")]
+           [choices '("Overview" "Graphs" "Scatter" "Histogram" "Best Avg" "Laps" "Map" "Qadrant")]
            [callback (lambda (p c)
                        (switch-tabs (send p get-selection)))]
            [parent session-panel]))
@@ -267,6 +268,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define laps-panel (make-panel detail-panel))
     (define best-avg-panel (make-panel detail-panel))
     (define map-panel (make-panel detail-panel))
+    (define quadrant-panel (make-panel detail-panel))
 
     (define overview (new inspect-overview-panel% [parent overview-panel] [database database]))
     (define laps (new laps-panel% [parent laps-panel]))
@@ -275,6 +277,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define histogram (new histogram-plot-panel% [parent histogram-panel]))
     (define best-avg (new best-avg-plot-panel% [parent best-avg-panel]))
     (define map (new map-panel% [parent map-panel]))
+    (define quadrant (new quadrant-plot-panel% [parent quadrant-panel]))
 
     (define tabs (list 
                   (cons overview-panel overview)
@@ -283,7 +286,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
                   (cons histogram-panel histogram)
                   (cons best-avg-panel best-avg)
                   (cons laps-panel laps)
-                  (cons map-panel map)))
+                  (cons map-panel map)
+                  (cons quadrant-panel quadrant)))
 
     (define session-id #f)
     (define session #f)
@@ -336,6 +340,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
             (set! labels (cons "Best Avg" labels))
             (set! tabs-1 (cons (cons best-avg-panel best-avg) tabs-1)))
 
+          (set! labels (cons "Qadrant" labels))
+          (set! tabs-1 (cons (cons quadrant-panel quadrant) tabs-1))
+
           (set! labels (cons "Laps" labels))
           (set! tabs-1 (cons (cons laps-panel laps) tabs-1))
 
@@ -370,9 +377,10 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (send scatter save-visual-layout)
       (send histogram save-visual-layout)
       (send best-avg save-visual-layout)
+      (send quadrant save-visual-layout)
       (send map save-visual-layout))
 
-        ;; Activity operations interface implementation
+    ;; Activity operations interface implementation
 
     (define/public (get-top-level-window) 
       (send session-panel get-top-level-window))

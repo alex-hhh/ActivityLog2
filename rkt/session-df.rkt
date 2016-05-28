@@ -461,6 +461,24 @@
                 (exact-round (+ duration strokes))
                 #f)))))
 
+(define (add-torque-series df)
+
+  (define (cadence->torque power cadence)
+    (let ((angular-velocity (* (/ cadence 60.0) (* 2 pi))))
+      (/ power angular-velocity)))
+  
+  (when (send df contains? "pwr" "cad")
+    (send df add-derived-series
+          "torque"
+          '("pwr" "cad")
+          (lambda (val)
+            (match-define (vector pwr cad) val)
+            (if (and pwr cad (> pwr 0) (> cad 0))
+                (cadence->torque pwr cad)
+                #f)))))
+
+(provide add-torque-series)
+
 
 ;;................................................................ other ....
 

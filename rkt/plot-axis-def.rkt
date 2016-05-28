@@ -300,6 +300,15 @@
          )))
 (provide axis-power)
 
+(define axis-torque
+  (new (class axis-definition% (init) (super-new)
+         (define/override (get-axis-label) "Torque (N m)")
+         (define/override (should-filter?) #t)
+         (define/override (get-line-color) *dark-magenta*)
+         (define/override (get-series-name) "torque")
+         )))
+(provide axis-torque)
+
 (define axis-power-zone
   (new (class axis-definition% (init) (super-new)
          (define/override (get-axis-label) "Power (zone)")
