@@ -54,8 +54,8 @@
   (for/first ([(axis index) (in-indexed axis-list)]
               #:when
               (let ((sn (if (list? axis)
-                            (send (second axis) get-series-name)
-                            (send axis get-series-name))))
+                            (car axis)
+                            (send axis get-axis-label))))
                 (equal? series-name sn)))
     index))
 
