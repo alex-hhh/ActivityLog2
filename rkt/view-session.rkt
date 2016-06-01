@@ -346,24 +346,16 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (set! labels (cons "Laps" labels))
           (set! tabs-1 (cons (cons laps-panel laps) tabs-1))
 
-          (let ((have-gps-track? (with-handlers
-                                  (((lambda (e) #t)
-                                    (lambda (e) e)))
-                                  (for-each-session-trackpoint
-                                   session
-                                   (lambda (prev current)
-                                     (when (assq 'position-lat current)
-                                       (raise 'found))))
-                                  #f)))
-            (when have-gps-track?
-              (set! labels (cons "Map" labels))
-              (set! tabs-1 (cons (cons map-panel map) tabs-1)))))
+          (when (send session-df contains? "lat" "lon")
+            (set! labels (cons "Map" labels))
+            (set! tabs-1 (cons (cons map-panel map) tabs-1))))
 
         (send detail-panel set (reverse labels))
         (set! tabs (reverse tabs-1)))
 
       (send detail-panel set-selection 0)
-      (switch-tabs 0))
+      (switch-tabs 0)
+      (collect-garbage 'major))
 
     (define/public (activated)
       #f)

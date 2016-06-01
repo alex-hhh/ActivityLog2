@@ -688,10 +688,10 @@
 
       (when database
 
-        (call-with-output-file "profile.txt"
-          #:mode 'text
-          #:exists 'append
-          profile-display)
+        ;; (call-with-output-file "profile.txt"
+        ;;   #:mode 'text
+        ;;   #:exists 'append
+        ;;   profile-display)
         
         (disconnect database)
         (set! database #f))
@@ -785,8 +785,9 @@
       (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
         (log-al-warning "Weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
-        (send (tl-section-content equipment) log-due-items)))
-
+        (send (tl-section-content equipment) log-due-items))
+      (collect-garbage 'major))
+    
     (define (open-another-activity-log file)
       (dbglog (format "open-another-activity-log: will try to open ~a" file))
       (with-handlers
