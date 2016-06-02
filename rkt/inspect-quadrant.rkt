@@ -416,6 +416,7 @@
                                    show-zones-check-box show-grid-check-box))))
         ((and (equal? (vector-ref current-sport 0) 2) ; bike
               (send data-frame contains? "pwr" "cad"))
+         (set! x-axis axis-cadence)
          (set! y-axis axis-torque)
          ;; Add the torque series if not present
          (unless (send data-frame contains? "torque")
