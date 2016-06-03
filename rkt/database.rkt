@@ -753,15 +753,7 @@
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end)))
 
     (let ((length-data (db-row->alist fields length-row)))
-      (cons (cons 'track
-                  '()
-                  ;; NOTE: keep this off, as it is not used by the
-                  ;; session-view (which uses data-frame% objects for the
-                  ;; trackpoints).  Ideally, the session view would not use
-                  ;; this at all, but for now it is needed.
-                  ;;
-                  ;; (db-extract-trackpoints-for-length (vector-ref length-row 0) db)
-                  )
+      (cons (cons 'track (db-extract-trackpoints-for-length (vector-ref length-row 0) db))
             length-data))))
 
 (define db-extract-trackpoints-for-length
