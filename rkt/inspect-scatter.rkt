@@ -19,6 +19,7 @@
          racket/gui/base
          racket/list
          racket/match
+         racket/math
          "activity-util.rkt"
          "al-prefs.rkt"
          "plot-axis-def.rkt"
@@ -103,6 +104,8 @@
    axis-swim-pace))
 
 (define (find-bounds data-series)
+  (define (good-or-false num)
+    (and (number? num) (not (nan? num)) (not (infinite? num)) num))
   (let ((xmin #f)
         (xmax #f)
         (ymin #f)
@@ -122,7 +125,33 @@
     (when yrange
       (when ymin (set! ymin (- ymin (* yrange 0.05))))
       (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
-    (vector xmin xmax ymin ymax)))
+    (vector
+       (good-or-false xmin)
+       (good-or-false xmax)
+       (good-or-false ymin)
+       (good-or-false ymax))))
+
+(define (find-bounds/quantile df xseries yseries quantile)
+  (define (good-or-false num)
+    (and (number? num) (not (nan? num)) (not (infinite? num)) num))
+  (let ((xlimits (df-quantile df xseries quantile (- 1 quantile)))
+        (ylimits (df-quantile df yseries quantile (- 1 quantile))))
+    (when (and xlimits ylimits)
+      (match-define (list xmin xmax) xlimits)
+      (match-define (list ymin ymax) ylimits)
+    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+    (when xrange
+      (when xmin (set! xmin (- xmin (* xrange 0.05))))
+      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+    (when yrange
+      (when ymin (set! ymin (- ymin (* yrange 0.05))))
+      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+      (vector
+       (good-or-false xmin)
+       (good-or-false xmax)
+       (good-or-false ymin)
+       (good-or-false ymax)))))
 
 (define (extract-data data-frame x-axis y-axis)
   (let ((xnam (send x-axis get-series-name))
@@ -143,6 +172,8 @@
     (define y-axis-index 0)
     (define show-grid? #f)
     (define delay-amount #f)
+    (define outlier-percentile #f)
+    (define outlier-handling 'mark)
     
     ;; Map a sport to an X-Y axis selection, to be restored when a similar
     ;; sport is selected.
@@ -197,10 +228,28 @@
            [stretchable-width #f]
            [valid-value-cb (lambda (v) (on-delay-amount v))]))
 
-    ;; Initialize the delay-amount field
+    (define outlier-percentile-field
+      (new number-input-field% [parent control-panel]
+           [label "Outlier Percentile (%): "] [cue-text "0..50%"]
+           [min-value 0] [max-value 50]
+           [stretchable-width #f]
+           [valid-value-cb (lambda (v) (on-outlier-percentile v))]))
+
+    (define outlier-handling-choice
+      (new choice% [parent control-panel]
+           [label ""] [choices '("Mark outliers" "Crop outliers")]
+           [stretchable-width #f]
+           [callback (lambda (c e) (on-outlier-handling (send c get-selection)))]))
+
+    ;; Initialize the delay-amount and outlier percentile fields
     (if (number? delay-amount)
         (send delay-amount-field set-numeric-value delay-amount)
         (send delay-amount-field set-value ""))
+    (if (number? outlier-percentile)
+        (send outlier-percentile-field set-numeric-value outlier-percentile)
+        (send outlier-percentile-field set-value ""))
+    (send outlier-handling-choice set-selection
+          (if (eq? outlier-handling 'mark) 0 1))
 
     ;; Pasteboard to hold the actual plot
     (define plot-pb (new snip-canvas% [parent panel]))
@@ -210,6 +259,7 @@
     (define data-frame #f)
     (define data-series #f)
     (define data-bounds (vector #f #f #f #f))
+    (define quantile-bounds (vector #f #f #f))
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
     (define plot-rt #f)                 ; plot render tree
 
@@ -259,6 +309,21 @@
         ;; no need to invalidate the data
         (refresh-plot)))
 
+    (define (on-outlier-percentile percentile)
+      (when (eq? percentile 'empty)
+        (set! percentile #f))
+      (unless (equal? percentile outlier-percentile)
+        (set! outlier-percentile percentile)
+        ;; no need to invalidate the data
+        (refresh-plot)))
+
+    (define (on-outlier-handling choice)
+      (if (eq? choice 0)
+          (set! outlier-handling 'mark)
+          (set! outlier-handling 'crop))
+      ;; No need to refresh the plot data at all, just rebuild
+      (put-plot-snip))
+
     ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
     ;; render tree is ready (if it is #f, there is no data for the plot).
     (define (put-plot-snip)
@@ -266,13 +331,23 @@
         (let ((rt (list plot-rt)))
           (when show-grid?
             (set! rt (cons (tick-grid) rt)))
+          (when (eq? outlier-handling 'mark)
+            (when (vector-ref quantile-bounds 0)
+              (set! rt (cons (vrule (vector-ref quantile-bounds 0)) rt)))
+            (when (vector-ref quantile-bounds 1)
+              (set! rt (cons (vrule (vector-ref quantile-bounds 1)) rt)))
+            (when (vector-ref quantile-bounds 2)
+              (set! rt (cons (hrule (vector-ref quantile-bounds 2)) rt)))
+            (when (vector-ref quantile-bounds 3)
+              (set! rt (cons (hrule (vector-ref quantile-bounds 3)) rt))))
           (let ((x-axis (list-ref axis-choices x-axis-index))
                 (y-axis (list-ref axis-choices y-axis-index)))
             (parameterize ([plot-x-ticks (send x-axis get-axis-ticks)]
                            [plot-x-label (send x-axis get-axis-label)]
                            [plot-y-ticks (send y-axis get-axis-ticks)]
                            [plot-y-label (send y-axis get-axis-label)])
-              (match-define (vector x-min x-max y-min y-max) data-bounds)
+              (match-define (vector x-min x-max y-min y-max)
+                (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
               (plot-snip/hack plot-pb rt
                               #:x-min x-min #:x-max x-max
                               #:y-min y-min #:y-max y-max))))))
@@ -300,7 +375,8 @@
               (y (list-ref axis-choices y-axis-index))
               (df data-frame)
               (ds data-series)
-              (damt delay-amount))
+              (damt delay-amount)
+              (opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
           (queue-task
            "inspect-scatter%/refresh-plot"
            (lambda ()
@@ -310,6 +386,14 @@
                           (y-digits (send y get-fractional-digits))
                           (color (get-color y))
                           (bounds (find-bounds ds))
+                          (qbounds
+                           (if opct
+                               (find-bounds/quantile
+                                df
+                                (send x get-series-name)
+                                (send y get-series-name)
+                                opct)
+                               (vector #f #f #f #f)))
                           (delayed (if damt (time-delay-series ds damt) ds))
                           (grouped (group-samples delayed x-digits y-digits))
                           (renderer (make-scatter-group-renderer grouped color)))
@@ -317,6 +401,7 @@
                       (lambda ()
                         (set! data-series ds)
                         (set! data-bounds bounds)
+                        (set! quantile-bounds qbounds)
                         (set! plot-rt renderer)
                         (put-plot-snip))))
                    (queue-callback
@@ -327,22 +412,24 @@
     ;; selection and the parameters for the current axis selection.
     (define (save-params-for-sport)
       (when (current-sport)
+        (save-params-for-axis)
         (let* ((sport (current-sport))
                (x (list-ref axis-choices x-axis-index))
                (y (list-ref axis-choices y-axis-index))
                (xseries (send x get-series-name))
                (yseries (send y get-series-name)))
-          (hash-set! axis-by-sport sport (list xseries yseries))
-          (hash-set! params-by-axis (list sport xseries yseries) delay-amount))))
+          (hash-set! axis-by-sport sport (list xseries yseries)))))
 
     ;; Save the parameters for the currently selected axis combination
     (define (save-params-for-axis)
-      (let* ((sport (current-sport))
-             (x (list-ref axis-choices x-axis-index))
-             (y (list-ref axis-choices y-axis-index))
-             (xseries (send x get-series-name))
-             (yseries (send y get-series-name)))
-        (hash-set! params-by-axis (list sport xseries yseries) delay-amount)))
+      (when (current-sport)
+        (let* ((sport (current-sport))
+               (x (list-ref axis-choices x-axis-index))
+               (y (list-ref axis-choices y-axis-index))
+               (xseries (send x get-series-name))
+               (yseries (send y get-series-name)))
+          (hash-set! params-by-axis (list sport xseries yseries)
+                     (list delay-amount outlier-percentile outlier-handling)))))
 
     ;; Restore parameters for rhe current sport.  This assumes that a new
     ;; sport (data frame) was installed, it will set the axis selection and
@@ -353,38 +440,44 @@
           (match-define (list xseries yseries) data)
           (set! x-axis-index (or (find-axis xseries axis-choices) 0))
           (set! y-axis-index (or (find-axis yseries axis-choices) 0)))
-        (let ((sport (current-sport))
-              (xseries (if (< x-axis-index (length axis-choices))
-                           (send (list-ref axis-choices x-axis-index) get-series-name)
-                           #f))
-              (yseries (if (< y-axis-index (length axis-choices))
-                           (send (list-ref axis-choices y-axis-index) get-series-name)
-                           #f)))
-          (set! delay-amount (hash-ref params-by-axis (list sport xseries yseries) #f)))
         (when (> (send x-axis-choice get-number) x-axis-index)
           (send x-axis-choice set-selection x-axis-index))
         (when (> (send y-axis-choice get-number) y-axis-index)
           (send y-axis-choice set-selection y-axis-index))
-        (if (number? delay-amount)
-            (send delay-amount-field set-numeric-value delay-amount)
-            (send delay-amount-field set-value ""))))
+        (restore-params-for-axis)))
 
     ;; Restore parameters for the current axis selection.  This assumes a new
     ;; axis was selected and will set the parameters for that axis
     ;; combination.
     (define (restore-params-for-axis)
       (when (current-sport)
-        (let ((sport (current-sport))
-              (xseries (if (< x-axis-index (length axis-choices))
-                           (send (list-ref axis-choices x-axis-index) get-series-name)
-                           #f))
-              (yseries (if (< y-axis-index (length axis-choices))
-                           (send (list-ref axis-choices y-axis-index) get-series-name)
-                           #f)))
-          (set! delay-amount (hash-ref params-by-axis (list sport xseries yseries) #f)))
+        (let* ((sport (current-sport))
+               (xseries (if (< x-axis-index (length axis-choices))
+                            (send (list-ref axis-choices x-axis-index) get-series-name)
+                            #f))
+               (yseries (if (< y-axis-index (length axis-choices))
+                            (send (list-ref axis-choices y-axis-index) get-series-name)
+                            #f))
+               (sport-data (hash-ref params-by-axis (list sport xseries yseries) #f)))
+          (cond ((list? sport-data)
+                 (set! delay-amount (first sport-data))
+                 (set! outlier-percentile (second sport-data))
+                 (set! outlier-handling (if (> (length sport-data) 2) (third sport-data) 'mark)))
+                ((number? sport-data)   ; before we saved the outlier percentile
+                 (set! delay-amount sport-data)
+                 (set! outlier-percentile #f)
+                 (set! outlier-handling 'mark))
+                (#t
+                 (set! delay-amount #f)
+                 (set! outlier-percentile #f)
+                 (set! outlier-handling 'mark))))
         (if (number? delay-amount)
             (send delay-amount-field set-numeric-value delay-amount)
-            (send delay-amount-field set-value ""))))
+            (send delay-amount-field set-value ""))
+        (if (number? outlier-percentile)
+            (send outlier-percentile-field set-numeric-value outlier-percentile)
+            (send outlier-percentile-field set-value ""))
+        (send outlier-handling-choice set-selection (if (eq? outlier-handling 'mark) 0 1))))
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
@@ -403,6 +496,8 @@
       (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! delay-amount #f)
+      (set! outlier-percentile #f)
+      (set! outlier-handling 'mark)
       (define lap-swimming? (send data-frame get-property 'is-lap-swim?))
       (set! axis-choices
             (filter-axis-list
