@@ -510,7 +510,11 @@
       (new timer% [notify-callback (lambda () (send canvas refresh))]))
 
     (define (draw-map-tiles canvas dc)
-      (send dc set-smoothing 'unsmoothed) ; prevent blurring of the tile content
+      ;; Use smoothing on high DPI displays, but not on low DPI ones (each
+      ;; look better in the corresponding mode).
+      (if (> (get-display-backing-scale) 1.0)
+          (send dc set-smoothing 'smoothed)
+          (send dc set-smoothing 'unsmoothed))
       (send redraw-timer stop)
       (let* ((request-redraw? #f)
 
