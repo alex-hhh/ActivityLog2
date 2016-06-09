@@ -37,7 +37,7 @@
 
 (provide df-best-avg df-best-avg-aux make-best-avg-renderer best-avg-ticks transform-ticks)
 
-(provide df-statistics)
+(provide df-statistics df-quantile)
 
 
 ;;.............................................................. bsearch ....
@@ -698,6 +698,40 @@
           (send df fold (list column)
                 empty-statistics unweighted-statistics
                 #:start start #:end end))
+      #f))
+
+;; Return the quantiles for the series COLUMN in the dataframe DF.  A list of
+;; quantiles is returned as specified by QVALUES, or if no quantiles are
+;; specified, the list (0 0.25 0.5 1) is used. #:weight-column has the usual
+;; meaning, #:less-than is the ordering function passed to the `quantile`
+;; function.
+(define (df-quantile df column
+                     #:weight-column [weight (send df get-default-weight-series)]
+                     #:less-than (lt <)
+                     . qvalues)
+  (if (and (send df contains? column)
+           (or (not weight) (send df contains? weight)))
+      (let ((xs-base (send df select column))
+            (ws-base (if weight
+                         (send df map
+                               (list weight)
+                               (lambda (prev current)
+                                 (if prev
+                                     (- (vector-ref current 0) (vector-ref prev 0))
+                                     (vector-ref current 0))))
+                         #f))
+            (quantiles (if (null? qvalues) (list 0 0.25 0.5 0.75 1) qvalues)))
+        (if (vector-memq #f xs-base)    ; do we have NA values? remove them.
+            (let ((xs (for/vector ([x xs-base] #:when x) x))
+                  (ws (if ws-base
+                          (for/vector ([(w idx) (in-indexed ws-base)]
+                                       #:when (vector-ref xs-base idx))
+                            w)
+                          #f)))
+              (for/list ([q quantiles])
+                (quantile q lt xs ws)))
+            (for/list ([q quantiles])
+              (quantile q lt xs-base ws-base))))
       #f))
 
 
