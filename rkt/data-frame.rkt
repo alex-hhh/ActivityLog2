@@ -151,13 +151,13 @@
     (define (check-consistency)
       (when sorted?
         (when (has-invalid-values)
-          (raise "data-series% ~a is maked sorted, but has invalid values" name))
+          (raise (format "data-series% ~a is maked sorted, but has invalid values" name)))
         ;; NOTE: we might want to remove this test later, as it is slow for
         ;; larger datasets
         (for ([idx (in-range 1 (get-count))])
           (unless (cmp-fn (vector-ref data (- idx 1))
                           (vector-ref data idx))
-            (raise "data-series% ~a not really sorted at index ~a" name idx)))))
+            (raise (format "data-series% ~a not really sorted at index ~a" name idx))))))
 
     (check-consistency)
 

@@ -402,7 +402,7 @@
 (define (session-avg-vratio session)
   (let ((stride (session-avg-stride session))
         (vosc (session-avg-vertical-oscillation session)))
-    (if (and stride (> stride 0)) (* 100.0 (/ vosc (* stride 1000))) #f)))
+    (if (and stride vosc (> stride 0)) (* 100.0 (/ vosc (* stride 1000))) #f)))
 
 (define (session-total-ascent session)
   (or 
