@@ -312,7 +312,8 @@
   (send the-pen-list find-or-create-pen legend-color 2 'solid))
 (define legend-font
   (send the-font-list find-or-create-font 8 'default 'normal 'normal))
-(define legend-copyright "Copyright(c) OpenStreetMap contributors")
+;; (define legend-copyright "Copyright(c) OpenStreetMap contributors")
+(define legend-copyright "Maps © Thunderforest, Data © OpenStreetMap contributors")
 
 (define legend-distance-metric
   (list

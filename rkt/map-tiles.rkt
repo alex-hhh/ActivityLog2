@@ -202,7 +202,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
         (zoom (map-tile-zoom tile))
         (x (map-tile-x tile))
         (y (map-tile-y tile)))
-    (format "http://~a.tile.openstreetmap.org/~a/~a/~a.png" top zoom x y)))
+    (format "http://tile.thunderforest.com/outdoors/~a/~a/~a.png" zoom x y)))
 
 ;; Fetch TILE from the network.  Return a list of the tile, the url it was
 ;; fetched from and the actual PNG image as a byte-array.  Return #f if
@@ -217,7 +217,10 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
        #f)))
    (if (al-pref-allow-tile-download)
        (let* ((url (tile->osm-url tile))
-              (data (port->bytes (get-pure-port (string->url url)))))
+              (data (port->bytes (get-pure-port
+                                  (string->url url)
+                                  (list "User-Agent: ActivityLog2 http://alex-hhh.github.io/ActivityLog2/")
+                                  ))))
          (list tile url data))
        #f)))
 
