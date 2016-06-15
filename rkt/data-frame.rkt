@@ -18,7 +18,9 @@
 (require db
          math/statistics
          plot
+         plot/utils
          racket/class
+         racket/contract
          racket/format
          racket/generator
          racket/list
@@ -29,15 +31,7 @@
          "fmt-util.rkt"
          "spline-interpolation.rkt")
 
-(provide data-series% data-frame% make-data-frame-from-query valid-only bsearch)
-
-(provide df-describe)
-
-(provide df-histogram make-histogram-renderer make-histogram-renderer/dual)
-
-(provide df-best-avg df-best-avg-aux make-best-avg-renderer best-avg-ticks transform-ticks)
-
-(provide df-statistics df-quantile)
+;; NOTE: provides are at the end of the file
 
 
 ;;.............................................................. bsearch ....
@@ -169,7 +163,7 @@
 ;; Helper function to select only entries with valie values.  Usefull as a
 ;; parameter for the #:filter parameter of the select and select* methods of
 ;; data-frame%
-(define (valid-only vec) (for/and ([v vec]) v))
+(define (valid-only vec) (and (for/and ([v vec]) v) #t))
 
 ;; A data-frame% holds one or more "columns" of data plus additional
 ;; properties.  Each column is a data-series% object which has a name and
@@ -184,12 +178,6 @@
 
     (define data-series (make-hash))
     (define properties (make-hash))
-
-    (for ([s (in-list series)]
-          ;; don't add series with no values at all
-          #:when (send s has-valid-values))
-      (let ([name (send s get-name)])
-        (hash-set! data-series name s)))
 
     ;; Return a list of all the series in the data-frame%.  The list is in no
     ;; particular order.
@@ -308,6 +296,14 @@
     ;; Add SERIES to the data frame.  If another series by the same name
     ;; exists, it is replaced.
     (define/public (add-series series)
+      ;; Check if the series has the same number of rows as the rest of the
+      ;; series.  Take special care for the first series (get-row-count)
+      ;; returns #f.
+      (let ((row-count (get-row-count))
+            (srow-count (send series get-count)))
+        (unless (or (not row-count) (equal? row-count srow-count))
+          (raise (format "data-frame%/add-series: bad length for ~a, expecting ~a, got ~a"
+                         (send series get-name) row-count srow-count))))
       (let ([name (send series get-name)])
         (hash-set! data-series name series)))
 
@@ -367,6 +363,12 @@
           (for ([val (in-producer generator (void))])
             (set! accumulator (fn accumulator val))))
       accumulator)
+
+    ;; Initialize the data frame from the series arg.
+    (for ([s (in-list series)]
+          ;; don't add series with no values at all
+          #:when (send s has-valid-values))
+      (add-series s))
 
     ))
 
@@ -1037,12 +1039,6 @@
 
 ;;................................................................ other ....
 
-(provide time-delay-series
-         group-samples
-         group-samples/factor
-         make-scatter-renderer
-         make-scatter-group-renderer)
-
 (define (time-delay-series data-series amount)
 
   (define (key-fn item) (vector-ref item 2))
@@ -1120,3 +1116,108 @@
   (for/list ([key (in-hash-keys group)])
     (define data (hash-ref group key))
     (make-scatter-renderer data color (+ 1 (log key)) label)))
+
+
+;;............................................................. provides ....
+
+(provide data-series% data-frame%)
+
+(define histogram/c (vectorof (vector/c real? real?)))
+(define best-avg-item/c (vector/c real? (or/c #f real?) (or/c #f real?)))
+(define best-avg/c (listof best-avg-item/c))
+
+;; Time series items are X, Y and a timestamp, elapsed or distance value
+(define ts-item/c (vector/c (or/c #f real?) (or/c #f real?) real?))
+(define ts-data/c (or/c
+                   (vectorof ts-item/c)
+                   (listof ts-item/c)))
+
+;; Pairs used in scatter plots
+(define xy-item/c (vector/c (or/c #f real?) (or/c #f real?)))
+(define xy-data/c (or/c
+                   (vectorof xy-item/c)
+                   (listof xy-item/c)))
+
+;; Data that can be used as input for scatter functions (group-samples, etc)
+(define scatter-data/c (or/c ts-data/c xy-data/c))
+
+(define group-data/c (hash/c integer? xy-data/c))
+(define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
+
+(provide ts-item/c ts-data/c factor-data/c)
+
+(provide/contract
+ (make-data-frame-from-query (->* (connection? string?)
+                                  ()
+                                  #:rest (listof any/c)
+                                  (is-a?/c data-frame%)))
+ (valid-only (-> vector? boolean?))
+ (bsearch (->* ((vectorof any/c) any/c)
+               (#:cmp (-> any/c any/c boolean?)
+                #:key (-> any/c any/c)
+                #:start real?
+                #:end real?)
+               real?))
+ (df-describe (-> (is-a?/c data-frame%) any/c))
+ (df-histogram (->* ((is-a?/c data-frame%) string?)
+                    (#:weight-column string?
+                     #:bucket-width real?
+                     #:trim-outliers (or/c #f (between/c 0 1))
+                     #:include-zeroes? boolean?
+                     #:as-percentage? boolean?)
+                    (or/c #f histogram/c)))
+ (make-histogram-renderer (->* (histogram/c)
+                               (#:color any/c
+                                #:skip real?
+                                #:x-min real?
+                                #:label string?)
+                               (treeof renderer2d?)))
+ (make-histogram-renderer/dual (->* (histogram/c string? histogram/c string?)
+                                    (#:color1 any/c
+                                     #:color2 any/c)
+                                    (treeof renderer2d?)))
+ (df-best-avg (->* ((is-a?/c data-frame%) string?)
+                   (#:inverted? boolean?
+                    #:weight-column string?
+                    #:durations (listof real?))
+                  best-avg/c))
+ (df-best-avg-aux (->* ((is-a?/c data-frame%) string? best-avg/c)
+                       (#:weight-column string?)
+                       best-avg/c))
+ (best-avg-ticks (-> ticks?))
+ (transform-ticks (-> ticks? (-> real? real?) ticks?))
+ (make-best-avg-renderer (->* (best-avg/c)
+                              ((or/c #f best-avg/c)
+                               #:color1 (or/c #f any/c)
+                               #:color2 (or/c #f any/c)
+                               #:zero-base? boolean?)
+                              (treeof renderer2d?)))
+ (df-statistics (->* ((is-a?/c data-frame%) string?)
+                     (#:weight-column string?
+                      #:start real?
+                      #:end real?)
+                     statistics?))
+ (df-quantile (->* ((is-a?/c data-frame%) string?)
+                   (#:weight-column string?
+                    #:less-than (-> any/c any/c boolean?))
+                   #:rest (listof (between/c 0 1))
+                   (listof real?)))
+
+ (time-delay-series (-> ts-data/c real? ts-data/c))
+ (group-samples (-> scatter-data/c integer? integer? group-data/c))
+ (group-samples/factor (->* (scatter-data/c (-> any/c any/c))
+                            (#:key (or/c #f (-> (or/c xy-item/c ts-item/c) any/c)))
+                            factor-data/c))
+ ;; (group-samples/factor
+ ;;  (parametric->/c
+ ;;   (item key factor)
+ ;;   (->* ((or/c (vectorof item) (listof item))
+ ;;         (-> (or/c item key) factor))
+ ;;        (#:key (or/c #f (-> item key)))
+ ;;        (hash/c factor (listof item)))))
+ (make-scatter-renderer (-> scatter-data/c any/c real? string? renderer2d?))
+ (make-scatter-group-renderer (->* (group-data/c any/c)
+                                   ((or/c #f string?))
+                                   (treeof renderer2d?)))
+ 
+ )

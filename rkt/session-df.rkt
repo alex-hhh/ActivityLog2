@@ -22,17 +22,46 @@
          racket/math
          racket/sequence
          racket/vector
+         racket/contract
          math/statistics
+         plot/utils
          plot
          "al-profiler.rkt"
          "data-frame.rkt"
          "fmt-util.rkt"
-         "sport-charms.rkt")
+         "sport-charms.rkt"
+         "plot-axis-def.rkt")
 
-(provide make-session-data-frame
-         extract-data ds-stats add-verticals get-lap-extents get-plot-y-range combine-y-range
-         make-plot-renderer make-box-renderer
-         make-plot-renderer/factors make-plot-renderer/swim-stroke)
+(define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
+(define factor-colors/c (listof (list/c symbol? any/c)))
+
+(provide/contract
+ (make-session-data-frame (-> connection? number? (is-a?/c data-frame%)))
+ (extract-data (->* ((is-a?/c data-frame%)
+                     (is-a?/c axis-definition%)
+                     (is-a?/c axis-definition%))
+                    (positive?)
+                    ts-data/c))
+ (ds-stats (-> ts-data/c statistics?))
+ (add-verticals (-> ts-data/c ts-data/c))
+ (get-lap-extents (-> ts-data/c (is-a?/c data-frame%) number? (cons/c number? number?)))
+ (get-plot-y-range (-> statistics? (is-a?/c axis-definition%) y-range/c))
+ (combine-y-range (-> y-range/c y-range/c y-range/c))
+
+ (make-plot-renderer (->* (ts-data/c y-range/c)
+                          (#:color any/c
+                           #:width number?
+                           #:alpha (or/c #f number?)
+                           #:label (or/c #f string?))
+                          renderer2d?))
+ (make-box-renderer (->* (number? number? number? number?)
+                         (any/c)
+                         renderer2d?))
+
+ (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
+ (make-plot-renderer/swim-stroke (-> ts-data/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
+ 
+ )
 
 
 ;;.............................................. make-session-data-frame ....

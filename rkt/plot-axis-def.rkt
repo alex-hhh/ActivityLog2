@@ -75,6 +75,8 @@
 
     ))
 
+(provide axis-definition%)
+
 
 (define axis-distance
   (new (class axis-definition% (init) (super-new)
