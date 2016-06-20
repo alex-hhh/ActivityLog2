@@ -1256,7 +1256,7 @@
           (set! show-form-check-box
                 (new check-box% [parent q] [label "Form"] [value #t]))
           (set! show-daily-tss-check-box
-                (new check-box% [parent q] [label "Daily TSS"] [value #t])))
+                (new check-box% [parent q] [label "Daily Effort"] [value #t])))
         (let ((q (new horizontal-pane% [parent p]
                       [alignment '(center center)])))
           (set! show-fitness-check-box
@@ -1467,7 +1467,7 @@
             #:fill-color "purple"
             #:size 7
             #:line-width 1.5
-            #:label "Training Stress")))
+            #:label "Effort")))
 
 (define (make-fitness-renderer data)
   (let ((fdata (get-fitness-data-series data)))

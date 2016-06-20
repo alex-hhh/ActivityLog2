@@ -165,7 +165,7 @@
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Session TSS"] [icon edit-icon])
+    (super-new [title "Edit Session Stress"] [icon edit-icon])
 
     (define database #f)
     (define session-id #f)
@@ -275,7 +275,7 @@
       
       (set! manual-tss
             (new number-input-field% [parent tss-selection-pane]
-                 [label "TSS: "] [style '(single deleted)]
+                 [label "Effort: "] [style '(single deleted)]
                  [min-value 0]
                  [min-width 100] 
                  [stretchable-width #f]
@@ -287,7 +287,7 @@
                                    [font message-font])))
       
       (let ((hp (make-horizontal-pane p #f)))  
-        (new message% [parent hp] [label "Updated TSS: "])
+        (new message% [parent hp] [label "Updated Effort: "])
         (set! updated-tss 
               (new message% [parent hp] [label "888"] 
                    [stretchable-width #t]

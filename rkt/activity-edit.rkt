@@ -192,7 +192,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define fixup-elevation-menu-item
       (make-menu-item "Fixup elevation ..." on-fixup-elevation))
     (define edit-tss-menu-item
-      (make-menu-item "Edit TSS ..." on-edit-tss))
+      (make-menu-item "Edit Effort ..." on-edit-tss))
     (define edit-weather-menu-item
       (make-menu-item "Edit weather ..." on-edit-weather))
     (new separator-menu-item% [parent the-menu])

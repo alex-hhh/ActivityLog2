@@ -103,9 +103,9 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Training Stress Score: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity Factor: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor number->string)
    (badge-field-def "RPE: " session-rpe number->string) 
    ))
 
@@ -164,9 +164,9 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Training Stress Score: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity Factor: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor number->string)
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *bike-timing-fields*
@@ -185,7 +185,7 @@
   (list
    (badge-field-def "Avg Power: " session-avg-power (lambda (v) (power->string v #t)))
    (badge-field-def "Max Power: " session-max-power (lambda (v) (power->string v #t)))
-   (badge-field-def "Normalized Power: " session-normalized-power (lambda (v) (power->string v #t)))
+   (badge-field-def "Adjusted Power: " session-normalized-power (lambda (v) (power->string v #t)))
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
@@ -270,9 +270,9 @@
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Avg SWOLF: " session-avg-swolf number->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Training Stress Score: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity Factor: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor number->string)
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *swim-timing-fields*
@@ -307,9 +307,9 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Training Stress Score: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity Factor: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor number->string)
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *other-timing-fields*

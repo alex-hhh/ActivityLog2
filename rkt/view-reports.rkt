@@ -175,12 +175,12 @@
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg TSS"
+     (column-info "Avg Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total TSS"
+     (column-info "Total Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
@@ -239,12 +239,12 @@
                   get-stride))
 
    (let ((index 12))
-     (column-info "Avg TSS"
+     (column-info "Avg Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total TSS"
+     (column-info "Total Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
@@ -297,17 +297,17 @@
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 11))
-     (column-info "Avg Normalized Power"
+     (column-info "Avg Adjusted Power"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg TSS"
+     (column-info "Avg Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total TSS"
+     (column-info "Total Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
@@ -346,12 +346,12 @@
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg TSS"
+     (column-info "Avg Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total TSS"
+     (column-info "Total Effort"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 

@@ -123,14 +123,6 @@
   (insert-reference editor "Maps from Thunderforest" "http://www.thunderforest.com/")
   (insert-newline editor)
   (insert-reference editor "Map data from OpenStreetMap" "https://www.openstreetmap.org")
-  (insert-newline editor)
-  (insert-newline editor)
-  (insert-heading editor "Acknowlegements")
-  (insert-text editor
-               "Normalized Power® (NP®), Intensity Factor® (IF®), and Training Stress Score® (TSS®) are registered trademarks of Peaksware, LLC ")
-  (insert-hyperlink editor
-                    "http://trainingpeaks.com/"
-                    (lambda () (send-url "http://trainingpeaks.com/")))
   (send editor move-position 'home))
 
 (define (make-about-frame)

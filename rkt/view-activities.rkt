@@ -362,7 +362,7 @@
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "np" headers 0))))
-         (column-info "Normalized Power"
+         (column-info "Adjusted Power"
                       (lambda (row) (let ((v (fn row))) (power->string v #t)))
                       fn))
 
@@ -475,13 +475,13 @@
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "tss" headers 0))))
-         (column-info "TSS"
+         (column-info "Effort"
                       (lambda (row) 
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F" v) "")))
                       fn))
        (let ((fn (lambda (row) (db-row-ref row "ifact" headers 0))))
-         (column-info "Intensity Factor"
+         (column-info "Intensity"
                       (lambda (row) 
                         (let ((v (fn row)))
                           (if (> v 0) (format-48 "~1,1F" v) "")))
