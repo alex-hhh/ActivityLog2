@@ -1,0 +1,345 @@
+#lang racket/base
+
+;; trends-tt.rkt -- "Training Time chart, a punch card style chart
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
+
+
+(require
+ db
+ plot
+ racket/class
+ racket/match
+ racket/gui/base
+ racket/math
+ racket/format
+ "database.rkt"
+ "trends-chart.rkt"
+ "icon-resources.rkt"
+ "widgets.rkt"
+ "plot-hack.rkt"
+ "sport-charms.rkt"
+ "data-frame.rkt"
+ "al-widgets.rkt")
+
+(provide tt-trends-chart%)
+
+(struct tt-params tc-params (start-date end-date sport tri-activities?))
+
+(define tt-chart-settings%
+  (class al-edit-dialog%
+    (init-field database
+                [default-name "Trends"]
+                [default-title "Trends Chart"])
+
+    (super-new [title "Chart Settings"]
+               [icon edit-icon]
+               [min-height 10]
+               [tablet-friendly? #t])
+
+    (define name-field
+      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
+        (send p spacing al-dlg-item-spacing)
+        (new text-field% [parent p] [label "Name "])))
+    (send name-field set-value default-name)
+
+    (define title-field
+      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
+        (send p spacing al-dlg-item-spacing)
+        (new text-field% [parent p] [label "Title "])))
+    (send title-field set-value default-title)
+
+    (define date-range-selector
+      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
+        (send p spacing al-dlg-item-spacing)
+        (new date-range-selector% [parent p])))
+
+    (define sport-selector
+      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
+        (send p spacing al-dlg-item-spacing)
+        (new sport-selector% [parent p] [sports-in-use-only? #t])))
+
+    (define tri-checkbox
+      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
+        (send p spacing al-dlg-item-spacing)
+        (new check-box% [parent p] [label "Triathlon Activities"] [value #f]
+             [callback (lambda (c e) (on-triathlon-activties (send c get-value)))])))
+
+    (define (on-triathlon-activties flag)
+      (send sport-selector enable (not flag)))
+
+    (define/public (get-restore-data)
+      (list
+       (send name-field get-value)
+       (send title-field get-value)
+       (send date-range-selector get-restore-data)
+       (send sport-selector get-selection)
+       (send tri-checkbox get-value)
+       ))
+
+    (define/public (restore-from data)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database)))
+      (match-define (list d0 d1 d2 d3 d4) data)
+      (send name-field set-value d0)
+      (send title-field set-value d1)
+      (send date-range-selector restore-from d2)
+      (send sport-selector set-selected-sport (car d3) (cdr d3))
+      (send tri-checkbox set-value d4)
+      (on-triathlon-activties d4))
+
+    (define/public (show-dialog parent)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database)))
+      (if (send this do-edit parent)
+          (get-settings)
+          #f))
+
+    (define/public (get-settings)
+      (let ((dr (send date-range-selector get-selection)))
+        (if dr
+            (let ((start-date (car dr))
+                  (end-date (cdr dr)))
+              (when (eqv? start-date 0)
+                (set! start-date (get-true-min-start-date database)))
+              (tt-params
+               (send name-field get-value)
+               (send title-field get-value)
+               start-date
+               end-date
+               (send sport-selector get-selection)
+               (send tri-checkbox get-value)))
+            #f)))
+    ))
+
+(define tt-tri-stmt
+  (virtual-statement
+   (lambda (dbsys)
+  "select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
+       round ((strftime('%H', S.start_time, 'unixepoch', 'localtime') * 3600
+               + strftime('%M', S.start_time, 'unixepoch', 'localtime') * 60
+               + strftime('%S', S.start_time, 'unixepoch', 'localtime') * 60) / 3600.0, 1) as time,
+       count(S.id) as ntotal,
+       sum(case S.sport_id when 2 then 1 else 0 end) as ncycle,
+       sum(case S.sport_id when 1 then 1 else 0 end) as nrun,
+       sum(case S.sport_id when 5 then 1 else 0 end) as nswim,
+       sum(case when S.sport_id = 4 and S.sub_sport_id = 20 then 1 else 0 end) as nstrength
+  from A_SESSION S
+ where S.start_time between ? and ?
+ group by dow, time
+ order by dow, time")))
+
+(define tt-sport-stmt-1                 ; both sport-id and sub-sport-id
+  (virtual-statement
+   (lambda (dbsys)
+  "select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
+       round ((strftime('%H', S.start_time, 'unixepoch', 'localtime') * 3600
+               + strftime('%M', S.start_time, 'unixepoch', 'localtime') * 60
+               + strftime('%S', S.start_time, 'unixepoch', 'localtime')) / 3600.0, 1) as time,
+       count(S.id) as ntotal
+  from A_SESSION S
+ where S.start_time between ? and ?
+   and S.sport_id = ? and S.sub_sport_id = ?
+ group by dow, time
+ order by dow, time")))
+
+(define tt-sport-stmt-2                 ; only sport-id
+  (virtual-statement
+   (lambda (dbsys)
+  "select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
+       round ((strftime('%H', S.start_time, 'unixepoch', 'localtime') * 3600
+               + strftime('%M', S.start_time, 'unixepoch', 'localtime') * 60
+               + strftime('%S', S.start_time, 'unixepoch', 'localtime')) / 3600.0, 1) as time,
+       count(S.id) as ntotal
+  from A_SESSION S
+ where S.start_time between ? and ?
+   and S.sport_id = ?
+ group by dow, time
+ order by dow, time")))
+
+(define tt-sport-stmt-3                 ; all sports
+  (virtual-statement
+   (lambda (dbsys)
+  "select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
+       round ((strftime('%H', S.start_time, 'unixepoch', 'localtime') * 3600
+               + strftime('%M', S.start_time, 'unixepoch', 'localtime') * 60
+               + strftime('%S', S.start_time, 'unixepoch', 'localtime')) / 3600.0, 1) as time,
+       count(S.id) as ntotal
+  from A_SESSION S
+ where S.start_time between ? and ?
+ group by dow, time
+ order by dow, time")))
+
+(define days-of-week #("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat"))
+
+(define (days-of-week-layout start end)
+  (for/list ((ts (in-range (exact-floor start) (exact-ceiling end))))
+    (pre-tick ts #t)))
+
+(define (days-of-week-format start end pre-ticks)
+  (for/list ((tick pre-ticks))
+    (let ((val (pre-tick-value tick)))
+      (if (and (exact-integer? val) (>= val 0) (< val (vector-length days-of-week)))
+          (vector-ref days-of-week val)
+          ""))))
+
+(define (day-of-week-ticks)
+  (ticks days-of-week-layout days-of-week-format))
+
+(define (hours-of-day-layout start end)
+  (for/list ((ts (in-range (exact-truncate start) (exact-ceiling end) 0.5)))
+    (pre-tick ts (integer? ts))))
+
+(define (hours-of-day-format start end pre-ticks)
+  (for/list ((tick pre-ticks))
+    (let ((val (pre-tick-value tick)))
+      (if (and (>= val 0) (<= val 24))
+          (let* ((hrs (exact-truncate val))
+                 (mins (exact-truncate (* 60.0 (- val hrs)))))
+            (string-append
+             (~a hrs #:width 2 #:align 'right #:pad-string "0")
+             ":"
+             (~a mins #:width 2 #:align 'right #:pad-string "0")))
+          ""))))
+
+(define (hours-of-day-ticks)
+  (ticks hours-of-day-layout hours-of-day-format))
+
+(define (make-group df count-series)
+  (define group (make-hash))
+  (send df for-each
+        (list "dow" "time" count-series)
+        (lambda (val)
+          (match-define (vector dow time count) val)
+          (when (> count 0)
+            (hash-update! group count (lambda (prev) (cons (vector dow time) prev)) '()))))
+  group)
+
+(define (make-data df count-series)
+  (define group '())
+  (send df for-each
+        (list "dow" "time" count-series)
+        (lambda (val)
+          (match-define (vector dow time count) val)
+          (when (> count 0)
+            (let ((item (vector dow time)))
+              (for ([x (in-range count)])
+                (set! group (cons item group)))))))
+  group)
+
+(define (make-renderer data
+                       #:color color #:label label
+                       #:size size #:alpha [alpha 1.0])
+  (points data
+          #:sym 'fullcircle
+          #:color color
+          #:fill-color color
+          #:label label
+          #:size (* (point-size) size)
+          #:alpha alpha
+          #:x-jitter 0.2))
+
+(define tt-trends-chart%
+  (class trends-chart%
+    (init-field database) (super-new)
+
+    (define data-valid? #f)
+    (define tt-data #f)                 ; a data-frame%
+    (define tri? #f)
+    (define sport #f)
+
+    (define/override (make-settings-dialog)
+      (new tt-chart-settings%
+           [default-name "Training Times"]
+           [default-title "TrainingTimes"]
+           [database database]))
+
+    (define/override (invalidate-data)
+      (set! data-valid? #f))
+
+    (define/override (put-plot-snip canvas)
+      (maybe-fetch-data)
+      (when data-valid?
+        (parameterize ([plot-x-ticks (day-of-week-ticks)]
+                       [plot-x-label #f]
+                       [plot-y-ticks (hours-of-day-ticks)]
+                       [plot-y-label #f])
+          (if tri?
+              (plot-snip/hack
+               canvas
+               #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
+               (list
+                (tick-grid)
+                (make-renderer
+                 (make-data tt-data "ncycle")
+                 #:color (get-sport-color 2 #f #t)
+                 #:label (get-sport-name 2 #f)
+                 #:alpha 0.8
+                 #:size 1.5)
+                (make-renderer
+                  (make-data tt-data "nrun")
+                  #:color (get-sport-color 1 #f #t)
+                  #:label (get-sport-name 1 #f)
+                  #:alpha 0.8
+                  #:size 1.5)
+                 (make-renderer
+                  (make-data tt-data "nswim")
+                  #:color (get-sport-color 5 #f #t)
+                  #:label (get-sport-name 5 #f)
+                  #:alpha 0.8
+                  #:size 1.5)
+                 (make-renderer
+                  (make-data tt-data "nstrength")
+                  #:color (get-sport-color 4 20 #t)
+                  #:label (get-sport-name 4 20)
+                  #:alpha 0.8
+                  #:size 1.5)))
+              (plot-snip/hack
+               canvas
+               #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
+               (list
+                (tick-grid)
+                (make-renderer
+                  (make-data tt-data "ntotal")
+                  #:color (get-sport-color (car sport) (cdr sport) #t)
+                  #:label (get-sport-name (car sport) (cdr sport))
+                  #:size 1.5)))))))
+
+    (define (maybe-fetch-data)
+      (unless data-valid?
+        (let ((params (send this get-params)))
+          (when params
+            (let ((start (tt-params-start-date params))
+                  (end (tt-params-end-date params)))
+              (set! sport (tt-params-sport params))
+              (set! tri? (tt-params-tri-activities? params))
+              (set! tt-data
+                    (if tri?
+                        (make-data-frame-from-query database tt-tri-stmt start end)
+                        (let ()
+                          (match-define (cons sport-id sub-sport-id) sport)
+                          (cond ((and sport-id sub-sport-id)
+                                 (make-data-frame-from-query
+                                  database tt-sport-stmt-1 start end
+                                  sport-id sub-sport-id))
+                                (sport-id
+                                 (make-data-frame-from-query
+                                  database tt-sport-stmt-2 start end
+                                  sport-id))
+                                (#t
+                                 (make-data-frame-from-query
+                                  database tt-sport-stmt-3 start end))))))
+              (set! data-valid? (send tt-data get-row-count)))))))
+
+    ))

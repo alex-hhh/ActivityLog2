@@ -28,7 +28,8 @@
  "trends-vol.rkt"
  "trends-trivol.rkt"
  "trends-tiz.rkt"
- "trends-pmc.rkt")
+ "trends-pmc.rkt"
+ "trends-tt.rkt")
 
 (provide view-trends%)
 
@@ -43,7 +44,8 @@
    (chart-info "Traning Volume (multisport)" 'trivol trivol-trends-chart%)
    (chart-info "Traning Volume" 'vol vol-trends-chart%)
    (chart-info "Time in Zone" 'tiz tiz-trends-chart%)
-   (chart-info "Performance" 'pmc pmc-trends-chart%)))
+   (chart-info "Performance" 'pmc pmc-trends-chart%)
+   (chart-info "Training Times" 'tt tt-trends-chart%)))
 
 (define new-trend-chart-dialog%
   (class al-edit-dialog%

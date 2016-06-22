@@ -70,6 +70,9 @@
     (define/public (get-selection)
       (get-sport-ids (send the-selector get-selection)))
 
+    (define/public (enable enable?)
+      (send the-selector enable enable?))
+
     (define/public (set-selected-sport sport sub-sport)
       (let loop ((sports sports) (index 0))
         (when (pair? sports)

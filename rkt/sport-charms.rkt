@@ -33,7 +33,7 @@
 (define sport-zones? (or/c #f (listof number?)))
 
 (provide/contract
- [get-sport-color (-> sport-id? sport-id? color?)]
+ [get-sport-color (->* (sport-id? sport-id?) (boolean?) color?)]
  [get-sport-name (-> sport-id? sport-id? string?)]
  [get-sport-letter (-> sport-id? sport-id? string?)]
  [get-sport-bitmap (-> sport-id? sport-id? bitmap?)]
@@ -129,6 +129,27 @@
    17 (make-object color% 221 221 221)
    18 (make-object color% 204 204 204)))
 
+(define *dark-colors*
+  (hash
+   1 (make-object color% 30 144 255)    ; run
+   2 (make-object color% 160 255 178)
+   3 (make-object color% 34 139 34)     ; hiking, sailing
+   4 (make-object color% 226 255 31)
+   5 (make-object color% 255 165 0)     ; swim
+   6 (make-object color% 255 221 0)
+   7 (make-object color% 255 191 0)
+   8 (make-object color% 255 144 89)
+   9 (make-object color% 255 120 124)
+   10 (make-object color% 242 138 206)
+   11 (make-object color% 199 21 133)   ; strength
+   12 (make-object color% 210 186 255)
+   13 (make-object color% 241 227 194)
+   14 (make-object color% 235 214 161)
+   15 (make-object color% 225 198 130)
+   16 (make-object color% 47 79 79)
+   17 (make-object color% 221 221 221)
+   18 (make-object color% 204 204 204)))
+
 (define *default-color* 16)
 
 (struct sport-info (id parent-id name color icon))
@@ -188,12 +209,13 @@
         (sport-info-name info)
         "Other")))
 
-(define (get-sport-color sport sub-sport)
-  (let ((info (get-sport-info sport sub-sport)))
+(define (get-sport-color sport sub-sport [dark? #f])
+  (let ((info (get-sport-info sport sub-sport))
+        (color-map (if dark? *dark-colors* *colors*)))
     (if info
-        (hash-ref *colors* (sport-info-color info) 
+        (hash-ref color-map (sport-info-color info) 
                   (hash-ref *colors* *default-color*))
-        (hash-ref *colors* *default-color*))))
+        (hash-ref color-map *default-color*))))
 
 (define (get-sport-bitmap sport sub-sport)
   (let ((info (get-sport-info sport sub-sport)))
