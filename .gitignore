@@ -4,6 +4,7 @@
 *.fit
 *~
 \#*\#
+.\#*
 scratch*
 .DS_Store
 Thumbs.db
