@@ -396,7 +396,7 @@
                                (vector #f #f #f #f)))
                           (delayed (if damt (time-delay-series ds damt) ds))
                           (grouped (group-samples delayed x-digits y-digits))
-                          (renderer (make-scatter-group-renderer grouped color)))
+                          (renderer (make-scatter-group-renderer grouped #:color color)))
                      (queue-callback
                       (lambda ()
                         (set! data-series ds)

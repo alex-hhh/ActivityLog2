@@ -347,6 +347,19 @@
           (for/vector ([val (in-producer generator (void))])
             (fn val))))
 
+    ;; Like 'map', but FN is called for side effects and nothing is returned
+    ;; by the method.
+    (define/public (for-each base-series fn #:start (start 0) #:end (end (get-row-count)))
+      (define generator (make-generator base-series #:start start #:end end))
+      (define need-prev-val? (eq? (procedure-arity fn) 2))
+      (if need-prev-val?
+          (let ([prev-val #f])
+            (for ([val (in-producer generator (void))])
+              (fn prev-val val)
+              (set! prev-val val)))
+          (for ([val (in-producer generator (void))])
+            (fn val))))
+
     ;; Fold (accumulate) a function FN over values in BASE-SERIES. FN can
     ;; receive either two arguments or three arguments (the accumulator, the
     ;; previous and current values).  INIT-VAL is the initial value passed to
@@ -1098,7 +1111,7 @@
       (hash-set! result factor (cons item (hash-ref result factor '())))))
   result)
 
-(define (make-scatter-renderer data-series color size label)
+(define (make-scatter-renderer data-series #:color color #:size size #:label label #:alpha [alpha 0.8])
   (let ((kwd '()) (val '()))
     (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
     (add-arg '#:sym 'fullcircle)
@@ -1108,14 +1121,22 @@
       (add-arg '#:label label))
     (when color
       (add-arg '#:fill-color color)
-      (add-arg '#:color color)
-      (add-arg '#:alpha 0.8))
+      (add-arg '#:color color))
+    (when alpha
+      (add-arg '#:alpha alpha))
     (keyword-apply points kwd val data-series '())))
 
-(define (make-scatter-group-renderer group color [label #f])
-  (for/list ([key (in-hash-keys group)])
+(define (make-scatter-group-renderer group #:color color #:label [label #f] #:size [size 1])
+  (define first-time? #t)
+  (for/list ([key (sort (hash-keys group) <)])
     (define data (hash-ref group key))
-    (make-scatter-renderer data color (+ 1 (log key)) label)))
+    (begin0
+        (make-scatter-renderer
+         data
+         #:color color
+         #:size (* size (+ 1 (log key)))
+         #:label (if first-time? label #f))
+      (set! first-time? #f))))
 
 
 ;;............................................................. provides ....
@@ -1147,7 +1168,7 @@
 (provide ts-item/c ts-data/c factor-data/c)
 
 (provide/contract
- (make-data-frame-from-query (->* (connection? string?)
+ (make-data-frame-from-query (->* (connection? (or/c string? virtual-statement?))
                                   ()
                                   #:rest (listof any/c)
                                   (is-a?/c data-frame%)))
@@ -1215,9 +1236,11 @@
  ;;         (-> (or/c item key) factor))
  ;;        (#:key (or/c #f (-> item key)))
  ;;        (hash/c factor (listof item)))))
- (make-scatter-renderer (-> scatter-data/c any/c real? string? renderer2d?))
- (make-scatter-group-renderer (->* (group-data/c any/c)
-                                   ((or/c #f string?))
+ (make-scatter-renderer (->* (scatter-data/c #:color any/c #:size positive? #:label (or/c #f string?))
+                             (#:alpha (between/c 0 1))
+                             renderer2d?))
+ (make-scatter-group-renderer (->* (group-data/c #:color any/c)
+                                   (#:label (or/c #f string?) #:size positive?)
                                    (treeof renderer2d?)))
  
  )

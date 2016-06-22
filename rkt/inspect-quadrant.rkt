@@ -334,7 +334,7 @@
                (and grouped
                     (make-scatter-group-renderer
                      grouped
-                     (send y-axis get-line-color))))
+                     #:color (send y-axis get-line-color))))
              (queue-callback
               (lambda ()
                 (set! plot-rt rt)
