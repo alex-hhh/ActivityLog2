@@ -40,7 +40,7 @@
  (extract-data (->* ((is-a?/c data-frame%)
                      (is-a?/c axis-definition%)
                      (is-a?/c axis-definition%))
-                    (positive?)
+                    ((or/c zero? positive?))
                     ts-data/c))
  (ds-stats (-> ts-data/c statistics?))
  (add-verticals (-> ts-data/c ts-data/c))
