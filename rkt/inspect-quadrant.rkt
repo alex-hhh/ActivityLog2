@@ -320,10 +320,11 @@
            "quadrant-plot-panel%/refresh-plot"
            (lambda ()
              (define ds
-               (let ((xnam (send x get-series-name))
-                     (ynam (send y get-series-name)))
-                 (and  (send df contains? xnam ynam)
-                       (send df select* xnam ynam #:filter filter-fn))))
+               (and x y
+                    (let ((xnam (send x get-series-name))
+                          (ynam (send y get-series-name)))
+                      (and  (send df contains? xnam ynam)
+                            (send df select* xnam ynam #:filter filter-fn)))))
              (define bounds (and ds (find-bounds ds)))
              (define grouped
                (and ds
@@ -341,7 +342,7 @@
                 (set! data-series ds)
                 (set! data-bounds bounds)
                 (unless plot-rt
-                  (send plot-rt set-background-message "No data to plot..."))
+                  (send plot-pb set-background-message "No data to plot..."))
                 (put-plot-snip))))))))
 
     (define (save-params-for-sport)
@@ -429,7 +430,9 @@
                                    show-zones-check-box show-grid-check-box))))
         (#t
          (set! zones #f)
-         (set! yval-fn cadence->stride)
+         (set! x-axis #f)
+         (set! y-axis #f)
+         (set! yval-fn #f)
          (send control-panel change-children (lambda (old) '()))))
       (restore-params-for-sport)
       (when zones
