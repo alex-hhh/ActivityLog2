@@ -424,7 +424,8 @@
 (define (df-describe df)
 
   (define (ppval val)
-    (let ((v (~r val #:precision 2)))
+    (let ((v (cond ((or (nan? val) (infinite? val)) (~a val))
+                   (#t (~r val #:precision 2)))))
       (~a v #:min-width 13 #:align 'right)))
   
   (printf "data-frame: ~a series, ~a items~%"
@@ -688,7 +689,9 @@
         (if (and pws pv ws v)
             (let ([dx (- ws pws)]
                   [dy (/ (+ pv v) 2)])
-              (update-statistics stats dy dx))
+              (if (> dx 0)       ; can happen for timer series, w/ stop points
+                  (update-statistics stats dy dx)
+                  stats))
             stats))
       stats))
 
