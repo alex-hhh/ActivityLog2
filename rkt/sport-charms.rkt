@@ -80,6 +80,7 @@
 (define-runtime-path stopwatch-icon-file "../img/stopwatch-64.png")
 (define-runtime-path yoga-icon-file "../img/yoga-64.png")
 (define-runtime-path note-icon-file "../img/note-64.png")
+(define-runtime-path skiing-icon-file "../img/skiing-64.png")
 
 (define *large-bitmaps*
   (hash
@@ -94,6 +95,7 @@
    "timer" (read-bitmap stopwatch-icon-file)
    "yoga" (read-bitmap yoga-icon-file)
    "note" (read-bitmap note-icon-file)
+   "ski" (read-bitmap skiing-icon-file)
    ))
 
 (define *sport-letters*
@@ -127,7 +129,9 @@
    15 (make-object color% 225 198 130)
    16 (make-object color% 238 238 238)
    17 (make-object color% 221 221 221)
-   18 (make-object color% 204 204 204)))
+   18 (make-object color% 204 204 204)
+   19 (make-object color% 255 250 250)
+   ))
 
 (define *dark-colors*
   (hash
@@ -148,7 +152,9 @@
    15 (make-object color% 225 198 130)
    16 (make-object color% 47 79 79)
    17 (make-object color% 221 221 221)
-   18 (make-object color% 204 204 204)))
+   18 (make-object color% 204 204 204)
+   19 (make-object color% 119 136 153)  ; skiing
+   ))
 
 (define *default-color* 16)
 

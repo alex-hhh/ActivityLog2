@@ -38,7 +38,7 @@
 ;; The schema version we expect in all databases we open.  An exception will
 ;; be raised if it does not match
 (define schema-version
-  (make-parameter 15 (lambda (v)
+  (make-parameter 16 (lambda (v)
                        (fail-with "cannot set schema version"))))
 
 ;; List of function to call after a new database was sucesfully opened.

@@ -56,4 +56,3 @@
 
 (define reports-icon pmc-icon)
 (provide reports-icon)
-

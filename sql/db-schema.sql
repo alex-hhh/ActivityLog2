@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(15);
+insert into SCHEMA_VERSION(version) values(16);
 
 
 --........................................................ Enumerations ....
@@ -38,7 +38,7 @@ insert into E_SPORT(id, name, color, icon) values(8, 'Tennis', -1, '');
 insert into E_SPORT(id, name, color, icon) values(9, 'American Football', -1, '');
 insert into E_SPORT(id, name, color, icon) values(10, 'Training', -1, '');
 insert into E_SPORT(id, name, color, icon) values(12, 'Cross Country Skiing', -1, '');
-insert into E_SPORT(id, name, color, icon) values(13, 'Alpine Skiing', -1, '');
+insert into E_SPORT(id, name, color, icon) values(13, 'Alpine Skiing', 19, 'ski');
 insert into E_SPORT(id, name, color, icon) values(14, 'Snowboarding', -1, '');
 insert into E_SPORT(id, name, color, icon) values(15, 'Rowing', -1, '');
 insert into E_SPORT(id, name, color, icon) values(254, 'All', -1, '');
