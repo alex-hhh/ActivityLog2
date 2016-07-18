@@ -28,6 +28,7 @@
          bbox-center
          bbox-center/ndcs
          bbox-size
+         bbox-merge
          (struct-out map-bbox)
          (struct-out map-tile)
          degrees->wind-rose)
@@ -159,6 +160,14 @@
         (max-lon (map-bbox-max-lon bbox)))
     (values (map-distance/degrees min-lat min-lon min-lat max-lon)
             (map-distance/degrees min-lat min-lon max-lat min-lon))))
+
+(: bbox-merge (-> map-bbox map-bbox map-bbox))
+(define (bbox-merge bb1 bb2)
+  (map-bbox
+   (max (map-bbox-max-lat bb1) (map-bbox-max-lat bb2))
+   (max (map-bbox-max-lon bb1) (map-bbox-max-lon bb2))
+   (min (map-bbox-min-lat bb1) (map-bbox-min-lat bb2))
+   (min (map-bbox-min-lon bb1) (map-bbox-min-lon bb2))))
 
 (: wind-rose (Vectorof String))
 (define wind-rose

@@ -21,6 +21,7 @@
          "al-widgets.rkt"
          "inspect-graphs.rkt"
          "map-widget.rkt"
+         "map-util.rkt"
          "plot-axis-def.rkt"
          "data-frame.rkt"
          "utilities.rkt")
@@ -30,19 +31,32 @@
 (define *header-font*
   (send the-font-list find-or-create-font 18 'default 'normal 'normal))
 
-(define (extract-track data-frame)
-  (send data-frame select* "lat" "lon" #:filter valid-only))
+(define (delta-time-and-distance df timestamp)
+  (let ((index (send df get-index "timestamp" timestamp))
+        (timer-s (send df select "timestamp"))
+        (lat-s (send df select "lat"))
+        (lon-s (send df select "lon")))
+    (let ((t1 (vector-ref timer-s index))
+          (t2 (vector-ref timer-s (+ index 1)))
+          (lat1 (vector-ref lat-s index))
+          (lat2 (vector-ref lat-s (+ index 1)))
+          (lon1 (vector-ref lon-s index))
+          (lon2 (vector-ref lon-s (+ index 1))))
+      (values
+       (- t2 t1)
+       (map-distance/degrees lat1 lon1 lat2 lon2)))))
 
-(define (extract-track-for-lap data-frame lap-num)
-  (let* ((laps (send data-frame get-property 'laps))
-         (start (vector-ref laps lap-num))
-         (end (if (>= (+ 1 lap-num) (vector-length laps))
-                  #f
-                  (vector-ref laps (+ 1 lap-num))))
-         (idx (send data-frame get-index* "timestamp" start end)))
-    (send data-frame select* "lat" "lon" #:filter valid-only
-          #:start (first idx)
-          #:end (second idx))))
+(define (is-teleport? df timestamp)
+  (let-values (([dt dd] (delta-time-and-distance df timestamp)))
+    (> dd 20)))
+
+(define (get-index df timestamp)
+  (if timestamp
+      (send df get-index "timestamp" timestamp)
+      (send df get-row-count)))
+
+(define (extract-track* df start end)
+  (send df select* "lat" "lon" #:filter valid-only #:start start #:end end))
 
 (define map-panel%
   (class object%
@@ -96,7 +110,7 @@
       (new check-box% [parent p] [label "Zoom to Lap"]
            [value zoom-to-lap?]
            [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
-      (set! zoom-slider 
+      (set! zoom-slider
             (new slider% [parent p] [label "Zoom Level "]
                  [min-value (get-min-zoom-level)]
                  [max-value (get-max-zoom-level)]
@@ -108,24 +122,26 @@
            [callback (lambda (b e) (resize-to-fit))])
       )
 
-    (define map-view 
+    (define map-view
       (new (class map-widget% (init) (super-new)
              (define/override (on-zoom-level-change zl)
                (send zoom-slider set-value zl)))
            [parent map-panel]))
 
-    (define elevation-graph 
+    (define elevation-graph
       (let ((p (new horizontal-pane% [parent map-panel] [stretchable-height #f])))
         (new elevation-graph% [parent p] [min-height 150])))
 
     (send elevation-graph zoom-to-lap zoom-to-lap?)
     (send elevation-graph set-filter-amount 1)
 
+    (define selected-lap #f)
+
     (define (zoom-to-lap flag)
       (set! zoom-to-lap? flag)
       (send elevation-graph zoom-to-lap flag)
       (when zoom-to-lap?
-        (send map-view resize-to-fit #t)))
+        (send map-view resize-to-fit selected-lap)))
 
     (define (set-zoom-level v)
       (send map-view set-zoom-level v))
@@ -136,11 +152,21 @@
     (define (highlight-lap n lap)
       (let ((lap-num (assq1 'lap-num lap)))
         (when lap-num
-          (send map-view set-selected-section
-                (extract-track-for-lap data-frame (- lap-num 1)))
-          (send elevation-graph highlight-lap (- lap-num 1))))
-      (when zoom-to-lap?
-        (send map-view resize-to-fit #t)))
+          (define selected-lap (- lap-num 1))
+          (send map-view set-track-group-pen #f
+                (send the-pen-list find-or-create-pen
+                      (make-object color% 226 34 62)
+                      3 'solid 'round 'round))
+          (send map-view set-track-group-zorder #f 0.5)
+          (send map-view set-track-group-pen selected-lap
+                (send the-pen-list find-or-create-pen
+                      (make-object color% 24 60 165)
+                      7
+                      'solid 'round 'round))
+          (send map-view set-track-group-zorder selected-lap 0.1) ; on top
+          (send elevation-graph highlight-lap selected-lap)
+          (when zoom-to-lap?
+            (send map-view resize-to-fit selected-lap)))))
 
     (define/public (save-visual-layout)
       (send mini-lap-view save-visual-layout))
@@ -162,13 +188,51 @@
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
       (send elevation-graph show-grid #t)
-      (send map-view set-track (extract-track data-frame))
-      
-      ;; label nearby weather stations (TODO: should be optional)
-      ;; (for ((ws (in-list (get-nearby-wstations (assq1 'database-id session)))))
-      ;;   (send map-view add-label
-      ;;         (wstation-ident ws) (wstation-lat ws) (wstation-lon ws))))
-      )
+      (send map-view clear-items)
+
+      ;; Add the data tracks
+
+      ;; teleports are the timestamps where the recording was stopped, than
+      ;; the user traveled a significant distance and re-started the
+      ;; recording.  They are used intensively when recording ski runs, for
+      ;; other activities, this should hopefully be empty.
+      (define teleports
+        (filter (lambda (p) (is-teleport? data-frame p))
+                (send data-frame get-property 'stop-points)))
+      (define laps (send data-frame get-property 'laps))
+      (define start (vector-ref laps 0))
+      (define start-idx 0)
+
+      (for ([(lap group) (in-indexed (in-sequences (in-vector laps 1) (in-value #f)))])
+        (for ([t teleports] #:when (and (< start t) (< t lap)))
+          (let* ([end-idx (get-index data-frame t)]
+                 [track (extract-track* data-frame start-idx end-idx)])
+            (send map-view add-track track group)
+            ;; Skip the teleport point
+            (set! start-idx (add1 end-idx))))
+        (let* ([end-idx (get-index data-frame lap)]
+               [track (extract-track* data-frame start-idx end-idx)])
+          (send map-view add-track track group)
+          (set! start lap)
+          ;; Make sure lap tracks are joined
+          (set! start-idx (sub1 end-idx))))
+
+      (send map-view set-track-group-pen #f
+            (send the-pen-list find-or-create-pen
+                  (make-object color% 226 34 62)
+                  3 'solid 'round 'round))
+      (send map-view add-marker
+            (send data-frame ref* 0 "lat" "lon")
+            "Start"
+            1
+            (make-color 0 135 36))
+      (send map-view add-marker
+            (send data-frame ref* (- (send data-frame get-row-count) 1) "lat" "lon")
+            "End"
+            -1
+            (make-color 150 33 33))
+      (send map-view resize-to-fit)
+      (set! selected-lap #f))
 
     (define/public (get-generation) generation)
     ))

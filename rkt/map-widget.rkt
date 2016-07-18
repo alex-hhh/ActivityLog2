@@ -164,7 +164,7 @@
           (y2 (* (map-point-y map2) max-coord)))
       (send dc draw-rectangle x1 y1 (- x2 x1) (- y2 y1)))))
 
-(define (draw-label dc p zoom-level label direction color )
+(define (draw-label dc pos zoom-level label direction color)
 
   (send dc set-pen
         (send the-pen-list find-or-create-pen color 2 'solid))
@@ -183,8 +183,8 @@
   ;; NOTE: we assume that the dc origin has been corectly set up!
   (let-values (([ox oy] (send dc get-origin)))
     (let* ((max-coord (* tile-size (expt 2 zoom-level)))
-           (x (* (map-point-x p) max-coord))
-           (y (* (map-point-y p) max-coord)))
+           (x (* (map-point-x pos) max-coord))
+           (y (* (map-point-y pos) max-coord)))
     (let-values (([w h b e] (send dc get-text-extent label)))
       (let ((arrow-length 30)
             (text-spacing 2))
@@ -221,87 +221,59 @@
 ;; levels.
 (define gps-track%
   (class object%
-    (init track pen [display-start-end-labels? #f])
-
-    (unless (and track (not (null? track)))
-      (error "gps-track% -- bad track" track))
-
+    (init-field track group)
     (super-new)
 
-    (define the-track track)
-
-    (define show-labels? display-start-end-labels?)
-
-    (define first-point
-      (let ((p (for/first ([point track]) point)))
-        (lat-lon->map-point (point-lat p) (point-long p))))
-
-    (define first-point-label-color (make-color 0 135 36))
-
-    (define last-point
-      (let ((p (for/last ([point track]) point)))
-        (lat-lon->map-point (point-lat p) (point-long p))))
-            
-    (define last-point-label-color (make-color 150 33 33))
-
-    (define bounding-box (track-bbox track))
-    (define center-point/ndcs (if bounding-box (bbox-center/ndcs bounding-box) #f))
-
-    (define draw-pen pen)
-    (define draw-brush
+    (define zorder 0.5)
+    (define bbox (track-bbox track))
+    (define pen
+      (send the-pen-list find-or-create-pen
+            (make-object color% 226 34 62)
+            3 'solid 'round 'round))
+    (define brush
       (send the-brush-list find-or-create-brush "black" 'transparent))
-
     (define debug?
       (al-get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
-    (define debug-draw-pen
+    (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
-
     (define paths-by-zoom-level (make-hash))
 
     (define (get-dc-path zoom-level)
       (let ((dc-path (hash-ref paths-by-zoom-level zoom-level #f)))
         (unless dc-path
           ;; no dc-path at this zoom level, create one now
-          (let ((strack (simplify-track the-track zoom-level)))
+          (let ((strack (simplify-track track zoom-level)))
             (set! dc-path (track->dc-path strack zoom-level))
             (hash-set! paths-by-zoom-level zoom-level dc-path)))
         dc-path))
 
-    (define/public (draw-track dc zoom-level origin-x origin-y)
-      (with-draw-context
-       dc origin-x origin-y
-       (lambda ()
-         (let ((path (get-dc-path zoom-level)))
-           (send dc set-pen draw-pen)
-           (send dc set-brush draw-brush)
-           (send dc draw-path path 0 0))
-         (when debug?
-           (send dc set-pen debug-draw-pen)
-           (send dc set-brush draw-brush)
-           (draw-bounding-box dc bounding-box zoom-level)))))
+    (define/public (draw dc zoom-level)
+      (let ((path (get-dc-path zoom-level)))
+        (send dc set-pen pen)
+        (send dc set-brush brush)
+        (send dc draw-path path 0 0))
+      (when debug?
+        (send dc set-pen debug-pen)
+        (send dc set-brush brush)
+        (draw-bounding-box dc bbox zoom-level)))
 
-    (define/public (draw-markers dc zoom-level origin-x origin-y)
-      (when show-labels?
-        (with-draw-context
-         dc origin-x origin-y
-         (lambda ()
-           (when first-point
-             (draw-label dc first-point zoom-level "Start" 1 first-point-label-color))
-           (when last-point
-             (draw-label dc last-point zoom-level "End" -1 last-point-label-color))))))
+    (define/public (set-pen p) (set! pen p))
+    (define/public (set-zorder z) (set! zorder z))
+    (define/public (get-zorder) zorder)
+    (define/public (get-bbox) bbox)
+    (define/public (get-group) group)
 
-    (define/public (get-center zoom-level)
-      (if center-point/ndcs
-          (let ((max-coord (* tile-size (expt 2 zoom-level))))
-            (values (* (map-point-x center-point/ndcs) max-coord)
-                    (* (map-point-y center-point/ndcs) max-coord)))
-          (values 0 0)))
+    ))
 
-    (define/public (get-zoom-level-to-fit canvas-width canvas-height)
-      (if bounding-box
-          (select-zoom-level bounding-box canvas-width canvas-height)
-          3))
+(define gps-marker%
+  (class object%
+    (init-field pos text direction color)
+    (super-new)
 
+    (define/public (draw dc zoom-level)
+      (define point (lat-lon->map-point (point-lat pos) (point-long pos)))
+      (draw-label dc point zoom-level text direction color))
+    
     ))
 
 
@@ -395,27 +367,33 @@
                 (ty (- ch oy 3 h)))
             (send dc draw-text label tx ty)))))))
 
+(define debug-track-colors
+  (vector (make-object color% #xad #xd8 #xe6) ; light blue
+          (make-object color% #x00 #xbf #xff) ; deep sky blue
+          (make-object color% #x22 #x8b #x22) ; forrest green
+          (make-object color% #xff #x7f #x50) ; coral
+          (make-object color% #xcd #x5c #x5c) ; indian red
+          (make-object color% #xdc #x14 #x3c) ; crimson
+          (make-object color% #x8b #x00 #x00) ; dark red
+          (make-object color% #x99 #x32 #xcc) ; dark orchid
+          (make-object color% #x00 #x00 #x8b) ; dark blue
+          (make-object color% #xff #x8c #x00) ; dark orange
+          (make-object color% #xda #xa5 #x20) ; golden rod
+          ))
+(define debug-track-color-index -1)
+(define (get-next-pen)
+  (set! debug-track-color-index (+ 1 debug-track-color-index))
+  (set! debug-track-color-index (remainder debug-track-color-index (vector-length debug-track-colors)))
+  (define color (vector-ref debug-track-colors debug-track-color-index))
+  (send the-pen-list find-or-create-pen color 3 'solid 'round 'round))
+
 (define map-widget%
   (class object%
     (init parent) (super-new)
 
     ;;; data to display on the map
-    (define main-track #f)
-    (define secondary-track #f)
-
-    (define main-track-pen
-      (send the-pen-list find-or-create-pen
-            (make-object color% 226 34 62)
-            3 'solid 'round 'round))
-
-    (define secondary-track-pen
-      (send the-pen-list find-or-create-pen
-            (make-object color% 24 60 165)
-            7
-            'solid 'round 'round))
-
-    (define map-labels '())
-
+    (define tracks '())
+    (define markers '())
     (define zoom-level 15)
     (define max-tile-num (expt 2 zoom-level))
     (define max-coord (* tile-size max-tile-num))
@@ -481,25 +459,13 @@
 
     (define (on-canvas-paint canvas dc)
       (draw-map-tiles canvas dc)
-
-      ;; Draw all the tracks first, followed by all the markers -- this way
-      ;; the tracks won't cover any markers.
-      (when main-track
-        (send main-track draw-track dc zoom-level origin-x origin-y))
-      (when secondary-track
-        (send secondary-track draw-track dc zoom-level origin-x origin-y))
-
-      (when main-track
-        (send main-track draw-markers dc zoom-level origin-x origin-y))
-      (when secondary-track
-        (send secondary-track draw-markers dc zoom-level origin-x origin-y))
-
       (with-draw-context
-       dc origin-x origin-y
-       (lambda ()
-         (for ((m (in-list map-labels)))
-           (draw-label dc (vector-ref m 1) zoom-level (vector-ref m 0) 1 legend-color))))
-
+        dc origin-x origin-y
+        (lambda ()
+          (for ([track (sort tracks > #:key (lambda (t) (send t get-zorder)))])
+            (send track draw dc zoom-level))
+          (for ([marker markers])
+            (send marker draw dc zoom-level))))
       (draw-map-legend canvas dc zoom-level))
 
     ;; Bitmap to draw when we don't receive a tile
@@ -585,55 +551,87 @@
         (send canvas refresh)
         (on-zoom-level-change zoom-level)))
 
-    (define/public (set-track track)
+    (define/public (clear-items)
       (send canvas suspend-flush)
-      (set! main-track
-            (if track
-                (new gps-track%
-                     [track track]
-                     [pen main-track-pen]
-                     [display-start-end-labels? #t])
-                #f))
-      (set! secondary-track #f)         ; reset the secondary track
-      (set! map-labels '())
-      (when main-track
-        (resize-to-fit))
+      (set! tracks '())
+      (set! markers '())
       (send canvas resume-flush)
       (send canvas refresh))
 
-    (define/public (set-selected-section track)
-      (set! secondary-track
-            (if (and track (not (null? track)))
-                (new gps-track%
-                     [track track]
-                     [pen secondary-track-pen])
-                #f))
+    ;; Add a GPS track to the map.  TRACK is a sequence of (Vector LAT LON)
+    ;; and GROUP is a group identifier for the track.  Tracks are grouped
+    ;; toghether using the same GROUP for the purposes of drawning and
+    ;; z-order.  Grouping is useful if there are several disjoint tracks in a
+    ;; logical section (e.g. when the user stops recording, moves some
+    ;; distance and starts recording again).
+    (define/public (add-track track group)
+      (send canvas suspend-flush)
+      (define gtrack (new gps-track% [track track] [group group]))
+      (set! tracks (cons gtrack tracks))
+      (send canvas resume-flush)
       (send canvas refresh))
 
-    ;; Add a label on the map.  Note that labels are reset when set-track is
-    ;; called.
-    (define/public (add-label name lat lon)
-      (set! map-labels (cons (vector name (lat-lon->map-point lat lon)) map-labels)))
+    ;; Add a label on the map at a specified position a (Vector LAT LON)
+    (define/public (add-marker pos text direction color)
+      (send canvas suspend-flush)
+      (define gmarker (new gps-marker% [pos pos] [text text]
+                           [direction direction] [color color]))
+      (set! markers (cons gmarker markers))
+      (send canvas resume-flush)
+      (send canvas refresh))
 
-    (define/public (center-map [use-selected-section? #f])
-      (let ((track (if use-selected-section? secondary-track main-track)))
-        (when track
-          (let-values (([cx cy] (send track get-center zoom-level))
-                       ([cwidth cheight] (send canvas get-size)))
-            (let ((actual-center-x (+ origin-x (/ cwidth 2)))
-                  (actual-center-y (+ origin-y (/ cheight 2))))
-              (set! origin-x (+ origin-x (- cx actual-center-x)))
-              (set! origin-y (+ origin-y (- cy actual-center-y))))))
-        (limit-origin canvas)
+    ;; Set the pen used to draw a certain track group.  If GROUP is #f, all
+    ;; the tracks will use this pen.
+    (define/public (set-track-group-pen group pen)
+      (for ([track tracks]
+            #:when (or (not group)
+                       (equal? group (send track get-group))))
+        (send track set-pen pen))
+      (send canvas refresh))
+
+    ;; Set the Z-ORDER used to draw a track group.  If GROUP is #f, al the
+    ;; tracks will use this Z-ORDER and the tracks are drawn in the order they
+    ;; were added.  Tracks are drawn back to front, biggest Z-ORDER first.
+    ;; This way, tracks with smaller Z-ORDER will be "on top".
+    (define/public (set-track-group-zorder group zorder)
+      (for ([track tracks]
+            #:when (or (not group)
+                       (equal? group (send track get-group))))
+        (send track set-zorder zorder))
+      (send canvas refresh))
+
+    (define/public (get-bbox [group #f])
+      (for/fold ([bbox #f])
+                ([track tracks]
+                 #:when (or (not group)
+                            (equal? group (send track get-group))))
+        (let ((bb1 (send track get-bbox)))
+          (if bbox (bbox-merge bbox bb1) bb1))))
+
+    (define/public (get-center [group #f])
+      (let ([bbox (get-bbox group)])
+        (if bbox
+            (let* ([cp/ndcs (bbox-center/ndcs bbox)]
+                   [max-coord (* tile-size (expt 2 zoom-level))])
+              (values (* (map-point-x cp/ndcs) max-coord)
+                      (* (map-point-y cp/ndcs) max-coord)))
+            (values 0 0))))
+
+    (define/public (center-map [group #f])
+      (let-values (([cx cy] (get-center group))
+                   ([cwidth cheight] (send canvas get-size)))
+        (let ((actual-center-x (+ origin-x (/ cwidth 2)))
+              (actual-center-y (+ origin-y (/ cheight 2))))
+          (set! origin-x (+ origin-x (- cx actual-center-x)))
+          (set! origin-y (+ origin-y (- cy actual-center-y)))))
+      (limit-origin canvas)
+      (send canvas refresh))
+
+    (define/public (resize-to-fit [group #f])
+      (let-values (((cwidth cheight) (send canvas get-size)))
+        (set-zoom-level (select-zoom-level (get-bbox group) cwidth cheight))
+        (center-map group)
         (send canvas refresh)))
-
-    (define/public (resize-to-fit [use-selected-section? #f])
-      (let ((track (if use-selected-section? secondary-track main-track)))
-        (when track
-          (let-values (((cwidth cheight) (send canvas get-size)))
-            (set-zoom-level (send track get-zoom-level-to-fit cwidth cheight)))
-          (center-map use-selected-section?)
-          (send canvas refresh))))
 
     ;; Can be overriden to be notified of zoom level changes
     (define/public (on-zoom-level-change zl)
