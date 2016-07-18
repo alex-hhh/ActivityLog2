@@ -195,6 +195,18 @@
          )))
 (provide axis-grade)
 
+;; A grade definition where lower grades are better.  This is usefull for
+;; activities with lots of descent (e.g. Skiiing)
+(define axis-grade-inverted
+  (new (class axis-definition% (init) (super-new)
+         (define/override (should-filter?) #t)
+         (define/override (get-axis-label) "Descent (%)")
+         (define/override (get-line-color) *green*)
+         (define/override (get-series-name) "grade")
+         (define/override (get-fractional-digits) 1)
+         (define/override (inverted-best-avg?) #t))))
+(provide axis-grade-inverted)
+
 (define axis-hr-bpm
   (new (class axis-definition% (init) (super-new)
          (define/override (get-axis-label) "Heart Rate (bpm)")
