@@ -285,6 +285,18 @@
       (let ([s (get-series series)])
         (for/list ([v values]) (send s get-index v))))
 
+    ;; Return the value at INDEX from SERIES
+    (define/public (ref index series)
+      (let ([s (get-series series)])
+        (vector-ref (send s get-data) index)))
+
+    ;; Return a combined value (a vector) at INDEX from SERIES, a list of
+    ;; series names.
+    (define/public (ref* index . series)
+      (for/vector ([sn series])
+        (let ([s (get-series sn)])
+          (vector-ref (send s get-data) index))))
+
     ;; Returns the number of rows in the data frame.  Note that at this time
     ;; we don't enforce all series to have the same unmber of elements (it is
     ;; not clear whether we should).  This method just returns the number of
