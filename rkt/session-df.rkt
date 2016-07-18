@@ -342,7 +342,11 @@
                   (match-define (vector pdst palt) prev-val)
                   (match-define (vector dst alt) val)
                   (if (and pdst palt dst alt (> dst pdst))
-                      (* 100 (/ (- alt palt) (- dst pdst)))
+                      (let ((grade (* 100 (/ (- alt palt) (- dst pdst)))))
+                        ;; Discard unreasonable grade values
+                        (if (< (abs grade) 300) ; 71.5 degree slope
+                            grade
+                            #f))
                       #f))
                 0)))))
 
