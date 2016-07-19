@@ -96,7 +96,7 @@
   (test-case "DATA-FRAME% test cases"
     (let* ([data1 (for/vector ([x (in-range 1 20)]) x)]
            [ds1 (new data-series% [name "ds1"] [data data1])]
-           [data2 (for/vector ([x (in-range 20 41)]) x)]
+           [data2 (for/vector ([x (in-range 20 39)]) x)]
            [ds2 (new data-series% [name "ds2"] [data data2])]
            [df (new data-frame% [series (list ds1 ds2)])])
       (check equal? (send df contains? "ds1") #t)
