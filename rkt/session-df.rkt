@@ -23,6 +23,7 @@
          racket/sequence
          racket/vector
          racket/contract
+         racket/list
          math/statistics
          plot/utils
          plot
@@ -30,7 +31,8 @@
          "data-frame.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "plot-axis-def.rkt")
+         "plot-axis-def.rkt"
+         "map-util.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
 (define factor-colors/c (listof (list/c symbol? any/c)))
@@ -60,7 +62,7 @@
 
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
  (make-plot-renderer/swim-stroke (-> ts-data/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
- 
+
  )
 
 
@@ -134,18 +136,18 @@
       (match-define (vector sport-id sub-sport-id) row)
       (vector (if (sql-null? sport-id) #f sport-id)
               (if (sql-null? sub-sport-id) #f sub-sport-id))))
-      
+
   (define is-lap-swim?
     (when sport
       (match-define (vector sport-id sub-sport-id) sport)
       (and (equal? sport-id 5) (equal? sub-sport-id 17))))
-    
+
   (define df
     (make-data-frame-from-query
      db
      (if is-lap-swim? fetch-trackpoins/swim fetch-trackpoins)
      session-id))
-  
+
   (send df put-property 'is-lap-swim? is-lap-swim?)
   (send df put-property 'sport sport)
   (send df put-property 'session-id session-id)
@@ -187,7 +189,7 @@
 (define (add-timer-series df)
   (when (send df contains? "timestamp" "dst")
     (define stop-points '())
-    
+
     (send df add-derived-series
           "timer"
           '("timestamp" "dst")
@@ -271,7 +273,7 @@
     (send df add-series
           (new data-series% [name "distance"] [data distance]))
     (send (send df get-series "distance") set-sorted #t)))
-  
+
 (define (add-speed-series df)
 
   (define (speed-km/h val)
@@ -326,29 +328,129 @@
             (match-define (vector spd) val)
             (if spd (val->zone spd zones) #f)))))
 
+;; Add a grade (slope) series to the data frame DF.  We assume that an
+;; altidute and lat/lot series exist (use ADD-GRADE-SERIES, which performs the
+;; checks).
+(define (add-grade-series-1 df)
+
+  ;; Minimum distance between which we can calculate grade.  For distances
+  ;; less than this, it would result in wildly inaccurate grade, so we don't
+  ;; calculate it.
+  (define minimum-distance 10.0)
+
+  ;; Maximum distance between points for which we assume a monotonic grade.
+  ;; For distances less than this (and greater than MINIMUM-DISTANCE) we
+  ;; calculate a constant grade between the start and end point.
+  (define maximum-monotonic 50.0)
+
+  ;; Minimum altidute difference in a range for which we split the range.  If
+  ;; the altidute difference in a range is less than this, we consider the
+  ;; range monotonic.
+  (define minimum-altitude 3.0)
+
+  ;; The altitude series data
+  (define alt
+    (let ((series (cond ((send df contains? "calt") "calt")
+                        ((send df contains? "alt") "alt")
+                        (#t #f))))
+      (send df select series)))
+
+  ;; Compute a distance data from the GPS points, don't use the "dst" series,
+  ;; as it might have stop points which would mess up our calculations.
+  (define dst
+    (let ((adst 0))
+      (send df map
+            '("lat" "lon")
+            (lambda (prev val)
+              (when prev
+                (match-define (vector plat plon) prev)
+                (match-define (vector lat lon) val)
+                (set! adst (+ adst (map-distance/degrees plat plon lat lon))))
+              adst))))
+
+  ;; The grade series we will fill in
+  (define grade (make-vector (vector-length alt) #f))
+
+  ;; NOTE: in all functions below, the START, END range is inclusive!!!
+
+  ;; Compute the distance between START and END (indexes in the DST vector)
+  (define (delta-dist start end)
+    (- (vector-ref dst end) (vector-ref dst start)))
+  ;; Compute the altitude change between START and END (indexes in the DST
+  ;; vector).  This will be negative if the slope is downhill.
+  (define (delta-alt start end)
+    (- (vector-ref alt end) (vector-ref alt start)))
+  ;; Fill in a monotonic slope between START and END.  The slope based on the
+  ;; start and end points is calculated and filled in for all in-between
+  ;; points.
+  (define (monotonic-slope start end)
+    (let* ((dist (delta-dist start end))
+           (alt (delta-alt start end))
+           (slp (if (> dist 0) (* 100.0 (/ alt dist)) #f)))
+      (for ([idx (in-range start (add1 end))])
+        (vector-set! grade idx slp))))
+  ;; Find the minimum and maximum altitude between START and END and return 4
+  ;; values: min-alt, min-alt position, max-alt, max-alt position.
+  (define (find-min-max-alt start end)
+    (let ((min-alt (vector-ref alt start))
+          (min-alt-idx start)
+          (max-alt (vector-ref alt start))
+          (max-alt-idx start))
+      (for ([idx (in-range start (add1 end))])
+        (define a (vector-ref alt idx))
+        (when (< a min-alt)
+          (set! min-alt a)
+          (set! min-alt-idx idx))
+        (when (> a max-alt)
+          (set! max-alt a)
+          (set! max-alt-idx idx)))
+      (values min-alt min-alt-idx max-alt max-alt-idx)))
+  ;; Return the position of the middle point between START and END.  This is
+  ;; done based on distances, not indices, and depending on sampling rates and
+  ;; stop points, it might be "off" from the middle. Still, the "best" middle
+  ;; point is returned.
+  (define (find-middle start end)
+    (let* ((sdist (vector-ref dst start))
+           (half (/ (delta-dist start end) 2))
+           (mid (bsearch dst (+ sdist half) #:start start #:end end)))
+      mid))
+  (define (order-points p1 p2 p3 p4)
+    (let ((points (list p1 p2 p3 p4)))
+      (remove-duplicates (sort points <))))
+
+  (define (iterate start end)
+    (let ((dist (delta-dist start end)))
+      (cond
+        ((< dist minimum-distance) (void)) ; leave range without a grade
+        ((< dist maximum-monotonic) (monotonic-slope start end))
+        (#t
+         (let-values (((min-alt min-alt-idx max-alt max-alt-idx)
+                       (find-min-max-alt start end)))
+           (if (< (- max-alt min-alt) minimum-altitude)
+               (monotonic-slope start end)
+               (let ((ranges (order-points start min-alt-idx max-alt-idx end)))
+                 (if (= (length ranges) 2)
+                     ;; range is monotonic, split it in two and recurse
+                     (let ((mid (find-middle start end)))
+                       (iterate start (sub1 mid))
+                       (iterate mid end))
+                     ;; Else, iterate over the defined ranges
+                     (for ([s ranges] [e (cdr ranges)])
+                       (iterate s e))))))))))
+  
+  (iterate 0 (sub1 (vector-length grade)))
+  
+  (send df add-series (new data-series% [name "grade"] [data grade])))
+
+;; Check that the data frame DF has the required data and add the grade series
+;; if it does.
 (define (add-grade-series df)
-  (define series (if (send df contains? "calt")
-                     "calt"
-                     (if (send df contains? "alt")
-                         "alt"
-                         #f)))
-  (when (and series (send df contains? "dst"))
-    (send df add-derived-series
-          "grade"
-          (list "dst" series)
-          (lambda (prev-val val)
-            (if prev-val
-                (let ()
-                  (match-define (vector pdst palt) prev-val)
-                  (match-define (vector dst alt) val)
-                  (if (and pdst palt dst alt (> dst pdst))
-                      (let ((grade (* 100 (/ (- alt palt) (- dst pdst)))))
-                        ;; Discard unreasonable grade values
-                        (if (< (abs grade) 300) ; 71.5 degree slope
-                            grade
-                            #f))
-                      #f))
-                0)))))
+  (define alt-series
+    (cond ((send df contains? "calt") "calt")
+          ((send df contains? "alt") "alt")
+          (#t #f)))
+  (when (and alt-series (send df contains? "lat" "lon"))
+    (add-grade-series-1 df)))
 
 (define (add-hr-pct-series df)
   (define sid (send df get-property 'session-id))
@@ -385,7 +487,7 @@
       (if s
           (m->ft s)
           #f)))
-  
+
   (when (send df contains? "spd" "cad")
     (send df add-derived-series
           "stride"
@@ -400,7 +502,7 @@
     (if (and spd cad (> cad 0))
         (/ (* spd 60) (* 2 cad))
         #f))
-  
+
   (when (send df contains? "spd" "cad" "vosc")
     (send df add-derived-series
           "vratio"
@@ -499,7 +601,7 @@
   (define (cadence->torque power cadence)
     (let ((angular-velocity (* (/ cadence 60.0) (* 2 pi))))
       (/ power angular-velocity)))
-  
+
   (when (send df contains? "pwr" "cad")
     (send df add-derived-series
           "torque"
@@ -523,7 +625,7 @@
 ;;
 ;; * missing Y values are replaced with the Y-AXIS default missing value, or
 ;;   dropped if no such value is specified.
-;; 
+;;
 ;; * data is filtered if Y-AXIS specifies it (filter-width will be used in
 ;; that case.
 ;;
@@ -644,11 +746,15 @@
   (unless low
     (let ((v (statistics-min stats)))
       (unless (or (nan? v) (nan? mean) (nan? stddev))
-        (set! low (* 0.9 (max v (- mean (* width stddev))))))))
+        (set! low v))))
   (unless high
     (let ((v (statistics-max stats)))
       (unless (or (nan? v) (nan? mean) (nan? stddev))
-        (set! high (* 1.05 (min v (+ mean (* width stddev))))))))
+        (set! high v))))
+  (when (and low high)
+    (let ((extend (* 0.05 (- high low))))
+      (set! high (+ high extend))
+      (set! low (- low extend))))
   (cons low high))
 
 ;; Combine two Y ranges (as produced by `get-plot-y-range')
