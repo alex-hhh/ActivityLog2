@@ -187,7 +187,7 @@
 
 (define axis-grade
   (new (class axis-definition% (init) (super-new)
-         (define/override (should-filter?) #t)
+         (define/override (should-filter?) #f)
          (define/override (get-axis-label) "Grade (%)")
          (define/override (get-line-color) *green*)
          (define/override (get-series-name) "grade")
@@ -199,7 +199,7 @@
 ;; activities with lots of descent (e.g. Skiiing)
 (define axis-grade-inverted
   (new (class axis-definition% (init) (super-new)
-         (define/override (should-filter?) #t)
+         (define/override (should-filter?) #f)
          (define/override (get-axis-label) "Descent (%)")
          (define/override (get-line-color) *green*)
          (define/override (get-series-name) "grade")
