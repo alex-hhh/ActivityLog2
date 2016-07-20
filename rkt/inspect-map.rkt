@@ -204,7 +204,7 @@
       (define start-idx 0)
 
       (for ([(lap group) (in-indexed (in-sequences (in-vector laps 1) (in-value #f)))])
-        (for ([t teleports] #:when (and (< start t) (< t lap)))
+        (for ([t teleports] #:when (and (< start t) lap (< t lap)))
           (let* ([end-idx (get-index data-frame t)]
                  [track (extract-track* data-frame start-idx end-idx)])
             (send map-view add-track track group)
