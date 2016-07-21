@@ -19,5 +19,5 @@
 ;; distribution.  Commenting it out seems to produce better error
 ;; messages in interactive mode.
 
-(require "rkt/activity-log-main.rkt")
+(require "rkt/main.rkt")
 (main)
