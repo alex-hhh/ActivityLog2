@@ -234,6 +234,7 @@
               (set! sql-query-result (get-data database sql-query metric))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
+                (set! chart-data (simplify-labels chart-data group-by))
                 (set! data-valid? #t)))))))
     
     ))

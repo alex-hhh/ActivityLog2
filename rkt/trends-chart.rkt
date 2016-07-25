@@ -38,7 +38,8 @@
  )
 
 (provide
- pad-data)
+ pad-data
+ simplify-labels)
 
 ;; Basic parameters for a chart, all chart parameters should derive from this
 ;; structure.  Individual charts will define additional parameters.
@@ -191,6 +192,10 @@
            1 1 (+ 1 (date-year d))
            0 0 0 (date-time-zone-offset d)))))
 
+(define months '("XXX" "Jan" "Feb" "Mar" 
+                 "Apr" "May" "Jun" "Jul" "Aug"
+                 "Sep" "Oct" "Nov" "Dec"))
+
 ;; Generate a list of UNIX timestamps between START and END based on GROUP-BY
 ;; (0 -- every week start, 1 -- every month start, 2 -- every year start
 (define (generate-timestamps start end group-by)
@@ -227,6 +232,33 @@
                   (pad-data (cdr timestamps) data (cons (vector #f) result)))
                  (#t
                   (pad-data (cdr timestamps) (cdr data) (cons (car data) result))))))))
+
+;; Convert LABEL (a string DD-MM-YYYY) into a simpler version, depeding on
+;; GROUP-BY.  If group-by is 0 (weekly), it is unchanged, if group-by is 1,
+;; the label is condidered montly and only "month year" is returned, if
+;; group-by is 2, it is a yearly label and only the year is returned.
+(define (convert-label label group-by)
+  (cond ((= group-by 0) label)          ; week
+        ((= group-by 1)
+         (let ((date (seconds->date (str->date label))))
+           (if (member (date-month date) '(1 4 7 10)) ; put only some of the months
+               (format "~a ~a" (list-ref months (date-month date))
+                       (date-year date))
+               "")))
+        ((= group-by 2)
+         (let ((date (seconds->date (str->date label))))
+           (format "~a" (date-year date))))))
+
+;; Simplify the labels in DATA according to GROUP-BY (0 - weekly, 1 - monthy,
+;; 2 yearly).  Labels are reformated to a more appropiate value and some
+;; labels might be omited to declutter the data.
+(define (simplify-labels data group-by)
+  (for/list ([d data])
+    (let ((label (vector-ref d 0))
+          (nd (vector-copy d)))
+      (when label
+        (vector-set! nd 0 (convert-label label group-by)))
+      nd)))
 
 ;; Return the earliest practical start date.  The date range selector returns
 ;; 0..TODAY for the "All Days" selection, but that creates useless charts.
@@ -281,10 +313,6 @@
              (pmc-date-ticks-layout-month s e))
             (#t
              (pmc-date-ticks-layout-week s e))))))
-
-(define months '("XXX" "Jan" "Feb" "Mar" 
-                 "Apr" "May" "Jun" "Jul" "Aug"
-                 "Sep" "Oct" "Nov" "Dec"))
 
 ;; Create tick labels for each tick in PRE-TICKS.  START and END are ignored,
 ;; they are there to match the expected plot interface.
