@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(16);
+insert into SCHEMA_VERSION(version) values(17);
 
 
 --........................................................ Enumerations ....
@@ -422,6 +422,27 @@ create view MV_SPORT_ZONE as
    where VSZ.zone_metric_id = EZM.id;
 
 
+--................................................................. HRV ....
+
+-- Store HRV (Heart Rate Variability) data for the session (if this is
+-- recorded in the import file).  HRV data stored here is based on the entire
+-- session.  See also rkt/hrv.rkt.
+create table SESSION_HRV (
+  id integer not null primary key,
+  session_id integer not null,
+  sdnn integer not null,                -- STDDEV of NN intervals (hrv samples)
+  rmssd integer not null, -- root mean square of successive differences (delta-hrv)
+  sdsd integer not null, -- stddev of successive differences (delta-hrv)
+  nn50 integer not null, -- # of successive pairs that differ by more than 50ms (delta-hrv)
+  nn20 integer not null, -- # of successive pairs that differ by more than 20ms (delta-hrv)
+  good_samples integer not null,        -- # of samples where good-hrv? is #t
+  bad_samples integer not null,         -- # of samples where good-hrv? is #f
+  foreign key (session_id) references A_SESSION(id) on delete cascade
+  );
+
+create unique index IX0_SESSION_HRV on SESSION_HRV(session_id);
+
+
 --............................................................. Weather ....
 
 create table SESSION_WEATHER (
@@ -688,9 +709,9 @@ select S.id as session_id,
    and (S.sport_id in (1, 2, 5) or (S.sport_id = 4 and S.sub_sport_id = 20));
 
 
--- Expands all summary data about a every session (duration, time, max speed,
--- etc).  This can be used as a convenience view without having to remember
--- all the "right" joins to get info about a session.  It is used by the
+-- Expands all summary data about a every session: duration, time, max speed,
+-- etc.  This can be used as a convenience view without having to remember all
+-- the "right" joins to get info about a session.  It is used by the
 -- view-activities.rkt
 
 create view V_ACTIVITY_LIST as
@@ -744,6 +765,9 @@ create view V_ACTIVITY_LIST as
              select max(AM.timestamp)
                from ATHLETE_METRICS AM
               where AM.timestamp between S.start_time - 84600 and S.start_time)) as body_weight,
+         (select SH.sdnn
+            from SESSION_HRV SH
+           where SH.session_id = S.id) as hrv,
          (select temperature from SESSION_WEATHER SW1 where SW1.session_id = S.id) as temperature,
          (select humidity from SESSION_WEATHER SW2 where SW2.session_id = S.id) as humidity,
          (select wind_speed from SESSION_WEATHER SW3 where SW3.session_id = S.id) as wind_speed,

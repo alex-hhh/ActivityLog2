@@ -454,13 +454,15 @@
 ;.................................................... db-fetch-activity ....
 
 (define (db-extract-activity-raw-data activity-id db)
-  (let ((data (query-value 
+  (let ((data (query-maybe-value 
                db "select data from ACTIVITY_RAW_DATA where activity_id = ?"
                activity-id)))
-    (let ((in (open-input-bytes data))
-          (out (open-output-bytes)))
-      (gunzip-through-ports in out)
-      (get-output-bytes out))))
+    (if data
+        (let ((in (open-input-bytes data))
+              (out (open-output-bytes)))
+          (gunzip-through-ports in out)
+          (get-output-bytes out))
+        #f)))
 
 (define db-fetch-activity
   (let ((stmt (virtual-statement
@@ -586,11 +588,13 @@
             SS.avg_left_ppp_end,
             SS.avg_right_ppp_start,
             SS.avg_right_ppp_end,
-            SS.aerobic_decoupling
+            SS.aerobic_decoupling,
+            (select SH.sdnn
+               from SESSION_HRV SH
+               where SH.session_id = S.id) as hrv
        from A_SESSION S, SECTION_SUMMARY SS
       where S.summary_id = SS.id
         and S.id = ?")))
-
 
 (define (db-fetch-session session-id db)
   (db-extract-session (query-row db fetch-session-stmt session-id) db))
@@ -610,7 +614,7 @@
                   training-stress-score intensity-factor rpe-scale
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling hrv)))
     (let ((session-data (db-row->alist fields session-row)))
       (cons (cons 'weather (db-extract-weater-for-session (vector-ref session-row 0) db))
             (cons (cons 'laps (db-extract-laps-for-session (vector-ref session-row 0) db))

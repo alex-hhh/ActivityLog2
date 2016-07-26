@@ -308,6 +308,9 @@
        (let ((fn (lambda (row) (db-row-ref row "max_hr" headers 0))))
          (column-info "Max HR" (lambda (row) (n->string (fn row))) fn))
 
+       (let ((fn (lambda (row) (db-row-ref row "hrv" headers 0))))
+         (column-info "HRV" (lambda (row) (n->string (fn row))) fn))
+
        (let ((fn (lambda (row) (db-row-ref row "adecl" headers #f))))
          (column-info "A Decl"
                       (lambda (row)

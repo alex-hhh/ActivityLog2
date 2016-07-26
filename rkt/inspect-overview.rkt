@@ -84,6 +84,9 @@
                     (lambda (v)
                       (let ((zones (get-session-sport-zones (first v) 1)))
                         (heart-rate->string/full (second v) zones))))
+   (badge-field-def "HRV: "
+                    session-hrv
+                    (lambda (v) (if v (format "~a ms" v) "")))
    (badge-field-def "Aerobic Decoupling: "
                     session-aerobic-decoupling
                     (lambda (v) (if v (pct->string v) "")))))

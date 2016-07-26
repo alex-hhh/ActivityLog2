@@ -24,7 +24,8 @@
          "icon-resources.rkt"
          "data-frame.rkt"
          "session-df.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "hrv.rkt")
 
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)
@@ -133,6 +134,8 @@ select P.id
          (sport (send session get-property 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
          (hr-zone-id (get-zone-id sid 1 db)))
+
+    ;; Time in zone
     (when (send session contains? "pwr-zone")
       (let ((data (time-in-zone session "pwr-zone")))
         (when data
@@ -141,6 +144,8 @@ select P.id
       (let ((data (time-in-zone session "hr-zone")))
         (when data
           (store-time-in-zone sid hr-zone-id data db))))
+
+    ;; Aerobic Decoupling
     (cond
       ((and (equal? (vector-ref sport 0) 2) ; bike
             (send session contains? "pwr" "hr"))
@@ -160,6 +165,14 @@ select P.id
          (for ([adec adec/laps]
                [lapid id/laps])
            (update-aerobic-decoupling-for-lap db lapid adec)))))
+
+    ;; Hrv
+    (define hrv (make-hrv-data-frame/db db sid))
+    (when hrv
+      (define metrics (compute-hrv-metrics hrv))
+      (when metrics
+        (put-hrv-metrics metrics sid db)))
+    
     ))
 
 ;; Update the time in zone information for all sessions in the database.

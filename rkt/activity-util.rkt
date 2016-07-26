@@ -272,6 +272,7 @@
  session-avg-hr
  session-max-hr
  session-aerobic-decoupling
+ session-hrv
 
  session-avg-cadence
  session-avg-vertical-oscillation
@@ -361,6 +362,9 @@
 
 (define (session-aerobic-decoupling session)
   (assq1 'aerobic-decoupling session))
+
+(define (session-hrv session)
+  (assq1 'hrv session))
 
 (define (session-avg-cadence session)
   (assq1 'avg-cadence session))
