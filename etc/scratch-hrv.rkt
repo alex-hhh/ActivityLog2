@@ -1,46 +1,54 @@
 #lang racket
 
+(require plot)
+(require db)
+(require math/statistics)
 (require "../rkt/al-prefs.rkt")
 (require "../rkt/database.rkt")
 (require "../rkt/dbapp.rkt")
-(require "../rkt/fit-file.rkt")
+(require "../rkt/data-frame.rkt")
+(require "../rkt/hrv.rkt")
 
-(define session-id 1621)
+
+;;.............................................................. prelude ....
 
 ;; Open the default database
 (define *db*
   (let ((db-file (al-get-pref 'activity-log:database-file (lambda () #f))))
-    (unless db-file
-      (error "No default database"))
+    (unless db-file (error "No default database"))
     (open-activity-log db-file)))
 (when *db* (current-database *db*))
 
-(define extract-hrv% 
-  (class fit-event-dispatcher% (init) (super-new)
-    
-    (define/override (on-file-id file-id) 
-      (printf "file-id: ~a~%" file-id))
-    
-    (define/override (on-file-creator creator) 
-      (printf "file-creator: ~a~%" creator))
-    
-    (define/override (on-hrv data)
-      (printf "hrv data: ~a~%" data))
-      
-    ))
 
-(define (hrv-data/1 file)
-  (let ((stream (make-fit-data-stream file))
-        (consumer (new extract-hrv%)))
-    (read-fit-records stream consumer)
-    'done))
+
+;;.......................................... update-hrv-for-all-sessions ....
 
-(define (hrv-data guid db)
-  (let* ([aid (db-get-activity-id guid db)]
-         [data (db-extract-activity-raw-data aid db)]
-         [stream (make-fit-data-stream data)]
-         [consumer (new extract-hrv%)])
-    (read-fit-records stream consumer)
-    'done))
+(define (update-hrv-for-all-sessions db)
+  (define sids (query-list db "select id from A_SESSION"))
+  (for ([sid sids])
+    (with-handlers
+      (((lambda (e) #t)
+        (lambda (e) (printf "sid: ~a: ~a~%" sid e) (raise e))))
+      (define hrv (make-hrv-data-frame/db db sid))
+      (when hrv
+        (define metrics (compute-hrv-metrics hrv))
+        (when metrics
+          (put-hrv-metrics metrics sid db))))))
 
+
+;;................................................................. rest ....
+
+(define (df-density-renderer df series)
+  (match-define (list q01 q25 q50 q75 q99) (df-quantile df series 0 0.25 0.5 0.75 0.99))
+  (define stats (df-statistics df series))
+  (list
+   (density (send df select series) #:x-min q01 #:x-max q99 #:width 2 #:color "red")
+   (tick-grid)
+   (vrule q25 #:label "25%" #:color "blue" #:style 'long-dash)
+   (vrule q50 #:label "50%" #:color "green" #:style 'long-dash)
+   (vrule (statistics-mean stats) #:label "mean" #:color "black" #:style 'long-dash)
+   (vrule q75 #:label "75%" #:color "blue" #:style 'long-dash)))
+
+(define session-id 1717)                ; skiing
+;;(define session-id 1709)                ; running
 
