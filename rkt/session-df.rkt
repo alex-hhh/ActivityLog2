@@ -355,6 +355,15 @@
                         (#t #f))))
       (send df select series)))
 
+  ;; Fixup #f's in the alt series, this works OK for one-off missing values,
+  ;; if whole ranges are missing, this will not produce nice results.
+  (for ([(a idx) (in-indexed alt)] #:unless a)
+    (if (= idx 0)
+        ;; Scan forward for the first good altitude value
+        (vector-set! alt idx (for/first ([a alt] #:when a) a))
+        ;; Use the previous value
+        (vector-set! alt idx (vector-ref alt (sub1 idx)))))
+
   ;; Compute a distance data from the GPS points, don't use the "dst" series,
   ;; as it might have stop points which would mess up our calculations.
   (define dst
@@ -365,7 +374,8 @@
               (when prev
                 (match-define (vector plat plon) prev)
                 (match-define (vector lat lon) val)
-                (set! adst (+ adst (map-distance/degrees plat plon lat lon))))
+                (when (and plat plon lat lon)
+                  (set! adst (+ adst (map-distance/degrees plat plon lat lon)))))
               adst))))
 
   ;; The grade series we will fill in
