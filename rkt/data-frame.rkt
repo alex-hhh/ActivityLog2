@@ -436,8 +436,9 @@
 (define (df-describe df)
 
   (define (ppval val)
-    (let ((v (cond ((or (nan? val) (infinite? val)) (~a val))
-                   (#t (~r val #:precision 2)))))
+    (let ((v (if (rational? val)
+                 (~r val #:precision 2)
+                 (~a val))))
       (~a v #:min-width 13 #:align 'right)))
   
   (printf "data-frame: ~a series, ~a items~%"
@@ -478,6 +479,22 @@
         (display " ")
         (display (ppval (statistics-stddev stats)))
         (newline)))))
+
+
+;;......................................................... df-write/csv ....
+
+;; Write to OUTP a data frame DF. Optionally, the series to be written out can
+;; be specified, if empty, all series are written out.
+(define (df-write/csv outp df . series)
+  (for ([header (if (null? series) (send df get-series-names) series)])
+    (write-string header outp)
+    (write-string "," outp))
+  (newline outp)
+  (send df for-each
+        (if (null? series) (send df get-series-names) series)
+        (lambda (val)
+          (for ([item val]) (write-string (format "~a," item) outp))
+          (newline outp))))
 
 
 ;;........................................................... histograms ....
@@ -698,7 +715,7 @@
             (pv (vector-ref prev-val 1))
             (ws (vector-ref val 0))
             (v (vector-ref val 1)))
-        (if (and pws pv ws v)
+        (if (and (real? pws) (real? pv) (real? ws) (real? v))
             (let ([dx (- ws pws)]
                   [dy (/ (+ pv v) 2)])
               (if (> dx 0)       ; can happen for timer series, w/ stop points
@@ -709,7 +726,7 @@
 
 (define (unweighted-statistics stats val)
   (define v (vector-ref val 0))
-  (if v
+  (if (real? v)
       (update-statistics stats v)
       stats))
 
@@ -1195,6 +1212,7 @@
                 #:end real?)
                real?))
  (df-describe (-> (is-a?/c data-frame%) any/c))
+ (df-write/csv (->* (output-port? (is-a?/c data-frame%)) () #:rest (listof string?) any/c))
  (df-histogram (->* ((is-a?/c data-frame%) string?)
                     (#:weight-column string?
                      #:bucket-width real?
