@@ -1,5 +1,8 @@
-Reading Activities (the easy way)
-=================================
+The "fit-file.rkt" library provides conveinent infrastructure for parsing FIT
+files.  It also provides an activtiy builder which allows reading activities
+from FIT files into a assoc list representation.
+
+## Reading Activities (the easy way) ##
 
 To load an activity from a file:
 
@@ -51,11 +54,7 @@ Other useful helpers are:
 * for-each-session-length
 * map-session-lengths
 
-See also the `extract-data' function, defined "plot-builder.rkt" for a more
-complex way to extract data series from sessions.
-
-Reading other FIT files
-=======================
+## Reading other FIT files ##
 
 The general mechanism for reading FIT files requires the following:
 
@@ -88,12 +87,6 @@ Note that `read-fit-records` does not return anything.  It is up to the
 "builder" object to construct the object.  The above example will just print
 out the workout steps.
 
-See fit-event-dispatcher% for all the message types that can be handled.  For
-unknown messages, on-other is invoked.  A familiarity with the FIT file format
-is usefull when trying to parse FIT files.
-
-<!--
-Local Variables:
-mode: markdown
-End:
--->
+See `fit-event-dispatcher%` for all the message types that can be handled.
+For unknown messages, on-other is invoked.  A familiarity with the FIT file
+format is usefull when trying to parse FIT files.
