@@ -1,39 +1,11 @@
 #lang racket
 
-(require plot)
-(require db)
-(require math/statistics)
-(require "../rkt/al-prefs.rkt")
-(require "../rkt/database.rkt")
-(require "../rkt/dbapp.rkt")
-(require "../rkt/data-frame.rkt")
-(require "../rkt/hrv.rkt")
-
-
-;;.............................................................. prelude ....
-
-;; Open the default database
-(define *db*
-  (let ((db-file (al-get-pref 'activity-log:database-file (lambda () #f))))
-    (unless db-file (error "No default database"))
-    (open-activity-log db-file)))
-(when *db* (current-database *db*))
-
-
-
-;;.......................................... update-hrv-for-all-sessions ....
-
-(define (update-hrv-for-all-sessions db)
-  (define sids (query-list db "select id from A_SESSION"))
-  (for ([sid sids])
-    (with-handlers
-      (((lambda (e) #t)
-        (lambda (e) (printf "sid: ~a: ~a~%" sid e) (raise e))))
-      (define hrv (make-hrv-data-frame/db db sid))
-      (when hrv
-        (define metrics (compute-hrv-metrics hrv))
-        (when metrics
-          (put-hrv-metrics metrics sid db))))))
+(require db
+         math/statistics
+         plot
+         "../rkt/data-frame.rkt"
+         "al-interactive.rkt"
+         "../rkt/hrv.rkt")
 
 
 ;;................................................................. rest ....
