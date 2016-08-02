@@ -64,6 +64,7 @@
    axis-speed
    axis-pace
    axis-speed-zone
+   axis-grade
    axis-hr-bpm
    axis-hr-pct
    axis-hr-zone
