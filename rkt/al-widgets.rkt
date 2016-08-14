@@ -23,7 +23,8 @@
          "icon-resources.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "dbglog.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -90,43 +91,49 @@
 
 ;; Editor for tags stored in the database (labels and equipment)
 (define dbtag-input-field%
-  (class tag-input-field%
-    (init)
-
-    (super-new)
-
+  (class tag-input-field% (init) (super-new)
     (inherit set-available-tags set-contents get-contents)
 
-    (define the-database #f)
-    (define all-tags '())
+    (define database #f)
+    (define available-tags '())
+    (define session-tags '())
+    (define session-id #f)
 
     (define/override (clear-contents)
-      (set! all-tags '())
+      (set! available-tags '())
+      (set! session-tags '())
+      (set! session-id #f)
       (super clear-contents))
 
-    (define/public (setup-for-session database session-id)
-      (set! the-database database)
+    (define/public (setup-for-session db sid)
       (clear-contents)
-      (set! all-tags (get-available-tags the-database))
-      (set-available-tags (map (lambda (row) (vector-ref row 1)) all-tags))
-      (when session-id
-        (let ((tags (get-session-tags the-database session-id)))
-          (set-contents (map (lambda (row) (vector-ref row 1)) tags)))))
+      (set! database db)
+      (set! session-id sid)
+      (set! available-tags (get-available-tags db))
+      (set! session-tags (if sid (get-session-tags db sid) '()))
+      (set-available-tags (for/list ([tag available-tags]) (vector-ref tag 1)))
+      (set-contents (for/list ([tag session-tags]) (vector-ref tag 1))))
 
     (define/public (get-contents-as-tag-ids)
-      (let ((find-tag-id (lambda (tag)
-                           (let loop ((tags all-tags))
-                             (if (pair? tags)
-                                 (if (string=? tag (vector-ref (car tags) 1))
-                                     (vector-ref (car tags) 0)
-                                     (loop (cdr tags)))
-                                 #f)))))
-        (filter identity
-                (for/list ((tag (in-list (get-contents))))
-                  (find-tag-id tag)))))
+      ;; NOTE: available-tags contains tags that can be set for a session,
+      ;; while session-tags might contain additional tags.  This is especially
+      ;; true if we use this to edit equipment, we can only add non-retired
+      ;; equipment, but the session might contain retiered equipment and we
+      ;; want to keep that.
+      (define (find-tag tag)
+        (or
+         (for/first ([t (in-sequences session-tags available-tags)]
+                     #:when (string=? tag (vector-ref t 1)))
+           (vector-ref t 0))
+         (begin (dbglog (format "Unexpected tag ~a for SID ~a" tag session-id)) #f)))
 
-    (define/public (update-session-tags session-id)
-      (set-session-tags the-database session-id (get-contents-as-tag-ids)))
+      (let ((contents (get-contents)))
+        (for/list ([tag contents])
+          (find-tag tag))))
+
+    (define/public (update-session-tags sid)
+      (let ((ids (get-contents-as-tag-ids)))
+        (set-session-tags database sid ids)))
 
     (define/public (get-available-tags db) '())
     (define/public (get-session-tags db session-id) '())
