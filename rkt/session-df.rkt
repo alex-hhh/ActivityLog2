@@ -103,12 +103,14 @@
    and P.session_id = ?
  order by T.timestamp")
 
+;; NOTE: we calculate the cadence as length time / total strokes, as this
+;; produces a fractional cadence which looks nicer on the various graphs.
 (define fetch-trackpoins/swim
   "select L.start_time as timestamp,
        (select max(T.distance) from A_TRACKPOINT T where T.length_id = L.id) as dst,
        SS.total_timer_time as duration,
        SS.avg_speed as spd,
-       SS.avg_cadence as cad,
+       round(60.0 * SS.total_cycles / SS.total_timer_time, 1) as cad,
        SS.swim_stroke_id as swim_stroke,
        SS.total_cycles as strokes
   from A_LENGTH L, A_LAP P, SECTION_SUMMARY SS
@@ -213,20 +215,23 @@
   (when (send df contains? "timestamp")
     (define timestamp0
       (vector-ref (send df select "timestamp") 0))
-    (when (and (send df get-property 'is-lap-swim?)
-               (send df contains? "duration"))
-      ;; Lap swimming timestamp entries are recorded at the end of each
-      ;; length, so the first timestamp is at the timestamp of the first
-      ;; length minus the duration of the length.
-      (set! timestamp0
-            (- timestamp0
-               (exact-round (vector-ref (send df select "duration") 0)))))
-    (send df add-derived-series
-          "elapsed"
+    ;; Lap swiming timestamps record the start of the length.  Elapsed looks
+    ;; much nicer if it records the end of the length, so we add the duration
+    ;; of the current length to each generated sample.
+    (if (and (send df get-property 'is-lap-swim?)
+             (send df contains? "duration"))
+        (send df add-derived-series
+              "elapsed"
+              '("timestamp" "duration")
+              (lambda (val)
+                (match-define (vector timestamp duration) val)
+                (+ (- timestamp timestamp0) duration)))
+        (send df add-derived-series
+           "elapsed"
           '("timestamp")
-          (lambda (val)
-            (define timestamp (vector-ref val 0))
-            (- timestamp timestamp0)))
+           (lambda (val)
+             (define timestamp (vector-ref val 0))
+             (- timestamp timestamp0))))
     (send (send df get-series "elapsed") set-sorted #t)))
 
 (define (add-distance-series df)
@@ -301,11 +306,11 @@
 
   (define (pace-sec/100m val)
     (match-define (vector spd) val)
-    (if (and spd (> spd 0.6)) (m/s->sec/100m spd) #f))
+    (if (and spd (> spd 0.1)) (m/s->sec/100m spd) #f))
 
   (define (pace-sec/100yd val)
     (match-define (vector spd) val)
-    (if (and spd (> spd 0.6)) (m/s->sec/100yd spd) #f))
+    (if (and spd (> spd 0.1)) (m/s->sec/100yd spd) #f))
 
   (when (send df contains? "spd")
     (send df add-derived-series
