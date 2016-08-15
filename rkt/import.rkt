@@ -16,6 +16,8 @@
 
 (require db
          racket/class
+         racket/match
+         racket/math
          "database.rkt"
          "dbglog.rkt"
          "edit-session-tss.rkt"
@@ -43,6 +45,8 @@
     (dbglog msg)
     (when global-callback (global-callback msg)))
 
+  (show-progress "updating swim drills...")
+  (update-swim-drills-for-new-sessions db)
   (show-progress "updating old style equipment serial numbers...")
   (update-old-style-equipment-serial db)
   (show-progress "updating equipment use...")
@@ -176,3 +180,72 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
       (update-time-in-zone-data sid db)
       (when progress-monitor
         (send progress-monitor set-progress (+ n 1))))))
+
+
+;;................................................... update-swim-drills ....
+
+;; Get the drill laps for a session.  These are laps with a swim stroke of 4,
+;; and will only apply to lap swimming sessions.
+(define drill-laps-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "select P.id, P.start_time, SS.total_timer_time, SS.total_distance
+        from A_LAP P, SECTION_SUMMARY SS
+       where P.summary_id = SS.id
+         and SS.swim_stroke_id = 4
+         and P.session_id = ?")))
+
+(define lengths-for-lap-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "select L.id, L.summary_id
+        from A_LENGTH L
+       where L.lap_id = ?")))
+
+(define update-length-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "update A_LENGTH set start_time = ? where id = ?")))
+
+(define update-summary-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "update SECTION_SUMMARY set total_distance = ?, avg_speed = ? where id = ?")))
+
+;; Fixup the lengths in a lap swimming activity.  Some garmin watches will
+;; record the same timestamp for every length in a 'drill' lap and will not
+;; record any distance or speed for these lenghts.  This function fixes up the
+;; start time for such lengths and also adds in distance and speed
+;; information.
+;;
+;; NOTE: we can call this function on any session, as it will do nothing if
+;; there are no swim drill laps in it.
+(define (fixup-swim-drills db sid)
+
+  (define (do-fixup)
+    (for ([row (query-rows db drill-laps-sql sid)])
+      (match-define (vector lap-id start-time duration distance) row)
+      (define lengths (query-rows db lengths-for-lap-sql lap-id))
+      (define ldistance (/ distance (length lengths)))
+      (define ltime (/ duration (length lengths)))
+      (define lspeed (/ ldistance ltime))
+      (for (((row idx) (in-indexed lengths)))
+        (match-define (vector length-id summary-id) row)
+        (query-exec db update-length-sql
+                    (exact-round (+ start-time (* idx ltime))) length-id)
+        (query-exec db update-summary-sql
+                    (exact-round ldistance) lspeed summary-id))))
+
+  (call-with-transaction db do-fixup))
+
+(provide fixup-swim-drills)             ; used by etc/fixup-drills.rkt
+
+(define (update-swim-drills-for-new-sessions db [progress-monitor #f])
+  (let ((sessions (get-new-sessions db)))
+    (when progress-monitor
+      (send progress-monitor
+            begin-stage "Updating lap swim drills for new sessions" (length sessions)))
+    (for (((sid idx) (in-indexed sessions)))
+      (fixup-swim-drills db sid)
+      (when progress-monitor
+        (send progress-monitor set-progress (+ idx 1))))))
