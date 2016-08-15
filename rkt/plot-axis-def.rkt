@@ -587,6 +587,8 @@
          (define/override (get-y-range) (cons 0 #f))
          (define/override (get-line-color) *red*)
          (define/override (get-series-name) "cad")
+         (define/override (get-histogram-bucket-slot) 0.1)
+         (define/override (get-fractional-digits) 1)
          )))
 (provide axis-swim-avg-cadence)
 
