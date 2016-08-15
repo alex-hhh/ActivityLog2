@@ -39,6 +39,7 @@
  [get-sport-bitmap (-> sport-id? sport-id? bitmap?)]
  [get-sport-bitmap-colorized (-> sport-id? sport-id? bitmap?)]
  [get-swim-stroke-name (-> swim-stroke? string?)]
+ [get-swim-stroke-names (-> (listof (cons/c swim-stroke? string?)))]
  [get-swim-stroke-color (-> swim-stroke? color?)]
  [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
@@ -249,15 +250,19 @@
             swim-stroke-id
             "Unknown"))
 
+(define (get-swim-stroke-names)
+  (for/list (((k v) (in-hash *swim-stroke-names*)))
+    (cons k v)))
+
 (define *swim-colors*
-  `((0 . ,(make-object color% 232 167 255))
-    (1 . ,(make-object color% 159 237 255))
-    (2 . ,(make-object color% 160 255 178))
-    (3 . ,(make-object color% #xff #xd7 #x00))
-    (4 . ,(make-object color% 255 191 0))
-    (5 . ,(make-object color% #x00 #xbf #xff))
-    (#f . ,(make-object color% #x80 #x80 #x80))
-    (6 . ,(make-object color% #xdc #x14 #x3c))))
+  `((0 . ,(make-object color% 65 105 225)) ; freestyle
+    (1 . ,(make-object color% 159 237 255)) ; backstroke
+    (2 . ,(make-object color% 160 255 178)) ; breaststroke
+    (3 . ,(make-object color% #xff #xd7 #x00)) ; butterfly
+    (4 . ,(make-object color% 255 191 0))      ; drill
+    (5 . ,(make-object color% #x00 #xbf #xff)) ; mixed
+    (#f . ,(make-object color% #x80 #x80 #x80)) ; unknown
+    (6 . ,(make-object color% #xdc #x14 #x3c)))) ; IM
 
 (define (get-swim-stroke-color stroke)
   (cond ((assq stroke *swim-colors*) => cdr)
