@@ -77,7 +77,10 @@
     (9 . power-zone)
     (7 . zones-target)
     (3 . user-profile)
-    (78 . hrv)))
+    (78 . hrv)
+    (206 . field-description)
+    (207 . developer-data-id)
+    ))
 
 (provide *global-message-number*)
 
@@ -504,6 +507,28 @@
     (24 . birth-year)
     (30 . height-setting)))
 
+(define *developer-id-fields*
+  '((0 . developer-id)
+    (1 . appliction-id)
+    (2 . manufacturer-id)
+    (3 . developer-data-index)
+    (4 . application-version)))
+
+(define *field-description-fields*
+  '((0 . developer-data-index)
+    (1 . field-def-number)
+    (2 . fit-base-type)
+    (3 . field-name)
+    (4 . array)
+    (5 . components)
+    (6 . scale)
+    (7 . offset)
+    (8 . units)
+    (9 . bits)
+    (10 . accumulate)
+    (13 . fit-base-unit)
+    (14 . native-msg-num)
+    (15 . native-field-num)))
 
 (define *field-db*
   ;; map a global message ID to its available fields
@@ -524,7 +549,9 @@
     (speed-zone . ,*speed-zone-fields*)
     (power-zone . ,*power-zone-fields*)
     (zones-target . ,*zones-target-fields*)
-    (user-profile . ,*user-profile-fields*)))
+    (user-profile . ,*user-profile-fields*)
+    (developer-data-id . ,*developer-id-fields*)
+    (field-description . ,*field-description-fields*)))
 
 (provide *field-db*)
 

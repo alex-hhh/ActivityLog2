@@ -324,17 +324,22 @@
         (list
          'normal
          (if (= (bitwise-and header #x40) 0) 'data 'definition)
-         (bitwise-and header #x0F))
+         (bitwise-and header #x0F)      ; local message id
+         (if (= (bitwise-and header #x20) 0) 'standard 'custom)
+         )
         (list
          'compressed-timestamp
          'data
          (bitwise-bit-field header 5 6) ; local message id
-         (bitwise-and header #x1F)))))
+         (bitwise-and header #x1F)      ; timestamp
+         ))))
 
-(define (read-message-definition fit-stream)
+(define (read-message-definition fit-stream standard-or-custom)
   ;; Read a message definition from the FIT-STREAM.  A message definition will
   ;; tell us what fields are available in a certain message and what the type
-  ;; of these fields is.
+  ;; of these fields is.  STANDARD-OR-CUSTOM is a symbol (either 'standard or
+  ;; 'custom) which tells us if we should expect developer fields in the
+  ;; message definition.
   (send fit-stream read-next-value 'uint8) ; reserved field, skip it
   (let* ((arhitecture (if (= (send fit-stream read-next-value 'uint8) 0)
                           'little-endian 'big-endian))
@@ -347,16 +352,30 @@
                           #f)))
     (append
      (list arhitecture (or global-message-name global-message-number))
+     ;; Standard fields come first
      (for/list ([i (in-range field-count)])
        (let* ((number (send fit-stream read-next-value 'uint8))
               (size (send fit-stream read-next-value 'uint8))
               (type (send fit-stream read-next-value 'uint8))
               (name (if field-names (assq1 number field-names) #f)))
-         (list (or name number) size type))))))
+         (list (or name number) size type)))
+     ;; Developer specific fields (if any) come last
+     (let ((dev-field-count (if (eq? standard-or-custom 'custom)
+                                (send fit-stream read-next-value 'uint8)
+                                0)))
+       (for/list ([i (in-range dev-field-count)])
+         (let* ((number (send fit-stream read-next-value 'uint8))
+                (size (send fit-stream read-next-value 'uint8))
+                (ddi (send fit-stream read-next-value 'uint8))) ; dev data index
+           ;; Dev data fields are encoded by adding 1000 to them, so they are
+           ;; not confused with FIT types, which are all less than 255.
+           (list number size (+ 1000 ddi))))))))
 
-(define (make-message-reader definition)
+(define (make-message-reader definition dev-field-types)
   ;; Return a function which will read a message from a FIT-STREAM according
-  ;; to DEFINITION (as constructed by `read-message-definition'
+  ;; to DEFINITION (as constructed by `read-message-definition')
+  ;; DEV-FIELD-TYPES contains a mapping from a DDI to the actual FIT type for
+  ;; the field.
 
   (define (convert-value value field-name conversions)
     ;; Convert VALUE for FIELD-NAME into a more usable format accorting to the
@@ -384,11 +403,17 @@
   (lambda (stream)
     (for/list ([field (cdr (cdr definition))])
       (match-define (list name size type) field)
-      (let ((value (read-value-fn type size stream)))
-        (cons name
-              (if value
-                  (convert-value value name conversion-table)
-                  #f))))))
+      (if (>= type 1000)
+          ;; this is a DDI, find the actual type and read it.  Don't do any
+          ;; conversion on i, but use the specified field name for it (if it
+          ;; is available)
+          (let ()
+            (match-define (list dname dtype)
+              (hash-ref dev-field-types type
+                        (lambda () (raise-error (format "Unknown dev field: ~a" (- type 1000))))))
+            (cons (or dname name) (read-value-fn dtype size stream)))
+          (let ((value (read-value-fn type size stream)))
+            (cons name (and value (convert-value value name conversion-table))))))))
 
 (define (read-fit-records fit-stream dispatcher)
   ;; Read all data records from FIT-STREAM (a fit-data-stream%) and send them
@@ -398,13 +423,19 @@
   ;; data", but see fit-event-dispatcher% for a nicer interface.
   
   (define message-readers (make-hash))
+  ;; Map a dev-data index to the basic FIT field type for that field.
+  (define dev-field-types (make-hash))
+
+  (define (dev-field-name message-data)
+    (let ((n (assq1 'field-name message-data)))
+      (and n (string->symbol (bytes->string/latin-1 n)))))
 
   (define (read-next-record)
     (let ((header (let ((hdr (send fit-stream read-next-value 'uint8)))
                     (decode-record-header hdr))))
-      (match-define (list htype def-or-data local-id ...) header)
+      (match-define (list htype def-or-data local-id rest ...) header)
       (cond ((eq? def-or-data 'definition)
-             (let ((def (read-message-definition fit-stream)))
+             (let ((def (read-message-definition fit-stream (car rest))))
                ;; (display def)(newline)
                ;; (display (format "DEFN local: ~a, global: ~a, ~a field(s)~%"
                ;;                  (third header)
@@ -412,19 +443,31 @@
                ;;                  (length (cdr (cdr def)))))
                (hash-set! message-readers
                           local-id
-                          (cons (second def) (make-message-reader def))))
+                          (cons (second def) (make-message-reader def dev-field-types))))
              #t)
             ((eq? def-or-data 'data)
              (let ((reader (hash-ref message-readers local-id #f)))
                (unless reader
-                 (raise-error (format "no reader for local message id ~a" local-id)))
+                 (raise-error (format "no reader for local message id ~a" header)))
                ; (display (format "DATA local: ~a (~a)~%" (third header) (car reader)))
-               (send dispatcher dispatch
-                     (car reader)       ; global message id (or name)
-                     (let ((data ((cdr reader) fit-stream)))
+               (let ((message-id (car reader))
+                     (message-data ((cdr reader) fit-stream)))
+                 (cond ((eq? message-id 'developer-data-id)
+                        #f)
+                       ((eq? message-id 'field-description)
+                        (let ((ddi (assq1 'developer-data-index message-data))
+                              (type (assq1 'fit-base-type message-data))
+                              (name (dev-field-name message-data)))
+                          (hash-set! dev-field-types (+ 1000 ddi) (list name type)))))
+                 ;; NOTE: developer data ID and field description messages are
+                 ;; sent to the dispatcher, which will be responsibe for
+                 ;; interpreting these fields.  note that the decoder will use
+                 ;; the field name, not the field ID.
+                 (send dispatcher dispatch
+                       message-id
                        (if (eq? htype 'compressed-timestamp)
-                           (cons (cons 'compressed-timestamp (fourth header)) data)
-                           data)))))
+                           (cons (cons 'compressed-timestamp (car rest)) message-data)
+                           message-data)))))
             (#t
              (raise-error (format "bad header: ~a" header))))))
 
@@ -640,14 +683,17 @@
                record)))
 
     (define/override (on-file-id file-id)
-      (let ((serial-number (assq1 'serial-number file-id))
-            (time-created (assq1 'time-created file-id))
-            (file-type (assq1 'type file-id)))
-        (unless (eq? file-type 'activity)
-          (raise-error (format "not an activity: ~a" file-type)))
-        ;; We use the device serial and time-created as a unique identifier
-        ;; for the activity.
-        (set! activity-guid (format "~a-~a" serial-number time-created)))
+      (unless activity-guid
+        ;; Some activitites contain multiple file-id messages, keep the first
+        ;; one only.
+        (let ((serial-number (assq1 'serial-number file-id))
+              (time-created (assq1 'time-created file-id))
+              (file-type (assq1 'type file-id)))
+          (unless (eq? file-type 'activity)
+            (raise-error (format "not an activity: ~a" file-type)))
+          ;; We use the device serial and time-created as a unique identifier
+          ;; for the activity.
+          (set! activity-guid (format "~a-~a" serial-number time-created))))
       #t)
 
     (define/public (get-guid) activity-guid)
