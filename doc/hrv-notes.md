@@ -1,7 +1,7 @@
 This document gives an overview on how HRV data is recoded by a Garmin device
 and how it can be used by ActivityLog2.
 
-## Recording HRV data ##
+## Recording HRV data
 
 Garmin devices can record HRV data in the activity FIT files.  This needs to
 be explicitely enabled on the device, but usually there is no option you can
@@ -10,20 +10,20 @@ can be exported to the device and this can be used to enable HRV recording.
 Alternatively, there are various web sites describing how to do this for each
 device.
 
-## Reading HRV data ##
+## Reading HRV data
 
 Since the device records the time interval between every heart beat, it can
 contain a lot of samples, so HRV data is not read during normal FIT file
-parsing and only summary HRV metrics are put into the database.  
+parsing and only summary HRV metrics are put into the database.
 
 The actual HRV data can be read in a data-frame% by two functions (defined in
 "hrv.rkt"):
 
-* make-hrv-data-frame/file -- will read a FIT file
-* make-hrv-data-frame/db -- will read the FIT data stored in the database
+* `make-hrv-data-frame/file` -- will read a FIT file
+* `make-hrv-data-frame/db` -- will read the FIT data stored in the database
 
 Both functions will return #f if the FIT file does not contain HRV data.  If
-you are using "al-interactive.rkt", the ``hrv-df`` provides a convenient
+you are using "al-interactive.rkt", the `hrv-df` provides a convenient
 shortcut.  Evaluating the following program:
 
     #lang racket
@@ -50,19 +50,19 @@ HRV data into CSV files:
 
 The HRV data-frame% contains 4 series:
 
-* "timestamp" is a UNIX timestamp on when the recording was made.  This series
+* *timestamp* is a UNIX timestamp on when the recording was made.  This series
   is ordered. Since there are several HRV values recorded every second, and
   the timestamp resolution is 1 second, there will be duplicates in this
   series.
-* "hrv" represents the time in milliseconds between heart beats, as recorded
+* *hrv* represents the time in milliseconds between heart beats, as recorded
   by the device.  The series is stored as read from the FIT file and might
   contain bad values (e.g. missing heart beats are recorded as unusually large
   HRV values).
-* "delta-hrv" represents the difference between adjacent HRV values.
-* "bpm" is the HR data read from the FIT file.  Can be used to correlate HRV
+* *delta-hrv* represents the difference between adjacent HRV values.
+* *bpm* is the HR data read from the FIT file.  Can be used to correlate HRV
   values with the HR data recorded by the device.
 
-The function ``compute-hrv-metrics`` in hrv.rkt can be used to compute some
+The function `compute-hrv-metrics` in hrv.rkt can be used to compute some
 common HRV metrics, the results of this computation is stored in the database.
 The database stores metrics for the entire activity, but they can be computed
 for subsets.  For example, to compute the metrics for the first 5 minutes of
