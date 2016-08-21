@@ -284,7 +284,7 @@
       (let ((name (hash-ref axis-by-sport (current-sport) #f)))
         (when name
           (let ((index (find-axis name axis-choices)))
-            (set! selected-axis (or index 0))
+            (set! selected-axis (min (or index 0) (sub1 (length axis-choices))))
             (send axis-choice-box set-selection selected-axis)
             (set! selected-aux-axis 0)
             (send aux-axis-choice-box set-selection selected-aux-axis)))))
