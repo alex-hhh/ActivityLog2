@@ -243,6 +243,8 @@
          (define/override (should-filter?) #t)
          (define/override (get-line-color) *coral*)
          (define/override (get-series-name) "cad")
+         (define/override (get-fractional-digits) 1)
+         (define/override (get-histogram-bucket-slot) 0.1)
          )))
 (provide axis-cadence)
 
