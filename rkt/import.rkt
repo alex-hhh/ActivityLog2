@@ -25,7 +25,7 @@
          "time-in-zone.rkt"
          "weather.rkt")
 
-(provide import-new-activities-from-directory)
+(provide import-new-activities-from-directory do-post-import-tasks)
 
 (define (import-new-activities-from-directory dir db [file-callback #f] [global-callback #f])
   (query-exec db "delete from LAST_IMPORT")

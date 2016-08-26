@@ -44,7 +44,8 @@
          "view-session.rkt"
          "view-trends.rkt"
          "widgets.rkt"
-         "al-profiler.rkt")
+         "al-profiler.rkt"
+         "import.rkt")
 
 (provide toplevel-window%)
 
@@ -823,6 +824,7 @@
     (define/public (on-import-activity)
       (let ((file (get-file "Select activity..." tl-frame)))
         (when file
+          (query-exec database "delete from LAST_IMPORT")
           (let* ((iresult (db-import-activity-from-file file database))
                  (ecode (car iresult))
                  (edata (cdr iresult)))
@@ -841,10 +843,11 @@
                          (db-delete-activity-hard aid database)
                          (let ((iresult (db-import-activity-from-file file database)))
                            (refresh-current-view)
-                           (unless (eq? (car iresult) 'ok)
-                             (message-box
-                              "Import failed" (format "Failed to import ~a: ~a" file ecode)
-                              tl-frame '(stop ok))))))))
+                           (if (eq? (car iresult) 'ok)
+                               (do-post-import-tasks database)
+                               (message-box
+                                "Import failed" (format "Failed to import ~a: ~a" file ecode)
+                                tl-frame '(stop ok))))))))
 
                   ((eq? ecode 'retired-device)
                    ;; TODO: force the re-import by un-retiring the device and
@@ -854,7 +857,8 @@
                     tl-frame '(stop ok)))
 
                   ((eq? ecode 'ok)
-                   #t)
+                   (do-post-import-tasks database))
+
                   (#t
                    (message-box
                     "Import failed" (format "Failed to import ~a: ~a" file edata) tl-frame '(stop ok)))))
