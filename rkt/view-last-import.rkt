@@ -23,7 +23,8 @@
          "icon-resources.rkt"
          "import.rkt"
          "sport-charms.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "utilities.rkt")
 
 (provide import-view%)
 (provide import-dialog%)
@@ -309,6 +310,10 @@
       (when selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))
           (if data (vector-ref data 0) #f))))
+    (define/public (get-selected-sport)
+      (when selected-row-index
+        (let ((data (send lb get-data-for-row selected-row-index)))
+          (if data (cons (sql-column-ref data 5 0) (sql-column-ref data 6 0)) #f))))
     (define/public (get-selected-guid)
       (when selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))

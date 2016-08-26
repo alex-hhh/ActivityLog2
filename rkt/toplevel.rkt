@@ -388,6 +388,10 @@
       (let ((aop (get-aop-section)))
         (if aop (send aop get-selected-sid) #f)))
 
+    (define/public (get-selected-sport)
+      (let ((aop (get-aop-section)))
+        (if aop (send aop get-selected-sport) #f)))
+
     (define/public (get-selected-guid)
       (let ((aop (get-aop-section)))
         (if aop (send aop get-selected-guid) #f)))

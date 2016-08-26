@@ -368,6 +368,7 @@
 
     (define/public (get-start-time) the-start-time)
     (define/public (get-session-id) the-session-id)
+    (define/public (get-session-sport) (cons the-sport the-sub-sport))
     (define/public (get-activity-guid) the-activity-guid)
     (define/public (get-distance) the-total-distance)
     (define/public (get-duration) the-total-time)
@@ -996,6 +997,11 @@
     (define/public (get-selected-sid)
       (if selected-item
           (send selected-item get-session-id)
+          #f))
+
+    (define/public (get-selected-sport)
+      (if selected-item
+          (send selected-item get-session-sport)
           #f))
 
     (define/public (get-selected-guid)

@@ -614,6 +614,13 @@
       (when selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))
           (if data (db-row-ref data "session_id" headers "") #f))))
+    (define/public (get-selected-sport)
+      (when selected-row-index
+        (let ((data (send lb get-data-for-row selected-row-index)))
+          (if data
+              (cons (db-row-ref data "sport" headers 0)
+                    (db-row-ref data "sub_sport" headers 0))
+              #f))))
     (define/public (get-selected-guid)
       (when selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))

@@ -21,6 +21,7 @@
          "edit-session-summary.rkt"
          "edit-session-tss.rkt"
          "edit-session-weather.rkt"
+         "edit-lap-swim.rkt"
          "elevation-correction.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
@@ -41,6 +42,7 @@
              get-database
              get-selected-sid
              get-selected-guid
+             get-selected-sport
              after-update
              can-delete?
              after-delete
@@ -85,7 +87,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       ;; Enable/disable appropiate menus
       (let ((sid (and target (send target get-selected-sid)))
             (have-sid? (and target (number? (send target get-selected-sid))))
-            (have-guid? (and target (string? (send target get-selected-guid)))))
+            (have-guid? (and target (string? (send target get-selected-guid))))
+            (is-lap-swim? (and target (equal? (send target get-selected-sport) '(5 . 17)))))
         (send inspect-menu-item enable (and have-sid? the-inspect-callback))
         (send edit-menu-item enable have-sid?)
         (send fixup-elevation-menu-item enable have-guid?)
@@ -95,6 +98,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send copy-sid-menu-item enable have-sid?)
         (send edit-tss-menu-item enable have-sid?)
         (send edit-weather-menu-item enable have-sid?)
+        (send edit-lap-swim-menu-item enable is-lap-swim?)
         ;; TODO: we need to enable it only if there's an actual file to export.
         (send export-original-menu-item enable have-sid?)))
 
@@ -130,6 +134,15 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (when (send (get-weather-editor) begin-edit toplevel db sid)
           (send target after-update sid))))
+
+    (define (on-edit-lap-swim m e)
+      (let ((sid (send target get-selected-sid))
+            (sport (send target get-selected-sport))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (when (equal? sport '(5 . 17))  ; lap swimming
+          (when (send (get-lap-swim-editor) begin-edit toplevel db sid)
+            (send target after-update sid)))))
 
     (define (on-edit-tss m e)
       (let ((sid (send target get-selected-sid))
@@ -192,9 +205,11 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define fixup-elevation-menu-item
       (make-menu-item "Fixup elevation ..." on-fixup-elevation))
     (define edit-tss-menu-item
-      (make-menu-item "Edit Effort ..." on-edit-tss))
+      (make-menu-item "Edit effort ..." on-edit-tss))
     (define edit-weather-menu-item
       (make-menu-item "Edit weather ..." on-edit-weather))
+    (define edit-lap-swim-menu-item
+      (make-menu-item "Edit lap swim ..." on-edit-lap-swim))
     (new separator-menu-item% [parent the-menu])
     (define new-menu-item
       (make-menu-item "New activity ..." on-new #\N))

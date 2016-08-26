@@ -388,6 +388,10 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
              where S.activity_id = A.id and S.id = ?"
            session-id)
           #f))
+    (define/public (get-selected-sport)
+      (let ((sport (session-sport session))
+            (sub-sport (session-sub-sport session)))
+        (cons sport sub-sport)))
     (define/public (after-update sid) (refresh))
     (define/public (after-new sid) (set-session sid)) ; show the new session
     (define/public (can-delete? sid)
