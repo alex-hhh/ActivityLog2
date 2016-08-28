@@ -345,6 +345,10 @@
          (define/override (get-series-name) "lrbal")
          (define/override (get-histogram-bucket-slot) 0.1)
          (define/override (get-fractional-digits) 1)
+         ;; Y-Range for left-right balance only makes sense between 45% and
+         ;; 55%, if the value is out of that range it is waaay off anyway.
+         ;; Keep the chart centered around 50%.
+         (define/override (get-y-range) (cons 45 55))
          )))
 (provide axis-left-right-balance)
 
