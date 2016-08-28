@@ -296,13 +296,27 @@
 
 (define (add-pace-series df)
 
-  (define (pace-sec/km val)
-    (match-define (vector spd) val)
-    (if (and spd (> spd 0.6)) (m/s->sec/km spd) #f))
+  ;; Pace is the inverse of speed, and as such, at the start of an activity,
+  ;; where speed ramps up from small values, pace values would be
+  ;; unrealistically large.  To account for that, at the start of an activity,
+  ;; we combine the computed pace with the pace at a point later in the
+  ;; acitvity (1-2 minutes). This is done in a proportional manner, so that
+  ;; the pace becomes the actual pace the closer we are to the limit.  This
+  ;; produces nicer looking pace graphs.
+  
+  (define (combine pace limit-pace elapsed limit)
+    (if (> elapsed limit)
+        pace
+        (let ((alpha (/ elapsed limit)))
+          (exact->inexact
+           (+ (* (- 1 alpha) limit-pace)
+              (* alpha pace))))))
 
-  (define (pace-sec/mi val)
-    (match-define (vector spd) val)
-    (if (and spd (> spd 0.6)) (m/s->sec/mi spd) #f))
+  (define (pace-sec/km spd)
+    (if (and spd (> spd 0.6)) (m/s->sec/km spd)  #f))
+
+  (define (pace-sec/mi spd)
+    (if (and spd (> spd 0.6)) (m/s->sec/mi spd)  #f))
 
   (define (pace-sec/100m val)
     (match-define (vector spd) val)
@@ -312,15 +326,25 @@
     (match-define (vector spd) val)
     (if (and spd (> spd 0.1)) (m/s->sec/100yd spd) #f))
 
-  (when (send df contains? "spd")
-    (send df add-derived-series
-          "pace"
-          '("spd")
-          (if (send df get-property 'is-lap-swim?)
+  (when (send df contains? "spd" "elapsed")
+
+    (if (send df get-property 'is-lap-swim?)
+        (send df add-derived-series
+              "pace" '("spd")
               (if (eq? (al-pref-measurement-system) 'metric)
-                  pace-sec/100m pace-sec/100yd)
-              (if (eq? (al-pref-measurement-system) 'metric)
-                  pace-sec/km pace-sec/mi)))))
+                  pace-sec/100m pace-sec/100yd))
+        ;; non lap swim
+        (let* ((limit 120)              ; seconds
+               (pace-fn (if (eq? (al-pref-measurement-system) 'metric)
+                            pace-sec/km pace-sec/mi))
+               (index (send df get-index "elapsed" limit))
+               (pace-limit (pace-fn (send df ref index "spd"))))
+          (send df add-derived-series
+                "pace"
+                '("spd" "elapsed")
+                (lambda (val)
+                  (match-define (vector spd elapsed) val)
+                  (combine (pace-fn spd) pace-limit elapsed limit)))))))
 
 (define (add-speed-zone-series df)
   (define sid (send df get-property 'session-id))
