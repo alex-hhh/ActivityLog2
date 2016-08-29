@@ -38,7 +38,8 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "data-frame.rkt")
 
 (provide update-tile-codes)
 (provide fixup-elevation-for-session)
@@ -228,7 +229,8 @@ from A_TRACKPOINT T, A_LENGTH L, A_LAP P
 where P.session_id = ?
   and L.lap_id = P.id
   and T.length_id = L.id
-  and position_lat is not null and position_long is not null")))
+  and position_lat is not null and position_long is not null
+order by T.timestamp")))
 
 (define (get-trackpoints-for-session db session-id [progress-monitor #f])
   ;; Return latitude/longitude data for all track points in a session, along
@@ -238,18 +240,140 @@ where P.session_id = ?
     (send progress-monitor begin-stage "Fetching GPS track for session" 0))
   (query-rows db session-trackpoints-query session-id))
 
+;; Track point produced by 'calculate-altitude' and used by 'smooth-altitude'.
+(struct tpoint (id lat lon dst (calt #:mutable)))
+
 (define (calculate-altitude trackpoints altitude-data [progress-monitor #f] [progress-step 100])
-  ;; Calculate the corrected altitude for all points in GPS-TRACK based of
-  ;; ALTITUDE-DATA.  Return a list of (cons id corrected-altitude).
+  ;; Calculate the corrected altitude for all points in TRACKPOINTS based of
+  ;; ALTITUDE-DATA.  Return a vector of TPOINT structures.
   (when progress-monitor
     (send progress-monitor begin-stage "Calculating GPS track altitude" (length trackpoints)))
-  (let ((num-processed 0))
-    (for/list ([point trackpoints])
+  (let ((num-processed 0)
+        (prev-lat #f)
+        (prev-lon #f)
+        (distance 0))
+    (for/vector ([point trackpoints])
       (set! num-processed (+ num-processed 1))
       (when (and progress-monitor (= (remainder num-processed progress-step) 0))
         (send progress-monitor set-progress num-processed))
       (match-define (vector id lat lon) point)
-      (cons id (average-altitude lat lon altitude-data)))))
+      (when (and prev-lat prev-lon)
+        (set! distance (+ distance (map-distance/degrees prev-lat prev-lon lat lon))))
+      (set! prev-lat lat)
+      (set! prev-lon lon)
+      (tpoint id lat lon distance
+              (average-altitude lat lon altitude-data)))))
+
+(define (smooth-altitude trackpoints)
+  ;; Smooth the altitude points produced by 'calculate-altitude' using an idea
+  ;; from http://regex.info/blog/2015-05-09/2568, the resulting altitude is
+  ;; only marginally better from a visual point of view (and somewhat worse
+  ;; for small elevation changes), but total ascent and descent calculated off
+  ;; this smoothed data are significantly more accurate.
+  ;;
+  ;; NOTE: TRACKPOINTS have their CALT updated in place.
+
+  ;; Minimum distance between which we can smooth the altitude.  For distances
+  ;; less than this, we interpolate between the start and end point.
+  (define minimum-distance 10.0)
+
+  ;; Minimum altidute difference in a range for which we split the range.  If
+  ;; the altidute difference in a range is less than this, we consider the
+  ;; range monotonic.
+  (define minimum-altitude 3.0)
+
+  ;; Compute the distance between START and END (indexes in the TRACKPOINTS
+  ;; vector)
+  (define (delta-dist start end)
+    (- (tpoint-dst (vector-ref trackpoints end))
+       (tpoint-dst (vector-ref trackpoints start))))
+  ;; Compute the altitude change between START and END (indexes in the
+  ;; TRACKPOINTS vector).  This will be negative if the slope is downhill.
+  (define (delta-alt start end)
+    (- (tpoint-calt (vector-ref trackpoints end))
+       (tpoint-calt (vector-ref trackpoints start))))
+  ;; Fill in a monotonic altitude increase/decrease between START and END.
+  (define (monotonic-slope start end)
+    (let* ((delta-dst (delta-dist start end))
+           (delta-alt (delta-alt start end))
+           (start-dst (tpoint-dst (vector-ref trackpoints start)))
+           (start-alt (tpoint-calt (vector-ref trackpoints start))))
+      (for ([idx (in-range start (add1 end))])
+        (let* ((dst (tpoint-dst (vector-ref trackpoints idx)))
+               (nalt
+                (if (> delta-dst 0)     ; the device can be stationary!
+                    (+ start-alt (* delta-alt (/ (- dst start-dst) delta-dst)))
+                    start-alt)))
+          (set-tpoint-calt! (vector-ref trackpoints idx) nalt)))))
+  ;; Find the minimum and maximum altitude between START and END and return 4
+  ;; values: min-alt, min-alt position, max-alt, max-alt position.
+  (define (find-min-max-alt start end)
+    (let ((min-alt (tpoint-calt (vector-ref trackpoints start)))
+          (min-alt-idx start)
+          (max-alt (tpoint-calt (vector-ref trackpoints start)))
+          (max-alt-idx start))
+      (for ([idx (in-range start (add1 end))])
+        (define a (tpoint-calt (vector-ref trackpoints idx)))
+        (when (< a min-alt)
+          (set! min-alt a)
+          (set! min-alt-idx idx))
+        (when (> a max-alt)
+          (set! max-alt a)
+          (set! max-alt-idx idx)))
+      (values min-alt min-alt-idx max-alt max-alt-idx)))
+  ;; Return the position of the middle point between START and END.  This is
+  ;; done based on distances, not indices, and depending on sampling rates and
+  ;; stop points, it might be "off" from the middle. Still, the "best" middle
+  ;; point is returned.
+  (define (find-middle start end)
+    (let* ((sdist (tpoint-dst (vector-ref trackpoints start)))
+           (half (/ (delta-dist start end) 2))
+           (mid (bsearch trackpoints (+ sdist half)
+                         #:start start #:end end #:key tpoint-dst)))
+      mid))
+  (define (order-points p1 p2 p3 p4)
+    (let ((points (list p1 p2 p3 p4)))
+      (remove-duplicates (sort points <))))
+
+  ;; Split the interval between START and END between the highest and lowest
+  ;; point, until the interval is too small or the altitude difference is less
+  ;; than MINIMUM-ALTITUDE, in which case the altitude is simply interpolated
+  ;; between start and end.
+  (define (iterate start end)
+    (let ((dist (delta-dist start end)))
+      (cond
+        ((or (<= (- end start) 1) (< dist minimum-distance))
+         (monotonic-slope start end))
+        (#t
+         (let-values (((min-alt min-alt-idx max-alt max-alt-idx)
+                       (find-min-max-alt start end)))
+           (if (< (- max-alt min-alt) minimum-altitude)
+               (monotonic-slope start end)
+               (let ((ranges (order-points start min-alt-idx max-alt-idx end)))
+                 (if (= (length ranges) 2)
+                     ;; range is monotonic, split it in two and recurse
+                     (let ((mid (find-middle start end)))
+                       (iterate start (sub1 mid))
+                       (iterate mid end))
+                     ;; Else, iterate over the defined ranges
+                     (for ([s ranges] [e (cdr ranges)])
+                       (iterate s e))))))))))
+
+  (when (> (vector-length trackpoints) 0)
+
+    ;; Fixup #f's in the calt values, this works OK for one-off missing
+    ;; values, if whole ranges are missing, this will not produce nice
+    ;; results.
+    (for ([(tp idx) (in-indexed trackpoints)] #:unless (tpoint-calt tp))
+      (if (= idx 0)
+          ;; Scan forward for the first good altitude value
+          (let ((a (for/first ([tp trackpoints] #:when (tpoint-calt tp))
+                     (tpoint-calt tp))))
+            (set-tpoint-calt! tp a))
+          ;; Use the previous value
+          (set-tpoint-calt! tp (tpoint-calt (vector-ref trackpoints (sub1 idx))))))
+    
+    (iterate 0 (sub1 (vector-length trackpoints)))))
 
 (define update-trackpoint-stmt
   ;; SQL statement to update the corrected altitude for a trackpoint
@@ -262,7 +386,7 @@ where P.session_id = ?
   ;; Update the trackpoints in the database with altitude data from
   ;; GPS-TRACK-ALTIDUDE (a list of (cons id altitude)
   (when progress-monitor
-    (send progress-monitor begin-stage "Updating altitude for GPS track" (length altitude-data)))
+    (send progress-monitor begin-stage "Updating altitude for GPS track" (vector-length altitude-data)))
   (let ((num-processed 0))
     (call-with-transaction
      db
@@ -271,8 +395,9 @@ where P.session_id = ?
          (set! num-processed (+ num-processed 1))
          (when (and progress-monitor (= (remainder num-processed progress-step) 0))
            (send progress-monitor set-progress num-processed))
-         (match-define (cons id altitude) point)
-         (query-exec db update-trackpoint-stmt (or altitude sql-null) id))))))
+         (let ((id (tpoint-id point))
+               (calt (tpoint-calt point)))
+           (query-exec db update-trackpoint-stmt (or calt sql-null) id)))))))
 
 (define q-get-altitude1
   (virtual-statement
@@ -367,6 +492,7 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
   (when progress-monitor
     (send progress-monitor begin-stage "Correcting elevation for session..." 0))
   (define tp-elevation (calculate-altitude trackpoints altitude-data progress-monitor))
+  (smooth-altitude tp-elevation)
 
   (call-with-transaction
    db
@@ -406,6 +532,8 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
       #:break (if progress-monitor
                   (not (send progress-monitor set-progress i))
                   #f)
+      (when progress-monitor
+        (send progress-monitor begin-stage (format "Session id ~a" s) 0))
       (fixup-elevation-for-session-internal db s altidude-data #f)))
 
   (when progress-monitor
