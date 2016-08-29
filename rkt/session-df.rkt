@@ -305,7 +305,7 @@
   ;; produces nicer looking pace graphs.
   
   (define (combine pace limit-pace elapsed limit)
-    (if (> elapsed limit)
+    (if (or (not pace) (> elapsed limit))
         pace
         (let ((alpha (/ elapsed limit)))
           (exact->inexact
