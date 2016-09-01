@@ -244,7 +244,7 @@
     (define (on-threshold-speed speed)
       (unless (equal? threshold-speed speed)
         (set! threshold-speed (if (number? speed) speed #f))
-        (if (number? threshold-speed)
+        (if (and (number? threshold-speed) yval-fn)
             (set! threshold-fn (curry yval-fn threshold-speed))
             (set! threshold-fn #f))
         (put-plot-snip)))
@@ -252,7 +252,7 @@
     (define (on-threshold-power power)
       (unless (equal? threshold-power power)
         (set! threshold-power (if (number? power) power #f))
-        (if (number? threshold-power)
+        (if (and (number? threshold-power) yval-fn)
             (set! threshold-fn (curry yval-fn threshold-power))
             (set! threshold-fn #f))
         (put-plot-snip)))
@@ -435,8 +435,9 @@
          (set! yval-fn #f)
          (send control-panel change-children (lambda (old) '()))))
       (restore-params-for-sport)
-      (when zones
-        (set! zone-rt (make-sport-zone-renderers zones yval-fn)))
+      (set! zone-rt
+            (and zones yval-fn
+                 (make-sport-zone-renderers zones yval-fn)))
       (set! inhibit-refresh #f)
       (refresh-plot))
 

@@ -1,3 +1,22 @@
+2016-09-01  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/inspect-quadrant.rkt (quadrant-plot-panel%): don't try to
+	compute threshold values and zone renderers if yval-fn is not
+	defined.
+
+2016-08-31  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/session-df.rkt (add-pace-series): don't do smoothing at
+	startup if data is too short or contains invalid values.
+	(add-elapsed-series): make sure the series always grows (swim
+	activities only)
+
+	* rkt/data-frame.rkt (data-series%/get-index): return #f if
+	searched value is out of range.
+	(df-quantile): be careful of bad data like zero length ranges, 0
+	weight values, etc
+	(df-quantile contract): function can also return #f
+
 2015-05-26  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/view-calendar.rkt: refactoring and cleanup

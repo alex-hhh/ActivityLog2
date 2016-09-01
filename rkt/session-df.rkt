@@ -217,15 +217,22 @@
       (vector-ref (send df select "timestamp") 0))
     ;; Lap swiming timestamps record the start of the length.  Elapsed looks
     ;; much nicer if it records the end of the length, so we add the duration
-    ;; of the current length to each generated sample.
+    ;; of the current length to each generated sample.  We need to be
+    ;; carefull, as durations are recorded with millisecond precision, but
+    ;; timesamps are only with second precision, sometimes time might go
+    ;; backwards.
     (if (and (send df get-property 'is-lap-swim?)
              (send df contains? "duration"))
-        (send df add-derived-series
-              "elapsed"
-              '("timestamp" "duration")
-              (lambda (val)
-                (match-define (vector timestamp duration) val)
-                (+ (- timestamp timestamp0) duration)))
+        (let ((elapsed 0))
+          (send df add-derived-series
+                "elapsed"
+                '("timestamp" "duration")
+                (lambda (val)
+                  (match-define (vector timestamp duration) val)
+                  (let ((nelapsed (+ (- timestamp timestamp0) duration)))
+                    (when (> nelapsed elapsed)
+                      (set! elapsed nelapsed))
+                    elapsed))))
         (send df add-derived-series
            "elapsed"
           '("timestamp")
@@ -305,7 +312,10 @@
   ;; produces nicer looking pace graphs.
   
   (define (combine pace limit-pace elapsed limit)
-    (if (or (not pace) (> elapsed limit))
+    ;; If there is no pace @ limit, we effectively disable the smoothing.
+    ;; This can happen, among other things, if the session is shorter than
+    ;; "limit" seconds (e.g. triathlon transitions)
+    (if (or (not pace) (not limit-pace) (> elapsed limit))
         pace
         (let ((alpha (/ elapsed limit)))
           (exact->inexact
@@ -338,7 +348,7 @@
                (pace-fn (if (eq? (al-pref-measurement-system) 'metric)
                             pace-sec/km pace-sec/mi))
                (index (send df get-index "elapsed" limit))
-               (pace-limit (pace-fn (send df ref index "spd"))))
+               (pace-limit (if index (pace-fn (send df ref index "spd")) #f)))
           (send df add-derived-series
                 "pace"
                 '("spd" "elapsed")

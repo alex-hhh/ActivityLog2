@@ -126,7 +126,12 @@
     ;; searching for 0.5 will return 0.
     (define/public (get-index value)
       (if sorted?
-          (if value (bsearch data value #:cmp cmp-fn) #f)
+          (if value
+              (let ((result (bsearch data value #:cmp cmp-fn)))
+                (and (> result 0)
+                     (< result (vector-length data))
+                    result))
+              #f)
           (raise "data-series%/get-index: ~a not sorted" name)))
 
     ;; Return the number of invalid values (NA's) in the data series.  These
@@ -756,6 +761,14 @@
                      #:weight-column [weight (send df get-default-weight-series)]
                      #:less-than (lt <)
                      . qvalues)
+
+  (define (dirty? xs ws)
+    (or (vector-memq #f xs)
+        (and ws (for/first ([item ws] #:unless (> item 0.0)) #t))))
+
+  (define (good? xs ws index)
+    (and (vector-ref xs index) (or (not ws) (> (vector-ref ws index) 0))))
+  
   (if (and (send df contains? column)
            (or (not weight) (send df contains? weight)))
       (let ((xs-base (send df select column))
@@ -768,17 +781,23 @@
                                      (vector-ref current 0))))
                          #f))
             (quantiles (if (null? qvalues) (list 0 0.25 0.5 0.75 1) qvalues)))
-        (if (vector-memq #f xs-base)    ; do we have NA values? remove them.
-            (let ((xs (for/vector ([x xs-base] #:when x) x))
-                  (ws (if ws-base
-                          (for/vector ([(w idx) (in-indexed ws-base)]
-                                       #:when (vector-ref xs-base idx))
-                            w)
-                          #f)))
-              (for/list ([q quantiles])
-                (quantile q lt xs ws)))
-            (for/list ([q quantiles])
-              (quantile q lt xs-base ws-base))))
+        (if (> (vector-length xs-base) 0)
+            (if (dirty? xs-base ws-base)
+                (let ((xs (for/vector ([(x idx) (in-indexed xs-base)]
+                                       #:when (good? xs-base ws-base idx))
+                            x))
+                      (ws (if ws-base
+                              (for/vector ([(w idx) (in-indexed ws-base)]
+                                           #:when (good? xs-base ws-base idx))
+                                w)
+                              #f)))
+                  (if (> (vector-length xs) 0)
+                      (for/list ([q quantiles])
+                        (quantile q lt xs ws))
+                      #f))
+                (for/list ([q quantiles])
+                  (quantile q lt xs-base ws-base)))
+            #f))
       #f))
 
 
@@ -1255,7 +1274,7 @@
                    (#:weight-column string?
                     #:less-than (-> any/c any/c boolean?))
                    #:rest (listof (between/c 0 1))
-                   (listof real?)))
+                   (or/c #f (listof real?))))
 
  (time-delay-series (-> ts-data/c real? ts-data/c))
  (group-samples (-> scatter-data/c integer? integer? group-data/c))
