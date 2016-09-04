@@ -88,7 +88,10 @@
   (let ((seconds (str->seconds str)))
     (if seconds (/ 100.0 seconds) #f)))
 
+;; NOTE: duplicated from inspect-scatter!
 (define (find-bounds data-series)
+  (define (good-or-false num)
+    (and (number? num) (not (nan? num)) (not (infinite? num)) num))
   (let ((xmin #f)
         (xmax #f)
         (ymin #f)
@@ -108,7 +111,34 @@
     (when yrange
       (when ymin (set! ymin (- ymin (* yrange 0.05))))
       (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
-    (vector xmin xmax ymin ymax)))
+    (vector
+       (good-or-false xmin)
+       (good-or-false xmax)
+       (good-or-false ymin)
+       (good-or-false ymax))))
+
+;; NOTE: duplicated from inspect-scatter!
+(define (find-bounds/quantile df xseries yseries quantile)
+  (define (good-or-false num)
+    (and (number? num) (not (nan? num)) (not (infinite? num)) num))
+  (let ((xlimits (df-quantile df xseries quantile (- 1 quantile)))
+        (ylimits (df-quantile df yseries quantile (- 1 quantile))))
+    (when (and xlimits ylimits)
+      (match-define (list xmin xmax) xlimits)
+      (match-define (list ymin ymax) ylimits)
+    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+    (when xrange
+      (when xmin (set! xmin (- xmin (* xrange 0.05))))
+      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+    (when yrange
+      (when ymin (set! ymin (- ymin (* yrange 0.05))))
+      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+      (vector
+       (good-or-false xmin)
+       (good-or-false xmax)
+       (good-or-false ymin)
+       (good-or-false ymax)))))
 
 (define zone-colors
   (vector (make-object color% #xad #xd8 #xe6) ; z0, light blue
@@ -226,6 +256,19 @@
            [label "Show Grid"]
            [callback (lambda (c e) (on-show-grid (send c get-value)))]))
 
+    (define outlier-percentile-field
+      (new number-input-field% [parent control-panel]
+           [label "Outlier Percentile (%): "] [cue-text "0..50%"]
+           [min-value 0] [max-value 50]
+           [stretchable-width #f]
+           [valid-value-cb (lambda (v) (on-outlier-percentile v))]))
+
+    (define outlier-handling-choice
+      (new choice% [parent control-panel]
+           [label ""] [choices '("Mark outliers" "Crop outliers")]
+           [stretchable-width #f]
+           [callback (lambda (c e) (on-outlier-handling (send c get-selection)))]))
+
     (define (on-show-grid flag)
       (unless (equal? show-grid? flag)
         (set! show-grid? flag)
@@ -257,6 +300,22 @@
             (set! threshold-fn #f))
         (put-plot-snip)))
 
+    (define (on-outlier-percentile percentile)
+      (when (eq? percentile 'empty)
+        (set! percentile #f))
+      (unless (equal? percentile outlier-percentile)
+        (set! outlier-percentile percentile)
+        ;; no need to invalidate the data
+        (refresh-plot)))
+
+    (define (on-outlier-handling choice)
+      (if (eq? choice 0)
+          (set! outlier-handling 'mark)
+          (set! outlier-handling 'crop))
+      ;; No need to refresh the plot data at all, just rebuild
+      (put-plot-snip))
+
+
     ;; Pasteboard to display the actual plot
     (define plot-pb (new snip-canvas% [parent panel]))
 
@@ -274,6 +333,7 @@
     (define zones #f)
     (define data-series #f)
     (define data-bounds (vector #f #f #f #f))
+    (define quantile-bounds (vector #f #f #f))
     ;; Function that plots the line for threshold speed or power
     (define threshold-fn #f)
     ;; Filter function used to extract the data for the plot.  For bike, it
@@ -282,13 +342,34 @@
     (define plot-rt #f)                 ; plot render tree
     (define zone-rt #f)                 ; sport zone render tree
     (define inhibit-refresh #f)
+    (define outlier-percentile #f)
+    (define outlier-handling 'mark)
 
+    ;; Initialize the delay-amount and outlier percentile fields
+    (if (number? outlier-percentile)
+        (send outlier-percentile-field set-numeric-value outlier-percentile)
+        (send outlier-percentile-field set-value ""))
+    (send outlier-handling-choice set-selection
+          (if (eq? outlier-handling 'mark) 0 1))
 
     (define (put-plot-snip)
       (when (and plot-rt (not inhibit-refresh))
         (let ((rt (list plot-rt)))
           (when show-grid?
             (set! rt (cons (tick-grid) rt)))
+          (when (eq? outlier-handling 'mark)
+            (when (vector-ref quantile-bounds 0)
+              (set! rt (cons (vrule (vector-ref quantile-bounds 0)
+                                    #:color "blue" #:style 'short-dash) rt)))
+            (when (vector-ref quantile-bounds 1)
+              (set! rt (cons (vrule (vector-ref quantile-bounds 1)
+                                    #:color "blue" #:style 'short-dash) rt)))
+            (when (vector-ref quantile-bounds 2)
+              (set! rt (cons (hrule (vector-ref quantile-bounds 2)
+                                    #:color "blue" #:style 'short-dash) rt)))
+            (when (vector-ref quantile-bounds 3)
+              (set! rt (cons (hrule (vector-ref quantile-bounds 3)
+                                    #:color "blue" #:style 'short-dash) rt))))
           (when (and show-zones? zone-rt)
             (set! rt (cons zone-rt rt)))
           (when threshold-fn
@@ -301,7 +382,8 @@
                          [plot-x-label (send x-axis get-axis-label)]
                          [plot-y-ticks (send y-axis get-axis-ticks)]
                          [plot-y-label (send y-axis get-axis-label)])
-            (match-define (vector x-min x-max y-min y-max) data-bounds)
+            (match-define (vector x-min x-max y-min y-max)
+              (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
             (plot-snip/hack
              plot-pb (reverse rt)
              #:x-min x-min #:x-max x-max #:y-min y-min #:y-max y-max)))))
@@ -315,7 +397,8 @@
         ;; task
         (let ((x x-axis)
               (y y-axis)
-              (df data-frame))
+              (df data-frame)
+              (opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
           (queue-task
            "quadrant-plot-panel%/refresh-plot"
            (lambda ()
@@ -326,6 +409,14 @@
                       (and  (send df contains? xnam ynam)
                             (send df select* xnam ynam #:filter filter-fn)))))
              (define bounds (and ds (find-bounds ds)))
+             (define qbounds
+               (if opct
+                   (find-bounds/quantile
+                    df
+                    (send x get-series-name)
+                    (send y get-series-name)
+                    opct)
+                   (vector #f #f #f #f)))
              (define grouped
                (and ds
                     (group-samples ds
@@ -341,6 +432,7 @@
                 (set! plot-rt rt)
                 (set! data-series ds)
                 (set! data-bounds bounds)
+                (set! quantile-bounds qbounds)
                 (unless plot-rt
                   (send plot-pb set-background-message "No data to plot..."))
                 (put-plot-snip))))))))
@@ -348,14 +440,17 @@
     (define (save-params-for-sport)
       (when data-frame
         (let ((sport (send data-frame get-property 'sport))
-              (data (list threshold-speed threshold-power threshold-cadence)))
+              (data (list threshold-speed threshold-power threshold-cadence outlier-percentile outlier-handling)))
           (hash-set! params-by-sport sport data))))
 
     (define (restore-params-for-sport)
       (when data-frame
         (let* ((sport (send data-frame get-property 'sport))
-               (data (hash-ref params-by-sport sport (lambda () (list #f #f #f)))))
-          (match-define (list tspeed tpower tcad) data)
+               (data (hash-ref params-by-sport sport (lambda () (list #f #f #f #f #f)))))
+          (unless (= (length data) 5) ; opct and ohandling were recently added
+            (match-define (list tspeed tpower tcad) data)
+            (set! data (list tspeed tpower tpower #f #f)))
+          (match-define (list tspeed tpower tcad opct ohandling) data)
           (if tspeed
               (cond ((equal? (vector-ref sport 0) 1) ; running
                      (send run-pace-field set-value (pace->string tspeed)))
@@ -370,6 +465,10 @@
           (if tcad
               (send cadence-field set-numeric-value tcad)
               (send cadence-field set-value ""))
+          (if (number? opct)
+              (send outlier-percentile-field set-numeric-value opct)
+              (send outlier-percentile-field set-value ""))
+          (send outlier-handling-choice set-selection (if (eq? ohandling 'mark) 0 1))
           (set! threshold-speed #f)
           (set! threshold-power #f)
           (set! threshold-cadence #f)
@@ -378,6 +477,8 @@
             (on-threshold-speed tspeed)
             (on-threshold-power tpower)
             (on-threshold-cadence tcad)
+            (on-outlier-percentile opct)
+            (on-outlier-handling (if (eq? ohandling 'mark) 0 1))
             (set! inhibit-refresh old)))))
 
     (define/public (save-visual-layout)
@@ -403,7 +504,8 @@
          (set! filter-fn valid-only)
          (send control-panel change-children
                (lambda (old) (list run-pace-field cadence-field
-                                   show-zones-check-box show-grid-check-box))))
+                                   show-zones-check-box show-grid-check-box
+                                   outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 5) ; swim
               (send data-frame contains? "spd" "cad"))
          (set! x-axis axis-swim-avg-cadence)
@@ -414,7 +516,8 @@
          (set! filter-fn valid-only)
          (send control-panel change-children
                (lambda (old) (list swim-pace-field cadence-field
-                                   show-zones-check-box show-grid-check-box))))
+                                   show-zones-check-box show-grid-check-box
+                                   outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 2) ; bike
               (send data-frame contains? "pwr" "cad"))
          (set! x-axis axis-cadence)
@@ -427,7 +530,8 @@
          (set! filter-fn filter-torque)
          (send control-panel change-children
                (lambda (old) (list power-field cadence-field
-                                   show-zones-check-box show-grid-check-box))))
+                                   show-zones-check-box show-grid-check-box
+                                   outlier-percentile-field outlier-handling-choice))))
         (#t
          (set! zones #f)
          (set! x-axis #f)
