@@ -20,7 +20,6 @@
          racket/math
          "database.rkt"
          "dbglog.rkt"
-         "edit-session-tss.rkt"
          "elevation-correction.rkt"
          "time-in-zone.rkt"
          "weather.rkt")
@@ -55,8 +54,6 @@
   (update-elevation-for-new-sessions db)
   (show-progress "updating weather data...")
   (update-weather-for-new-sessions db)
-  (show-progress "updating training stress score...")
-  (update-tss-for-new-sessions db)
   (show-progress "updating time in zone...")
   (update-tiz-for-new-sessions db))
 
@@ -159,22 +156,11 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
       (when progress-monitor
         (send progress-monitor set-progress (+ n 1))))))
 
-(define (update-tss-for-new-sessions db [progress-monitor #f])
-  (let ((sessions (get-new-sessions db)))
-    (when progress-monitor
-      (send progress-monitor
-            begin-stage "Updating TSS for new sessions" (length sessions)))
-    (for ((sid (in-list sessions))
-          (n (in-range (length sessions))))
-      (maybe-update-session-tss sid db)
-      (when progress-monitor
-        (send progress-monitor set-progress (+ n 1))))))
-
 (define (update-tiz-for-new-sessions db [progress-monitor #f])
   (let ((sessions (get-new-sessions db)))
     (when progress-monitor
       (send progress-monitor
-            begin-stage "Updating time-in-zone for new sessions" (length sessions)))
+            begin-stage "Updating metrics for new sessions" (length sessions)))
     (for ((sid (in-list sessions))
           (n (in-range (length sessions))))
       (update-time-in-zone-data sid db)

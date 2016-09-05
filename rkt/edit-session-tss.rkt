@@ -19,6 +19,7 @@
          racket/class
          racket/gui/base
          racket/string
+         racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
          "database.rkt"
@@ -26,7 +27,9 @@
          "icon-resources.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "data-frame.rkt"
+         "session-df.rkt")
 
 (provide get-edit-session-tss-dialog)
 (provide maybe-update-session-tss)
@@ -138,29 +141,27 @@
   (let ((intensity-factor (/ speed tpace)))
     (* intensity-factor intensity-factor intensity-factor (/ duration 3600.0) 100)))
 
-;; Compute the TSS of a session based on heart rate zones.  This is done by
-;; computing a fractional TSS for each track point and should provide a better
-;; TSS value than simply taking the average HR for the entire session (it is
-;; also slower).
-(define (compute-session-tss/hr sid db)
-  (let ((session (db-fetch-session sid db))
-        (zones (get-session-sport-zones sid 1))
-        (tss #f))
-    (when zones
-      (set! tss 0)
-      (for-each-session-trackpoint
-       session
-       (lambda (prev next)
-         (when (and prev next)
-           (let ((ts1 (assq1 'timestamp prev))
-                 (hr1 (assq1 'heart-rate prev)) 
-                 (ts2 (assq1 'timestamp next))
-                 (hr2 (assq1 'heart-rate next)))
-             (when (and ts1 hr1 ts2 hr2)
-               (let ((duration (- ts2 ts1))
-                     (hr (/ (+ hr1 hr2) 2)))
-                 (set! tss (+ tss (zone->tss (val->zone hr zones) duration))))))))))
-    tss))
+;; Compute the TSS of a session based on heart rate zones using the
+;; data-frame% DF.  This is done by computing a fractional TSS for each track
+;; point and should provide a better TSS value than simply taking the average
+;; HR for the entire session (it is also slower).
+(define (compute-session-tss/hr df)
+  ;; NOTE: we use the timer series, so we don't count TSS while the recording
+  ;; is stopped.  We could use the elapsed series to count TSS while stopped
+  ;; as well.
+  (if (send df contains? "hr-zone" "timer")
+      (send df fold
+            '("timer" "hr-zone")
+            0
+            (lambda (tss prev next)
+              (if prev
+                  (match-let (((vector t0 z0) prev)
+                              ((vector t1 z1) next))
+                    (if (and (number? t0) (number? z0) (number? t1) (number? z1))
+                        (+ tss (zone->tss (/ (+ z0 z1) 2) (- t1 t0)))
+                        tss))
+                  tss)))
+      #f))
 
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
@@ -169,6 +170,7 @@
 
     (define database #f)
     (define session-id #f)
+    (define session-df #f)
     (define effort #f)                  ; as received by `get-session-effort'
 
     (define calculation-methods
@@ -346,7 +348,9 @@
                        ((not zones) 
                         (send notice set-label "No heart rate zones defined"))
                        (#t
-                        (set! computed-tss (compute-session-tss/hr session-id database))))))
+                        (unless session-df
+                          (set! session-df (make-session-data-frame database session-id)))
+                        (set! computed-tss (compute-session-tss/hr session-df))))))
               ((swim-tpace)
                (let ((sport (sql-column-ref effort 0 #f))
                      (dist (effort-distance effort))
@@ -455,7 +459,7 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
     (set! the-edit-session-tss-dialog (new edit-session-tss-dialog%)))
   the-edit-session-tss-dialog)
 
-(define (calculate-session-tss effort sid db)
+(define (calculate-session-tss effort df sid db)
   (let ((duration (effort-duration  effort)))
     (if duration
         (or (let ((np (effort-np effort))
@@ -470,21 +474,17 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
                    ;; AVG_SPEED stored in the session summary only counts
                    ;; moving time.
                    (swim-speed->tss tpace (/ dist duration) duration)))
-            (let ((hr (effort-avg-hr effort))
-                  (zones (get-session-hr-zones sid)))
-              (and hr zones (compute-session-tss/hr sid db)))
+            (compute-session-tss/hr df)
             (let ((rpe (effort-rpe effort)))
               (and rpe (rpe->tss rpe duration))))
         #f)))
 
-(define (maybe-update-session-tss session-id db [force? #f])
+(define (maybe-update-session-tss session-id df db [force? #f])
   (let ((effort (get-session-effort session-id db)))
     (when (or force? (not (effort-tss effort)))
-      (let ((tss (calculate-session-tss effort session-id db)))
+      (let ((tss (calculate-session-tss effort df session-id db)))
         (when tss
           (query-exec 
            db 
            "update A_SESSION set training_stress_score = ? where id = ?" 
            tss session-id))))))
-
-

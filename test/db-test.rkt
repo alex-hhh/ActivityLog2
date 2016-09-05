@@ -23,6 +23,7 @@
 (require "../rkt/fit-file.rkt")
 (require "../rkt/activity-util.rkt")
 (require "../rkt/utilities.rkt")
+(require "../rkt/import.rkt")
 
 
 ;;............................................................ test data ....
@@ -46,10 +47,19 @@
 (define (activity-count db)
   (query-value db "select count(*) from ACTIVITY"))
 
+(define (with-database thunk)
+  (let ((db (open-activity-log 'memory)))
+    (current-database db)
+    ;; NOTE: cannot really catch errors as error trace will loose context
+    (thunk db)
+    (disconnect db)))
+
 (define (db-import-activity-from-file/check file db)
   (check-not-exn
    (lambda ()
      (let ((result (db-import-activity-from-file file db)))
+       (do-post-import-tasks db)
+       ;; (lambda (msg) (printf "post import: ~a~%" msg)))
        (check-pred cons? result "Bad import result format")
        (check-eq? (car result) 'ok (format "~a" (cdr result)))))))
 
@@ -61,7 +71,11 @@ select count(*)
    and (position_lat is not null
         or position_long is not null)")))
     (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
-             
+
+(define (fill-sport-zones)
+  (put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220))
+  (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220))
+  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)))
 
 
 
@@ -200,23 +214,17 @@ select count(T.id),
   (test-suite
    "Cycling Dynamics"
 
-   (test-case
-    "Cycling dynamics import / export"
-    (let ((db (open-activity-log 'memory)))
-      (printf "Importing ~a~%" a9)
-      (db-import-activity-from-file/check a9 db)
-
-      (check = 1 (activity-count db))
-      (define session-id 1)
-
-      (cyd-check-session-values session-id db)
-      (cyd-check-lap-values session-id db)
-      (cyd-check-track-values session-id db)
-
-      (let ((session (db-fetch-session session-id db)))
-        (cyd-check-retrieved-session session))
-
-      (disconnect db)))))
+   (test-case "Cycling dynamics import / export"
+     (with-database
+       (lambda (db)
+         (db-import-activity-from-file/check a9 db)
+         (check = 1 (activity-count db))
+         (define session-id 1)
+         (cyd-check-session-values session-id db)
+         (cyd-check-lap-values session-id db)
+         (cyd-check-track-values session-id db)
+         (let ((session (db-fetch-session session-id db)))
+           (cyd-check-retrieved-session session)))))))
 
 
 ;;.....................................................................  ....
@@ -231,40 +239,39 @@ select count(T.id),
     (check-not-exn
      (lambda () (disconnect (open-activity-log 'memory)))))
 
-   (test-case
-    "Importing first activity"
-    (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-      (let ((db (open-activity-log 'memory)))
-        (printf "About to import ~a~%" file)
-        (db-import-activity-from-file/check file db)
-        (check = 1 (activity-count db))
-        (db-check-tile-code db)
-        (disconnect db))))
+   (test-case "Importing first activity"
+     (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
+       (with-database
+         (lambda (db)
+           (fill-sport-zones)
+           (printf "About to import ~a~%" file)
+           (db-import-activity-from-file/check file db)
+           (check = 1 (activity-count db))
+           (db-check-tile-code db)))))
 
-   (test-case
-    "Subsequent imports"
-    (let ((db (open-activity-log 'memory)))
-      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-        (printf "About to import ~a~%" file)
-        (db-import-activity-from-file/check file db))
-      (check = 8 (activity-count db))
-      (disconnect db)))
+   (test-case "Subsequent imports"
+     (with-database
+       (lambda (db)
+         (fill-sport-zones)
+         (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
+           (printf "About to import ~a~%" file)
+           (db-import-activity-from-file/check file db))
+         (check = 8 (activity-count db)))))
 
-   (test-case
-     "Get Sport Zones"
-     (let ((db (open-activity-log 'memory)))
-       (current-database db)
-       (for ((sport (in-list (query-list db "select id from E_SPORT"))))
-         (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
-           ;; No Sport zones are defined
-           (check-false (get-sport-zones sport sub-sport 1))))
-       (disconnect db)
-       ))
+   (test-case "Get Sport Zones"
+     (with-database
+       (lambda (db)
+         (for ((sport (in-list (query-list db "select id from E_SPORT"))))
+           (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
+             ;; No Sport zones are defined
+             (check-false (get-sport-zones sport sub-sport 1)))))))
 
    cyd-tests
    ))
 
 (module+ test
   (run-tests db-tests))
+
+(run-tests db-tests)
 
 ;; (test/gui db-tests)

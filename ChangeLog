@@ -1,3 +1,11 @@
+2016-09-05  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/data-frame.rkt (data-series%/get-index): don't return #f
+	when the first item is found.
+
+	* rkt/about-frame.rkt (make-about-frame): use a text% object and
+	lock it, allows selecting the text (but not modifying it)
+
 2016-09-01  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/inspect-quadrant.rkt (quadrant-plot-panel%): don't try to

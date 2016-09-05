@@ -25,7 +25,8 @@
          "data-frame.rkt"
          "session-df.rkt"
          "widgets.rkt"
-         "hrv.rkt")
+         "hrv.rkt"
+         "edit-session-tss.rkt")
 
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)
@@ -144,6 +145,9 @@ select P.id
       (let ((data (time-in-zone session "hr-zone")))
         (when data
           (store-time-in-zone sid hr-zone-id data db))))
+
+    ;; Training Stress Scrore
+    (maybe-update-session-tss sid session db)
 
     ;; Aerobic Decoupling
     (cond
