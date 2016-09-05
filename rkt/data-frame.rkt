@@ -128,7 +128,7 @@
       (if sorted?
           (if value
               (let ((result (bsearch data value #:cmp cmp-fn)))
-                (and (> result 0)
+                (and (>= result 0)
                      (< result (vector-length data))
                     result))
               #f)
