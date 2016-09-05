@@ -757,7 +757,9 @@
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end)))
 
     (let ((length-data (db-row->alist fields length-row)))
-      (cons (cons 'track (db-extract-trackpoints-for-length (vector-ref length-row 0) db))
+      (cons (cons 'track ;(db-extract-trackpoints-for-length (vector-ref length-row 0) db)
+                  '()
+                  )
             length-data))))
 
 (define db-extract-trackpoints-for-length

@@ -1,5 +1,9 @@
 2016-09-05  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
+	* rkt/database.rkt (db-extract-length): don't load the
+	trackpoints, makes the application load faster and they are not
+	used anywhere anymore.
+
 	* rkt/data-frame.rkt (data-series%/get-index): don't return #f
 	when the first item is found.
 
