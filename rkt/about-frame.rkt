@@ -19,8 +19,7 @@
          images/icons/style
          racket/class
          racket/gui/base
-         "dbapp.rkt"
-         "snip-canvas.rkt")
+         "dbapp.rkt")
 
 (define hyperlink-style
   (let ([delta (new style-delta%)])
@@ -130,11 +129,10 @@
                  [width 600]
                  [height 600]))
   (define c (new editor-canvas% [parent f] [style '(no-hscroll)]))
-  (define t (new read-only-text%))
+  (define t (new text%))
   (send c set-editor t)
-  (send t set-writable #t)
   (setup-about-text t)
-  (send t set-writable #f)
+  (send t lock #t)
   f)
 (provide make-about-frame)
 
