@@ -23,6 +23,7 @@
          "edit-session-tss.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
+         "session-df.rkt"
          "widgets.rkt")
 
 (provide get-edit-session-summary-dialog)
@@ -249,8 +250,9 @@ select S.name as title,
                 (or (cdr sport) sql-null)
                 (if (eqv? rpe-scale 0) sql-null rpe-scale)
                 ssid)))
-           (let ((sid (db-get-last-pk "A_SESSION" db)))
-             (maybe-update-session-tss sid db)
+           (let* ((sid (db-get-last-pk "A_SESSION" db))
+                  (df (make-session-data-frame db sid)))
+             (maybe-update-session-tss sid df db)
              (send labels-input update-session-tags sid)
              (send equipment-input update-session-tags sid)
              sid)))))

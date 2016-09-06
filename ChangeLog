@@ -1,3 +1,9 @@
+2016-09-06  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/edit-session-summary.rkt
+	(edit-session-summary-dialog%/insert-session): fix call to
+	'maybe-update-session-tss'
+
 2016-09-05  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/database.rkt (db-extract-length): don't load the
