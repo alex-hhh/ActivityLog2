@@ -229,11 +229,12 @@ select LE.start_time as timestamp,
     (define/public (can-join? timestamp direction)
       (let* ((fn (if (eq? direction 'next) next-timestamp prev-timestamp))
              (other (fn swim-data timestamp)))
-        (if other
-            (let ((l1 (hash-ref swim-data timestamp #f))
-                  (l2 (hash-ref swim-data other #f)))
-              (and l1 l2 (equal? (swl-lap-id l1) (swl-lap-id l2))))
-            #f)))
+        (and other
+             (let ((l1 (hash-ref swim-data timestamp #f))
+                   (l2 (hash-ref swim-data other #f)))
+               (and l1 l2
+                    (equal? (swl-lap-id l1) (swl-lap-id l2))
+                    (equal? (swl-stroke-type l1) (swl-stroke-type l2)))))))
 
     ;; Join an ITEM and re-balance all the lengths in the lap.  This is used
     ;; for drill laps, which are not counted individually, but the lap time is

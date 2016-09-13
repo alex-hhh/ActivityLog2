@@ -1,3 +1,8 @@
+2016-09-13  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/edit-lap-swim.rkt (swl-model%/can-join?): check for matching
+	stroke types.
+
 2016-09-06  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/edit-session-summary.rkt
