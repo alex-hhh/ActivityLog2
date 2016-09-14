@@ -184,7 +184,10 @@
     (add-swolf-series df))
 
   (unless is-lap-swim?
-    (send df set-default-weight-series "timer"))
+    (cond ((send df contains? "timer")
+           (send df set-default-weight-series "timer"))
+          ((send df contains? "elapsed")
+           (send df set-default-weight-series "elapsed"))))
 
   df)
 
@@ -722,7 +725,8 @@
     ;; the "edges" on the graph sharp even when filtering with large widths.
     (when stop-detection?
       (let ([stop-points (send data-frame get-property 'stop-points)])
-        (for ([point stop-points])
+        ;; NOTE: stop-points might be #f if there is no timer series
+        (for ([point (or stop-points '())])
           (let ([idx (bsearch data point #:key (lambda (v) (vector-ref v 2)))])
             (when idx
               (vector-set! (vector-ref data idx) 1 0)

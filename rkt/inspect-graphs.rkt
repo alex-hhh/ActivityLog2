@@ -323,7 +323,7 @@
                          #f)))
                (define fdata
                  (or factored-data
-                     (if factor-fn
+                     (if (and factor-fn ds)
                          (group-samples/factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
                          #f)))
                (define ds2

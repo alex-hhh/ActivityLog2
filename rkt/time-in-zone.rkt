@@ -37,11 +37,12 @@
           (stat-s1-2 (df-statistics df s1 #:start half-point #:end end))
           (stat-s2-1 (df-statistics df s2 #:start start #:end half-point))
           (stat-s2-2 (df-statistics df s2 #:start half-point #:end end)))
-      (let ((r1 (/ (statistics-mean stat-s1-1)
-                   (statistics-mean stat-s2-1)))
-            (r2 (/ (statistics-mean stat-s1-2)
-                   (statistics-mean stat-s2-2))))
-        (* 100.0 (/ (- r1 r2) r1))))))
+      (and stat-s1-1 stat-s1-2 stat-s2-1 stat-s2-2
+           (let ((r1 (/ (statistics-mean stat-s1-1)
+                        (statistics-mean stat-s2-1)))
+                 (r2 (/ (statistics-mean stat-s1-2)
+                        (statistics-mean stat-s2-2))))
+             (* 100.0 (/ (- r1 r2) r1)))))))
 
 (define (decoupling/laps df s1 s2)
   (let* ((laps (send df get-property 'laps))
@@ -107,7 +108,7 @@
 where id = (select summary_id from A_SESSION where id = ?)")))
 
 (define (update-aerobic-decoupling-for-session db sid adec)
-  (query-exec db update-adec-session-stmt adec sid))
+  (query-exec db update-adec-session-stmt (or adec sql-null) sid))
 
 (define update-adec-laps-stmt
   (virtual-statement
@@ -116,7 +117,7 @@ where id = (select summary_id from A_SESSION where id = ?)")))
 where id = (select summary_id from A_LAP where id = ?)")))
 
 (define (update-aerobic-decoupling-for-lap db lapid adec)
-  (query-exec db update-adec-laps-stmt adec lapid))
+  (query-exec db update-adec-laps-stmt (or adec sql-null) lapid))
 
 (define fetch-lap-ids
   (virtual-statement

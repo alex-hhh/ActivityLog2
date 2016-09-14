@@ -475,15 +475,18 @@
         (display " ")
         (display (~r inv #:min-width 5)))
       (let ([stats (df-statistics df sn)])
-        (display " ")
-        (display (ppval (statistics-min stats)))
-        (display " ")
-        (display (ppval (statistics-max stats)))
-        (display " ")
-        (display (ppval (statistics-mean stats)))
-        (display " ")
-        (display (ppval (statistics-stddev stats)))
-        (newline)))))
+        (if stats
+            (begin
+              (display " ")
+              (display (ppval (statistics-min stats)))
+              (display " ")
+              (display (ppval (statistics-max stats)))
+              (display " ")
+              (display (ppval (statistics-mean stats)))
+              (display " ")
+              (display (ppval (statistics-stddev stats)))
+              (newline))
+            (newline))))))
 
 
 ;;......................................................... df-write/csv ....
@@ -1269,7 +1272,7 @@
                      (#:weight-column string?
                       #:start real?
                       #:end real?)
-                     statistics?))
+                     (or/c #f statistics?)))
  (df-quantile (->* ((is-a?/c data-frame%) string?)
                    (#:weight-column string?
                     #:less-than (-> any/c any/c boolean?))
