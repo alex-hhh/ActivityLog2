@@ -1,3 +1,27 @@
+2016-09-14  Alex Harsanyi  <AlexHarsanyi@gmail.com>
+
+	* rkt/workers.rkt (make-worker-thread): use
+	errortrace/errortrace-lib to print stack traces (will only work if
+	the errortrace library is used)
+
+	* rkt/time-in-zone.rkt (decoupling): handle df-statistics
+	returning #f
+	(update-aerobic-decoupling-for-session)
+	(update-aerobic-decoupling-for-lap): handle #f adec value
+
+	* rkt/inspect-graphs.rkt (graph-view%prepare-render-tree): be
+	carefull of creating factors for #f series
+
+	* rkt/session-df.rkt (make-session-data-frame): set the weight
+	series only to an existing series
+	(extract-data): stop-points might be #f
+
+	* rkt/data-frame.rkt (data-series%/get-index): don't return #f
+	for the first item in the series.
+	(df-describe): handle gracefully the case when there are no
+	statistics.
+	(df-statistics): fix contract, the function can also return #f
+
 2016-09-13  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/edit-lap-swim.rkt (swl-model%/can-join?): check for matching
