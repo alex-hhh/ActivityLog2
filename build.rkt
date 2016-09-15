@@ -80,5 +80,5 @@
   
 (define (mkdist)
   (assemble-distribution 
-   "../ActivityLog2-dist"
+   "dist"
    (list app-exe-file)))

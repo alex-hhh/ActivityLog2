@@ -58,5 +58,5 @@ You can also build a stand-alone distribution.  To do that, open the file
     (build-app)
     (mkdist)
 
-This will create a stand-alone application in a folder ../ActivityLog2-dist.
-This application will run even on machines that don't have Racket installed.
+This will create a stand-alone application in the "dist" folder.  This
+application will run even on machines that don't have Racket installed.

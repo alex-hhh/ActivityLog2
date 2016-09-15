@@ -14,10 +14,5 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-;; for some reason, Dr-Racket wants this require when building a
-;; distribution.  Commenting it out seems to produce better error
-;; messages in interactive mode.
-
 (require "rkt/main.rkt")
 (main)

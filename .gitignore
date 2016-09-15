@@ -14,5 +14,6 @@ Thumbs.db
 ActivityLog2.ico
 # racket puts compiled files in this folder
 compiled/
+dist/
 # ignore it for now, contains user specific info.
 .dir-locals.el
