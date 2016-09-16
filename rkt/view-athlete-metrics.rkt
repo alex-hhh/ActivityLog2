@@ -281,6 +281,8 @@
                      (send (new athlete-metrics-operations-menu% [target this]) get-popup-menu)]
                     ))
 
+    (send lb set-default-export-file-name "athlete-metrics.csv")
+
     (define (on-filter-changed)
       (let ((rows (get-athlete-metrics database date-range)))
         (send lb set-data rows)

@@ -344,6 +344,10 @@
     (define inhibit-refresh #f)
     (define outlier-percentile #f)
     (define outlier-handling 'mark)
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when the session
+    ;; changes
+    (define export-file-name #f)
 
     ;; Initialize the delay-amount and outlier percentile fields
     (if (number? outlier-percentile)
@@ -492,6 +496,7 @@
       (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! data-series #f)
+      (set! export-file-name #f)
       (define current-sport (send data-frame get-property 'sport))
       (define session-id (send data-frame get-property 'session-id)) 
       (cond
@@ -547,10 +552,20 @@
 
     (define/public (get-generation) generation)
 
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id)))
+            (if sid (format "quadrant-~a.png" sid) "quadrant.png"))))
+    
     (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name) "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
+          (set! export-file-name file)
           (send plot-pb export-image-to-file file))))
     
     ))

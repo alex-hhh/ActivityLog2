@@ -1187,6 +1187,8 @@
         (let ((report-info (list-ref the-reports selected-report)))
           (let ((report-fn (second report-info))
                 (columns ((third report-info) (car sport-filter))))
+            (send the-list-box set-default-export-file-name
+                  (format "~a.csv" (first report-info)))
             (send the-list-box setup-column-defs columns)
             (send the-list-box set-data (report-fn))))))
 

@@ -161,6 +161,10 @@
     (define plot-rt #f)
     ;; keep best avg values around, as they are expensive to calculate
     (define data-cache (make-hash))
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when one of the axis
+    ;; changes.
+    (define export-file-name #f)
 
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
@@ -186,11 +190,13 @@
     (define (on-axis-changed new-index)
       (unless (equal? selected-axis new-index)
         (set! selected-axis new-index)
+        (set! export-file-name #f)
         (refresh-plot)))
 
     (define (on-aux-axis-changed new-index)
       (unless (equal? selected-aux-axis new-index)
         (set! selected-aux-axis new-index)
+        (set! export-file-name #f)
         (refresh-plot)))
 
     (define (on-show-grid flag)
@@ -293,10 +299,31 @@
       (save-params-for-sport)
       (al-put-pref pref-tag (list axis-by-sport show-grid? zero-base?)))
 
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id and axis names of the plot.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id))
+                (axis1 (get-series-axis))
+                (axis2 (get-aux-axis)))
+            (cond ((and sid axis1 axis2)
+                   (format "best-avg-~a-~a-~a.png" sid
+                           (send axis1 get-series-name)
+                           (send axis2 get-series-name)))
+                  ((and sid axis1)
+                   (format "best-avg-~a-~a.png" sid
+                           (send axis1 get-series-name)))
+                  (#t
+                   "best-avg.png")))))
+      
     (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name)
+                            "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
+          (set! export-file-name file)
           (send plot-pb export-image-to-file file))))
 
     (define/public (on-interactive-export-data formatted?)
@@ -327,6 +354,7 @@
       (install-axis-choices axis-choices)
       (set! data-cache (make-hash))
       (restore-params-for-sport)
+      (set! export-file-name #f)
       (set! inhibit-refresh #f)
       (refresh-plot))
 

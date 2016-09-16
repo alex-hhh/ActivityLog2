@@ -227,6 +227,8 @@
            [right-click-menu
             (send (new activity-operations-menu% [target this]) get-popup-menu)]))
 
+    (send lb set-default-export-file-name "activities.csv")
+
     ;; Restore visual layout
     (let ((vdata (al-get-pref tag (lambda () #f))))
       (when (and vdata (= (length vdata) 1))

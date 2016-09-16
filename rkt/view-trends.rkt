@@ -242,8 +242,11 @@
     (define (on-interactive-export-image)
       (let ((n (send trend-charts-panel get-selection)))
         (when n
-          (let ((file (put-file "Select file to export to" #f #f #f "png" '()
-                                '(("PNG Files" "*.png") ("Any" "*.*")))))
+          (let* ((c (list-ref trend-charts n))
+                 (file (put-file "Select file to export to" #f #f
+                                 (format "~a.csv" (send c get-name))
+                                 "png" '()
+                                 '(("PNG Files" "*.png") ("Any" "*.*")))))
             (when file
               (send (list-ref trend-charts n) export-image-to-file file))))))
     

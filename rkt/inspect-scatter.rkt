@@ -262,6 +262,10 @@
     (define quantile-bounds (vector #f #f #f))
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
     (define plot-rt #f)                 ; plot render tree
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when one of the axis
+    ;; changes.
+    (define export-file-name #f)
 
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
@@ -285,6 +289,7 @@
       (unless (equal? x-axis-index new-index)
         (save-params-for-axis)
         (set! x-axis-index new-index)
+        (set! export-file-name #f)
         (restore-params-for-axis)
         (invalidate-data)))
 
@@ -292,6 +297,7 @@
       (unless (equal? y-axis-index new-index)
         (save-params-for-axis)
         (set! y-axis-index new-index)
+        (set! export-file-name #f)
         (restore-params-for-axis)
         (invalidate-data)))
 
@@ -488,10 +494,27 @@
       (let ((data (list show-grid? axis-by-sport params-by-axis)))
         (al-put-pref pref-tag data)))
 
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id and axis names of the plot.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id))
+                (x-axis (list-ref axis-choices x-axis-index))
+                (y-axis (list-ref axis-choices y-axis-index)))
+            (cond ((and sid x-axis y-axis)
+                   (format "scatter-~a-~a-~a.png" sid
+                           (send x-axis get-series-name)
+                           (send y-axis get-series-name)))
+                  (#t
+                   "scatter.png")))))
+    
     (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name) "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
+          (set! export-file-name file)
           (send plot-pb export-image-to-file file))))
 
     (define/public (set-session session df)
@@ -502,6 +525,7 @@
       (set! delay-amount #f)
       (set! outlier-percentile #f)
       (set! outlier-handling 'mark)
+      (set! export-file-name #f)
       (define lap-swimming? (send data-frame get-property 'is-lap-swim?))
       (set! axis-choices
             (filter-axis-list

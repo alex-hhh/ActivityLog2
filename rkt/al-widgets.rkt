@@ -460,6 +460,8 @@ values (?, ?)" session-id id))
 
     (define/public (set-session session [df #f])
       (set! the-session session)
+      (send lb set-default-export-file-name
+            (format "~a-laps.csv" (or (assq1 'database-id session) "session")))
       (let ((sport (session-sport the-session)))
         (send lb setup-column-defs (lap-field-definitions sport))
         (send lb set-data (number-session-laps the-session))))

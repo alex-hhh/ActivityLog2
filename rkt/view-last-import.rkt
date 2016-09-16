@@ -77,6 +77,8 @@
         (set! import-list
               (new qresults-list% 
                    [parent p] [tag 'activity-log:import-dialog]))
+
+        (send import-list set-default-export-file-name "import-list.csv")
         
         (send import-list setup-column-defs id-columns)
 
@@ -287,6 +289,8 @@
            [tag 'activity-log:import-view]
            [right-click-menu 
             (send (new activity-operations-menu% [target this]) get-popup-menu)]))
+
+    (send lb set-default-export-file-name "last-import.csv")
 
     (send lb setup-column-defs *display-columns*)
 

@@ -171,19 +171,34 @@
     (define/public (save-visual-layout)
       (send mini-lap-view save-visual-layout))
 
-    (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
-                            '(("PNG Files" "*.png") ("Any" "*.*")))))
-        (when file
-          (send map-view export-image-to-file file))))
-
     (define generation -1)
     (define data-frame #f)
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when the session
+    ;; changes
+    (define export-file-name #f)
+
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id)))
+            (if sid (format "map-~a.png" sid) "map.png"))))
+    
+    (define/public (on-interactive-export-image)
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name) "png" '()
+                            '(("PNG Files" "*.png") ("Any" "*.*")))))
+        (when file
+          (set! export-file-name file)
+          (send map-view export-image-to-file file))))
 
     (define/public (set-session session df)
       (set! generation (+ 1 generation))
       (set! the-session session)
       (set! data-frame df)
+      (set! export-file-name #f)
       (send mini-lap-view set-session session)
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)

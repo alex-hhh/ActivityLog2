@@ -187,6 +187,10 @@
     (define data-frame #f)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
     (define plot-rt #f)                 ; plot render tree
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when one of the axis
+    ;; changes.
+    (define export-file-name #f)
 
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
@@ -214,6 +218,7 @@
         (save-params-for-axis)
         (set! y-axis-index new-index)
         (restore-params-for-axis)
+        (set! export-file-name #f)
         (refresh-plot)))
 
     (define (on-show-grid flag)
@@ -360,10 +365,29 @@
       (let ((data (list 'gen1 axis-by-sport params-by-axis show-grid? show-as-percentage?)))
         (al-put-pref pref-tag data)))
 
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id and axis names of the plot.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id))
+                (axis (list-ref axis-choices y-axis-index)))
+            (cond ((and sid (list? axis))
+                   (format "histogram-~a-~a-~a.png" sid
+                           (send (second axis) get-series-name)
+                           (send (third axis) get-series-name)))
+                  ((and sid axis)
+                   (format "histogram-~a-~a.png" sid
+                           (send axis get-series-name)))
+                  (#t
+                   "histogram.png")))))
+
     (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name) "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
+          (set! export-file-name file)
           (send plot-pb export-image-to-file file))))
 
     (define/public (set-session session df)
@@ -378,6 +402,7 @@
       (install-axis-choices axis-choices)
       (restore-params-for-sport)
       (set! inhibit-refresh #f)
+      (set! export-file-name #f)
       (refresh-plot))
 
     (define/public (get-generation) generation)

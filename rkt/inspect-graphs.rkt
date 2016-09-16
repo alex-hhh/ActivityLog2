@@ -117,6 +117,11 @@
 
     (define y-axis-by-sport (make-hash)) ; saved as a preference
 
+    ;; The name of the file used by 'on-interactive-export-image'. This is
+    ;; remembered between subsequent exports, but reset when one of the axis
+    ;; changes.
+    (define export-file-name #f)
+
     (let ((pref (al-get-pref tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 3))
         (set! active? (first pref))
@@ -420,6 +425,7 @@
       (set! factor-fn #f)
       (set! factor-colors #f)
       (set! data-series2 #f)
+      (set! export-file-name #f)
       (when (and y-axis-choice data-frame)
         (let* ((sport (send data-frame get-property 'sport))
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
@@ -467,6 +473,7 @@
       (set! factor-fn #f)
       (set! factor-colors #f)
       (set! data-series2 #f)
+      (set! export-file-name #f)
       (prepare-render-tree))
 
     (define/public (highlight-lap lap-num)
@@ -495,10 +502,27 @@
           (on-canvas-paint graph-canvas (new bitmap-dc% [bitmap bmp]))
           (send bmp save-file file-name 'png))))
 
+    ;; Return a suitable file name for use by 'on-interactive-export-image'.
+    ;; If 'export-file-name' is set, we use that, otherwise we compose a file
+    ;; name from the session id and axis names of the plot.
+    (define (get-default-export-file-name)
+      (or export-file-name
+          (let ((sid (send data-frame get-property 'session-id))
+                (s1 (and y-axis (send y-axis get-series-name)))
+                (s2 (and y-axis2 (send y-axis2 get-series-name))))
+            (cond ((and sid s1 s2)
+                   (format "graph-~a-~a-~a.png" sid s1 s2))
+                  ((and sid s1)
+                   (format "graph-~a-~a.png" sid s1))
+                  (#t
+                   "graph.png")))))
+    
     (define/public (on-interactive-export-image)
-      (let ((file (put-file "Select file to export to" #f #f #f "png" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (get-default-export-file-name) "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
+          (set! export-file-name file)
           (export-image-to-file file))))
 
     (define/public (get-name) text)

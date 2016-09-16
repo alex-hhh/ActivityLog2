@@ -851,6 +851,8 @@
 
     (define rclick-menu right-click-menu)
 
+    (define default-export-file-name #f)
+
     (define (get-column-formatters)
       (let ((formatters '()))
          (for ((cdef (in-list column-defs)))
@@ -907,11 +909,19 @@
       ;; Update the list-box in place (no rows are added/deleted)
       (refresh-contents))
 
+    (define/public (set-default-export-file-name name)
+      (set! default-export-file-name name))
+
     ;; Export contents to a CSV file, asking the user for a filename first.
     (define/public (on-interactive-export-data formatted?)
-      (let ((file (put-file "Select file to export to" #f #f #f "csv" '()
+      (let ((file (put-file "Select file to export to"
+                            #f
+                            #f
+                            default-export-file-name
+                            "csv" '()
                             '(("CSV Files" "*.csv") ("Any" "*.*")))))
         (when file
+          (set! default-export-file-name file)
           (call-with-output-file file
             (lambda (out) (export-data-as-csv out formatted?))
             #:mode 'text #:exists 'truncate))))

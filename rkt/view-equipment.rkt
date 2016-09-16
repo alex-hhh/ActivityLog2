@@ -861,6 +861,8 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
                     [right-click-menu
                      (send (new equipment-operations-menu% [target eqop-target]) get-popup-menu)]))
 
+    (send lb set-default-export-file-name "equipment.csv")
+
     (let ((p (new horizontal-pane% [parent pane] 
                   [border 0] [spacing 20] 
                   [alignment '(left center)]
@@ -890,6 +892,8 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
            [tag 'activity-log:service-log]
            [right-click-menu
             (send (new service-log-operations-menu% [target svop-target]) get-popup-menu)]))
+
+    (send service-log-lb set-default-export-file-name "service-log.csv")
 
     (define (on-filter-changed)
       (refresh))
