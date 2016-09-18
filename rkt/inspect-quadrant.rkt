@@ -490,6 +490,19 @@
       (let ((data (list 'gen1 params-by-sport show-grid? show-zones?)))
         (al-put-pref pref-tag data)))
 
+    ;; Return #t if the quadrant plot can be displayed for a data-frame% (DF).
+    ;; It can display if the data frame contains the required series
+    ;; (depending on the sport)
+    (define/public (should-display-for-data-frame? df)
+      (let ((sport (send df get-property 'sport)))
+        (or
+         (and (equal? (vector-ref sport 0) 1) ; running
+              (send df contains? "spd" "cad"))
+         (and (equal? (vector-ref sport 0) 5) ; swim
+              (send df contains? "spd" "cad"))
+         (and (equal? (vector-ref sport 0) 2) ; bike
+              (send df contains? "pwr" "cad")))))
+    
     (define/public (set-session session df)
       (save-params-for-sport)
       (set! inhibit-refresh #t)

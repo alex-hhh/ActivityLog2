@@ -340,8 +340,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
             (set! labels (cons "Best Avg" labels))
             (set! tabs-1 (cons (cons best-avg-panel best-avg) tabs-1)))
 
-          (set! labels (cons "Qadrant" labels))
-          (set! tabs-1 (cons (cons quadrant-panel quadrant) tabs-1))
+          (when (send quadrant should-display-for-data-frame? session-df)
+            (set! labels (cons "Qadrant" labels))
+            (set! tabs-1 (cons (cons quadrant-panel quadrant) tabs-1)))
 
           (set! labels (cons "Laps" labels))
           (set! tabs-1 (cons (cons laps-panel laps) tabs-1))
