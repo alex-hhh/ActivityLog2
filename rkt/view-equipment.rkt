@@ -19,6 +19,7 @@
          racket/gui/base
          (rename-in srfi/48 (format format-48))
          racket/string
+         racket/match
          "al-log.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"
@@ -568,7 +569,11 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
        (select kms_used from V_EQUIPMENT_USE where equipment_id = EQ.id) as kms_used,
        (select first_use from V_EQUIPMENT_USE where equipment_id = EQ.id) as first_use,
        (select last_use from V_EQUIPMENT_USE where equipment_id = EQ.id) as last_use,
-       (select ifnull(E1.name, E1.device_name) from EQUIPMENT E1 where E1.id = EQ.part_of)
+       (select ifnull(E1.name, E1.device_name) from EQUIPMENT E1 where E1.id = EQ.part_of),
+       (select EV.software_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as software_version,
+       (select EV.hardware_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as hardware_version,
+       (select EV.battery_voltage from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as battery_voltage,
+       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status
   from EQUIPMENT EQ
   where retired < ?" (if include-retired? 2 1)))
 
@@ -586,7 +591,11 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
        (select kms_used from V_EQUIPMENT_USE where equipment_id = EQ.id) as kms_used,
        (select first_use from V_EQUIPMENT_USE where equipment_id = EQ.id) as first_use,
        (select last_use from V_EQUIPMENT_USE where equipment_id = EQ.id) as last_use,
-       (select ifnull(E1.name, E1.device_name) from EQUIPMENT E1 where E1.id = EQ.part_of)
+       (select ifnull(E1.name, E1.device_name) from EQUIPMENT E1 where E1.id = EQ.part_of),
+       (select EV.software_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as software_version,
+       (select EV.hardware_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as hardware_version,
+       (select EV.battery_voltage from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as battery_voltage,
+       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status
   from EQUIPMENT EQ
 where EQ.id = ?" eqid))
 
@@ -630,6 +639,30 @@ where EQ.id = ?" eqid))
                     (let ((v (fn row)))
                       (if v (date-time->string v) "")))
                   (lambda (row) (or (fn row) 0))))
+   (let ((fn (lambda (row) (sql-column-ref row 11))))
+     (column-info "Software Version"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (format "~a" v) "")))
+                  (lambda (row) (or (fn row) ""))))
+   (let ((fn (lambda (row) (sql-column-ref row 12))))
+     (column-info "Hardware Version"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (format "~a" v) "")))
+                  (lambda (row) (or (fn row) ""))))
+   (let ((fn (lambda (row) (sql-column-ref row 13))))
+     (column-info "Battery Voltage"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (format-48 "~1,2F" v) "")))
+                  (lambda (row) (or (fn row) ""))))
+   (let ((fn (lambda (row) (sql-column-ref row 14))))
+     (column-info "Battery Status"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (format "~a" v) "")))
+                  (lambda (row) (or (fn row) ""))))
    ))
 
 
@@ -674,6 +707,17 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
  where ESL.equipment_id = EQ.id
    and VESL.service_log_id = ESL.id
    and ESL.id = ?" svid))
+
+(define (get-low-battery-devices db)
+  (query-rows
+   db
+   "select ifnull(EQ.name, EQ.device_name) as name,
+           EV.battery_status as status,
+           EV.battery_voltage as voltage,
+           EBS.name as status_name
+      from EQUIPMENT EQ, EQUIPMENT_VER EV, E_BATTERY_STATUS EBS
+     where EV.equipment_id = EQ.id and EV.battery_status = EBS.id
+       and EV.battery_status in (4, 5)"))
 
 (define *service-log-display-columns*
   (list
@@ -918,6 +962,9 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
         (for ((i (in-list items)))
           (let ((equipment (vector-ref i 2))
                 (description (vector-ref i 5)))
-            (log-al-warning (format "~a: ~a" equipment description))))))
-
+            (log-al-warning (format "~a: ~a" equipment description)))))
+      (for ([item (get-low-battery-devices the-database)])
+        (match-define (vector name status voltage status-name) item)
+        (define msg (format-48 "~a: battery status is ~a (~1,2F V)" name status-name voltage))
+        (if (> status 4) (log-al-error msg) (log-al-warning msg))))
     ))

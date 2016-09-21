@@ -13,7 +13,7 @@
 -- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 -- more details.
 
-.bail on;
+.bail on
 
 alter table SECTION_SUMMARY add column aerobic_decoupling real;
 

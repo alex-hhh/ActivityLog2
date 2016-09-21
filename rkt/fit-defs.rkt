@@ -687,7 +687,7 @@
     (1567 . edge810)
     (1570 . tempe)
     (1600 . fr910xt-japan)
-    (fr910xt-1664 . korea)
+    (1664 . fr910xt-korea)
     (1688 . fr10-japan)
     (1721 . edge810-japan)
     (1735 . virb-elite)
@@ -885,11 +885,13 @@
     (5 . local)))                       ; on-board device
 
 (define *battery-status*
-  '((new . 1)
-    (good . 2)
-    (ok . 3)
-    (low . 4)
-    (critical . 5)))
+  '((1 . new)
+    (2 . good)
+    (3 . ok)
+    (4 . low)
+    (5 . critical)
+    (6 . charging)
+    (7 . unknown)))
 
 (define *workout-step-duration*
   '((0 . time)
@@ -1097,6 +1099,7 @@
     (manufacturer        . ,(make-enum-lookup *manfacturer*))
     (product             . ,(make-enum-lookup *garmin-product*))
     (battery-status      . ,(make-enum-lookup *battery-status*))
+    (battery-voltage     . ,(lambda (v) (and v (/ v 256.0))))
     (source-type         . ,(make-enum-lookup *source-type*))))
 
 (define *location-conversions*

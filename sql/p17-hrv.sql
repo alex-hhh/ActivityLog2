@@ -13,7 +13,7 @@
 -- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 -- more details.
 
-.bail on;
+.bail on
 
 create table SESSION_HRV (
   id integer not null primary key,

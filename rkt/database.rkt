@@ -199,11 +199,8 @@
               (for-each (lambda (lap) (db-insert-lap lap session-id db))
                         (cdr laps)))
         (when devices
-              (for-each (lambda (device)
-                          (let ((device-id (db-insert-device device db)))
-                            (when device-id
-                              (db-insert-device-use session-id device-id db))))
-                        (cdr devices)))))))
+          (for ([di (make-devinfo-list (cdr devices))])
+            (put-devinfo db di session-id)))))))
 
 (define db-insert-lap
   (let ((stmt (virtual-statement
@@ -278,71 +275,161 @@
                            (raise e))))
                        (apply query-exec db stmt length-id values))))))
 
-(define db-get-device-id 
-  (let ((stmt (virtual-statement
-               (lambda (dbsys)
-                 "select id from EQUIPMENT where serial_number = ?")))
-        (stmt2 (virtual-statement
-                (lambda (dbsys)
-                  ;; NOTE: when using the lower 16 bits of the equipment
-                  ;; serial, we might have duplicates, in that case, just
-                  ;; select the biggest serial number.
-                  "select id
-                     from EQUIPMENT
-                    where serial_number = (
-                     select max(E1.serial_number)
-                       from EQUIPMENT E1
-                      where (E1.serial_number % 65536) = ?)"))))
-    (lambda (serial-number db)
-      (or (query-maybe-value db stmt serial-number)
-          (query-maybe-value db stmt2 serial-number)))))
+
+;;............................................ Equipment / Device import ....
 
-;; NOTE: devices are indexed by their serial number.  if the serial number is
-;; already in the database, it won't be updated
-(define db-insert-device
-  (let ((stmt (virtual-statement
-               (lambda (dbsys)
-                 "insert into EQUIPMENT(name, device_name, manufacturer_id, device_id, serial_number)
-                  values (?, ?, ?, ?, ?)"))))
-    (lambda (device-info db)
-      (let ((serial-number (or (assq1 'serial-number device-info)
-                               (assq1 'ant-device-number device-info))))
-        (cond ((not serial-number) #f)              ; no serial number
-              ((db-get-device-id serial-number db)) ; already present
-              (#t                                   ; need to add a new device
-               (let ((name sql-null)
-                     (device-name (fit-get-device-name device-info))
-                     (manufacturer (let ((m (assq1 'manufacturer device-info)))
-                                     (cond ((symbol? m) (rassq1 m *manfacturer*))
-                                           ((number? m) m)
-                                           (#t sql-null))))
-                     (product (let ((p (assq1 'product device-info)))
-                                (cond ((symbol? p) (rassq1 p *garmin-product*))
-                                      ((number? p) p)
-                                      (#t sql-null)))))
-                 (if (void? device-name)
-                     (begin
-                       (display (format "No device name for ~a~%" device-info))
-                       #f)
-                     (begin
-                       (query-exec db stmt name device-name manufacturer product serial-number)
-                       (db-get-last-pk "EQUIPMENT" db))))))))))
+;; Hold information about a device reported in the FIT file
+(struct devinfo (ts sn manufacturer product name swver hwver bv bs)
+  #:transparent)
 
-(define db-insert-device-use
-  (let ((stmt (virtual-statement
-               (lambda (dbsys)
-                 "insert into EQUIPMENT_USE(session_id, equipment_id) values (?, ?)")))
-        (stmt-chk (virtual-statement
-                   (lambda (dbsys)
-                     "select count(*) from EQUIPMENT_USE where session_id = ? and equipment_id = ?"))))
-    
-    (lambda (session-id equipment-id db)
-      ;; Don't insert duplicates.  The session's device list might contain
-      ;; duplicates.
-      (when (= (query-value db stmt-chk session-id equipment-id) 0)
-            (query-exec db stmt session-id equipment-id)))))
+;; Parse a device-info ALIST (as produced by the 'read-activity-from-file')
+;; and construct a devinfo structure from it.
+(define (make-devinfo alist)
+  (let ((name (fit-get-device-name alist))
+        (ts (assq 'timestamp alist))
+        (sn (or (assq 'serial-number alist) (assq 'ant-device-number alist)))
+        (manufacturer (assq 'manufacturer alist))
+        (product (assq 'product alist))
+        (swver (assq 'software-version alist))
+        (hwver (assq 'hardware-version alist))
+        (bv (assq 'battery-voltage alist))
+        (bs (assq 'battery-status alist)))
+    (devinfo (and ts (cdr ts))
+             (and sn (cdr sn))
+             (and manufacturer (cdr manufacturer))
+             (and product (cdr product))
+             name
+             (and swver (cdr swver))
+             (and hwver (cdr hwver))
+             (and bv (cdr bv))
+             (and bs (cdr bs)))))
 
+;; Join two devinfo structures (we assume for the same serial number).  When
+;; both structures contain a field, the devinfo with the most recent timestamp
+;; is used.
+(define (join-devinfo d1 d2)
+  (if (< (devinfo-ts d1) (devinfo-ts d2))
+      (join-devinfo d2 d1)
+      (devinfo
+        (devinfo-ts d1)
+        (devinfo-sn d1)
+        (or (devinfo-manufacturer d1) (devinfo-manufacturer d2))
+        (or (devinfo-product d1) (devinfo-product d2))
+        (or (devinfo-name d1) (devinfo-name d2))
+        (or (devinfo-swver d1) (devinfo-swver d2))
+        (or (devinfo-hwver d1) (devinfo-hwver d2))
+        (or (devinfo-bv d1) (devinfo-bv d2))
+        (or (devinfo-bs d1) (devinfo-bs d2)))))
 
+;; Parse a devices list (list of device-info ALISTS) as produced by
+;; 'read-activity-from-file' and return a list of devinfo structures.  Note
+;; that the list contains multiple entries for the same device, we merge these
+;; together and return a single list, with one entry for each device.
+(define (make-devinfo-list devices)
+  (let ((result (make-hash)))
+    (for ([d devices])
+      (let ((di (make-devinfo d)))
+        (when (devinfo-sn di)
+          (hash-update!
+           result
+           (devinfo-sn di)
+           (lambda (prev)
+             (if prev (join-devinfo prev di) di))
+           #f))))
+    (for/list ([v (in-hash-values result)]) v)))
+
+(define stmt-get-device-id
+  (virtual-statement
+   (lambda (dbsys)
+     "select id from EQUIPMENT where serial_number = ?")))
+
+;; Some older devices reported only the bottom 16bits of the serial number, so
+;; we look for that as well.
+(define stmt-get-device-id-16bit
+  (virtual-statement
+   (lambda (dbsys)
+     ;; NOTE: when using the lower 16 bits of the equipment serial, we might
+     ;; have duplicates, in that case, just select the biggest serial number.
+     "select id
+       from EQUIPMENT
+      where serial_number = (
+        select max(E1.serial_number)
+          from EQUIPMENT E1
+         where (E1.serial_number % 65536) = ?)")))
+
+;; Get the EQUIPMENT.id for a serial number, SN, or #f if not found.
+(define (dev-id-from-sn db sn)
+  (or (query-maybe-value db stmt-get-device-id sn)
+      (query-maybe-value db stmt-get-device-id-16bit sn)))
+
+(define stmt-put-equipment
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into EQUIPMENT(device_name, manufacturer_id, device_id, serial_number)
+      values (?, ?, ?, ?)")))
+
+(define stmt-put-equipment-ver
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into EQUIPMENT_VER(equipment_id, timestamp, software_version,
+                                hardware_version, battery_voltage, battery_status)
+      values(?, ?, ?, ?, ?, ?)")))
+
+(define stmt-check-equipment-use
+  (virtual-statement
+   (lambda (dbsys)
+     "select count(*) from EQUIPMENT_USE where session_id = ? and equipment_id = ?")))
+(define stmt-put-equipment-use
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into EQUIPMENT_USE(session_id, equipment_id) values (?, ?)")))
+
+(define (bs->num bs)
+  (case bs
+    ((new) 1)
+    ((good) 2)
+    ((ok) 3)
+    ((low) 4)
+    ((critical) 5)
+    ((charging) 6)
+    (else 7)))
+
+;; Put a device info strucure in the database: add entries to EQUIPMENT,
+;; EQUIPMENT_VER and EQUIPMENT_USE as needed.
+(define (put-devinfo db di sid)
+  (let ((id (dev-id-from-sn db (devinfo-sn di))))
+    (unless id                 ; if it is already there, don't put a new entry
+      (let ((manufacturer (let ((m (devinfo-manufacturer di)))
+                            (cond ((symbol? m) (rassq1 m *manfacturer*))
+                                  ((number? m) m)
+                                  (#t sql-null))))
+            (product (let ((p (devinfo-product di)))
+                       (cond ((symbol? p) (rassq1 p *garmin-product*))
+                             ((number? p) p)
+                             (#t sql-null)))))
+        (query-exec db stmt-put-equipment (devinfo-name di) manufacturer product (devinfo-sn di))
+        (set! id (db-get-last-pk "EQUIPMENT" db))))
+    ;; Put an entry into "EQUIPMENT_VER" if it does not exist, or its
+    ;; timestamp is older than ours.
+    (let ((row (query-maybe-row db "select id, timestamp from EQUIPMENT_VER where equipment_id = ?" id)))
+      (when (or (not row) (< (vector-ref row 1) (devinfo-ts di)))
+        (when row
+          (query-exec db "delete from EQUIPMENT_VER where id = ?" (vector-ref row 0)))
+        (query-exec db stmt-put-equipment-ver
+                    id (devinfo-ts di)
+                    (or (devinfo-swver di) sql-null)
+                    (or (devinfo-hwver di) sql-null)
+                    (or (devinfo-bv di) sql-null)
+                    (bs->num (devinfo-bs di)))))
+
+    (when (= (query-value db stmt-check-equipment-use sid id) 0)
+      (query-exec db stmt-put-equipment-use sid id))
+
+    id))
+
+(define (put-devinfo-list db devinfo-list sid)
+  (for ([d devinfo-list])
+    (put-devinfo db d sid)))
 
 ;.......................................... db-insert-activtiy-raw-data ....
 

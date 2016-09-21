@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(17);
+insert into SCHEMA_VERSION(version) values(18);
 
 
 --........................................................ Enumerations ....
@@ -480,6 +480,35 @@ create table EQUIPMENT (
   -- sensor).
   part_of integer,
   foreign key (part_of) references EQUIPMENT(id) on delete set null);
+
+create table E_BATTERY_STATUS(
+  id integer not null primary key autoincrement,
+  name text unique not null);
+
+insert into E_BATTERY_STATUS(id, name) values(1, 'new');
+insert into E_BATTERY_STATUS(id, name) values(2, 'good');
+insert into E_BATTERY_STATUS(id, name) values(3, 'ok');
+insert into E_BATTERY_STATUS(id, name) values(4, 'low');
+insert into E_BATTERY_STATUS(id, name) values(5, 'critical');
+insert into E_BATTERY_STATUS(id, name) values(6, 'charging');
+insert into E_BATTERY_STATUS(id, name) values(7, 'unknown');
+
+-- Hold firmware version and battery status for a piece of equipment.  FIT
+-- files contain device-info records with this information, and we populate
+-- entries based off that info.
+create table EQUIPMENT_VER (
+  id integer not null primary key autoincrement,
+  equipment_id integer not null,
+  -- This is the timestamp when this entry was last updated.  This is used to
+  -- avoid storing old information when an old activity is imported.
+  timestamp integer not null,
+  software_version text,
+  hardware_version text,
+  battery_voltage real,
+  battery_status integer,
+  foreign key (equipment_id) references EQUIPMENT(id) on delete cascade,
+  foreign key (battery_status) references E_BATTERY_STATUS(id)
+  );
 
 create table EQUIPMENT_USE (
   equipment_id integer not null,
