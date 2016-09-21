@@ -660,12 +660,6 @@
            [font headline-font]
            [label "Notes / Description"]))
 
-    (define edit-button
-      (new button%
-           [parent description-bar]
-           [label "Edit"]
-           [callback (lambda (b e) (on-edit-description))]))
-
     (define save-button
       (new button%
            [parent description-bar]
@@ -680,29 +674,42 @@
            [callback (lambda (b e) (on-revert-description))]
            [style '(deleted)]))
 
+    (define description-canvas
+      (new editor-canvas% [parent desc-panel] [style '(no-hscroll)]))
+    
     (define description-field
-      (new text-field% [parent desc-panel] [label ""] [style '(multiple)]))
+      (new (class text%
+             (init)
+             (super-new)
+             (define/augride (on-change) (on-edit-description)))
+           [line-spacing 1.5]))
+    (send description-canvas set-editor description-field)
+    (send description-field set-max-undo-history 100)
 
     (define last-description #f)
+    (define is-editing? #f)
 
     (define (on-edit-description)
-      (send description-field enable #t)
-      (send description-field focus)
-      (set! last-description (send description-field get-value))
-      (send description-bar change-children
-            (lambda (old) (list description-label save-button revert-button))))
+      (unless is-editing?
+        (set! is-editing? #t)
+        (send description-bar change-children
+              (lambda (old) (list description-label save-button revert-button)))))
 
     (define (on-save-description)
-      (send description-field enable #f)
       (update-session-description)
       (send description-bar change-children
-            (lambda (old) (list description-label edit-button))))
+            (lambda (old) (list description-label)))
+      (set! is-editing? #f))
 
     (define (on-revert-description)
-      (send description-field enable #f)
-      (send description-field set-value last-description)
+      (send description-field begin-edit-sequence)
+      (send description-field select-all)
+      (send description-field clear)
+      (send description-field insert last-description)
+      (send description-field end-edit-sequence)
       (send description-bar change-children
-            (lambda (old) (list description-label edit-button))))
+            (lambda (old) (list description-label)))
+      (set! is-editing? #f))
 
     (define (update-session-labels)
       (when the-session
@@ -723,8 +730,9 @@
       (when the-session
         (let ((sid (assq1 'database-id the-session)))
           (when sid
-            (let ((text (send description-field get-value)))
+            (let ((text (send description-field get-text 0 'eof #t)))
               (unless (equal? last-description text)
+                (set! last-description text)
                 (call-with-transaction
                  the-database
                  (lambda ()
@@ -743,11 +751,17 @@
           (send labels-field setup-for-session the-database session-id)
           (send equipment-field setup-for-session the-database session-id)
           (let ((desc (assq1 'description session)))
-            (set! last-description desc)
-            (send description-field set-value (if desc desc ""))
-            (send description-field enable #f)
+            (set! last-description (or desc ""))
+            (send description-field begin-edit-sequence)
+            (send description-field select-all)
+            (send description-field clear)
+            (send description-field insert last-description)
+            (send description-field clear-undos)
+            (send description-field end-edit-sequence)
+            (send description-field move-position 'home)
+            (set! is-editing? #f)
             (send description-bar change-children
-                  (lambda (old) (list description-label edit-button))))))
+                  (lambda (old) (list description-label))))))
       (set! the-session session))
 
     (define/public (get-generation) generation)
