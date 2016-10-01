@@ -34,6 +34,7 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
+         "workers.rkt"
          "session-df.rkt")
 
 (provide view-session%)
@@ -304,19 +305,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
            (when (< (send v get-generation) generation)
              (send v set-session session session-df))))))
 
-    (define/public (set-session sid)
-      (set! generation (+ 1 generation))
-      (set! session-id sid)
-      (set! session (db-fetch-session sid the-database))
-      (set! session-df (make-session-data-frame the-database sid))
-
-      (send header set-session session)
-      (send header set-database the-database)
-
-      (define is-lap-swimming?
-        (let ((sport (session-sport session))
-              (sub-sport (session-sub-sport session)))
-          (and (equal? sport 5) (equal? sub-sport 17))))
+    (define (set-session-df df)
+      (set! session-df df)
+      (define is-lap-swim? (send df get-property 'is-lap-swim?))
 
       ;; Determine which tabs are needed, and only show those.  The Overview
       ;; panel always exists.
@@ -324,8 +315,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
             (tabs-1 (list (cons overview-panel overview))))
 
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
-        ;; laps.  The Map panel requires GPS data as well.
-        (when (> (length (session-laps session)) 0)
+        ;; data.
+        (when (send df get-row-count)
 
           (set! labels (cons "Graphs" labels))
           (set! tabs-1 (cons (cons charts-panel charts) tabs-1))
@@ -336,7 +327,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (set! labels (cons "Histogram" labels))
           (set! tabs-1 (cons (cons histogram-panel histogram) tabs-1))
 
-          (unless is-lap-swimming?
+          (unless is-lap-swim?
             (set! labels (cons "Best Avg" labels))
             (set! tabs-1 (cons (cons best-avg-panel best-avg) tabs-1)))
 
@@ -350,6 +341,33 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (when (send session-df contains? "lat" "lon")
             (set! labels (cons "Map" labels))
             (set! tabs-1 (cons (cons map-panel map) tabs-1))))
+
+        (send detail-panel set (reverse labels))
+        (set! tabs (reverse tabs-1)))
+      (collect-garbage 'major))
+    
+    (define/public (set-session sid)
+      (set! generation (+ 1 generation))
+      (set! session-id sid)
+      (set! session (db-fetch-session sid the-database))
+
+      ;; The session data frame takes a while to fetch, so we do it in a
+      ;; separate thread.
+      (set! session-df #f)
+      (queue-task
+       "fetch-session-data-frame"
+       (lambda ()
+         (let ((df (make-session-data-frame the-database sid)))
+           (queue-callback
+            (lambda () (set-session-df df))))))
+
+      (send header set-session session)
+      (send header set-database the-database)
+
+      ;; Determine which tabs are needed, and only show those.  The Overview
+      ;; panel always exists.
+      (let ((labels '("Overview"))
+            (tabs-1 (list (cons overview-panel overview))))
 
         (send detail-panel set (reverse labels))
         (set! tabs (reverse tabs-1)))
