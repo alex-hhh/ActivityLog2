@@ -97,7 +97,6 @@
     (define axis-choices '())
     (define selected-axis 0)
     (define selected-aux-axis 0)
-    (define show-grid? #f)
     (define zero-base? #f)
 
     ;; The selection for the BEST-AVG axis is stored per sport in a hash
@@ -107,10 +106,9 @@
 
     ;; Restore the preferences now.
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 3))
+      (when (and pref (eqv? (length pref) 2))
         (set! axis-by-sport (hash-copy (first pref)))
-        (set! show-grid? (second pref))
-        (set! zero-base? (third pref))))
+        (set! zero-base? (second pref))))
 
     ;; Root widget of the entire scatter plot panel
     (define panel
@@ -140,11 +138,6 @@
            [min-width 300] [label "Auxiliary: "]
            [callback (lambda (c e) (on-aux-axis-changed (send c get-selection)))]))
       
-    (define show-grid-check-box
-      (new check-box% [parent control-panel]
-           [value show-grid?] [label "Show Grid"]
-           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
-
     (define zero-base-check-box
       (new check-box% [parent control-panel]
            [value zero-base?] [label "Zero Base"]
@@ -199,11 +192,6 @@
         (set! export-file-name #f)
         (refresh-plot)))
 
-    (define (on-show-grid flag)
-      (unless (equal? show-grid? flag)
-        (set! show-grid? flag)
-        (refresh-plot)))
-
     (define (on-zero-base flag)
       (unless (equal? zero-base? flag)
         (set! zero-base? flag)
@@ -212,8 +200,7 @@
     (define (put-plot-snip)
       (when plot-rt
         (let ((rt (list plot-rt)))
-          (when show-grid?
-            (set! rt (cons (tick-grid) rt)))
+          (set! rt (cons (tick-grid) rt))
           (let ((best-avg-axis (get-series-axis))
                 (aux-axis (get-aux-axis)))
             ;; aux data might not exist, if an incorrect/invalid aux-axis is
@@ -297,7 +284,7 @@
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (al-put-pref pref-tag (list axis-by-sport show-grid? zero-base?)))
+      (al-put-pref pref-tag (list axis-by-sport zero-base?)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

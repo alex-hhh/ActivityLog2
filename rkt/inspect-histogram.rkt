@@ -104,7 +104,6 @@
     ;; Variables that control the look of the plot
     (define axis-choices '())    
     (define y-axis-index 0)
-    (define show-grid? #f)
     (define show-as-percentage? #f)
     (define include-zeroes? #t)
     (define bucket-width 1)
@@ -120,11 +119,10 @@
 
     ;; Restore the preferences now. 
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (> (length pref) 0) (eq? (car pref) 'gen1))
-        (match-define (list tag abs pba grid? as-pct?) pref)
+      (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
+        (match-define (list tag abs pba as-pct?) pref)
         (set! axis-by-sport (hash-copy abs))
         (set! params-by-axis (hash-copy pba))
-        (set! show-grid? grid?)
         (set! show-as-percentage? as-pct?)))
     
     ;; Root widget of the entire scatter plot panel
@@ -148,11 +146,6 @@
            [choices '()] [min-width 300] [label "Data to plot: "]
            [callback (lambda (c e) (on-y-axis-changed (send c get-selection)))]))
 
-    (define show-grid-check-box
-      (new check-box% [parent control-panel]
-           [value show-grid?] [label "Show Grid"]
-           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
-      
     (define show-as-percentage-check-box
       (new check-box% [parent control-panel]
            [value show-as-percentage?] [label "Show as Percentage"]
@@ -221,11 +214,6 @@
         (set! export-file-name #f)
         (refresh-plot)))
 
-    (define (on-show-grid flag)
-      (unless (equal? show-grid? flag)
-        (set! show-grid? flag)
-        (refresh-plot)))
-
     (define (on-show-as-percentage flag)
       (unless (equal? show-as-percentage? flag)
         (set! show-as-percentage? flag)
@@ -251,8 +239,7 @@
     (define (put-plot-snip)
       (when plot-rt
         (let ((rt plot-rt))
-          (when show-grid?
-            (set! rt (cons (tick-grid) rt)))
+          (set! rt (cons (tick-grid) rt))
           (let ((y-axis (list-ref axis-choices y-axis-index)))
             (when (list? y-axis) (set! y-axis (second y-axis)))
             (parameterize ([plot-y-label (if show-as-percentage? "pct %"
@@ -362,7 +349,7 @@
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (let ((data (list 'gen1 axis-by-sport params-by-axis show-grid? show-as-percentage?)))
+      (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
         (al-put-pref pref-tag data)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.

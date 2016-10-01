@@ -94,7 +94,6 @@
 
     (define show-graph? #t)         ; graph view can be toggled on/off
     (define show-avg? #f)           ; display the average line
-    (define show-grid? #f)          ; display a grid
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
     (define filter-amount 0)        ; amount of filtering to use
 
@@ -210,8 +209,7 @@
         (let ((render-tree (list graph-render-tree)))
           (when lap-render-tree
             (set! render-tree (cons lap-render-tree render-tree)))
-          (when show-grid?
-            (set! render-tree (cons (tick-grid) render-tree)))
+          (set! render-tree (cons (tick-grid) render-tree))
           (when show-avg?
             (let ((avg (get-average-renderer)))
               (when avg (set! render-tree (cons avg render-tree)))))
@@ -437,11 +435,6 @@
 
     (define/public (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
-      (set! cached-bitmap-dirty? #t)
-      (send graph-canvas refresh))
-
-    (define/public (show-grid show)
-      (set! show-grid? show)
       (set! cached-bitmap-dirty? #t)
       (send graph-canvas refresh))
 
@@ -1379,7 +1372,6 @@
 
     ;; These are settings for all the graphs
     (define show-avg? #f)           ; display the average line
-    (define show-grid? #f)          ; display a grid
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
     (define filter-amount 0)        ; amount of filtering to use in graphs
 
@@ -1397,14 +1389,9 @@
     (let ((pref (al-get-pref the-pref-tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 5))
         (set! show-avg? (first pref))
-        (set! show-grid? (second pref))
         (set! zoom-to-lap? (third pref))
         (set! filter-amount (fourth pref))
         (set! x-axis-by-sport (hash-copy (fifth pref)))))
-
-    (define (show-grid show)
-      (set! show-grid? show)
-      (for-each (lambda (g) (send g show-grid show)) graphs))
 
     (define (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
@@ -1479,11 +1466,6 @@
          [label "Zoom to Lap"]
          [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
 
-    (new check-box% [parent control-panel]
-         [label "Show Grid"]
-         [value show-grid?]
-         [callback (lambda (b e) (show-grid (send b get-value)))])
-
     (set! x-axis-choice
           (new choice% [parent control-panel]
                [label "X Axis Shows: "]
@@ -1503,7 +1485,7 @@
 
     (define setup-button
       (new button% [parent control-panel]
-           [label "Setup"]
+           [label "Setup..."]
            [callback (lambda (b e) (on-setup))]))
 
     (send filter-amount-choice set-selection filter-amount)
@@ -1555,7 +1537,7 @@
       (for-each (lambda (g) (send g save-visual-layout)) swim-graphs)
       (al-put-pref
        the-pref-tag
-       (list show-avg? show-grid? zoom-to-lap? filter-amount x-axis-by-sport)))
+       (list show-avg? #t zoom-to-lap? filter-amount x-axis-by-sport)))
 
 
     (define (setup-graphs-for-current-session)
@@ -1576,7 +1558,6 @@
         (for-each (lambda (g)
                     (send g suspend-flush)
                     (send g set-x-axis x-axis)
-                    (send g show-grid show-grid?)
                     (send g zoom-to-lap zoom-to-lap?)
                     (send g show-average-line show-avg?)
                     (send g set-filter-amount filter-amount)

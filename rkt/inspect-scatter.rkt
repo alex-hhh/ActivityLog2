@@ -170,7 +170,6 @@
     (define axis-choices '())
     (define x-axis-index 0)
     (define y-axis-index 0)
-    (define show-grid? #f)
     (define delay-amount #f)
     (define outlier-percentile #f)
     (define outlier-handling 'mark)
@@ -186,9 +185,8 @@
     ;; Restore the preferences now, we do it so the controls can be
     ;; initialized with the correct values.
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 3))
-        (match-define (list sg? abs dba) pref)
-        (set! show-grid? sg?)
+      (when (and pref (eqv? (length pref) 2))
+        (match-define (list abs dba) pref)
         (set! axis-by-sport (hash-copy abs))
         (set! params-by-axis (hash-copy dba))))
     
@@ -217,11 +215,6 @@
            [label "Y Axis: "]
            [callback (lambda (c e) (on-y-axis-changed (send c get-selection)))]))
     
-    (define show-grid-check-box
-      (new check-box% [parent control-panel] [value show-grid?]
-           [label "Show Grid"]
-           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
-
     (define delay-amount-field
       (new number-input-field% [parent control-panel] 
            [label "Delay Amount: "] [cue-text "seconds"] [min-value 0]
@@ -301,12 +294,6 @@
         (restore-params-for-axis)
         (invalidate-data)))
 
-    (define (on-show-grid flag)
-      (unless (equal? show-grid? flag)
-        (set! show-grid? flag)
-        ;; no need to invalidate the data
-        (put-plot-snip)))
-
     (define (on-delay-amount amount)
       (when (eq? amount 'empty)
         (set! amount #f))
@@ -335,8 +322,7 @@
     (define (put-plot-snip)
       (when plot-rt
         (let ((rt (list plot-rt)))
-          (when show-grid?
-            (set! rt (cons (tick-grid) rt)))
+          (set! rt (cons (tick-grid) rt))
           (when (eq? outlier-handling 'mark)
             (when (vector-ref quantile-bounds 0)
               (set! rt (cons (vrule (vector-ref quantile-bounds 0)
@@ -491,7 +477,7 @@
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (let ((data (list show-grid? axis-by-sport params-by-axis)))
+      (let ((data (list axis-by-sport params-by-axis)))
         (al-put-pref pref-tag data)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.

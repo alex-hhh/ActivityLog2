@@ -169,19 +169,17 @@
     (define pref-tag 'activity-log:quadrant-plot)
 
     ;; Variables that control the look of the plot
-    (define show-grid? #f)
     (define show-zones? #f)
     (define threshold-speed #f)
     (define threshold-power #f)
     (define threshold-cadence #f)
     (define params-by-sport (make-hash))
 
-    ;; Restore the preferences now. 
+    ;; Restore the preferences now.
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
-      (when (and pref (> (length pref) 0) (eq? (car pref) 'gen1))
-        (match-define (list tag pbs sg? sz?) pref)
+      (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
+        (match-define (list tag pbs sz?) pref)
         (set! params-by-sport (hash-copy pbs))
-        (set! show-grid? sg?)
         (set! show-zones? sz?)))
 
     ;; Root widget of the entire scatter plot panel
@@ -194,13 +192,13 @@
 
     ;;; Holds the widgets that control the look of the plot
     (define control-panel
-      (new horizontal-panel% 
+      (new horizontal-panel%
            [parent panel] [spacing 10] [border 0]
            [alignment '(center center)]
            [stretchable-height #f]))
 
     (define run-pace-field
-      (new validating-input-field% [parent control-panel] 
+      (new validating-input-field% [parent control-panel]
            [label "Threshold Pace: "] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
            [cue-text "min/km"]
@@ -216,7 +214,7 @@
            [valid-value-cb (lambda (v) (on-threshold-speed v))]))
 
     (define swim-pace-field
-      (new validating-input-field% [parent control-panel] 
+      (new validating-input-field% [parent control-panel]
            [label "Threshold Pace: "] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
            [cue-text "min/100m"]
@@ -250,11 +248,6 @@
       (new check-box% [parent control-panel] [value show-zones?]
            [label "Show Zones"]
            [callback (lambda (c e) (on-show-zones (send c get-value)))]))
-    
-    (define show-grid-check-box
-      (new check-box% [parent control-panel] [value show-grid?]
-           [label "Show Grid"]
-           [callback (lambda (c e) (on-show-grid (send c get-value)))]))
 
     (define outlier-percentile-field
       (new number-input-field% [parent control-panel]
@@ -268,11 +261,6 @@
            [label ""] [choices '("Mark outliers" "Crop outliers")]
            [stretchable-width #f]
            [callback (lambda (c e) (on-outlier-handling (send c get-selection)))]))
-
-    (define (on-show-grid flag)
-      (unless (equal? show-grid? flag)
-        (set! show-grid? flag)
-        (put-plot-snip)))
 
     (define (on-show-zones flag)
       (unless (equal? show-zones? flag)
@@ -359,8 +347,7 @@
     (define (put-plot-snip)
       (when (and plot-rt (not inhibit-refresh))
         (let ((rt (list plot-rt)))
-          (when show-grid?
-            (set! rt (cons (tick-grid) rt)))
+          (set! rt (cons (tick-grid) rt))
           (when (eq? outlier-handling 'mark)
             (when (vector-ref quantile-bounds 0)
               (set! rt (cons (vrule (vector-ref quantile-bounds 0)
@@ -487,7 +474,7 @@
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (let ((data (list 'gen1 params-by-sport show-grid? show-zones?)))
+      (let ((data (list 'gen2 params-by-sport show-zones?)))
         (al-put-pref pref-tag data)))
 
     ;; Return #t if the quadrant plot can be displayed for a data-frame% (DF).
@@ -502,7 +489,7 @@
               (send df contains? "spd" "cad"))
          (and (equal? (vector-ref sport 0) 2) ; bike
               (send df contains? "pwr" "cad")))))
-    
+
     (define/public (set-session session df)
       (save-params-for-sport)
       (set! inhibit-refresh #t)
@@ -511,7 +498,7 @@
       (set! data-series #f)
       (set! export-file-name #f)
       (define current-sport (send data-frame get-property 'sport))
-      (define session-id (send data-frame get-property 'session-id)) 
+      (define session-id (send data-frame get-property 'session-id))
       (cond
         ((and (equal? (vector-ref current-sport 0) 1) ; running
               (send data-frame contains? "spd" "cad"))
@@ -522,7 +509,7 @@
          (set! filter-fn valid-only)
          (send control-panel change-children
                (lambda (old) (list run-pace-field cadence-field
-                                   show-zones-check-box show-grid-check-box
+                                   show-zones-check-box
                                    outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 5) ; swim
               (send data-frame contains? "spd" "cad"))
@@ -534,7 +521,7 @@
          (set! filter-fn valid-only)
          (send control-panel change-children
                (lambda (old) (list swim-pace-field cadence-field
-                                   show-zones-check-box show-grid-check-box
+                                   show-zones-check-box
                                    outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 2) ; bike
               (send data-frame contains? "pwr" "cad"))
@@ -548,7 +535,7 @@
          (set! filter-fn filter-torque)
          (send control-panel change-children
                (lambda (old) (list power-field cadence-field
-                                   show-zones-check-box show-grid-check-box
+                                   show-zones-check-box
                                    outlier-percentile-field outlier-handling-choice))))
         (#t
          (set! zones #f)
@@ -572,7 +559,7 @@
       (or export-file-name
           (let ((sid (send data-frame get-property 'session-id)))
             (if sid (format "quadrant-~a.png" sid) "quadrant.png"))))
-    
+
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
                             (get-default-export-file-name) "png" '()
@@ -580,5 +567,5 @@
         (when file
           (set! export-file-name file)
           (send plot-pb export-image-to-file file))))
-    
+
     ))

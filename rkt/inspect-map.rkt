@@ -202,7 +202,6 @@
       (send mini-lap-view set-session session)
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
-      (send elevation-graph show-grid #t)
       (send map-view clear-items)
 
       ;; Add the data tracks
