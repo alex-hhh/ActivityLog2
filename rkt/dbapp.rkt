@@ -25,7 +25,8 @@
 
 (provide/contract
  [schema-version (parameter/c exact-positive-integer?)]
- [current-database (parameter/c (or/c #f connection?))]
+ [current-database (-> (or/c #f connection?))]
+ [set-current-database (-> (or/c #f connection?) any/c)]
  [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)]
  [add-db-open-callback (-> (-> connection? any/c) any/c)]
  [del-db-open-callback (-> (-> connection? any/c) any/c)])
@@ -50,15 +51,18 @@
 (define (del-db-open-callback proc)
   (set! db-open-callbacks (remove proc db-open-callbacks)))
 
+(define the-current-database #f)
+
+(define (set-current-database db)
+  (unless (or (eq? db #f) (connection? db))
+    (fail-with "bad value for current-database"))
+  (when db
+    (for ([cb db-open-callbacks]) (cb db)))
+  (set! the-current-database db))
+
 ;; The current database connection, if any.  NOTE: needs to be explicitely
 ;; set. `open-activity-log' will not set it!
-(define current-database
-  (make-parameter #f (lambda (v)
-                       (unless (or (eq? v #f) (connection? v))
-                         (fail-with "bad value for current-database"))
-                       (when v
-                         (for ([cb db-open-callbacks]) (cb v)))
-                       v)))
+(define (current-database) the-current-database)
 
 ;; Open the database in DATABASE-FILE, checking that it has the required
 ;; version.  A database schema will be created if this is a new

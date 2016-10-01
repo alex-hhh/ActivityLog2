@@ -554,7 +554,7 @@
     (define database (interactive-open-database database-path))
     (unless database
       (raise (format "failed to open database at ~a" database-path)))
-    (current-database database)         ; set this as current
+    (set-current-database database)     ; set this as current
 
     ;;; Construct the toplevel frame and initial panels
     (define tl-frame

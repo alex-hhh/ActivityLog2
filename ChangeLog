@@ -1,5 +1,13 @@
 2016-10-01  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
+	* etc/al-interactive.rkt: use `set-current-database', export all
+	functions from the db package.
+
+	* rkt/toplevel.rkt (toplevel-window%): use `set-current-database'.
+
+	* rkt/dbapp.rkt (set-current-database): new function.
+	(current-database): no longer a parameter, just a plain function
+
 	* rkt/view-session.rkt (view-session%): improve perceived
 	responsiveness by loading the data frame in a separate thread.
 

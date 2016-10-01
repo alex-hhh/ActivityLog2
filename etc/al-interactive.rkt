@@ -32,6 +32,7 @@
  (df->csv (-> (is-a?/c data-frame%) path-string? any/c)))
 
 (provide
+ (all-from-out db)
  (all-from-out "../rkt/data-frame.rkt")
  (all-from-out "../rkt/hrv.rkt")
  (all-from-out "../rkt/session-df.rkt")
@@ -47,7 +48,7 @@
     (begin0
         (open-activity-log db-file)
       (printf "Opened ~a~%" db-file))))
-(when *db* (current-database *db*))
+(when *db* (set-current-database *db*))
 
 
 ;;................................................ convenience functions ....
