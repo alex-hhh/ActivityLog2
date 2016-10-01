@@ -157,7 +157,8 @@
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when one of the axis
     ;; changes.
-    (define export-file-name #f)
+    (define img-export-file-name #f)
+    (define data-export-file-name #f)
 
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
@@ -183,13 +184,15 @@
     (define (on-axis-changed new-index)
       (unless (equal? selected-axis new-index)
         (set! selected-axis new-index)
-        (set! export-file-name #f)
+        (set! img-export-file-name #f)
+        (set! data-export-file-name #f)
         (refresh-plot)))
 
     (define (on-aux-axis-changed new-index)
       (unless (equal? selected-aux-axis new-index)
         (set! selected-aux-axis new-index)
-        (set! export-file-name #f)
+        (set! img-export-file-name #f)
+        (set! data-export-file-name #f)
         (refresh-plot)))
 
     (define (on-zero-base flag)
@@ -289,45 +292,68 @@
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
     ;; name from the session id and axis names of the plot.
-    (define (get-default-export-file-name)
-      (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id))
-                (axis1 (get-series-axis))
-                (axis2 (get-aux-axis)))
-            (cond ((and sid axis1 axis2)
-                   (format "best-avg-~a-~a-~a.png" sid
-                           (send axis1 get-series-name)
-                           (send axis2 get-series-name)))
-                  ((and sid axis1)
-                   (format "best-avg-~a-~a.png" sid
-                           (send axis1 get-series-name)))
-                  (#t
-                   "best-avg.png")))))
+    (define (get-default-export-file-name (extenstion "png"))
+      (let ((sid (send data-frame get-property 'session-id))
+            (axis1 (get-series-axis))
+            (axis2 (get-aux-axis)))
+        (cond ((and sid axis1 axis2)
+               (format "best-avg-~a-~a-~a.~a" sid
+                       (send axis1 get-series-name)
+                       (send axis2 get-series-name)
+                       extenstion))
+              ((and sid axis1)
+               (format "best-avg-~a-~a.~a" sid
+                       (send axis1 get-series-name)
+                       extenstion))
+              (#t
+               (format "best-avg.~a" extenstion)))))
       
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
-                            (get-default-export-file-name)
+                            (or img-export-file-name (get-default-export-file-name "png"))
                             "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
-          (set! export-file-name file)
+          (set! img-export-file-name file)
           (send plot-pb export-image-to-file file))))
 
     (define/public (on-interactive-export-data formatted?)
-      (let ((file (put-file "Select file to export to" #f #f #f "csv" '()
+      (let ((file (put-file "Select file to export to" #f #f
+                            (or data-export-file-name (get-default-export-file-name "csv"))
+                            "csv" '()
                             '(("CSV Files" "*.csv") ("Any" "*.*")))))
         (when file
+          (set! data-export-file-name file)
           (call-with-output-file file
             (lambda (out) (export-data-as-csv out formatted?))
             #:mode 'text #:exists 'truncate))))
 
     (define (export-data-as-csv out formatted?)
-      (write-string "Start Timestamp, Duration, Value" out)
-      (newline out)
-      (when best-avg-data
-        (for ([e best-avg-data])
-          (match-define (vector d m s) e)
-          (write-string (format "~a, ~a, ~a~%" s d m) out))))
+      ;; NOTE: we ignore the formatted parameter -- not sure how to use it.
+      (cond ((and best-avg-data best-avg-aux-data)
+             (write-string "Start Timestamp, Duration, Value, Aux Value" out)
+             (newline out)
+             (for ([e best-avg-data] [a best-avg-aux-data])
+               (match-define (vector d m s) e)
+               (match-define (vector ad am as) a)
+               (when (and d m s)
+                 (write-string (format "~a, ~a, ~a, ~a~%"
+                                       (exact->inexact s)
+                                       (exact->inexact d)
+                                       (exact->inexact m)
+                                       (exact->inexact am))
+                               out))))
+            (best-avg-data
+             (write-string "Start Timestamp, Duration, Value" out)
+             (newline out)
+             (for ([e best-avg-data])
+               (match-define (vector d m s) e)
+               (when (and d m s)
+                 (write-string (format "~a, ~a, ~a~%"
+                                       (exact->inexact s)
+                                       (exact->inexact d)
+                                       (exact->inexact m))
+                               out))))))
 
     (define generation -1)
 
@@ -341,7 +367,8 @@
       (install-axis-choices axis-choices)
       (set! data-cache (make-hash))
       (restore-params-for-sport)
-      (set! export-file-name #f)
+      (set! img-export-file-name #f)
+      (set! data-export-file-name #f)
       (set! inhibit-refresh #f)
       (refresh-plot))
 

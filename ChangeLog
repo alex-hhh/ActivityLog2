@@ -1,5 +1,18 @@
 2016-10-01  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
+	* rkt/inspect-best-avg.rkt (get-default-export-file-name): specify
+	the file extension as an argument.
+	(best-avg-plot-panel%/on-interactive-export-data): provide a
+	default file name.
+	(best-avg-plot-panel%/export-data-as-csv): convert values to
+	inexact before writing them out. Export the auxiliary data as well
+	if it is available.
+	(best-avg-plot-panel%): export-file-name replaced by
+	img-export-file-name and data-export-file-name
+
+	* rkt/data-frame.rkt (default-best-avg-durations): merge
+	important-best-avg-durations into this list.
+
 	* rkt/session-df.rkt (make-session-data-frame): handle gracefully
 	invalid session id.
 
