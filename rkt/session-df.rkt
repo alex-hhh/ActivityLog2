@@ -135,9 +135,11 @@
 
   (define sport
     (let ([row (query-maybe-row db fetch-sport session-id)])
-      (match-define (vector sport-id sub-sport-id) row)
-      (vector (if (sql-null? sport-id) #f sport-id)
-              (if (sql-null? sub-sport-id) #f sub-sport-id))))
+      (if row
+          (match-let (((vector sport-id sub-sport-id) row))
+            (vector (if (sql-null? sport-id) #f sport-id)
+                    (if (sql-null? sub-sport-id) #f sub-sport-id)))
+          (vector #f #f))))
 
   (define is-lap-swim?
     (when sport

@@ -1,5 +1,8 @@
 2016-10-01  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
+	* rkt/session-df.rkt (make-session-data-frame): handle gracefully
+	invalid session id.
+
 	* etc/al-interactive.rkt: use `set-current-database', export all
 	functions from the db package.
 
@@ -299,7 +302,7 @@
 	* rkt/fit-file.rkt (write-one-fit-value): new function
 	(write-fit-value): new function
 
-	* rkt/fit-defs.rkt (*event-name*): add new event names 
+	* rkt/fit-defs.rkt (*event-name*): add new event names
 
 2015-03-05  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
@@ -505,4 +508,3 @@
 2015-01-04  Alex Harsanyi  <AlexHarsanyi@gmail.com>
 
 	* rkt/widgets.rkt (convert-to-date): limit years to sensible range
-
