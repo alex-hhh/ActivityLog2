@@ -17,3 +17,8 @@ compiled/
 dist/
 # ignore it for now, contains user specific info.
 .dir-locals.el
+# various data files that we don't want under version control
+*.csv
+*.xlsx
+*.xls
+*.xlsm
