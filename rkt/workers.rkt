@@ -51,8 +51,9 @@
                ;; NOTE: 'print-error-trace' will only print a stack trace if
                ;; the error trace library is used.  To use it, remove all .zo
                ;; files and run "racket -l errortrace -t run.rkt"
-               (dbglog (format "task ~a: ~a"
+               (dbglog (format "task ~a: ~a ~a"
                                (task-name task)
+                               e
                                (call-with-output-string
                                  (lambda (o) (print-error-trace o e))))))))
            ((task-thunk task)))
