@@ -131,7 +131,8 @@
    ;; a function that reads a value this type from a byte string
    read-fn
    ;; a function that writes a value of this type to a byte string
-   write-fn))
+   write-fn)
+  #:transparent)
 
 (define fit-types
   ;; Definition of all basic FIT types, as per the FIT file documentation.
@@ -409,7 +410,8 @@
           ;; is available)
           (let ()
             (match-define (list dname dtype)
-              (hash-ref dev-field-types type
+              (hash-ref dev-field-types
+                        (cons type name)
                         (lambda () (raise-error (format "Unknown dev field: ~a" (- type 1000))))))
             (cons (or dname name) (read-value-fn dtype size stream)))
           (let ((value (read-value-fn type size stream)))
@@ -457,8 +459,9 @@
                        ((eq? message-id 'field-description)
                         (let ((ddi (assq1 'developer-data-index message-data))
                               (type (assq1 'fit-base-type message-data))
+                              (number (assq1 'field-def-number message-data))
                               (name (dev-field-name message-data)))
-                          (hash-set! dev-field-types (+ 1000 ddi) (list name type)))))
+                          (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list name type)))))
                  ;; NOTE: developer data ID and field description messages are
                  ;; sent to the dispatcher, which will be responsibe for
                  ;; interpreting these fields.  note that the decoder will use
@@ -530,6 +533,8 @@
     (define/public (on-workout-step workout-step) #f)
     (define/public (on-sport sport) #f)
     (define/public (on-hrv data) #f)
+    (define/public (on-developer-data-id data) #f)
+    (define/public (on-field-description data) #f)
 
     ;; NOTE: on-activity and on-session are also events, so the user could
     ;; call on-event for those as well if needed.  this could be important if
@@ -559,6 +564,8 @@
               ((eq? message-type 'workout-step) (on-workout-step record))
               ((eq? message-type 'sport) (on-sport record))
               ((eq? message-type 'hrv) (on-hrv record))
+              ((eq? message-type 'developer-data-id) (on-developer-data-id record))
+              ((eq? message-type 'field-description) (on-field-description record))
               (#t (on-other message-type record)))))
 
     ))
@@ -585,6 +592,11 @@
     (define records '())
     (define devices '())
     (define sport '())
+    
+    ;; FIT 2.0 allows "developer" fields, these hold the definitions, for
+    ;; referencing the dev fields in trackpoint data.
+    (define developer-data-ids '())
+    (define field-descriptions '())
 
     (define display-next-record #f)
     (define timer-stopped #f)
@@ -862,6 +874,11 @@
           )))
       #t)
 
+    (define/override (on-developer-data-id data)
+      (set! developer-data-ids (cons data developer-data-ids)))
+    (define/override (on-field-description data)
+      (set! field-descriptions (cons data field-descriptions)))
+
     (define/public (display-devices)
       (for ((v (in-list (reverse devices))))
            (display "*** ")(display v)(newline)))
@@ -909,6 +926,8 @@
         (list
          (cons 'start-time (or activity-timestamp (get-start-timestamp)))
          (cons 'guid activity-guid)
+         (cons 'developer-data-ids developer-data-ids)
+         (cons 'field-descriptions field-descriptions)
          (cons 'sessions (reverse sessions)))))
 
     ))
