@@ -806,6 +806,11 @@
 
 ;;............................................................. best avg ....
 
+(define important-best-avg-durations
+  (list 10 30 60 90 (* 3 60) (* 5 60) (* 10 60) (* 15 60)
+        (* 20 60) (* 30 60) (* 45 60) (* 60 60)
+        (* 90 60) (* 120 60) (* 180 60)))
+
 (define (generate-best-avg-durations start limit [growth-factor 1.05])
   (let loop ((series (list start)) (current start))
     (let ((nval (exact-round (* current growth-factor))))
@@ -816,17 +821,30 @@
           (reverse series)))))
 
 (define default-best-avg-durations
-  (generate-best-avg-durations 10 (* 300 60) 1.2))
-
-(define important-best-avg-durations
-  (list 1 5 10 30 60 90 (* 3 60) (* 5 60) (* 10 60) (* 15 60)
-        (* 20 60) (* 30 60) (* 45 60) (* 60 60)
-        (* 90 60) (* 120 60) (* 180 60)))
-
-;; (printf "(length default-best-avg-durations): ~a~%"
-;;         (length default-best-avg-durations))
-;; (printf "(length important-best-avg-durations): ~a~%"
-;;         (length important-best-avg-durations))
+  ;; Merge the durations produced by 'generate-best-avg-durations' with
+  ;; 'important-best-avg-durations'
+  (let loop ((result '())
+             (fill (generate-best-avg-durations 10 (* 300 60) 1.2))
+             (important important-best-avg-durations))
+    (cond ((and (null? fill) (null? important))
+           (reverse result))
+          ((null? fill)
+           (loop (cons (car important) result)
+                 fill
+                 (cdr important)))
+          ((null? important)
+           (loop (cons (car fill) result)
+                 (cdr fill)
+                 important))
+          (#t
+           (let ((f (car fill))
+                 (i (car important)))
+             (cond ((= f i)
+                    (loop (cons f result) (cdr fill) (cdr important)))
+                   ((< f i)
+                    (loop (cons f result) (cdr fill) important))
+                   (#t
+                    (loop (cons i result) fill (cdr important)))))))))
 
 ;; Plot ticks for the best-avg plot.  Produces ticks at
 ;; important-best-avg-durations locations (among other places).
@@ -1063,6 +1081,28 @@
         (vector duration (tr value) position)
         data)))
 
+;; Return the plot bounds for BAVG (best average data).  4 values are
+;; returned, min-x, max-x, min-y, max-y.  They can be #f if there are no valid
+;; values in the plot.
+(define (get-best-avg-bounds bavg)
+  (define min-x #f)
+  (define max-x #f)
+  (define min-y #f)
+  (define max-y #f)
+  (for ([b bavg] #:when (vector-ref b 1))
+    (let ((v (vector-ref b 1))
+          (d (vector-ref b 0)))
+      (set! min-x (if min-x (min min-x d) d))
+      (set! max-x (if max-x (max max-x d) d))
+      (set! min-y (if min-y (min min-y v) v))
+      (set! max-y (if max-y (max max-y v) v))))
+  ;; Make the Y bounds of the plot a bit larger
+  (when (and min-y max-y)
+    (let ((padding (* 0.05 (- max-y min-y))))
+      (set! min-y (- min-y padding))
+      (set! max-y (+ max-y padding))))
+  (values min-x max-x min-y max-y))
+
 (define (make-best-avg-renderer best-avg-data (aux-data #f)
                                 #:color1 (best-avg-color #f)
                                 #:color2 (aux-color #f)
@@ -1071,31 +1111,24 @@
 
   (if (not data-fn)
       #f
-      (let ((foo 0))
-        (define min-x #f)
-        (define max-x #f)
-        (for ([b best-avg-data] #:when (vector-ref b 1))
-          (unless min-x (set! min-x (vector-ref b 0)))
-          (set! max-x (vector-ref b 0)))
+      (let-values (((min-x max-x min-y max-y) (get-best-avg-bounds best-avg-data)))
 
         (define aux-fn
-          (if aux-data
-              (best-avg->plot-fn (normalize-aux aux-data best-avg-data zero-base?))
-              #f))
+          (and aux-data
+               (best-avg->plot-fn (normalize-aux aux-data best-avg-data zero-base?))))
 
         (define data-rt
           (let ((kwd '()) (val '()))
             (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
-            (when zero-base? (add-arg '#:y-min 0))
             (add-arg '#:width 3)
             (when best-avg-color (add-arg '#:color best-avg-color))
             (keyword-apply function kwd val data-fn min-x max-x '())))
+
         (define aux-rt
           (if (not aux-fn)
               #f
               (let ((kwd '()) (val '()))
                 (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
-                (when zero-base? (add-arg '#:y-min 0))
                 (add-arg '#:width 3)
                 (add-arg '#:style 'long-dash)
                 (when aux-color (add-arg '#:color aux-color))
@@ -1262,6 +1295,9 @@
                        best-avg/c))
  (best-avg-ticks (-> ticks?))
  (transform-ticks (-> ticks? (-> real? real?) ticks?))
+ (get-best-avg-bounds (-> best-avg/c
+                          (values (or/c #f real?) (or/c #f real?)
+                                  (or/c #f real?) (or/c #f real?))))
  (make-best-avg-renderer (->* (best-avg/c)
                               ((or/c #f best-avg/c)
                                #:color1 (or/c #f any/c)

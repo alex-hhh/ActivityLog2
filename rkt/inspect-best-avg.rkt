@@ -89,6 +89,14 @@
    axis-right-peak-power-phase-angle
    ))
 
+(define (plot-bounds zero-base? best-avg-data)
+  (let-values (((min-x max-x min-y max-y) (get-best-avg-bounds best-avg-data)))
+    (values
+     min-x
+     max-x
+     (if zero-base? 0 min-y)
+     max-y)))
+
 (define best-avg-plot-panel%
   (class object% (init parent) (super-new)
     (define pref-tag 'activity-log:best-avg-plot)
@@ -202,10 +210,10 @@
     
     (define (put-plot-snip)
       (when plot-rt
-        (let ((rt (list plot-rt)))
-          (set! rt (cons (tick-grid) rt))
-          (let ((best-avg-axis (get-series-axis))
-                (aux-axis (get-aux-axis)))
+        (let ((rt (list (tick-grid) plot-rt))
+              (best-avg-axis (get-series-axis))
+              (aux-axis (get-aux-axis)))
+          (let-values (((min-x max-x min-y max-y) (plot-bounds zero-base? best-avg-data)))
             ;; aux data might not exist, if an incorrect/invalid aux-axis is
             ;; selected
             (if best-avg-aux-data
@@ -217,13 +225,17 @@
                                  [plot-y-label (send best-avg-axis get-axis-label)]
                                  [plot-y-far-ticks (transform-ticks (send aux-axis get-axis-ticks) ivs)]
                                  [plot-y-far-label (send aux-axis get-axis-label)])
-                    (plot-snip/hack plot-pb rt)))
+                    (plot-snip/hack plot-pb rt
+                                    #:x-min min-x #:x-max max-x
+                                    #:y-min min-y #:y-max max-y)))
                 (parameterize ([plot-x-ticks (best-avg-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
                                [plot-y-ticks (send best-avg-axis get-axis-ticks)]
                                [plot-y-label (send best-avg-axis get-axis-label)])
-                  (plot-snip/hack plot-pb rt)))))))
+                  (plot-snip/hack plot-pb rt
+                                  #:x-min min-x #:x-max max-x
+                                  #:y-min min-y #:y-max max-y)))))))
 
     (define (refresh-plot)
       (set! plot-rt #f)
