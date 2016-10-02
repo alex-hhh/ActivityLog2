@@ -234,12 +234,15 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
 ;;.................................................. session-view% ....
 
-(define (make-panel parent)
-  (new horizontal-panel%
-       [parent parent]
-       [style '(deleted)]
-       [alignment '(center top)]
-       [stretchable-height #t]))
+;; Data corresponding to a TAB in the session view. 'GENERATION' is used to
+;; avoid calling set-session on the contents more often than needed.
+(struct tdata (name panel contents (generation #:mutable)))
+
+(define (make-tdata name parent constructor-fn)
+  (let* ((panel (new horizontal-panel% [parent parent] [style '(deleted)]
+                     [alignment '(center top)] [stretchable-height #t]))
+         (contents (constructor-fn panel)))
+    (tdata name panel contents 0)))
 
 (define view-session%
   (class* object% (activity-operations<%>)
@@ -257,53 +260,53 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define detail-panel 
       (new tab-panel%
            [stretchable-height #t]
-           [choices '("Overview" "Graphs" "Scatter" "Histogram" "Best Avg" "Laps" "Map" "Qadrant")]
+           [choices '("* None *")]
            [callback (lambda (p c)
                        (switch-tabs (send p get-selection)))]
            [parent session-panel]))
 
-    (define overview-panel (make-panel detail-panel))
-    (define charts-panel (make-panel detail-panel))
-    (define scatter-panel (make-panel detail-panel))
-    (define histogram-panel (make-panel detail-panel))
-    (define laps-panel (make-panel detail-panel))
-    (define best-avg-panel (make-panel detail-panel))
-    (define map-panel (make-panel detail-panel))
-    (define quadrant-panel (make-panel detail-panel))
-
-    (define overview (new inspect-overview-panel% [parent overview-panel] [database database]))
-    (define laps (new laps-panel% [parent laps-panel]))
-    (define charts (new graph-panel% [parent charts-panel]))
-    (define scatter (new scatter-plot-panel% [parent scatter-panel]))
-    (define histogram (new histogram-plot-panel% [parent histogram-panel]))
-    (define best-avg (new best-avg-plot-panel% [parent best-avg-panel]))
-    (define map (new map-panel% [parent map-panel]))
-    (define quadrant (new quadrant-plot-panel% [parent quadrant-panel]))
-
-    (define tabs (list 
-                  (cons overview-panel overview)
-                  (cons charts-panel charts) 
-                  (cons scatter-panel scatter)
-                  (cons histogram-panel histogram)
-                  (cons best-avg-panel best-avg)
-                  (cons laps-panel laps)
-                  (cons map-panel map)
-                  (cons quadrant-panel quadrant)))
+    (define overview
+      (make-tdata "Overview" detail-panel
+                  (lambda (panel)
+                    (new inspect-overview-panel% [parent panel] [database database]))))
+    (define laps
+      (make-tdata "Laps" detail-panel
+                  (lambda (panel) (new laps-panel% [parent panel]))))
+    (define charts
+      (make-tdata "Charts" detail-panel
+                  (lambda (panel) (new graph-panel% [parent panel]))))
+    (define scatter
+      (make-tdata "Scatter" detail-panel
+                  (lambda (panel) (new scatter-plot-panel% [parent panel]))))
+    (define histogram
+      (make-tdata "Histogram" detail-panel
+                  (lambda (panel) (new histogram-plot-panel% [parent panel]))))
+    (define best-avg
+      (make-tdata "Best Avg" detail-panel
+                  (lambda (panel) (new best-avg-plot-panel% [parent panel]))))
+    (define quadrant
+      (make-tdata "Quadrant" detail-panel
+                  (lambda (panel) (new quadrant-plot-panel% [parent panel]))))
+    (define maps
+      (make-tdata "Map" detail-panel
+                  (lambda (panel) (new map-panel% [parent panel]))))
+    
+    (define installed-tabs '())
 
     (define session-id #f)
     (define session #f)
     (define session-df #f)
-    (define generation -1)
+    (define generation 0)
     (define the-database database)
 
     (define (switch-tabs selected)
-      (send detail-panel change-children
-            (lambda (old) (list (car (list-ref tabs selected)))))
-      (let ((v (cdr (list-ref tabs selected))))
+      (let ((tab (list-ref installed-tabs selected)))
+        (send detail-panel change-children (lambda (o) (list (tdata-panel tab))))
         (with-busy-cursor
-         (lambda ()
-           (when (< (send v get-generation) generation)
-             (send v set-session session session-df))))))
+          (lambda ()
+            (unless (equal? (tdata-generation tab) generation)
+              (set-tdata-generation! tab generation)
+              (send (tdata-contents tab) set-session session session-df))))))
 
     (define (set-session-df df)
       (set! session-df df)
@@ -311,43 +314,29 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
       ;; Determine which tabs are needed, and only show those.  The Overview
       ;; panel always exists.
-      (let ((labels '("Overview"))
-            (tabs-1 (list (cons overview-panel overview))))
+      (let ((tabs (list overview)))
 
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
         ;; data.
         (when (send df get-row-count)
 
-          (set! labels (cons "Graphs" labels))
-          (set! tabs-1 (cons (cons charts-panel charts) tabs-1))
-
-          (set! labels (cons "Scatter" labels))
-          (set! tabs-1 (cons (cons scatter-panel scatter) tabs-1))
-
-          (set! labels (cons "Histogram" labels))
-          (set! tabs-1 (cons (cons histogram-panel histogram) tabs-1))
-
-          (unless is-lap-swim?
-            (set! labels (cons "Best Avg" labels))
-            (set! tabs-1 (cons (cons best-avg-panel best-avg) tabs-1)))
-
-          (when (send quadrant should-display-for-data-frame? session-df)
-            (set! labels (cons "Qadrant" labels))
-            (set! tabs-1 (cons (cons quadrant-panel quadrant) tabs-1)))
-
-          (set! labels (cons "Laps" labels))
-          (set! tabs-1 (cons (cons laps-panel laps) tabs-1))
-
+          (set! tabs (cons charts tabs))
+          (set! tabs (cons scatter tabs))
+          (set! tabs (cons histogram tabs))
+          (unless is-lap-swim? (set! tabs (cons best-avg tabs)))
+          (when (send (tdata-contents quadrant) should-display-for-data-frame? session-df)
+            (set! tabs (cons quadrant tabs)))
+          (set! tabs (cons laps tabs))
           (when (send session-df contains? "lat" "lon")
-            (set! labels (cons "Map" labels))
-            (set! tabs-1 (cons (cons map-panel map) tabs-1))))
+            (set! tabs (cons maps tabs))))
 
-        (send detail-panel set (reverse labels))
-        (set! tabs (reverse tabs-1)))
+        (set! installed-tabs (reverse tabs))
+        (send detail-panel set (map tdata-name installed-tabs)))
+
       (collect-garbage 'major))
     
     (define/public (set-session sid)
-      (set! generation (+ 1 generation))
+      (set! generation (add1 generation))
       (set! session-id sid)
       (set! session (db-fetch-session sid the-database))
 
@@ -364,14 +353,12 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (send header set-session session)
       (send header set-database the-database)
 
-      ;; Determine which tabs are needed, and only show those.  The Overview
-      ;; panel always exists.
-      (let ((labels '("Overview"))
-            (tabs-1 (list (cons overview-panel overview))))
-
-        (send detail-panel set (reverse labels))
-        (set! tabs (reverse tabs-1)))
-
+      ;; Install the overview panel only, as this does not require the data
+      ;; frame
+      (let ((tabs (list overview)))
+        (set! installed-tabs (reverse tabs))
+        (send detail-panel set (map tdata-name installed-tabs)))
+      
       (send detail-panel set-selection 0)
       (switch-tabs 0)
       (collect-garbage 'major))
@@ -383,13 +370,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (set-session session-id))
 
     (define/public (save-visual-layout)
-      (send laps save-visual-layout)
-      (send charts save-visual-layout)
-      (send scatter save-visual-layout)
-      (send histogram save-visual-layout)
-      (send best-avg save-visual-layout)
-      (send quadrant save-visual-layout)
-      (send map save-visual-layout))
+      (send (tdata-contents laps) save-visual-layout)
+      (send (tdata-contents charts) save-visual-layout)
+      (send (tdata-contents scatter) save-visual-layout)
+      (send (tdata-contents histogram) save-visual-layout)
+      (send (tdata-contents best-avg) save-visual-layout)
+      (send (tdata-contents quadrant) save-visual-layout)
+      (send (tdata-contents maps) save-visual-layout))
 
     ;; Activity operations interface implementation
 

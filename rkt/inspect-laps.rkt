@@ -50,10 +50,7 @@
       (send lap-view save-visual-layout)
       (send swim-lengths-view save-visual-layout))
 
-    (define generation -1)
-
     (define/public (set-session session df)
-      (set! generation (+ 1 generation))
       (when the-session
         (let ((sport (session-sport the-session)))
           (when (= sport 5)
@@ -66,6 +63,4 @@
         (when (= sport 5)
           (send swim-lengths-view show! #t))))
     
-    (define/public (get-generation) generation)
-      
     ))

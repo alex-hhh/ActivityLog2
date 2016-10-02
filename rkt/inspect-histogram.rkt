@@ -176,7 +176,6 @@
     (define plot-pb (new snip-canvas% [parent panel]))
 
     ;; Data from the session we inspect
-    (define generation -1)
     (define data-frame #f)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
     (define plot-rt #f)                 ; plot render tree
@@ -380,7 +379,6 @@
     (define/public (set-session session df)
       (set! inhibit-refresh #t)
       (save-params-for-sport)
-      (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! axis-choices
             (filter-axis-list
@@ -391,7 +389,5 @@
       (set! inhibit-refresh #f)
       (set! export-file-name #f)
       (refresh-plot))
-
-    (define/public (get-generation) generation)
 
     ))

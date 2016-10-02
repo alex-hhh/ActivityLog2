@@ -171,7 +171,6 @@
     (define/public (save-visual-layout)
       (send mini-lap-view save-visual-layout))
 
-    (define generation -1)
     (define data-frame #f)
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when the session
@@ -195,7 +194,6 @@
           (send map-view export-image-to-file file))))
 
     (define/public (set-session session df)
-      (set! generation (+ 1 generation))
       (set! the-session session)
       (set! data-frame df)
       (set! export-file-name #f)
@@ -248,5 +246,4 @@
       (send map-view resize-to-fit)
       (set! selected-lap #f))
 
-    (define/public (get-generation) generation)
     ))

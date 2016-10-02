@@ -740,11 +740,8 @@
                                "update A_SESSION set description = ? where id = ?"
                                text sid)))))))))
 
-    (define generation -1)
-
     (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
-      (set! generation (+ 1 generation))
       (send badge-pb set-session session)
       (let ((session-id (assq1 'database-id session)))
         (when session-id
@@ -763,7 +760,4 @@
             (send description-bar change-children
                   (lambda (old) (list description-label))))))
       (set! the-session session))
-
-    (define/public (get-generation) generation)
-
     ))

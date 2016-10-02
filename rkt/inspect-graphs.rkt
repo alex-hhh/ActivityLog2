@@ -1567,7 +1567,6 @@
       (send graphs-panel change-children
             (lambda (old) (map (lambda (g) (send g get-panel)) graphs))))
 
-    (define generation -1)
     (define data-frame #f)
 
     (define/public (set-session session df)
@@ -1580,7 +1579,6 @@
 
       (set! the-session session)
       (set! data-frame df)
-      (set! generation (+ 1 generation))
       (send lap-view set-session session)
       (let ((lap-swimming? (is-lap-swimming? data-frame)))
 
@@ -1600,7 +1598,5 @@
               (send x-axis-choice set-selection 0)
               (send x-axis-choice set-selection sport-x-axis))
           (setup-graphs-for-current-session))))
-
-    (define/public (get-generation) generation)
 
     ))

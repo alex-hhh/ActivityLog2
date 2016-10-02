@@ -248,7 +248,6 @@
     (define plot-pb (new snip-canvas% [parent panel]))
 
     ;;; Data from the session we inspect
-    (define generation -1)
     (define data-frame #f)
     (define data-series #f)
     (define data-bounds (vector #f #f #f #f))
@@ -506,7 +505,6 @@
     (define/public (set-session session df)
       (set! inhibit-refresh #f)
       (save-params-for-sport)
-      (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! delay-amount #f)
       (set! outlier-percentile #f)
@@ -522,7 +520,5 @@
       (send delay-amount-field enable (not lap-swimming?))
       (set! inhibit-refresh #f)
       (invalidate-data))
-
-    (define/public (get-generation) generation)
 
     ))

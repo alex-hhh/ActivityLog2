@@ -367,13 +367,10 @@
                                        (exact->inexact m))
                                out))))))
 
-    (define generation -1)
-
     (define/public (set-session s df)
       (set! inhibit-refresh #t)
       ;; maybe save previous sport settings
       (save-params-for-sport)
-      (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! axis-choices (filter-axis-list data-frame default-axis-choices))
       (install-axis-choices axis-choices)
@@ -383,7 +380,5 @@
       (set! data-export-file-name #f)
       (set! inhibit-refresh #f)
       (refresh-plot))
-
-    (define/public (get-generation) generation)
 
     ))

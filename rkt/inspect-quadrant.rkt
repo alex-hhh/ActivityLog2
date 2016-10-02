@@ -308,7 +308,6 @@
     (define plot-pb (new snip-canvas% [parent panel]))
 
     ;; Data from the session we inspect
-    (define generation -1)
     (define data-frame #f)
     ;; will be cadence->torque for bike, cadence->stride for run and swim
     (define yval-fn #f)
@@ -493,7 +492,6 @@
     (define/public (set-session session df)
       (save-params-for-sport)
       (set! inhibit-refresh #t)
-      (set! generation (+ 1 generation))
       (set! data-frame df)
       (set! data-series #f)
       (set! export-file-name #f)
@@ -549,8 +547,6 @@
                  (make-sport-zone-renderers zones yval-fn)))
       (set! inhibit-refresh #f)
       (refresh-plot))
-
-    (define/public (get-generation) generation)
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
