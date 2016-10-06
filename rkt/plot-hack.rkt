@@ -50,6 +50,8 @@
   (provide set-snip))
 
 (require plot
+         racket/class
+         racket/math
          (only-in typed/racket/gui Snip% Editor-Canvas%)
          'glue)
 
@@ -75,14 +77,28 @@
                         #:x-label [x-label (plot-x-label)]
                         #:y-label [y-label (plot-y-label)]
                         #:legend-anchor [legend-anchor (plot-legend-anchor)])
-  (let ([snip (plot-snip renderer-tree
-                         #:x-min x-min #:x-max x-max
-                         #:y-min y-min #:y-max y-max
-                         #:width width #:height height
-                         #:title title
-                         #:x-label x-label #:y-label y-label
-                         #:legend-anchor legend-anchor)])
-    (set-snip canvas snip))
+  ;; Calculate the initial size of the plot such that it fills up the entire
+  ;; canvas area.  The #:width and #:height parameters are only used if this
+  ;; would result in a 0 sized plot.
+  ;;
+  ;; The plot snip will be resized automatically as the canvas resizes, but
+  ;; this initial sizing ensures there is no flickering when a snip with a
+  ;; different size is inserted into the canvas forcing the canvas to resize
+  ;; it immediately.
+  (let-values (((w h) (send (send canvas get-dc) get-size)))
+    (let* ((hinset (send canvas horizontal-inset))
+           (vinset (send canvas vertical-inset))
+           (iw (exact-round (- w (* 2 hinset))))
+           (ih (exact-round (- h (* 2 vinset))))
+           [snip (plot-snip renderer-tree
+                            #:x-min x-min #:x-max x-max
+                            #:y-min y-min #:y-max y-max
+                            #:width (if (> iw 0) iw width)
+                            #:height (if (> ih 0) ih height)
+                            #:title title
+                            #:x-label x-label #:y-label y-label
+                            #:legend-anchor legend-anchor)])
+      (set-snip canvas snip)))
   (void))
 (provide plot-snip/hack)
 
