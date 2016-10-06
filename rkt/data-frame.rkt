@@ -942,8 +942,10 @@
   (if (< (vector-length data) 2)
       '()
       (let ((delta-series (make-delta-series data)))
-        (for/list ([d durations])
-          (get-best-avg delta-series d inverted?)))))
+        (for*/list ([d durations]
+                    [b (in-value (get-best-avg delta-series d inverted?))]
+                    #:when (vector-ref b 1))
+          b))))
 
 ;; Compute an average in DELTA-SERIES starting at POSITION over the specified
 ;; DURATION.
