@@ -49,7 +49,7 @@
 
 (define (with-database thunk)
   (let ((db (open-activity-log 'memory)))
-    (current-database db)
+    (set-current-database db)
     ;; NOTE: cannot really catch errors as error trace will loose context
     (thunk db)
     (disconnect db)))
@@ -173,42 +173,7 @@ select count(T.id),
     (check-pred number? (lap-avg-right-ppp-start lap) "avg-right-ppp-start")
     (check-pred number? (lap-avg-right-ppp-end lap) "avg-right-ppp-end"))
 
-  ;; NOTE: not all trackpoints will have these values, so we only check that
-  ;; at least some of them have them...
-  (let ((left-pco-count 0)
-        (right-pco-count 0)
-        (left-pp-start-count 0)
-        (left-pp-end-count 0)
-        (right-pp-start-count 0)
-        (right-pp-end-count 0)
-        (left-ppp-start-count 0)
-        (left-ppp-end-count 0)
-        (right-ppp-start-count 0)
-        (right-ppp-end-count 0))
-    (for-each-session-trackpoint
-     session
-     (lambda (prev next)
-       (when next
-         (when (assq1 'left-pco next) (set! left-pco-count (+ 1 left-pco-count)))
-         (when (assq1 'right-pco next) (set! right-pco-count (+ 1 right-pco-count)))
-         (when (assq1 'left-pp-start next) (set! left-pp-start-count (+ 1 left-pp-start-count)))
-         (when (assq1 'left-pp-end next) (set! left-pp-end-count (+ 1 left-pp-end-count)))
-         (when (assq1 'right-pp-start next) (set! right-pp-start-count (+ 1 right-pp-start-count)))
-         (when (assq1 'right-pp-end next) (set! right-pp-end-count (+ 1 right-pp-end-count)))
-         (when (assq1 'left-ppp-start next) (set! left-ppp-start-count (+ 1 left-ppp-start-count)))
-         (when (assq1 'left-ppp-end next) (set! left-ppp-end-count (+ 1 left-ppp-end-count)))
-         (when (assq1 'right-ppp-start next) (set! right-ppp-start-count (+ 1 right-ppp-start-count)))
-         (when (assq1 'right-ppp-end next) (set! right-ppp-end-count (+ 1 right-ppp-end-count))))))
-    (check > left-pco-count 0 "left-pco-count")
-    (check > right-pco-count 0 "right-pco-count")
-    (check > left-pp-start-count 0 "left-pp-start-count")
-    (check > left-pp-end-count 0 "left-pp-end-count")
-    (check > right-pp-start-count 0 "right-pp-start-count")
-    (check > right-pp-end-count 0 "right-pp-end-count")
-    (check > left-ppp-start-count 0 "left-ppp-start-count")
-    (check > left-ppp-end-count 0 "left-ppp-end-count")
-    (check > right-ppp-start-count 0 "right-ppp-start-count")
-    (check > right-ppp-end-count 0 "right-ppp-end-count")))
+  )
 
 (define cyd-tests
   (test-suite
@@ -271,7 +236,5 @@ select count(T.id),
 
 (module+ test
   (run-tests db-tests))
-
-(run-tests db-tests)
 
 ;; (test/gui db-tests)
