@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(18);
+insert into SCHEMA_VERSION(version) values(19);
 
 
 --........................................................ Enumerations ....
@@ -706,6 +706,24 @@ create table LAST_IMPORT(
 create table TMP_SESSION_LIST(
   session_id integer primary key
 );
+
+
+--....................................................... Metrics Cache ....
+
+-- Store Best Avg data for sessions and series.  This is a cache storage, not
+-- really ment for user level access.  Entries in this table can be deleted
+-- any time and will be automatically regenerated (however, this may take a
+-- long time). See rkt/metrics.rkt, where this is used.
+
+create table BAVG_CACHE (
+  id integer not null primary key autoincrement,
+  session_id integer not null,
+  series text not null,           -- data series name from session data-frame%
+  data blob not null,             -- GZIP-ped JSON object containing the data
+  foreign key(session_id) references A_SESSION(id)
+  );
+
+create unique index IX0_BAVG_CACHE on BAVG_CACHE(session_id, series);
 
 
 --......................................................... Other views ....

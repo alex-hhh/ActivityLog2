@@ -45,7 +45,8 @@
          "view-trends.rkt"
          "widgets.rkt"
          "al-profiler.rkt"
-         "import.rkt")
+         "import.rkt"
+         "metrics.rkt")
 
 (provide toplevel-window%)
 
@@ -699,6 +700,7 @@
         ;;   profile-display)
         
         (disconnect database)
+        (clear-metrics-cache)
         (set! database #f))
       )
 

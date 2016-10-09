@@ -24,7 +24,7 @@
   (-> string? exact-positive-integer? exact-positive-integer? any/c))
 
 (provide/contract
- [schema-version (parameter/c exact-positive-integer?)]
+ [schema-version (-> exact-positive-integer?)]
  [current-database (-> (or/c #f connection?))]
  [set-current-database (-> (or/c #f connection?) any/c)]
  [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)]
@@ -36,11 +36,8 @@
 
 (define-runtime-path schema-file "../sql/db-schema.sql")
 
-;; The schema version we expect in all databases we open.  An exception will
-;; be raised if it does not match
-(define schema-version
-  (make-parameter 18 (lambda (v)
-                       (fail-with "cannot set schema version"))))
+;; The schema version we expect in all databases we open.
+(define (schema-version) 19)
 
 ;; List of function to call after a new database was sucesfully opened.
 (define db-open-callbacks '())
