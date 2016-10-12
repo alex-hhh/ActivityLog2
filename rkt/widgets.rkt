@@ -137,7 +137,7 @@
       (let* ((value (if showing-cue? "" (get-value)))
              (valid? (and (vfn value) (not global-invalid))))
         (set-field-background (if valid? good-bg bad-bg))
-        (if (and report-valid-value? valid? (not (equal? old-value value)))
+        (if (and report-valid-value? valid?)
             (send cb-timer start 500 #t)
             (send cb-timer stop))))
 
@@ -153,8 +153,9 @@
       (new timer% [notify-callback 
                    (lambda () 
                      (let ((value (get-value)))
-                       (when cb (cb (cvfn value)))
-                       (set! old-value value)))]))
+                       (unless (equal? old-value value)
+                         (when cb (cb (cvfn value)))
+                         (set! old-value value))))]))
 
     (define/override (on-focus on?)
       (if on? (clear-cue-text) (maybe-insert-cue-text))

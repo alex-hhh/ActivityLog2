@@ -269,7 +269,7 @@
 
     (define (on-threshold-cadence cadence)
       (unless (equal? threshold-cadence cadence)
-        (set! threshold-cadence cadence)
+        (set! threshold-cadence (if (number? cadence) cadence #f))
         (put-plot-snip)))
 
     (define (on-threshold-speed speed)
@@ -293,8 +293,22 @@
         (set! percentile #f))
       (unless (equal? percentile outlier-percentile)
         (set! outlier-percentile percentile)
-        ;; no need to invalidate the data
-        (refresh-plot)))
+        (if data-series
+            ;; Compute the quantiles here, without having to refresh the
+            ;; entire plot.
+            (let ((opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
+              (set! quantile-bounds
+                    (if opct
+                        (find-bounds/quantile
+                         data-frame
+                         (send x-axis get-series-name)
+                         (send y-axis get-series-name)
+                         opct)
+                        (vector #f #f #f #f)))
+              (put-plot-snip))
+            ;; No data series, refresh entire plot to get one and compute the
+            ;; quantiles.
+            (refresh-plot))))
 
     (define (on-outlier-handling choice)
       (if (eq? choice 0)
