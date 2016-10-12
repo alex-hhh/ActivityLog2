@@ -15,23 +15,24 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot
-         db
-         "dbapp.rkt"
+(require db
+         plot
          racket/class
+         racket/date
          racket/gui/base
          racket/list
-         racket/date
          racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
-         "plot-axis-def.rkt"
          "data-frame.rkt"
+         "dbapp.rkt"
+         "dbglog.rkt"
+         "metrics.rkt"
+         "plot-axis-def.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "spline-interpolation.rkt"
-         "workers.rkt"
-         "metrics.rkt")
+         "workers.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -287,6 +288,8 @@
       (and (> selected-aux-axis 0)
            (list-ref axis-choices (sub1 selected-aux-axis))))
 
+    (define (get-best-rt-generation) best-rt-generation)
+
     (define (install-axis-choices)
       (set! axis-choices (filter-axis-list data-frame default-axis-choices))
       (send axis-choice-box clear)
@@ -410,24 +413,32 @@
                        (send plot-pb set-background-message "No data for plot"))))))))))
 
     (define (refresh-bests-plot)
-      (set! best-rt-generation (add1 best-rt-generation))
-      (set! best-rt #f)
+      (define debug-tag "inspect-best-avg%/refresh-bests-plot")
+      (when (> inhibit-refresh 0)
+        (dbglog (format "~a: ignoring call as inhibit-refresh = ~a" debug-tag inhibit-refresh)))
       (unless (> inhibit-refresh 0)
+        (set! best-rt-generation (add1 best-rt-generation))
+        (set! best-rt #f)
         (let ((axis (get-series-axis))
               (generation best-rt-generation)
               (time-interval selected-period))
           (queue-task
-           "inspect-best-avg%/refresh-bests-plot"
+           debug-tag
            (lambda ()
+             (dbglog (format "~a: started for generation ~a" debug-tag generation))
              (define candidates
                (get-candidate-sessions
                 (current-database)
                 (send data-frame get-property 'sport)
                 ((second (list-ref period-choices time-interval)))))
 
+             (dbglog (format "~a: got ~a candidates" debug-tag (length candidates)))
+
              (define inverted? (send axis inverted-best-avg?))
              (define sname (send axis get-series-name))
              (define bavg (get-best-avg/merged candidates sname inverted?))
+
+             (dbglog (format "~a: bests data: ~a" debug-tag bavg))
 
              (let ((fn (bavg->spline-fn bavg)))
                (define brt
@@ -449,10 +460,15 @@
                 (lambda ()
                   ;; Discard changes if there was a new request since ours was
                   ;; sumbitted.
-                  (when (equal? generation best-rt-generation)
-                    (set! best-rt brt)
-                    (set! bests-data bavg)
-                    (put-plot-snip))))))))))
+                  (let ((current-generation (get-best-rt-generation)))
+                    (if (= generation current-generation)
+                        (begin
+                          (dbglog (format "~a: completed generation ~a" debug-tag generation))
+                          (set! best-rt brt)
+                          (set! bests-data bavg)
+                          (put-plot-snip))
+                        (dbglog  (format "~a: discarding generation ~a, current is ~a"
+                                         generation current-generation))))))))))))
 
     (define (save-params-for-sport)
       (when (current-sport)
