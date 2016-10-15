@@ -467,8 +467,8 @@
                           (set! best-rt brt)
                           (set! bests-data bavg)
                           (put-plot-snip))
-                        (dbglog  (format "~a: discarding generation ~a, current is ~a"
-                                         generation current-generation))))))))))))
+                        (dbglog (format "~a: discarding generation ~a, current is ~a"
+                                        debug-tag generation current-generation))))))))))))
 
     (define (save-params-for-sport)
       (when (current-sport)
