@@ -754,8 +754,9 @@
             (send description-field clear)
             (send description-field insert last-description)
             (send description-field clear-undos)
-            (send description-field end-edit-sequence)
             (send description-field move-position 'home)
+            (send description-field auto-wrap #t)
+            (send description-field end-edit-sequence)
             (set! is-editing? #f)
             (send description-bar change-children
                   (lambda (old) (list description-label))))))
