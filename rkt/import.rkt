@@ -52,10 +52,10 @@
   (update-equipment-part-of db)
   (show-progress "updating corrected elevation...")
   (update-elevation-for-new-sessions db)
-  (show-progress "updating weather data...")
-  (update-weather-for-new-sessions db)
   (show-progress "updating time in zone...")
-  (update-tiz-for-new-sessions db))
+  (update-tiz-for-new-sessions db)
+  (show-progress "updating weather data...")
+  (update-weather-for-new-sessions db))
 
 ;; Some Garmin firmware versions reported only the lower two bytes of the
 ;; serial number of equipment like heart rate monitor or cadence sensors.

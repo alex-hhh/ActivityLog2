@@ -26,7 +26,6 @@
          "al-prefs.rkt"
          "data-frame.rkt"
          "dbapp.rkt"
-         "dbglog.rkt"
          "metrics.rkt"
          "plot-axis-def.rkt"
          "plot-hack.rkt"
@@ -414,8 +413,6 @@
 
     (define (refresh-bests-plot)
       (define debug-tag "inspect-best-avg%/refresh-bests-plot")
-      (when (> inhibit-refresh 0)
-        (dbglog (format "~a: ignoring call as inhibit-refresh = ~a" debug-tag inhibit-refresh)))
       (unless (> inhibit-refresh 0)
         (set! best-rt-generation (add1 best-rt-generation))
         (set! best-rt #f)
@@ -425,20 +422,15 @@
           (queue-task
            debug-tag
            (lambda ()
-             (dbglog (format "~a: started for generation ~a" debug-tag generation))
              (define candidates
                (get-candidate-sessions
                 (current-database)
                 (send data-frame get-property 'sport)
                 ((second (list-ref period-choices time-interval)))))
 
-             (dbglog (format "~a: got ~a candidates" debug-tag (length candidates)))
-
              (define inverted? (send axis inverted-best-avg?))
              (define sname (send axis get-series-name))
              (define bavg (get-best-avg/merged candidates sname inverted?))
-
-             (dbglog (format "~a: bests data: ~a" debug-tag bavg))
 
              (let ((fn (bavg->spline-fn bavg)))
                (define brt
@@ -461,14 +453,10 @@
                   ;; Discard changes if there was a new request since ours was
                   ;; sumbitted.
                   (let ((current-generation (get-best-rt-generation)))
-                    (if (= generation current-generation)
-                        (begin
-                          (dbglog (format "~a: completed generation ~a" debug-tag generation))
-                          (set! best-rt brt)
-                          (set! bests-data bavg)
-                          (put-plot-snip))
-                        (dbglog (format "~a: discarding generation ~a, current is ~a"
-                                        debug-tag generation current-generation))))))))))))
+                    (when (= generation current-generation)
+                      (set! best-rt brt)
+                      (set! bests-data bavg)
+                      (put-plot-snip)))))))))))
 
     (define (save-params-for-sport)
       (when (current-sport)

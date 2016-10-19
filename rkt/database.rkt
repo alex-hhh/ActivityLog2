@@ -186,6 +186,15 @@
             (training-effect (or (assq1 'total-training-effect session) sql-null))
             (training-stress-score (or (assq1 'training-stress-score session) sql-null))
             (intensity-factor (or (assq1 'intensity-factor session) sql-null)))
+
+        ;; HACK: Garmin devices started putting in 0 for the sub-sport field,
+        ;; but the rest of the activity-log code relies on NULL to mean
+        ;; 'generic'.  This introduced a subtle bug when using the subsport to
+        ;; find similar activities (for best-avg) or settings for the
+        ;; inspector, as it would look for activities like #(1 0) instead of
+        ;; #(1 #f), the situation would magically fix itself when editing the
+        ;; head line for the session, as that saved the sub-sport correctly.
+        (when (equal? sub-sport 0) (set! sub-sport sql-null))
         
         (query-exec 
          db stmt activity-id summary-id name description 
