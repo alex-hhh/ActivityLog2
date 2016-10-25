@@ -187,7 +187,7 @@
 
 (define axis-grade
   (new (class axis-definition% (init) (super-new)
-         (define/override (should-filter?) #f)
+         (define/override (should-filter?) #t)
          (define/override (get-axis-label) "Grade (%)")
          (define/override (get-line-color) *green*)
          (define/override (get-series-name) "grade")
