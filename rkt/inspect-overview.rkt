@@ -755,7 +755,10 @@
             (send description-field insert last-description)
             (send description-field clear-undos)
             (send description-field move-position 'home)
-            (send description-field auto-wrap #t)
+            ;; Unfortunately, auto-wrap causes exceptions to be thrown when
+            ;; the text is reverted, not sure why.
+            ;;
+            ;; (send description-field auto-wrap #t)
             (send description-field end-edit-sequence)
             (set! is-editing? #f)
             (send description-bar change-children
