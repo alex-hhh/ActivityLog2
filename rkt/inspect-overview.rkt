@@ -676,13 +676,18 @@
 
     (define description-canvas
       (new editor-canvas% [parent desc-panel] [style '(no-hscroll)]))
-    
+
     (define description-field
       (new (class text%
              (init)
              (super-new)
-             (define/augride (on-change) (on-edit-description)))
+             (define/augride (on-change)
+               ;; Use queue-callback so on-edit-description is called outside
+               ;; the on-change method which has the editor locked, so it
+               ;; interacts badly with the auto-wrap feature.
+               (queue-callback on-edit-description)))
            [line-spacing 1.5]))
+
     (send description-canvas set-editor description-field)
     (send description-field set-max-undo-history 100)
 
@@ -690,13 +695,21 @@
     (define is-editing? #f)
 
     (define (on-edit-description)
-      (unless is-editing?
-        (set! is-editing? #t)
-        (send description-bar change-children
-              (lambda (old) (list description-label save-button revert-button)))))
+      ;; If the editor is modified, put on the save/revert buttons, otherwise
+      ;; remove them (for example when the user has undo-ed all changes)
+      (if (send description-field is-modified?)
+          (unless is-editing?
+            (set! is-editing? #t)
+            (send description-bar change-children
+                  (lambda (old) (list description-label save-button revert-button))))
+          (when is-editing?
+            (set! is-editing? #f)
+            (send description-bar change-children
+                  (lambda (old) (list description-label))))))
 
     (define (on-save-description)
       (update-session-description)
+      (send description-field set-modified #f)
       (send description-bar change-children
             (lambda (old) (list description-label)))
       (set! is-editing? #f))
@@ -706,6 +719,7 @@
       (send description-field select-all)
       (send description-field clear)
       (send description-field insert last-description)
+      (send description-field set-modified #f)
       (send description-field end-edit-sequence)
       (send description-bar change-children
             (lambda (old) (list description-label)))
@@ -755,13 +769,14 @@
             (send description-field insert last-description)
             (send description-field clear-undos)
             (send description-field move-position 'home)
-            ;; Unfortunately, auto-wrap causes exceptions to be thrown when
-            ;; the text is reverted, not sure why.
-            ;;
-            ;; (send description-field auto-wrap #t)
+            (send description-field set-modified #f)
             (send description-field end-edit-sequence)
             (set! is-editing? #f)
             (send description-bar change-children
-                  (lambda (old) (list description-label))))))
-      (set! the-session session))
+                  (lambda (old) (list description-label)))))
+        (set! the-session session)))
+
+    ;; Do this last, as it will invoke the on-change method which will try to
+    ;; call on-edit-description.
+    (send description-field auto-wrap #t)
     ))
