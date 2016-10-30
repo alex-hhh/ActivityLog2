@@ -58,7 +58,7 @@
 
 ;; Compute the time spend in each zone for SESSION (as returned by
 ;; db-fetch-session).  The zones are defined by the AXIS-DEF (can be
-;; axis-hr-zone, axis-power-zone) and are defined in "plot-axis-def.rkt"
+;; axis-hr-zone, axis-power-zone) and are defined in "series-meta.rkt"
 ;;
 ;; Returns a (Vectorof (Vector Zone Duration)), or #f if no zone data can be
 ;; calculated.  We cannot calculate zone data either if no zones are defined

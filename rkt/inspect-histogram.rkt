@@ -21,7 +21,7 @@
          racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
-         "plot-axis-def.rkt"
+         "series-meta.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
@@ -40,12 +40,12 @@
                    (let ()
                      (match-define (list name a1 a2) axis)
                      (send df contains?
-                           (send a1 get-series-name)
-                           (send a2 get-series-name)))
-                   (send df contains? (send axis get-series-name))))
+                           (send a1 series-name)
+                           (send a2 series-name)))
+                   (send df contains? (send axis series-name))))
       axis))
   (sort al string<?
-        #:key (lambda (a) (if (list? a) (first a) (send a get-axis-title)))))
+        #:key (lambda (a) (if (list? a) (first a) (send a headline)))))
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
@@ -54,7 +54,7 @@
               #:when
               (let ((sn (if (list? axis)
                             (car axis)
-                            (send axis get-axis-label))))
+                            (send axis axis-label))))
                 (equal? series-name sn)))
     index))
 
@@ -192,17 +192,17 @@
 
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
-    (define (get-axis-label index)
+    (define (axis-label index)
       (let ((axis (list-ref axis-choices index)))
         (if (list? axis)
             (car axis)
-            (send axis get-axis-label))))
+            (send axis axis-label))))
 
     ;; Update the axis selection checkboxes with AXIS-LIST
     (define (install-axis-choices axis-list)
       (send y-axis-choice clear)
       (for ([a axis-list])
-        (let ((n (if (list? a) (car a) (send a get-axis-label))))
+        (let ((n (if (list? a) (car a) (send a axis-label))))
           (send y-axis-choice append n))))
 
     (define (on-y-axis-changed new-index)
@@ -243,8 +243,8 @@
             (when (list? y-axis) (set! y-axis (second y-axis)))
             (parameterize ([plot-y-label (if show-as-percentage? "pct %"
                                              (if (lap-swimming?) "# of lengths" "time (seconds)"))]
-                           [plot-x-ticks (send y-axis get-axis-ticks)]
-                           [plot-x-label (send y-axis get-axis-label)])
+                           [plot-x-ticks (send y-axis plot-ticks)]
+                           [plot-x-label (send y-axis axis-label)])
               (plot-snip/hack plot-pb rt))))))
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
@@ -253,9 +253,9 @@
     ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
 
-      ;; HACK: some get-line-color methods return 'smart, we should fix this
+      ;; HACK: some plot-color methods return 'smart, we should fix this
       (define (get-color axis)
-        (let ((color (send axis get-line-color)))
+        (let ((color (send axis plot-color)))
           (if (or (not color) (eq? color 'smart))
               '(0 148 255)
               color)))
@@ -277,9 +277,9 @@
            (lambda ()
              (let* ((axis1 (if (list? axis) (second axis) axis))
                     (axis2 (if (list? axis) (third axis) #f))
-                    (sname1 (send axis1 get-series-name))
-                    (sname2 (if axis2 (send axis2 get-series-name) #f))
-                    (bw (* bw (send axis1 get-histogram-bucket-slot)))
+                    (sname1 (send axis1 series-name))
+                    (sname2 (if axis2 (send axis2 series-name) #f))
+                    (bw (* bw (send axis1 histogram-bucket-slot)))
                     (h1 (df-histogram df sname1
                                       #:bucket-width bw #:include-zeroes? zeroes?
                                       #:as-percentage? as-pct? #:trim-outliers trim))
@@ -290,8 +290,8 @@
                             #f))
                     (rt (cond
                           ((and axis2 h1 h2)
-                           (make-histogram-renderer/dual h1 (send axis1 get-series-label)
-                                                         h2 (send axis2 get-series-label)
+                           (make-histogram-renderer/dual h1 (send axis1 plot-label)
+                                                         h2 (send axis2 plot-label)
                                                          #:color1 (get-color axis1)
                                                          #:color2 (get-color axis2)))
                           (h1
@@ -309,7 +309,7 @@
     (define (save-params-for-axis)
       (when (current-sport)
         (let* ((sport (current-sport))
-               (axis-name (get-axis-label y-axis-index))
+               (axis-name (axis-label y-axis-index))
                (key (cons sport axis-name)))
           (hash-set! params-by-axis key
                      (list bucket-width include-zeroes? outlier-trim)))))
@@ -318,7 +318,7 @@
     (define (restore-params-for-axis)
       (when (current-sport)
         (let* ((sport (current-sport))
-               (axis-name (get-axis-label y-axis-index))
+               (axis-name (axis-label y-axis-index))
                (key (cons sport axis-name))
                (val (hash-ref params-by-axis key (lambda () (list 1 #t 0)))))
           (match-define (list bw incz trim) val)
@@ -334,7 +334,7 @@
     (define (save-params-for-sport)
       (when (current-sport)
         (save-params-for-axis)
-        (let ((name (get-axis-label y-axis-index)))
+        (let ((name (axis-label y-axis-index)))
           (hash-set! axis-by-sport (current-sport) name))))
 
     ;; Restore the selected axis and its parameters for the current sport.
@@ -360,11 +360,11 @@
                 (axis (list-ref axis-choices y-axis-index)))
             (cond ((and sid (list? axis))
                    (format "histogram-~a-~a-~a.png" sid
-                           (send (second axis) get-series-name)
-                           (send (third axis) get-series-name)))
+                           (send (second axis) series-name)
+                           (send (third axis) series-name)))
                   ((and sid axis)
                    (format "histogram-~a-~a.png" sid
-                           (send axis get-series-name)))
+                           (send axis series-name)))
                   (#t
                    "histogram.png")))))
 

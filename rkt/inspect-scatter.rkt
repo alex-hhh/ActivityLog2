@@ -22,7 +22,7 @@
          racket/math
          "activity-util.rkt"
          "al-prefs.rkt"
-         "plot-axis-def.rkt"
+         "series-meta.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
@@ -36,16 +36,16 @@
 (define (filter-axis-list df axis-list)
   (define al
     (for/list ([axis axis-list]
-               #:when (let ((sn (send axis get-series-name)))
+               #:when (let ((sn (send axis series-name)))
                         (send df contains? sn)))
       axis))
-  (sort al string<? #:key (lambda (a) (send a get-axis-title))))
+  (sort al string<? #:key (lambda (a) (send a headline))))
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
 (define (find-axis series-name axis-list)
   (for/first ([(axis index) (in-indexed axis-list)]
-              #:when (equal? series-name (send axis get-series-name)))
+              #:when (equal? series-name (send axis series-name)))
     index))
 
 ;; Axis choices for all non lap swimming sports.  Any pair of axis from this
@@ -154,8 +154,8 @@
        (good-or-false ymax)))))
 
 (define (extract-data data-frame x-axis y-axis)
-  (let ((xnam (send x-axis get-series-name))
-        (ynam (send y-axis get-series-name)))
+  (let ((xnam (send x-axis series-name))
+        (ynam (send y-axis series-name)))
     (when (send data-frame contains? xnam ynam)
       (send data-frame select*
             xnam ynam "elapsed"
@@ -273,7 +273,7 @@
       (send x-axis-choice clear)
       (send y-axis-choice clear)
       (for ([a axis-list])
-        (let ((n (send a get-axis-title)))
+        (let ((n (send a headline)))
           (send x-axis-choice append n)
           (send y-axis-choice append n))))
 
@@ -337,10 +337,10 @@
                                     #:color "blue" #:style 'short-dash) rt))))
           (let ((x-axis (list-ref axis-choices x-axis-index))
                 (y-axis (list-ref axis-choices y-axis-index)))
-            (parameterize ([plot-x-ticks (send x-axis get-axis-ticks)]
-                           [plot-x-label (send x-axis get-axis-label)]
-                           [plot-y-ticks (send y-axis get-axis-ticks)]
-                           [plot-y-label (send y-axis get-axis-label)])
+            (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
+                           [plot-x-label (send x-axis axis-label)]
+                           [plot-y-ticks (send y-axis plot-ticks)]
+                           [plot-y-label (send y-axis axis-label)])
               (match-define (vector x-min x-max y-min y-max)
                 (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
               (plot-snip/hack plot-pb rt
@@ -353,9 +353,9 @@
     ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
 
-      ;; HACK: some get-line-color methods return 'smart, we should fix this
+      ;; HACK: some plot-color methods return 'smart, we should fix this
       (define (get-color axis)
-        (let ((color (send axis get-line-color)))
+        (let ((color (send axis plot-color)))
           (if (or (not color) (eq? color 'smart))
               '(0 148 255)
               color)))
@@ -377,16 +377,16 @@
            (lambda ()
              (let ((ds (or ds (extract-data df x y))))
                (if ds
-                   (let* ((x-digits (send x get-fractional-digits))
-                          (y-digits (send y get-fractional-digits))
+                   (let* ((x-digits (send x fractional-digits))
+                          (y-digits (send y fractional-digits))
                           (color (get-color y))
                           (bounds (find-bounds ds))
                           (qbounds
                            (if opct
                                (find-bounds/quantile
                                 df
-                                (send x get-series-name)
-                                (send y get-series-name)
+                                (send x series-name)
+                                (send y series-name)
                                 opct)
                                (vector #f #f #f #f)))
                           (delayed (if damt (time-delay-series ds damt) ds))
@@ -411,8 +411,8 @@
         (let* ((sport (current-sport))
                (x (list-ref axis-choices x-axis-index))
                (y (list-ref axis-choices y-axis-index))
-               (xseries (send x get-series-name))
-               (yseries (send y get-series-name)))
+               (xseries (send x series-name))
+               (yseries (send y series-name)))
           (hash-set! axis-by-sport sport (list xseries yseries)))))
 
     ;; Save the parameters for the currently selected axis combination
@@ -421,8 +421,8 @@
         (let* ((sport (current-sport))
                (x (list-ref axis-choices x-axis-index))
                (y (list-ref axis-choices y-axis-index))
-               (xseries (send x get-series-name))
-               (yseries (send y get-series-name)))
+               (xseries (send x series-name))
+               (yseries (send y series-name)))
           (hash-set! params-by-axis (list sport xseries yseries)
                      (list delay-amount outlier-percentile outlier-handling)))))
 
@@ -448,10 +448,10 @@
       (when (current-sport)
         (let* ((sport (current-sport))
                (xseries (if (< x-axis-index (length axis-choices))
-                            (send (list-ref axis-choices x-axis-index) get-series-name)
+                            (send (list-ref axis-choices x-axis-index) series-name)
                             #f))
                (yseries (if (< y-axis-index (length axis-choices))
-                            (send (list-ref axis-choices y-axis-index) get-series-name)
+                            (send (list-ref axis-choices y-axis-index) series-name)
                             #f))
                (sport-data (hash-ref params-by-axis (list sport xseries yseries) #f)))
           (cond ((list? sport-data)
@@ -489,8 +489,8 @@
                 (y-axis (list-ref axis-choices y-axis-index)))
             (cond ((and sid x-axis y-axis)
                    (format "scatter-~a-~a-~a.png" sid
-                           (send x-axis get-series-name)
-                           (send y-axis get-series-name)))
+                           (send x-axis series-name)
+                           (send y-axis series-name)))
                   (#t
                    "scatter.png")))))
     

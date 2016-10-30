@@ -24,10 +24,10 @@
          racket/match
          "activity-util.rkt"
          "al-prefs.rkt"
+         "series-meta.rkt"
          "data-frame.rkt"
          "dbapp.rkt"
          "metrics.rkt"
-         "plot-axis-def.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "spline-interpolation.rkt"
@@ -44,12 +44,12 @@
         (let ()
           (match-define (list name a1 a2) axis)
           (send df contains?
-                (send a1 get-series-name)
-                (send a2 get-series-name)))
-        (send df contains? (send axis get-series-name))))
+                (send a1 series-name)
+                (send a2 series-name)))
+        (send df contains? (send axis series-name))))
 
   (define (sort-key axis)
-    (if (list? axis) (first axis) (send axis get-axis-title)))
+    (if (list? axis) (first axis) (send axis headline)))
 
   (sort (filter valid? axis-list) string<? #:key sort-key))
 
@@ -60,7 +60,7 @@
   (define (match? axis)
     (let ((sn (if (list? axis)
                   (car axis)
-                  (send axis get-series-name))))
+                  (send axis series-name))))
       (equal? series-name sn)))
 
   (for/first ([(axis index) (in-indexed axis-list)]
@@ -295,7 +295,7 @@
       (send aux-axis-choice-box clear)
       (send aux-axis-choice-box append "None")
       (for ([a axis-choices])
-        (let ((n (send a get-axis-label)))
+        (let ((n (send a axis-label)))
           (send axis-choice-box append n)
           (send aux-axis-choice-box append n))))
 
@@ -349,10 +349,10 @@
                     (parameterize ([plot-x-ticks (best-avg-ticks)]
                                    [plot-x-label "Duration"]
                                    [plot-x-transform log-transform]
-                                   [plot-y-ticks (send best-avg-axis get-axis-ticks)]
-                                   [plot-y-label (send best-avg-axis get-axis-label)]
-                                   [plot-y-far-ticks (transform-ticks (send aux-axis get-axis-ticks) ivs)]
-                                   [plot-y-far-label (send aux-axis get-axis-label)])
+                                   [plot-y-ticks (send best-avg-axis plot-ticks)]
+                                   [plot-y-label (send best-avg-axis axis-label)]
+                                   [plot-y-far-ticks (transform-ticks (send aux-axis plot-ticks) ivs)]
+                                   [plot-y-far-label (send aux-axis axis-label)])
                       (plot-snip/hack plot-pb rt
                                       #:x-min min-x #:x-max max-x
                                       #:y-min min-y #:y-max max-y
@@ -360,8 +360,8 @@
                 (parameterize ([plot-x-ticks (best-avg-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
-                               [plot-y-ticks (send best-avg-axis get-axis-ticks)]
-                               [plot-y-label (send best-avg-axis get-axis-label)])
+                               [plot-y-ticks (send best-avg-axis plot-ticks)]
+                               [plot-y-label (send best-avg-axis axis-label)])
                   (plot-snip/hack plot-pb rt
                                   #:x-min min-x #:x-max max-x
                                   #:y-min min-y #:y-max max-y))))))))
@@ -383,22 +383,22 @@
              (define data
                (or (hash-ref cache axis #f)
                    (let ((inverted? (send axis inverted-best-avg?))
-                         (series (send axis get-series-name)))
+                         (series (send axis series-name)))
                      (and (send df contains? series)
                           (df-best-avg df series #:inverted? inverted?)))))
              (hash-set! cache axis data)
              ;; rebuild auxiliary data here
              (define aux-data
                (and data aux-axis
-                    (let ((series (send aux-axis get-series-name)))
+                    (let ((series (send aux-axis series-name)))
                       (and (send df contains? series)
                            (df-best-avg-aux df series data)))))
              (define rt
                (and data
                     (make-best-avg-renderer
                      data aux-data
-                     #:color1 (send axis get-line-color)
-                     #:color2 (and aux-axis (send aux-axis get-line-color))
+                     #:color1 (send axis plot-color)
+                     #:color2 (and aux-axis (send aux-axis plot-color))
                      #:zero-base? zerob?)))
              (queue-callback
               (lambda ()
@@ -429,7 +429,7 @@
                 ((second (list-ref period-choices time-interval)))))
 
              (define inverted? (send axis inverted-best-avg?))
-             (define sname (send axis get-series-name))
+             (define sname (send axis series-name))
              (define bavg (get-best-avg/merged candidates sname inverted?))
 
              (let ((fn (bavg->spline-fn bavg)))
@@ -443,7 +443,7 @@
                        ;; plot will be clipped at the right spot.
                        (if inverted? (lambda (x) 10000) (lambda (x) -10000))
                        fn
-                       #:color (send axis get-line-color)
+                       #:color (send axis plot-color)
                        #:alpha 0.1
                        #:line2-color "black"
                        #:line2-width 0.5
@@ -464,7 +464,7 @@
         (let ((axis (get-series-axis)))
           (hash-set! params-by-sport
                      (current-sport)
-                     (list 'gen1 (send axis get-series-name) params-by-series)))))
+                     (list 'gen1 (send axis series-name) params-by-series)))))
                
     (define (restore-params-for-sport)
       (set! inhibit-refresh (add1 inhibit-refresh))
@@ -492,16 +492,16 @@
               (period (list-ref period-choices selected-period)))
           (hash-set!
            params-by-series
-           (send axis get-series-name)
+           (send axis series-name)
            (list 'gen1
-                 (and aux-axis (send aux-axis get-series-name))
+                 (and aux-axis (send aux-axis series-name))
                  (first period)
                  zero-base?)))))
 
     (define (restore-params-for-series)
       (set! inhibit-refresh (add1 inhibit-refresh))
       (let* ((axis (get-series-axis))
-             (series-name (send axis get-series-name))
+             (series-name (send axis series-name))
              (params (hash-ref params-by-series series-name #f)))
         (if (and params (eq? (car params) 'gen1))
             (match-let (((list tag aux-series-name period-name zb?) params))
@@ -535,12 +535,12 @@
             (axis2 (get-aux-axis)))
         (cond ((and sid axis1 axis2)
                (format "best-avg-~a-~a-~a.~a" sid
-                       (send axis1 get-series-name)
-                       (send axis2 get-series-name)
+                       (send axis1 series-name)
+                       (send axis2 series-name)
                        extenstion))
               ((and sid axis1)
                (format "best-avg-~a-~a.~a" sid
-                       (send axis1 get-series-name)
+                       (send axis1 series-name)
                        extenstion))
               (#t
                (format "best-avg.~a" extenstion)))))

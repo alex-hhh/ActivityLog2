@@ -22,8 +22,8 @@
          "inspect-graphs.rkt"
          "map-widget.rkt"
          "map-util.rkt"
-         "plot-axis-def.rkt"
          "data-frame.rkt"
+         "series-meta.rkt"
          "utilities.rkt")
 
 (provide map-panel%)

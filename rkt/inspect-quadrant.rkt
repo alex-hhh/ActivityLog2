@@ -34,7 +34,7 @@
          "data-frame.rkt"
          "snip-canvas.rkt"
          "plot-hack.rkt"
-         "plot-axis-def.rkt"
+         "series-meta.rkt"
          "sport-charms.rkt"
          "widgets.rkt"
          "workers.rkt"
@@ -301,8 +301,8 @@
                     (if opct
                         (find-bounds/quantile
                          data-frame
-                         (send x-axis get-series-name)
-                         (send y-axis get-series-name)
+                         (send x-axis series-name)
+                         (send y-axis series-name)
                          opct)
                         (vector #f #f #f #f)))
               (put-plot-snip))
@@ -382,10 +382,10 @@
             (set! rt (cons (vrule threshold-cadence)
                            (cons (hrule (threshold-fn threshold-cadence))
                                  rt))))
-          (parameterize ([plot-x-ticks (send x-axis get-axis-ticks)]
-                         [plot-x-label (send x-axis get-axis-label)]
-                         [plot-y-ticks (send y-axis get-axis-ticks)]
-                         [plot-y-label (send y-axis get-axis-label)])
+          (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
+                         [plot-x-label (send x-axis axis-label)]
+                         [plot-y-ticks (send y-axis plot-ticks)]
+                         [plot-y-label (send y-axis axis-label)])
             (match-define (vector x-min x-max y-min y-max)
               (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
             (plot-snip/hack
@@ -408,8 +408,8 @@
            (lambda ()
              (define ds
                (and x y
-                    (let ((xnam (send x get-series-name))
-                          (ynam (send y get-series-name)))
+                    (let ((xnam (send x series-name))
+                          (ynam (send y series-name)))
                       (and  (send df contains? xnam ynam)
                             (send df select* xnam ynam #:filter filter-fn)))))
              (define bounds (and ds (find-bounds ds)))
@@ -417,20 +417,20 @@
                (if opct
                    (find-bounds/quantile
                     df
-                    (send x get-series-name)
-                    (send y get-series-name)
+                    (send x series-name)
+                    (send y series-name)
                     opct)
                    (vector #f #f #f #f)))
              (define grouped
                (and ds
                     (group-samples ds
-                                   (send x get-fractional-digits)
-                                   (send y get-fractional-digits))))
+                                   (send x fractional-digits)
+                                   (send y fractional-digits))))
              (define rt
                (and grouped
                     (make-scatter-group-renderer
                      grouped
-                     #:color (send y-axis get-line-color))))
+                     #:color (send y-axis plot-color))))
              (queue-callback
               (lambda ()
                 (set! plot-rt rt)

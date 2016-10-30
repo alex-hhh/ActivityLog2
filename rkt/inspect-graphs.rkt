@@ -28,7 +28,7 @@
          "al-prefs.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
-         "plot-axis-def.rkt"
+         "series-meta.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "data-frame.rkt"
@@ -224,7 +224,7 @@
             id-transform))
 
       (define (get-x-axis-ticks)
-        (let ((ticks (send x-axis get-axis-ticks)))
+        (let ((ticks (send x-axis plot-ticks)))
           (if (and selected-lap zoom-to-lap?)
               (let ((range (get-lap-extents data-series data-frame selected-lap)))
                 (if range
@@ -240,9 +240,9 @@
                       (make-object bitmap% width height #f #f (get-display-backing-scale)))))
         (parameterize ([plot-x-transform (get-x-transform)]
                        [plot-x-ticks (get-x-axis-ticks)]
-                       [plot-x-label (send x-axis get-axis-label)]
-                       [plot-y-ticks (send y-axis get-axis-ticks)]
-                       [plot-y-label (send y-axis get-axis-label)])
+                       [plot-x-label (send x-axis axis-label)]
+                       [plot-y-ticks (send y-axis plot-ticks)]
+                       [plot-y-label (send y-axis axis-label)])
           (plot/dc (full-render-tree) (send bmp make-dc) 0 0 width height))
         bmp))
 
@@ -318,7 +318,7 @@
                      ;; NOTE: a graph can be configured for multiple Y axis,
                      ;; and some of them might not exist. We need to check
                      ;; that the series exists.
-                     (if (send data-frame contains? (send y-axis get-series-name))
+                     (if (send data-frame contains? (send y-axis series-name))
                          (let ([ds (extract-data data-frame x-axis y-axis filter-amount)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
@@ -334,7 +334,7 @@
                      ;; NOTE: a graph can be configured for multiple Y axis,
                      ;; and some of them might not exist. We need to check
                      ;; that the series exists.
-                     (if (and y-axis2 (send data-frame contains? (send y-axis2 get-series-name)))
+                     (if (and y-axis2 (send data-frame contains? (send y-axis2 series-name)))
                          (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
@@ -354,7 +354,7 @@
                (define rt
                  (cond
                    ((and ds (is-lap-swimming? data-frame)
-                         (eq? (send y-axis get-line-color) 'smart))
+                         (eq? (send y-axis plot-color) 'smart))
                     (make-plot-renderer/swim-stroke
                      ds
                      (send data-frame select "swim_stroke")))
@@ -362,21 +362,21 @@
                    ((and ds ds2)
                     (list
                      (make-plot-renderer ds yr
-                                         #:color (send y-axis get-line-color)
+                                         #:color (send y-axis plot-color)
                                          #:width 1
                                          #:alpha 0.9
-                                         #:label (send y-axis get-series-label))
+                                         #:label (send y-axis plot-label))
                      (make-plot-renderer ds2 yr
-                                         #:color (send y-axis2 get-line-color)
+                                         #:color (send y-axis2 plot-color)
                                          #:width 1
                                          #:alpha 0.9
-                                         #:label (send y-axis2 get-series-label))))
+                                         #:label (send y-axis2 plot-label))))
                    (ds
                     (make-plot-renderer ds yr
-                                        #:color (send y-axis get-line-color)))
+                                        #:color (send y-axis plot-color)))
                    (ds2
                     (make-plot-renderer ds2 yr
-                                        #:color (send y-axis2 get-line-color)))
+                                        #:color (send y-axis2 plot-color)))
                    (#t #f)))
                (queue-callback
                 (lambda ()
@@ -472,7 +472,7 @@
     (define/public (highlight-lap lap-num)
 
       (define (get-color)
-        (let ((c (send y-axis get-line-color)))
+        (let ((c (send y-axis plot-color)))
           (if (eq? c 'smart) "gray" c)))
       
       (if (and lap-num (>= lap-num 0) data-series data-frame data-y-range)
@@ -501,8 +501,8 @@
     (define (get-default-export-file-name)
       (or export-file-name
           (let ((sid (send data-frame get-property 'session-id))
-                (s1 (and y-axis (send y-axis get-series-name)))
-                (s2 (and y-axis2 (send y-axis2 get-series-name))))
+                (s1 (and y-axis (send y-axis series-name)))
+                (s2 (and y-axis2 (send y-axis2 series-name))))
             (cond ((and sid s1 s2)
                    (format "graph-~a-~a-~a.png" sid s1 s2))
                   ((and sid s1)

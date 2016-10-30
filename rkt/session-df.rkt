@@ -31,7 +31,7 @@
          "data-frame.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "plot-axis-def.rkt"
+         "series-meta.rkt"
          "map-util.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
@@ -40,14 +40,14 @@
 (provide/contract
  (make-session-data-frame (-> connection? number? (is-a?/c data-frame%)))
  (extract-data (->* ((is-a?/c data-frame%)
-                     (is-a?/c axis-definition%)
-                     (is-a?/c axis-definition%))
+                     (is-a?/c series-metadata%)
+                     (is-a?/c series-metadata%))
                     ((or/c zero? positive?))
                     ts-data/c))
  (ds-stats (-> ts-data/c statistics?))
  (add-verticals (-> ts-data/c ts-data/c))
  (get-lap-extents (-> ts-data/c (is-a?/c data-frame%) number? (cons/c number? number?)))
- (get-plot-y-range (-> statistics? (is-a?/c axis-definition%) y-range/c))
+ (get-plot-y-range (-> statistics? (is-a?/c series-metadata%) y-range/c))
  (combine-y-range (-> y-range/c y-range/c y-range/c))
 
  (make-plot-renderer (->* (ts-data/c y-range/c)
@@ -687,11 +687,11 @@
 ;; produces nicer graphs).
 ;;
 (define (extract-data data-frame x-axis y-axis (filter-width 0))
-  (let ((xseries (send x-axis get-series-name))
-        (yseries (send y-axis get-series-name))
-        (missing-value (send y-axis get-missing-value))
+  (let ((xseries (send x-axis series-name))
+        (yseries (send y-axis series-name))
+        (missing-value (send y-axis missing-value))
         (should-filter? (send y-axis should-filter?))
-        (base-filter-width (send x-axis get-filter-width))
+        (base-filter-width (send x-axis filter-width))
         (stop-detection? (send x-axis has-stop-detection?)))
     (define data
       (send data-frame select* xseries yseries "timestamp"
@@ -791,7 +791,7 @@
 (define (get-plot-y-range stats y-axis)
   (define high #f)
   (define low #f)
-  (let ((range (send y-axis get-y-range)))
+  (let ((range (send y-axis y-range)))
     (when range
       (set! low (car range))
       (set! high (cdr range))))
