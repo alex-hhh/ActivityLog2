@@ -85,7 +85,7 @@ where position_lat is not null
   (call-with-transaction
    db
    (lambda ()
-     (for ([tp tp-canditates])
+     (for ([tp (in-list tp-canditates)])
        (match-define (vector id lat lon) tp)
        (let ((tile-code (lat-lon->tile-code lat lon)))
          (query-exec db tile-update-stmt tile-code id))))))
@@ -166,7 +166,7 @@ from A_TRACKPOINT where tile_code = ?
     (define 2stddev (* 2 (statistics-stddev stats #:bias #t)))
 
     (define points
-      (for/list ([tp trackpoints] #:when (< (abs (- (vector-ref tp 2) mean)) 2stddev))
+      (for/list ([tp (in-list trackpoints)] #:when (< (abs (- (vector-ref tp 2) mean)) 2stddev))
         (match-define (vector lat lon alt) tp)
         (vector (degrees->radians lat)
                 (degrees->radians lon)
@@ -201,7 +201,7 @@ from A_TRACKPOINT where tile_code = ?
   ;; allows us to process several distinct lists of points.
   (define (accumulate-average-altitude lat long points sum-div)
     (match-define (cons sum div) sum-div)
-    (for ([p points])
+    (for ([p (in-list points)])
       (match-define (vector plat plon palt) p)
       (let* ((d (map-distance/radians lat long plat plon))
              (w (flmax 0.0 (fl/ half-weight-distance (fl+ d half-weight-distance)))))
@@ -252,7 +252,7 @@ order by T.timestamp")))
         (prev-lat #f)
         (prev-lon #f)
         (distance 0))
-    (for/vector ([point trackpoints])
+    (for/vector ([point (in-list trackpoints)])
       (set! num-processed (+ num-processed 1))
       (when (and progress-monitor (= (remainder num-processed progress-step) 0))
         (send progress-monitor set-progress num-processed))
@@ -364,10 +364,10 @@ order by T.timestamp")))
     ;; Fixup #f's in the calt values, this works OK for one-off missing
     ;; values, if whole ranges are missing, this will not produce nice
     ;; results.
-    (for ([(tp idx) (in-indexed trackpoints)] #:unless (tpoint-calt tp))
+    (for ([(tp idx) (in-indexed (in-vector trackpoints))] #:unless (tpoint-calt tp))
       (if (= idx 0)
           ;; Scan forward for the first good altitude value
-          (let ((a (for/first ([tp trackpoints] #:when (tpoint-calt tp))
+          (let ((a (for/first ([tp (in-vector trackpoints)] #:when (tpoint-calt tp))
                      (tpoint-calt tp))))
             (set-tpoint-calt! tp a))
           ;; Use the previous value
@@ -391,7 +391,7 @@ order by T.timestamp")))
     (call-with-transaction
      db
      (lambda ()
-       (for ((point altitude-data))
+       (for ((point (in-vector altitude-data)))
          (set! num-processed (+ num-processed 1))
          (when (and progress-monitor (= (remainder num-processed progress-step) 0))
            (send progress-monitor set-progress num-processed))
@@ -493,7 +493,6 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
     (send progress-monitor begin-stage "Correcting elevation for session..." 0))
   (define tp-elevation (calculate-altitude trackpoints altitude-data progress-monitor))
   (smooth-altitude tp-elevation)
-
   (call-with-transaction
    db
    (lambda ()
@@ -527,14 +526,11 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
     (when progress-monitor
       (send progress-monitor begin-stage "Fixup elevation for all sessions"
             (length sessions)))
-    (for ((s (in-list sessions))
-          (i (in-range (length sessions))))
+    (for (((sid index) (in-indexed (in-list sessions))))
       #:break (if progress-monitor
-                  (not (send progress-monitor set-progress i))
+                  (not (send progress-monitor set-progress index))
                   #f)
-      (when progress-monitor
-        (send progress-monitor begin-stage (format "Session id ~a" s) 0))
-      (fixup-elevation-for-session-internal db s altidude-data #f)))
+      (fixup-elevation-for-session-internal db sid altidude-data #f)))
 
   (when progress-monitor
     (send progress-monitor finished))
