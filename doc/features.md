@@ -1,11 +1,11 @@
 ## Features ##
 
 * Can import FIT activity files (Run, Bike, Swim).  Other activities such as
-  Hiking and Skiing are also supported. Can import multisport activities
+  Hiking and Skiing are also supported. Can import multi-sport activities
   (triathlons, duathlons)
 
 * Supports the usual data series (speed, heart-rate, cadence, power), also
-  supports advanced run metrics (Vertical Oscilation, Ground Contact Time,
+  supports advanced run metrics (Vertical Oscillation, Ground Contact Time,
   etc) and bike metrics (Torque Efficiency, Pedal Smoothness, Power Phase,
   etc).
   
@@ -14,7 +14,7 @@
   
 * Sports maps (map tiles from openstreet map) and weather data
 
-* Equipment tracking, both manual and automatic.  ALso supports service
+* Equipment tracking, both manual and automatic.  Also supports service
   reminders.
   
 * Reports and trends charts

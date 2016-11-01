@@ -27,20 +27,20 @@ The application can be run from the command line using the following command:
 
     racket run.rkt
 
-If this is done repeteadly, it might be worth compiling the files first to
+If this is done repeatedly, it might be worth compiling the files first to
 speed things up:
 
     raco make run.rkt
 
 Note that if compiled files are present, racket will not re-compile modified
-files, you will need to recompile them explicitely, otherwise you will
+files, you will need to recompile them explicitly, otherwise you will
 encounter load errors when trying to run the application.
 
 ## Debugging tips
 
 When the application throws an exception it can be logged in two places: the
 console or the log file.  The log file is located in
-"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log" (for other plaforms, see
+"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log" (for other platforms, see
 `maybe-init-log-port` in "rkt/dbglog.rkt").  In particular, exceptions thrown
 from separate threads will be logged in the log file.
 
@@ -50,7 +50,7 @@ will run slow):
 
     racket -l errortrace -t run.rkt
 
-The application has a small test suite.  Thests can be run using:
+The application has a small test suite.  Tests can be run using:
 
     raco test test/db-test.rkt
     raco test test/df-test.rkt

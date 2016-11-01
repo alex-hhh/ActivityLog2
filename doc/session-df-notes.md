@@ -12,21 +12,21 @@ The following properties are present:
 * *session-id* the database id for the session (A_SESSION.id)
 * *sport* is a vector of sport-id and subsport-id, as defined in the `E_SPORT`
   and `E_SUB_SPORT` database tables.
-* *stop-points* is a list of timestamps where the recoring was stopped.
+* *stop-points* is a list of timestamps where the recording was stopped.
 * *laps* is a list of timestamps where the laps start 
 * *weight-series* is the name of the series that is used as a weight when
   operating on the data.  This is needed, as recordings do not necessarily
   happen at constant intervals (e.g. 1 second), so the "weight" can be
   different for each data point when calculating an average.  This can be set
-  to #f if no weigting is to be done.
+  to #f if no weighting is to be done.
 
 Properties can be accessed using the `get-property` method.  For example, this
 will return the session id for the session data:
 
     (send df get-property 'session-id)
 
-Regaring the *laps* and *stop-points* properties, these are lists that contain
-timestamp values in the *timestamp* series, to convert them to indexes, so
+Regarding the *laps* and *stop-points* properties, these are lists that contain
+time stamp values in the *timestamp* series, to convert them to indexes, so
 they can be used to reference positions in other series, use the `get-index`
 and `get-index*` methods, and to reference items in other series, use the
 `ref` and `ref*` methods:
@@ -56,11 +56,11 @@ method:
 
 * *timestamp* is the UNIX timestamp in seconds when each recording was made
 * *timer* counts number of seconds since the start of the activity, but
-  ignores stoping times.
+  ignores stopping times.
 * *elapsed* counts number of seconds since the start of the activity, does not
   ignore stop points.  For a point N, this is really timestamp[N] -
   timestamp[0]
-* *duration* is the duration of the current point. This is used in lap swiming
+* *duration* is the duration of the current point. This is used in lap swimming
   activities, where each point is a length of the pool.
 
 #### Position and distance related fields
@@ -69,8 +69,8 @@ method:
 * *alt*, *calt* are the altitude (as recorded by the device) and corrected
   altitude
 * *grade* is grade (incline) at the current point, as a percentage
-* *dst* is distance traveled in meters since the start of the activtiy
-* *distance* is traveled since the start of the activtiy using the most
+* *dst* is distance traveled in meters since the start of the activity
+* *distance* is traveled since the start of the activity using the most
   convenient metric.  Can be Km or Miles or yards and meters (for swim
   activities)
 
@@ -78,7 +78,7 @@ method:
 
 * *spd* is the speed in meters per second
 * *speed* is the speed, in a convenient metric (either Km/Hour or Miles/Hour)
-* *pace* is the pace (time/distance), in a conveinent metric (either
+* *pace* is the pace (time/distance), in a convenient metric (either
   Seconds/Km or Seconds/Mile, or, for swimming, Seconds/100m or
   Seconds/100yd).
 * *speed-zone* is the speed zone, of speed zones are defined for the sport.
@@ -88,13 +88,13 @@ method:
 * *hr* is the rate as beats per minute (BPM)
 * *hr-pct* is the heart rate as percentage of maximum heart rate, if HR zones
   are defined for the sport
-* *hr-zone* is the heart rate zone , if HR zones are defined for the spott
+* *hr-zone* is the heart rate zone , if HR zones are defined for the sport
 
 #### Cadence and stride related fields
 
 * *cad* is the cadence as steps per minute or rotations per minute (for
   cycling)
-* *stride* is the lenght of the step
+* *stride* is the length of the step
 
 #### Running dynamics fields
 
@@ -112,7 +112,7 @@ method:
   meter)
 * *lteff*, *rteff* are the left and right torque effectiveness
 * *lpsmth*, *rpsmth* are the left and right pedal smoothness
-* *lpco*, *rpco* are the left and right platform centre offset, in millimeters
+* *lpco*, *rpco* are the left and right platform center offset, in millimeters
 * *lpps*, *lppe*, *rpps*, *rppe* are the left and right power phase start/end,
   as an angle in degrees, where 0 is the top, 180 is the bottom of the pedal
   stroke.
@@ -140,7 +140,7 @@ a database yet, the code will fail.
     #lang racket
     (require "al-interactive.rkt")
 
-Load the dataframe for a session and save it to a CSV file.  The session id
+Load the data frame for a session and save it to a CSV file.  The session id
 can be obtained from the ActivityLog2 application using the "Activity / Copy
 session id to clipboard..." menu:
 

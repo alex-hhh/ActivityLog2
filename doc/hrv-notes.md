@@ -4,7 +4,7 @@ and how it can be used by ActivityLog2.
 ## Recording HRV data
 
 Garmin devices can record HRV data in the activity FIT files.  This needs to
-be explicitely enabled on the device, but usually there is no option you can
+be explicitly enabled on the device, but usually there is no option you can
 set on the device itself.  ActivityLog2 allows creating a settings file that
 can be exported to the device and this can be used to enable HRV recording.
 Alternatively, there are various web sites describing how to do this for each
@@ -34,7 +34,7 @@ HRV data into CSV files:
 
     > 
     Opened C:\Users\alexh\AppData\Local\ActivityLog\Alex-AL.db
-    scratch.rkt> ;; HINT: Use "Activity/Copy sesion id to clipboard" menu
+    scratch.rkt> ;; HINT: Use "Activity/Copy session id to clipboard" menu
     scratch.rkt> (define df (hrv-df 1717))
     scratch.rkt> (df-describe df)
     data-frame: 4 series, 6223 items

@@ -1,5 +1,5 @@
-The "fit-file.rkt" library provides conveinent infrastructure for parsing FIT
-files.  It also provides an activtiy builder which allows reading activities
+The "fit-file.rkt" library provides convenient infrastructure for parsing FIT
+files.  It also provides an activity builder which allows reading activities
 from FIT files into a assoc list representation.
 
 ## Reading Activities (the easy way) ##
@@ -15,32 +15,32 @@ The returned ACTIVITY contains a nested ALIST which can be explored using
 Some terminology:
 
 * An ACTIVITY contains a number of SESSIONS.  Most of the time, there will be
-  only one session, but for multisport activities, there will be multiple
+  only one session, but for multi-sport activities, there will be multiple
   sessions, one for each leg of the sport.
 * A SESSION has a number of LAPS.  This corresponds to each lap recorded by
   the device.
 * A LAP has a number of LENGTHS.  Most of the time, there will be only one
   length, but swim activities have several pool lengths for a LAP
-* A LENGTH has a number of TRACKPOINTS.  Each trackpoint represents a
+* A LENGTH has a number of TRACKPOINTS.  Each track point represents a
   recording of the monitored parameters (speed, heart rate, cadence, etc) at a
   moment in time.
 
-Since the activity object is hierarhical, it can be difficult to access the
-entire data series for an activity (individual trackpoints).  Helper functions
-are provided for iterating over the trackpoints in an activity and session:
+Since the activity object is hierarchical, it can be difficult to access the
+entire data series for an activity (individual track points).  Helper functions
+are provided for iterating over the track points in an activity and session:
 
     (require "activity-util.rkt")
 
     ;; Obtain the heart rate data series from an activity
     (define hr-series
-      (map-activity-trackpoints activtiy
+      (map-activity-trackpoints activity
          (lambda (prev next)
            (vector (assq1 'timestamp next)
                    (assq1 'heart-rate next)))))
 
 The `map-activity-trackpoints` function applies a function to each (PREV,
-NEXT) pair of trackpoints in an activtiy.  This allows processing points
-individually, by looking just at the NEXT trackpoint or in pairs, for
+NEXT) pair of trackpoints in an activity.  This allows processing points
+individually, by looking just at the NEXT track point or in pairs, for
 computing deltas.
 
 Other useful helpers are:
@@ -89,4 +89,4 @@ out the workout steps.
 
 See `fit-event-dispatcher%` for all the message types that can be handled.
 For unknown messages, on-other is invoked.  A familiarity with the FIT file
-format is usefull when trying to parse FIT files.
+format is useful when trying to parse FIT files.
