@@ -186,17 +186,60 @@
 
 ;; Return a BEST-AVG set resulting from merging all sets from SIDS (a list of
 ;; session ids) for SERIES.
-(define (get-best-avg/merged sids series (inverted? #f))
+(define (aggregate-bavg sids series #:inverted? (inverted? #f))
   (for/fold ((final '()))
             ((sid sids))
     (let ((bavg (get-best-avg sid series inverted?)))
       (merge-best-avg final bavg inverted?))))
 
-(define (make-best-avg-heat-map merged-bavg pct sids series (inverted? #t))
+;; Return the plot bounds for the aggregate best-avg set as a set of values
+;; (min-x max-x min-y max-y)
+(define (aggregate-bavg-bounds abavg)
+  (let ((min-x #f)
+        (max-x #f)
+        (min-y #f)
+        (max-y #f))
+    (for ([item abavg])
+      (match-define (list sid ts duration value) item)
+      (set! min-x (if min-x (min min-x duration) duration))
+      (set! max-x (if max-x (max max-x duration) duration))
+      (set! min-y (if min-y (min min-y value) value))
+      (set! max-y (if max-y (max max-y value) value)))
+    (when (and min-y max-y)
+      (let ((padding (* 0.05 (- max-y min-y))))
+        (set! min-y (- min-y padding))
+        (set! max-y (+ max-y padding))))
+    (values min-x max-x min-y max-y)))
+
+;; Return a function (-> Real Real) representing a spline interpolation of the
+;; aggregate best avg data.
+(define (aggregate-bavg->spline-fn abavg)
+  (define data
+    (for/list ([item abavg])
+      (match-define (list sid ts duration value) item)
+      (vector duration value)))
+  (if (> (length data) 3) (mk-spline-fn data) #f))
+
+;; Return a heat map for an aggregate-bavg data.  For each duration in the
+;; ABAVG, it contains the number of sessions which come within PCT percent of
+;; the best at that duration.
+;;
+;; ABAVG - an aggregate best avg, as produced by `aggregate-bavg'
+;;
+;; PCT - percentage value used as a threshold test
+;;
+;; SIDS - list if session IDs to consider for the HEAT MAP
+;;
+;; SERIES - the name of the series for which we compute the BAVG
+;;
+;; INVERTED? - whether to use an inverter best avg.
+;;
+(define (aggregate-bavg-heat-map abavg pct sids series
+                                 #:inverted? (inverted? #t) #:as-percentage? (as-percentage? #f))
   (define heat-map (make-hash))
   (for ((sid sids))
     (let ((bavg (get-best-avg sid series inverted?)))
-      (let loop ((b1 merged-bavg)
+      (let loop ((b1 abavg)
                  (b2 bavg))
         (unless (or (null? b1) (null? b2))
           (match-define (list sid1 ts1 duration1 value1) (car b1))
@@ -206,19 +249,20 @@
                 ((> duration1 duration1)
                  (loop b1 (cdr b2)))
                 (#t
-                 (when (>= value2 (* value1 pct))
-                   (hash-update! heat-map duration1 add1 0))
+                 (if inverted?
+                     (when (<= value2 (* value1 (- 2 pct)))
+                       (hash-update! heat-map duration1 add1 0))    
+                     (when (>= value2 (* value1 pct))
+                       (hash-update! heat-map duration1 add1 0)))
                  (loop (cdr b1) (cdr b2))))))))
-  (for/list ((item merged-bavg))
-    (match-define (list sid ts duration value) item)
-    (list duration (hash-ref! heat-map duration 0))))
-
-(define (bavg->spline-fn bavg)
-  (define data
-    (for/list ([item bavg])
-      (match-define (list sid ts duration value) item)
-      (vector duration value)))
-  (if (> (length data) 3) (mk-spline-fn data) #f))
+  (if as-percentage?
+      (let ((nsids (length sids)))
+        (for/list ((item abavg))
+          (match-define (list sid ts duration value) item)
+          (vector duration (exact->inexact (/ (hash-ref! heat-map duration 0) nsids)))))
+      (for/list ((item abavg))
+        (match-define (list sid ts duration value) item)
+        (vector duration (hash-ref! heat-map duration 0)))))
 
 ;; Fetch session IDs filtering by sport/sub-sport and within a date range.
 ;; The session IDs are also filtered by the 'equipment-failure' label, so we
@@ -250,12 +294,13 @@ where ~a
   (define result (query-list db q))
   result)
 
-(provide make-best-avg-heat-map)
-
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt
-(define x-best-avg-item/c (list/c exact-nonnegative-integer? exact-nonnegative-integer? real? real?))
-(define x-best-avg/c (listof x-best-avg-item/c))
+(define aggregate-bavg-item/c (list/c exact-nonnegative-integer? ; session-id
+                                      exact-nonnegative-integer? ; time stamp
+                                      (and/c real? positive?)    ; duration
+                                      real?))                    ; value
+(define aggregate-bavg/c (listof aggregate-bavg-item/c))
 
 (provide/contract
  (fetch-candidate-sessions (-> connection?
@@ -265,7 +310,18 @@ where ~a
                                (or/c #f exact-nonnegative-integer?)
                                (listof exact-nonnegative-integer?)))
  (clear-metrics-cache (-> any/c))
- (get-best-avg/merged (->* ((listof exact-nonnegative-integer?) string?)
-                           ((or/c #t #f))
-                           x-best-avg/c))
- (bavg->spline-fn (-> x-best-avg/c (or/c #f (-> real? real?)))))
+ (aggregate-bavg (->* ((listof exact-nonnegative-integer?) string?)
+                      (#:inverted? boolean?)
+                      aggregate-bavg/c))
+ (aggregate-bavg-bounds (-> aggregate-bavg/c
+                            (values (or/c #f real?) (or/c #f real?)
+                                    (or/c #f real?) (or/c #f real?))))
+ (aggregate-bavg->spline-fn (-> aggregate-bavg/c
+                                (or/c #f (-> real? real?))))
+ (aggregate-bavg-heat-map (->* (aggregate-bavg/c
+                                (and/c real? positive?)
+                                (listof exact-nonnegative-integer?)
+                                string?)
+                               (#:inverted? boolean? #:as-percentage? boolean?)
+                               (listof (vector/c (and/c real? positive?) (and/c real? positive?)))))
+ )

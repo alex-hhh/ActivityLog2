@@ -160,26 +160,11 @@
         (fetch-candidate-sessions db sport-id sub-sport-id start end))
       '()))
 
-;; Return a valid Y-RANGE for BAVG, a best-avg set.  The interval is slightly
-;; larger than the min and max Y value in the set.
-(define (bavg-y-range bavg)
-  (let ((min-y #f)
-        (max-y #f))
-    (for ([item bavg])
-      (match-define (list sid ts duration value) item)
-      (set! min-y (if min-y (min min-y value) value))
-      (set! max-y (if max-y (max max-y value) value)))
-    (when (and min-y max-y)
-      (let ((padding (* 0.05 (- max-y min-y))))
-        (set! min-y (- min-y padding))
-        (set! max-y (+ max-y padding))))
-    (values min-y max-y)))
-
 ;; Return suitable plot bounds for a best-avg plor, considering all input
 ;; data.  Returns four values: MIN-X, MAX-X, MIN-Y, MAX-Y.
 (define (plot-bounds axis zero-base? best-avg-data bests-data)
   (let-values (((min-x max-x min-y max-y) (get-best-avg-bounds best-avg-data))
-               ((bmin-y bmax-y) (bavg-y-range bests-data)))
+               ((bmin-x bmax-x bmin-y bmax-y) (aggregate-bavg-bounds bests-data)))
     (let ((inverted? (send axis inverted-best-avg?)))
       (values
        min-x
@@ -430,9 +415,9 @@
 
              (define inverted? (send axis inverted-best-avg?))
              (define sname (send axis series-name))
-             (define bavg (get-best-avg/merged candidates sname inverted?))
+             (define bavg (aggregate-bavg candidates sname #:inverted? inverted?))
 
-             (let ((fn (bavg->spline-fn bavg)))
+             (let ((fn (aggregate-bavg->spline-fn bavg)))
                (define brt
                  (and fn
                       (function-interval
