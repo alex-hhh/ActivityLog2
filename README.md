@@ -1,12 +1,13 @@
 # This is ActivityLog2, a fitness activity tracker.
 
-The application can read sport activities from .FIT files, as produced by
-Garmin devices and some other ones, and display various plots and reports.
+The application can import data from activities such as swim, bike and run,
+and display various plots and reports on them.  Data is imported from .FIT
+files, which is a popular data format used by many fitness devices.
 
 Data from the application can be exported as CSV, to be further analyzed by
 other tools, or, if you know Racket, you can easily use various data
-manipulations from Racket REPL itself (you don't need to know Racket to be
-able to use it though).
+manipulations from Racket REPL itself.  You don't need to know Racket to be
+able to use the application and view the built-in plots.
 
 For more details, see http://alex-hhh.github.io/ActivityLog2/
 
@@ -15,7 +16,8 @@ http://www.racket-lang.org.  Once Racket is installed, open the file "run.rkt"
 and select "Racket/Run" (Ctrl-R).  You will be prompted to open an existing
 database or create a new one.  Once you have a database, you can import FIT
 files from Garmin (and other devices).  For more details on how to build a
-stand alone executable, see the "doc/building.md" file.
+stand alone executable, see the [doc/building.md](blob/master/doc/building.md)
+file.
 
 ## License
 
