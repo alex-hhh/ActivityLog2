@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(19);
+insert into SCHEMA_VERSION(version) values(20);
 
 
 --........................................................ Enumerations ....
@@ -739,22 +739,26 @@ select S.id as session_id,
        (case S.sport_id when 1 then 1 else 0 end) as run_count,
        (case S.sport_id when 1 then SS.total_distance else 0 end) as run_distance,
        (case S.sport_id when 1 then SS.total_timer_time else 0 end) as run_time,
+       (case S.sport_id when 1 then S.training_stress_score else 0 end) as run_effort,
        (case S.sport_id when 2 then 1 else 0 end) as bike_count,
        (case S.sport_id when 2 then SS.total_distance else 0 end) as bike_distance,
        (case S.sport_id when 2 then SS.total_timer_time else 0 end) as bike_time,
+       (case S.sport_id when 2 then S.training_stress_score else 0 end) as bike_effort,
        (case S.sport_id when 5 then 1 else 0 end) as swim_count,
        (case S.sport_id when 5 then SS.total_distance else 0 end) as swim_distance,
        (case S.sport_id when 5 then SS.total_timer_time else 0 end) as swim_time,
+       (case S.sport_id when 5 then S.training_stress_score else 0 end) as swim_effort,
        (case S.sport_id when 4 then (case S.sub_sport_id when 20 then 1 else 0 end) else 0 end) as strength_count,
        (case S.sport_id when 4 then (case S.sub_sport_id when 20 then SS.total_distance else 0 end) else 0 end) as strength_distance,
        (case S.sport_id when 4 then (case S.sub_sport_id when 20 then SS.total_timer_time else 0 end) else 0 end) as strength_time,
+       (case S.sport_id when 4 then (case S.sub_sport_id when 20 then S.training_stress_score else 0 end) else 0 end) as strength_effort,
        1 as sport_count,
        SS.total_distance as sport_distance,
-       SS.total_timer_time as sport_time
+       SS.total_timer_time as sport_time,
+       S.training_stress_score as effort
   from A_SESSION S, SECTION_SUMMARY SS
  where S.summary_id = SS.id
    and (S.sport_id in (1, 2, 5) or (S.sport_id = 4 and S.sub_sport_id = 20));
-
 
 -- Expands all summary data about a every session: duration, time, max speed,
 -- etc.  This can be used as a convenience view without having to remember all

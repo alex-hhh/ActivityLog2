@@ -37,7 +37,7 @@
 (define-runtime-path schema-file "../sql/db-schema.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 19)
+(define (schema-version) 20)
 
 ;; List of function to call after a new database was sucesfully opened.
 (define db-open-callbacks '())
