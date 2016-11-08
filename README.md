@@ -16,8 +16,7 @@ http://www.racket-lang.org.  Once Racket is installed, open the file "run.rkt"
 and select "Racket/Run" (Ctrl-R).  You will be prompted to open an existing
 database or create a new one.  Once you have a database, you can import FIT
 files from Garmin (and other devices).  For more details on how to build a
-stand alone executable, see the [doc/building.md](blob/master/doc/building.md)
-file.
+stand alone executable, see the [doc/building.md](doc/building.md) file.
 
 ## License
 
