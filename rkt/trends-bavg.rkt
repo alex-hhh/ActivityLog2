@@ -34,7 +34,8 @@
  "al-widgets.rkt"
  "series-meta.rkt"
  "metrics.rkt"
- "spline-interpolation.rkt")
+ "spline-interpolation.rkt"
+ "workers.rkt")
 
 
 (struct bavg-params tc-params (start-date end-date sport series zero-base? heat-map? heat-map-pct))
@@ -222,17 +223,75 @@
         (sport (bavg-params-sport params)))
     (fetch-candidate-sessions db (car sport) (cdr sport) start end)))
 
+(struct tbavg (axis data heat-map plot-fn zero-base?))
+
+(define (fetch-data database params progress-callback)
+  (let* ((candidates (candidate-sessions database params))
+         (axis-index (find-axis default-axis-choices (bavg-params-series params))))
+    (define axis (if axis-index (list-ref default-axis-choices axis-index) #f))
+    (unless axis (error "no axis for series"))
+    (define data (aggregate-bavg candidates
+                                 (send axis series-name)
+                                 #:inverted? (send axis inverted-best-avg?)
+                                 #:progress-callback progress-callback))
+    (define heat-map
+      (and (bavg-params-heat-map? params)
+           (number? (bavg-params-heat-map-pct params))
+           (let ((pct (bavg-params-heat-map-pct params)))
+             (aggregate-bavg-heat-map
+              data pct candidates
+              (send axis series-name)
+              #:inverted? (send axis inverted-best-avg?)
+              #:as-percentage? #t))))
+    (tbavg axis data heat-map
+           (aggregate-bavg->spline-fn data)
+           (bavg-params-zero-base? params))))
+
+(define (make-render-tree data)
+  (let-values (((min-x max-x min-y max-y) (aggregate-bavg-bounds (tbavg-data data))))
+    (when (tbavg-zero-base? data) (set! min-y 0))
+    (if (tbavg-plot-fn data)
+        (let ((rt (list
+                   (tick-grid)
+                   (function (tbavg-plot-fn data) #:color (send (tbavg-axis data) plot-color) #:width 3))))
+          (when (tbavg-heat-map data)
+            (let* ((range (* 0.3 (- max-y min-y)))
+                   (raw-fn (mk-spline-fn (tbavg-heat-map data)))
+                   (fn (lambda (x) (let ((y (raw-fn x))) (+ min-y (* range y))))))
+              (set! rt (cons (function-interval
+                              (lambda (x) min-y)
+                              (lambda (x) (+ min-y range))
+                              #:color '(#xdc #xdc #xdc)
+                              #:line1-style 'transparent
+                              #:line2-style 'transparent)
+                             rt))
+              (set! rt (cons (function fn #:color '(#xb0 #x30 #x60) #:width 2)
+                             rt))))
+          (values rt min-x max-x min-y max-y))
+        (values #f #f #f #f #f))))
+
+(define (insert-plot-snip canvas axis rt min-x max-x min-y max-y)
+  (if rt
+      (parameterize ([plot-x-ticks (best-avg-ticks)]
+                     [plot-x-label "Duration"]
+                     [plot-x-transform log-transform]
+                     [plot-y-ticks (send axis plot-ticks)]
+                     [plot-y-label (send axis axis-label)])
+        (plot-snip/hack canvas rt
+                        #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+      (begin
+        (send canvas set-snip #f)
+        (send canvas set-background-message "No data for plot."))))
+
 (provide bavg-trends-chart%)
 (define bavg-trends-chart%
   (class trends-chart%
     (init-field database) (super-new)
 
-    (define data-valid? #f)
-    (define data '())
-    (define data-plot-fn #f)
-    (define axis #f)
-    (define zero-base? #f)
-    (define heat-map #f)
+    (define cached-data #f)
+    (define generation 0)
+
+    (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
       (new bavg-chart-settings%
@@ -241,58 +300,35 @@
            [database database]))
 
     (define/override (invalidate-data)
-      (set! data-valid? #f))
+      (set! cached-data #f))
 
     (define/override (put-plot-snip canvas)
-      (maybe-fetch-data)
-      (when data-valid?
-        (let-values (((min-x max-x min-y max-y) (aggregate-bavg-bounds data)))
-          (when zero-base? (set! min-y 0))
-          (let ((rt (list
-                     (tick-grid)
-                     (function data-plot-fn #:color (send axis plot-color) #:width 3))))
-            (when heat-map
-              (let* ((range (* 0.3 (- max-y min-y)))
-                     (raw-fn (mk-spline-fn heat-map))
-                     (fn (lambda (x) (let ((y (raw-fn x))) (+ min-y (* range y))))))
-                (set! rt (cons (function-interval
-                                (lambda (x) min-y)
-                                (lambda (x) (+ min-y range))
-                                #:color '(#xdc #xdc #xdc)
-                                #:line1-style 'transparent
-                                #:line2-style 'transparent)
-                               rt))
-                (set! rt (cons (function fn #:color '(#xb0 #x30 #x60) #:width 2)
-                               rt))))
-            (parameterize ([plot-x-ticks (best-avg-ticks)]
-                           [plot-x-label "Duration"]
-                           [plot-x-transform log-transform]
-                           [plot-y-ticks (send axis plot-ticks)]
-                           [plot-y-label (send axis axis-label)])
-              (plot-snip/hack canvas rt
-                              #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))))))
-
-    (define (maybe-fetch-data)
-      (unless data-valid?
-        (let ((params (send this get-params)))
-          (when params
-            (let* ((candidates (candidate-sessions database params))
-                   (axis-index (find-axis default-axis-choices (bavg-params-series params))))
-              (set! axis (if axis-index (list-ref default-axis-choices axis-index) #f))
-              (unless axis (error "no axis for series"))
-              (set! data (aggregate-bavg candidates
-                                         (send axis series-name)
-                                         #:inverted? (send axis inverted-best-avg?)))
-              (set! data-plot-fn (aggregate-bavg->spline-fn data))
-              (set! zero-base? (bavg-params-zero-base? params))
-              (if (and (bavg-params-heat-map? params) (number? (bavg-params-heat-map-pct params)))
-                  (let ((pct (bavg-params-heat-map-pct params)))
-                    (set! heat-map (aggregate-bavg-heat-map
-                                    data pct candidates
-                                    (send axis series-name)
-                                    #:inverted? (send axis inverted-best-avg?)
-                                    #:as-percentage? #t)))
-                  (set! heat-map #f))
-              (set! data-valid? #t))))))
+      (send canvas set-snip #f)
+      (send canvas set-background-message "Working...")
+      (set! generation (add1 generation))
+      (let ((previous-data cached-data)
+            (params (send this get-params))
+            (saved-generation generation))
+        (if params
+            (queue-task
+             "bavg-trends-chart%/put-plot-snip"
+             (lambda ()
+               (define (report-progress p)
+                 (queue-callback
+                  (lambda ()
+                    (when (= saved-generation (get-generation))
+                      (send canvas set-background-message
+                            (format "Working (~a %)..." (exact-round (* p 100.0))))))))
+               (define data (or previous-data (fetch-data database params report-progress)))
+               (define-values (rt min-x max-x min-y max-y) (make-render-tree data))
+               (queue-callback
+                (lambda ()
+                  (when (= saved-generation (get-generation))
+                    (set! cached-data data) ; put it back, or put the fresh one here
+                    (insert-plot-snip canvas (tbavg-axis data) rt
+                                      min-x max-x min-y max-y))))))
+            (begin
+              (send canvas set-snip #f)
+              (send canvas set-background-message "No params for plot.")))))
+    
     ))
-

@@ -111,6 +111,24 @@
 ;; cached data frames can be up to (* 2 df-cache-limit)
 (define df-cache-limit 50)
 
+;; Reorder the session ids in SIDS such that the id's that are in df-cache are
+;; listed first.  This is used so that we don't invalidate the cache too
+;; quickly if we have a large number of SIDS and we compute BAVG values for
+;; different series.
+(define (reorder-sids sids)
+
+  (define (present-in-cache sid)
+    (or (hash-ref df-cache sid #f)
+        (hash-ref df-cache2 sid #f)))
+  
+  (let ((in-cache '())
+        (not-in-cache '()))
+    (for ((sid (in-list sids)))
+      (if (present-in-cache sid)
+          (set! in-cache (cons sid in-cache))
+          (set! not-in-cache (cons sid not-in-cache))))
+    (append in-cache not-in-cache)))
+
 ;; Return the data frame for a session id SID.  Data frames are cached in
 ;; memory, so retrieving the same one again should be fast.
 (define (session-df db sid)
@@ -185,12 +203,16 @@
                         (loop (cons (car b2) result) (cdr b1) (cdr b2))))))))))
 
 ;; Return a BEST-AVG set resulting from merging all sets from SIDS (a list of
-;; session ids) for SERIES.
-(define (aggregate-bavg sids series #:inverted? (inverted? #f))
-  (for/fold ((final '()))
-            ((sid sids))
-    (let ((bavg (get-best-avg sid series inverted?)))
-      (merge-best-avg final bavg inverted?))))
+;; session ids) for SERIES.  PROGRESS, if specified, is a callback that is
+;; called periodically with the percent of completed sessions (a value between
+;; 0 and 1)
+(define (aggregate-bavg sids series #:inverted? (inverted? #f) #:progress-callback (progress #f))
+  (let ((nitems (length sids)))
+    (for/fold ((final '()))
+              (((sid index) (in-indexed (reorder-sids sids))))
+      (let ((bavg (get-best-avg sid series inverted?)))
+        (when progress (progress (exact->inexact (/ index nitems))))
+        (merge-best-avg final bavg inverted?)))))
 
 ;; Return the plot bounds for the aggregate best-avg set as a set of values
 ;; (min-x max-x min-y max-y)
@@ -311,7 +333,7 @@ where ~a
                                (listof exact-nonnegative-integer?)))
  (clear-metrics-cache (-> any/c))
  (aggregate-bavg (->* ((listof exact-nonnegative-integer?) string?)
-                      (#:inverted? boolean?)
+                      (#:inverted? boolean? #:progress-callback (or/c #f (-> real? any/c)))
                       aggregate-bavg/c))
  (aggregate-bavg-bounds (-> aggregate-bavg/c
                             (values (or/c #f real?) (or/c #f real?)
