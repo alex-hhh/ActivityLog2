@@ -32,6 +32,9 @@
 
 ;;........................................................ weather-edit% ....
 
+(define message-font
+  (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+
 (define weather-edit%
   (class al-edit-dialog%
     (init)
@@ -90,14 +93,18 @@
         (new message% [parent hp] [label "Activity: "]
              [stretchable-width #f])
         (set! activity-headline (new message% [parent hp] [label "Untitled"]
+                                     [font message-font]
                                      [stretchable-width #t])))
       (let ((hp (make-horizontal-pane p #f)))
         (new message% [parent hp] [label "Start time: "]
              [stretchable-width #f])
         (set! activity-start-time (new message% [parent hp] [label "Untitled"]
+                                       [font message-font]
                                        [stretchable-width #t])))
 
-      (let ((hp (make-horizontal-pane p #f)))
+      (define sel-gb (make-group-box-panel p))
+      
+      (let ((hp (make-horizontal-pane sel-gb #f)))
         (set! wsource-choice
               (new choice% [parent hp]
                    [label "Source: "]
@@ -129,7 +136,9 @@
                    [choices '("None")]
                    [callback (lambda (c e) (on-observation-selected (send c get-selection)))])))
 
-      (let ((hp (make-horizontal-pane p #f)))
+      (define contents-gb (make-group-box-panel p))
+      
+      (let ((hp (make-horizontal-pane contents-gb #f)))
         (set! temperature-field (new number-input-field%
                                      [parent hp]
                                      [cue-text "degrees Celsius"]
@@ -143,7 +152,7 @@
                                    [cue-text "degrees Celsius"]
                                    [label "Dew point: "])))
 
-      (let ((hp (make-horizontal-pane p #f)))
+      (let ((hp (make-horizontal-pane contents-gb #f)))
         (set! wind-speed-field (new number-input-field%
                                      [parent hp]
                                      [cue-text "km/h"]
@@ -157,7 +166,7 @@
                                         [label "Direction: "]
                                         [choices wind-rose])))
 
-      (let ((hp (make-horizontal-pane p #f)))
+      (let ((hp (make-horizontal-pane contents-gb #f)))
         (set! baromethric-pressure-field
               (new number-input-field%
                    [parent hp]
