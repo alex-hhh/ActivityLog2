@@ -49,29 +49,23 @@
     (super-new [title "Chart Settings"]
                [icon edit-icon] [min-height 10] [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define show-form-check-box #f)
     (define show-daily-tss-check-box #f)
     (define show-fitness-check-box #f)
     (define show-fatigue-check-box #f)
 
-    (let ((p (new vertical-pane% [parent (send this get-client-pane)]
+    (define curves-gb (make-group-box-panel (send this get-client-pane)))
+
+    (let ((p (new vertical-pane% [parent curves-gb]
                   [stretchable-width #f] [border 20]
                   [alignment '(center center)])))
       (let ((q (new horizontal-pane% [parent p]
@@ -108,14 +102,14 @@
       (send show-fitness-check-box set-value d4)
       (send show-fatigue-check-box set-value d5)
       (send show-daily-tss-check-box set-value d6))
-       
+
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
       (if (send this do-edit parent)
           (get-settings)
           #f))
-    
+
     (define/public (set-seasons seasons)
       (send date-range-selector set-seasons seasons))
 
@@ -135,7 +129,7 @@
                (send show-fatigue-check-box get-value)
                (send show-daily-tss-check-box get-value)))
             #f)))
-    
+
     ))
 
 ;; Return a list of TSS values between START and END and the timestamp when
@@ -159,7 +153,7 @@
 ;; tss samples.  The resulting stream has a TSS value (possibly 0)
 ;; approximately every SKIP seconds.
 (define (generate-tss-stream start end skip samples)
-  
+
   (define (g crt samples)
     (cond ((> crt end) empty-stream)
           ((null? samples)
@@ -184,7 +178,7 @@
 ;; treats each one of them separately.  In general, it will produce lower ATL
 ;; and CTL values.
 (define (produce-pmc-data-1 start end samples)
-  
+
   (define search-start (start-of-day start))
   (define search-end (start-of-day (+ end day-in-seconds)))
 
@@ -199,7 +193,7 @@
        (vector-ref tss-point 0)         ; timestamp
        (vector-ref ctl 1)
        (vector-ref atl 1)
-       (vector-ref tss-point 1)         ; TSS 
+       (vector-ref tss-point 1)         ; TSS
        ))))
 
 (define (produce-pmc-data/method-1 start end db)
@@ -210,17 +204,17 @@
 ;; END.
 (define (get-daily-tss start end db)
   (define result (make-hash))
-  (for (([date tss] 
+  (for (([date tss]
          (in-query
           db
           "select date(S.start_time, 'unixepoch', 'localtime'),
                   sum(S.training_stress_score)
              from A_SESSION S
-            where S.training_stress_score is not null 
+            where S.training_stress_score is not null
               and S.start_time between ? and ?
          group by date(S.start_time, 'unixepoch', 'localtime')"
           start end)))
-    
+
     (hash-set! result (str->date date) tss))
   result)
 
@@ -231,13 +225,13 @@
 ;; This method assumes that TSS is additive in a day and will produce bigger
 ;; ATL / CTL values.
 (define (produce-pmc-data-2 start end tss-data)
-  
+
   (define search-start (start-of-day start))
   (define search-end (start-of-day (+ end (* 24 3600))))
 
   (define atl-filter (make-low-pass-filter (* atl-range day-in-seconds) #f))
   (define ctl-filter (make-low-pass-filter (* ctl-range day-in-seconds) #f))
-  
+
   (let ((result '()))
     (let loop ((day search-start))
       (when (< day search-end)
@@ -275,9 +269,9 @@
   (let ((fdata (get-form-data-series data))
         (zeroes (for/list ((e (in-list data)))
                   (vector (vector-ref e 0) 0))))
-    (lines-interval 
+    (lines-interval
      fdata zeroes
-     #:color "blue" 
+     #:color "blue"
      #:line1-width 2.0
      #:line2-width 0
      #:alpha 0.2
@@ -287,8 +281,8 @@
 
 (define (make-tss-renderer data)
   (let ((tdata (get-tss-data-series data)))
-    (points tdata 
-            #:color "black" 
+    (points tdata
+            #:color "black"
             #:fill-color "purple"
             #:size 7
             #:line-width 1.5
@@ -309,7 +303,7 @@
 
     (define data-valid? #f)
     (define pmc-data #f)
-    
+
     (define/override (make-settings-dialog)
       (new pmc-chart-settings%
            [default-name "PMC"]
@@ -327,19 +321,19 @@
               (when (pmc-params-show-form? params)
                 (let ((form-renderer (make-form-renderer pmc-data)))
                   (set! rt (cons form-renderer rt))))
-          
+
               (when (pmc-params-show-fitness? params)
                 (let ((fitness-renderer (make-fitness-renderer pmc-data)))
                   (set! rt (cons fitness-renderer rt))))
-          
+
               (when (pmc-params-show-fatigue? params)
                 (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
                   (set! rt (cons fatigue-renderer rt))))
-          
+
               (when (pmc-params-show-daily-tss? params)
                 (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
                   (set! rt (cons daily-tss-renderer rt))))
-          
+
               (parameterize ([plot-x-ticks (pmc-date-ticks)])
                 (plot-snip/hack
                  canvas

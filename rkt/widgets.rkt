@@ -40,6 +40,7 @@
 (provide column-info)
 (provide with-busy-cursor)
 (provide make-horizontal-pane)
+(provide make-group-box-panel)
 (provide al-edit-dialog%)
 (provide al-progress-dialog%)
 
@@ -1530,10 +1531,19 @@
 
 ;; Convenience function to make a horizontal-pane as required by the
 ;; various dialog boxes
-(define (make-horizontal-pane parent stretchable-height?)
+(define (make-horizontal-pane parent (stretchable-height? #t))
   (new horizontal-pane% [parent parent]
        [border 0] [spacing 5]
        [stretchable-height stretchable-height?]))
+
+(define (make-group-box-panel parent (label ""))
+  (let ((gb (new group-box-panel%
+                 [parent parent] [label label] [alignment '(left center)]
+                 [spacing al-dlg-item-spacing]
+                 [border 5])))
+    ;; The group box panel seems to ignore the internal border, so we create
+    ;; an inner vertical pane and return that.
+    (new vertical-pane% [parent gb] [spacing al-dlg-item-spacing] [alignment '(left center)])))
 
 (define al-edit-dialog%
   (class object%

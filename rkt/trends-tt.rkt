@@ -48,33 +48,20 @@
                [min-height 10]
                [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
-
-    (define sport-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new sport-selector% [parent p] [sports-in-use-only? #t])))
-
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define sport-hp (make-horizontal-pane time-gb))
+    (define sport-selector (new sport-selector% [parent sport-hp] [sports-in-use-only? #t]))
     (define tri-checkbox
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new check-box% [parent p] [label "Triathlon Activities"] [value #f]
-             [callback (lambda (c e) (on-triathlon-activties (send c get-value)))])))
+      (new check-box% [parent sport-hp] [label "Tri Activities"]
+           [value #f]
+           [callback (lambda (c e) (on-triathlon-activties (send c get-value)))]))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define (on-triathlon-activties flag)
       (send sport-selector enable (not flag)))
@@ -292,7 +279,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
                        [plot-x-label #f]
                        [plot-y-ticks (hours-of-day-ticks)]
                        [plot-y-label #f])
-          (cond (tri? 
+          (cond (tri?
                  (plot-snip/hack
                   canvas
                   #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25

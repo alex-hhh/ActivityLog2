@@ -41,39 +41,23 @@
     (super-new [title "Chart Settings"] [icon edit-icon]
                [min-height 10] [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define sport-selector (new sport-selector% [parent time-gb] [sports-in-use-only? #t]))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
-    (define sport-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new sport-selector% [parent p] [sports-in-use-only? #t])))
-
+    (define grouping-gb (make-group-box-panel (send this get-client-pane)))
     (define group-by-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Group By "]
-             [choices '("Week" "Month" "Year")])))
-
+      (new choice% [parent grouping-gb] [label "Group By "]
+             [choices '("Week" "Month" "Year")]))
     (define metric-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Metric "]
-             [choices '("Time" "Distance" "Session Count" "Effort")])))
+      (new choice% [parent grouping-gb] [label "Metric "]
+           [choices '("Time" "Distance" "Session Count" "Effort")]))
 
     (define/public (get-restore-data)
       (list
@@ -94,14 +78,14 @@
       (send group-by-choice set-selection d3)
       (send metric-choice set-selection d4)
       (send sport-selector set-selected-sport (car d5) (cdr d5)))
-       
+
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
       (if (send this do-edit parent)
           (get-settings)
           #f))
-    
+
     (define/public (get-settings)
       (let ((dr (send date-range-selector get-selection))
             (sport (send sport-selector get-selection)))
@@ -120,18 +104,18 @@
                (cdr sport)
                (send metric-choice get-selection)))
             #f)))
-    
+
     ))
 
 
 (define (make-sql-query start-date end-date group-by sport sub-sport)
-  (format "select ~a as period, 
+  (format "select ~a as period,
            total(VAL.duration) / 3600.0 as duration,
            total(VAL.distance) / 1000.0 as distance,
            count(VAL.session_id) as session_count,
            total(VAL.tss) as training_stress
            from V_ACTIVITY_LIST VAL
-           where VAL.start_time between ~a and ~a 
+           where VAL.start_time between ~a and ~a
              and ~a
            group by period order by period"
           (cond ((eqv? group-by 0)       ; week
@@ -236,5 +220,5 @@
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
                 (set! data-valid? #t)))))))
-    
+
     ))

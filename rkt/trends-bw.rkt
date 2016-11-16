@@ -42,28 +42,19 @@
                [min-height 10]
                [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
+    (define grouping-gb (make-group-box-panel (send this get-client-pane)))
     (define group-by-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Group By "]
-             [choices '("Week" "Month" "Year")])))
+      (new choice% [parent grouping-gb] [label "Group By "]
+           [choices '("Week" "Month" "Year")]))
 
     (define/public (get-restore-data)
       (list

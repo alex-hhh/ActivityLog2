@@ -41,40 +41,25 @@
     (super-new [title "Chart Settings"] [icon edit-icon]
                [min-height 10] [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define sport-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Sport "]
-             [choices '("Running" "Cycling")])))
+      (new choice% [parent time-gb] [label "Sport "]
+           [choices '("Running" "Cycling")]))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
-    (define zone-metric-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Zone "]
-             [choices '("Heart Rate" "Power")])))
-
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
-
+    (define grouping-gb (make-group-box-panel (send this get-client-pane)))
     (define group-by-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane) #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Group By "]
-             [choices '("Week" "Month" "Year")])))
+      (new choice% [parent grouping-gb] [label "Group By "]
+             [choices '("Week" "Month" "Year")]))
+    (define zone-metric-choice
+      (new choice% [parent grouping-gb] [label "Zone "]
+           [choices '("Heart Rate" "Power")]))
 
     (define/public (get-restore-data)
       (list
@@ -95,14 +80,14 @@
       (send group-by-choice set-selection d3)
       (send sport-choice set-selection d4)
       (send zone-metric-choice set-selection d5))
-       
+
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
       (if (send this do-edit parent)
           (get-settings)
           #f))
-    
+
     (define/public (get-settings)
       (let ((dr (send date-range-selector get-selection)))
         (if dr
@@ -123,7 +108,7 @@
                  ((1) 3))                 ; Power
                ))
             #f)))
-    
+
     ))
 
 (define (make-sql-query group-by)
@@ -175,7 +160,7 @@
 
 (define tiz-labels
   (list "z0" "z1" "z2" "z3" "z4" "z5" "z6" "z7" "z8" "z9" "z10"))
-   
+
 (define (tiz-trends-plot canvas data)
 
   (define (min-zone . zones)
@@ -209,7 +194,7 @@
 
   (define (select-zones . zones)
     (drop (take zones zmax) zmin))
-  
+
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -222,7 +207,7 @@
             (list timestamp zones))
           (list "" (list)))))
   (set! max-y (* 1.2 max-y)) ;; make it larger to fit the legend
-  
+
   (parameterize ([plot-x-ticks (date-ticks)]
                  [plot-x-label #f]
                  [plot-x-tick-label-anchor 'top-right]
@@ -235,7 +220,7 @@
      #:y-min 0
      #:y-max max-y
      (list (y-tick-lines)
-           (stacked-histogram 
+           (stacked-histogram
             pdata
             #:colors tiz-colors
             #:labels '("z0" "z1" "z2" "z3" "z4" "z5" "z6" "z7" "z8" "z9" "z10")
@@ -251,7 +236,7 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
-    
+
     (define/override (make-settings-dialog)
       (new tiz-chart-settings%
            [default-name "TIZ"]
@@ -281,5 +266,5 @@
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
                 (set! data-valid? #t)))))))
-    
+
     ))

@@ -44,34 +44,22 @@
     (super-new [title "Chart Settings"] [icon edit-icon]
                [min-height 10] [tablet-friendly? #t])
 
-    (define name-field
-      (let ((p (make-horizontal-pane (send this get-client-pane)  #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Name "])))
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
-    (define title-field
-      (let ((p (make-horizontal-pane (send this get-client-pane)  #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new text-field% [parent p] [label "Title "])))
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define date-range-selector
-      (let ((p (make-horizontal-pane (send this get-client-pane)  #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new date-range-selector% [parent p])))
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
+    (define grouping-gb (make-group-box-panel (send this get-client-pane)))
     (define group-by-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane)  #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Group By "]
-             [choices '("Week" "Month" "Year")])))
-
+      (new choice% [parent grouping-gb] [label "Group By "]
+           [choices '("Week" "Month" "Year")]))
     (define metric-choice
-      (let ((p (make-horizontal-pane (send this get-client-pane)  #f)))
-        (send p spacing al-dlg-item-spacing)
-        (new choice% [parent p] [label "Metric "]
-             [choices '("Time" "Distance" "Session Count")])))
+      (new choice% [parent grouping-gb] [label "Metric "]
+           [choices '("Time" "Distance" "Session Count")]))
 
     (define/public (get-restore-data)
       (list
@@ -90,14 +78,14 @@
       (send date-range-selector restore-from d2)
       (send group-by-choice set-selection d3)
       (send metric-choice set-selection d4))
-       
+
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
       (if (send this do-edit parent)
           (get-settings)
           #f))
-    
+
     (define/public (get-settings)
       (let ((dr (send date-range-selector get-selection)))
         (if dr
@@ -113,12 +101,12 @@
                (send group-by-choice get-selection)
                (send metric-choice get-selection)))
             #f)))
-    
+
     ))
 
 
 (define (make-sql-query/time start-date end-date group-by)
-  (format "select ~a as period, 
+  (format "select ~a as period,
            total(T.strength_time) / 3600.0 as strength_time,
            total(T.swim_time) / 3600.0 as swim_time,
            total(T.bike_time) / 3600.0 as bike_time,
@@ -137,7 +125,7 @@
           end-date))
 
 (define (make-sql-query/count start-date end-date group-by)
-  (format "select ~a as period, 
+  (format "select ~a as period,
            total(T.strength_count),
            total(T.swim_count),
            total(T.bike_count),
@@ -156,7 +144,7 @@
           end-date))
 
 (define (make-sql-query/distance start-date end-date group-by)
-  (format "select ~a as period, 
+  (format "select ~a as period,
            0 as strength_distance,
            total(T.swim_distance) / 1000.0,
            total(T.bike_distance) / 1000.0,
@@ -198,10 +186,10 @@
     (plot-snip/hack
      canvas
      (list (y-tick-lines)
-           (stacked-histogram 
+           (stacked-histogram
             pdata
             #:y-max max-y
-            #:colors 
+            #:colors
             (list (get-sport-color 4 20)
                   (get-sport-color 5 #f)
                   (get-sport-color 2 #f)
@@ -254,5 +242,5 @@
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
                 (set! data-valid? #t)))))))
-    
+
     ))

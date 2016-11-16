@@ -82,12 +82,6 @@
               #:when (match? axis))
     index))
 
-(define (make-group-box-panel parent (label ""))
-  (new group-box-panel%
-       [parent parent] [label label] [alignment '(left center)]
-       [spacing al-dlg-item-spacing]
-       [border 5]))
-
 (provide bavg-chart-settings%)
 (define bavg-chart-settings%
   (class al-edit-dialog%
@@ -101,26 +95,22 @@
                [tablet-friendly? #t])
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
-    
     (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
-
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define sport-gb (make-group-box-panel (send this get-client-pane)))
-    
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define sport-selector
-      (new sport-selector% [parent sport-gb] [sports-in-use-only? #t]))
+      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
-
     (define series-selector
       (let ((p (make-horizontal-pane series-gb #f)))
         (send p spacing al-dlg-item-spacing)
         (new choice% [parent p]
              [label "Data Series: "] [choices '("***************************")])))
-
     (define show-heat-checkbox #f)
     (define heat-percent-input #f)
     (let ((p (make-horizontal-pane series-gb #f)))
@@ -144,10 +134,6 @@
       (send heat-percent-input enable show?))
     (define (on-heat-percentile p)
       #f)
-
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define axis-choices
       (sort default-axis-choices string<? #:key (lambda (x) (send x axis-label))))
