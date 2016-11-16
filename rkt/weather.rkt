@@ -214,8 +214,8 @@
    (unless (al-pref-allow-weather-download) (error "weather download not permited"))
    (wu-request-limiter)
    ;; (printf "wu-fetch-json: ~a~%" url)
-   (let* ((data (port->bytes (get-pure-port (string->url url))))
-          (json (call-with-input-bytes data read-json))
+   (let* ((data (port->string (get-pure-port (string->url url))))
+          (json (call-with-input-string data read-json))
           (response (hash-ref json 'response #f)))
      (if response
          (if (hash-ref response 'error #f)
