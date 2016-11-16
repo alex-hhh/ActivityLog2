@@ -61,10 +61,41 @@
 (define app-icon-file "ActivityLog2.ico")
 (define app-exe-file "ActivityLog2.exe")
 
+(define (app-revision)
+  (parameterize ((current-error-port (open-output-bytes)))
+    (let ((rev (string-trim (with-output-to-string
+                              (lambda () (system "git rev-parse HEAD")))))
+          (status (with-output-to-string
+                    (lambda () (system "git status --porcelain")))))
+      (if (string=? status "")
+          rev
+          (format "~a (modified)" rev)))))
+
+(define (app-build-time)
+  (let ((ts (seconds->date (current-seconds))))
+    (string-append
+     (~a (date-year ts))
+     "/"
+     (~a (date-month ts) #:width 2 #:left-pad-string "0")
+     "/"
+     (~a (date-month ts) #:width 2 #:left-pad-string "0")
+     " "
+     (~a (date-hour ts) #:width 2 #:left-pad-string "0")
+     ":"
+     (~a (date-minute ts) #:width 2 #:left-pad-string "0")
+     ":"
+     (~a (date-second ts) #:width 2 #:left-pad-string "0"))))
+
 (define (build-app)
 
   (unless (file-exists? app-icon-file)
     (create-icon-file app-icon-file make-app-icon icon-sizes))
+
+  (with-output-to-file "./build-id.txt"
+    (lambda ()
+      (printf "~a ~a~%" (app-revision) (app-build-time)))
+    #:mode 'text #:exists 'truncate/replace)
+
   (parameterize
       ([use-compiled-file-paths (list "compiled")])
     (create-embedding-executable
@@ -73,12 +104,12 @@
      #:mred? #t
      #:configure-via-first-module? #t
      #:expand-namespace (make-base-namespace)
-     #:literal-expression 
+     #:literal-expression
      (parameterize ([current-namespace (make-base-namespace)])
        (compile `(namespace-require ''run)))
      #:aux (build-aux-from-path app-icon-file))))
-  
+
 (define (mkdist)
-  (assemble-distribution 
+  (assemble-distribution
    "dist"
    (list app-exe-file)))

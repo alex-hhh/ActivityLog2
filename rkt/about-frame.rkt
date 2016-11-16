@@ -19,7 +19,12 @@
          images/icons/style
          racket/class
          racket/gui/base
+         racket/runtime-path
+         racket/string
+         racket/file
          "dbapp.rkt")
+
+(define-runtime-path build-id-file "../build-id.txt")
 
 (define hyperlink-style
   (let ([delta (new style-delta%)])
@@ -82,6 +87,12 @@
     (make-object image-snip% bmp)))
 
 (define (setup-about-text editor)
+
+  (define build-id
+    (with-handlers
+      (((lambda (x) #t) (lambda (x) #f)))
+      (string-trim (file->string build-id-file #:mode 'text))))
+  
   (send editor set-tabs '(8) 8 #f)
   (send editor auto-wrap #t)
 
@@ -95,6 +106,10 @@
   (insert-hyperlink editor "https://github.com/alex-hhh/ActivityLog2"
                     (lambda () (send-url "https://github.com/alex-hhh/ActivityLog2")))
   (insert-newline editor)
+  (insert-newline editor)
+  (when build-id
+    (insert-text editor (format "Build Id: ~a" build-id))
+    (insert-newline editor))
   (insert-text editor (format "Racket version: ~a" (version)))
   (insert-newline editor)
   (insert-text editor (format "Requires database version: ~a" (schema-version)))
