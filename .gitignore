@@ -10,8 +10,9 @@ scratch*
 Thumbs.db
 *.diff
 *.patch
-# this is a generated file
+# these are generated files
 ActivityLog2.ico
+build-id.txt
 # racket puts compiled files in this folder
 compiled/
 dist/
