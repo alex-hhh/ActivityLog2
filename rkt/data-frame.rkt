@@ -27,6 +27,7 @@
          racket/match
          racket/math
          racket/vector
+         racket/draw
          "al-profiler.rkt"
          "fmt-util.rkt"
          "spline-interpolation.rkt")
@@ -1200,7 +1201,7 @@
       (hash-set! result factor (cons item (hash-ref result factor '())))))
   result)
 
-(define (make-scatter-renderer data-series #:color color #:size size #:label label #:alpha [alpha 0.8])
+(define (make-scatter-renderer data-series #:color color #:size size #:label label #:alpha [alpha 1.0])
   (let ((kwd '()) (val '()))
     (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
     (add-arg '#:sym 'fullcircle)
@@ -1215,15 +1216,48 @@
       (add-arg '#:alpha alpha))
     (keyword-apply points kwd val data-series '())))
 
-(define (make-scatter-group-renderer group #:color color #:label [label #f] #:size [size 1])
+;; Compute colors for the keys of a scatter group renderer.  KEYS is a sorted
+;; list of numbers (the groups ranks for the group renderer).  The BASE-COLOR
+;; is used to compute a range of colors from lightest for the smallest rank to
+;; darkest for the highest rank.  Returns a hash map mapping each key to a
+;; color value.
+(define (make-key-colors keys base-color)
+  ;; NOTE: keys are sorted and should not contain duplicates
+  (match-define (list red green blue) (->pen-color base-color))
+  (define range                         ; make sure range is never 0
+    (if (< (length keys) 1)
+        1
+        (- (last keys) (first keys))))
+  (match-define (list base-red base-green base-blue)
+    (list (* red 0.5) (* green 0.5) (* blue 0.5)))
+  (match-define (list top-red top-green top-blue)
+    (list (+ red (* 0.2 (- 255 red)))
+          (+ green (* 0.2 (- 255 green)))
+          (+ blue (* 0.2 (- 255 blue)))))
+  (match-define (list delta-red delta-green delta-blue)
+    (list (- top-red base-red)
+          (- top-green base-green)
+          (- top-blue base-blue)))
+  (for/hash ((key (in-list keys)))
+    (let ((pct (/ (- key (first keys)) range)))
+      (values
+       key
+       (make-object color%
+                    (exact-round (+ base-red (* (- 1 pct) delta-red)))
+                    (exact-round (+ base-green (* (- 1 pct) delta-green)))
+                    (exact-round (+ base-blue (* (- 1 pct) delta-blue))))))))
+
+(define (make-scatter-group-renderer group #:color color #:label [label #f] #:size [size 1.5])
+  (define keys (sort (hash-keys group) <))
+  (define color-map (make-key-colors keys color))
   (define first-time? #t)
-  (for/list ([key (sort (hash-keys group) <)])
+  (for/list ([key (in-list keys)])
     (define data (hash-ref group key))
     (begin0
         (make-scatter-renderer
          data
-         #:color color
-         #:size (* size (+ 1 (log key)))
+         #:color (hash-ref color-map key color)
+         #:size size
          #:label (if first-time? label #f))
       (set! first-time? #f))))
 
