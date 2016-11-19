@@ -443,6 +443,7 @@
       (set! data-series #f)
       (set! data-series2 #f)
       (set! factored-data #f)
+      (set! data-y-range #f)
       (prepare-render-tree))
 
     (define/public (show-average-line show)
