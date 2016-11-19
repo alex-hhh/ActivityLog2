@@ -31,21 +31,37 @@
 (define *header-font*
   (send the-font-list find-or-create-font 18 'default 'normal 'normal))
 
+;; Return the time difference and map distance between the point at TIMESTAMP
+;; and the next point.  Returns (values -1 -1) if we cannot determine the
+;; difference.
 (define (delta-time-and-distance df timestamp)
   (let ((index (send df get-index "timestamp" timestamp))
         (timer-s (send df select "timestamp"))
         (lat-s (send df select "lat"))
-        (lon-s (send df select "lon")))
-    (let ((t1 (vector-ref timer-s index))
-          (t2 (vector-ref timer-s (+ index 1)))
-          (lat1 (vector-ref lat-s index))
-          (lat2 (vector-ref lat-s (+ index 1)))
-          (lon1 (vector-ref lon-s index))
-          (lon2 (vector-ref lon-s (+ index 1))))
-      (values
-       (- t2 t1)
-       (map-distance/degrees lat1 lon1 lat2 lon2)))))
+        (lon-s (send df select "lon"))
+        (max-index (send df get-row-count)))
+    (if (and index (< (add1 index) max-index))
+        (let ((t1 (vector-ref timer-s index))
+              (t2 (vector-ref timer-s (+ index 1)))
+              (lat1 (vector-ref lat-s index))
+              (lat2 (vector-ref lat-s (+ index 1)))
+              (lon1 (vector-ref lon-s index))
+              (lon2 (vector-ref lon-s (+ index 1))))
+          ;; TODO: We have missing values at this timestamp, perhaps we should
+          ;; search forward (or backward?) for the a pair of valid points.
+          ;; This search can be quite complex however.  For now, we just give
+          ;; up if we have missing values.
+          (if (and t1 t2 lat1 lat2 lon1 lon2)
+              (values
+               (- t2 t1)
+               (map-distance/degrees lat1 lon1 lat2 lon2))
+              (values -1 -1)))
+        ;; We landed on the last index in the series...
+        (values -1 -1))))
 
+;; Return true if the point at TIMESTAMP is a teleportation point, where the
+;; recording was stopped, the user moved to a different spot and started
+;; recording again.
 (define (is-teleport? df timestamp)
   (let-values (([dt dd] (delta-time-and-distance df timestamp)))
     (> dd 20)))
