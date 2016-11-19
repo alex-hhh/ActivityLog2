@@ -114,7 +114,7 @@
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
-                 "date(T.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+                 "date(T.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
                 ((eqv? group-by 1)       ; month
                  "date(T.start_time, 'unixepoch', 'localtime', 'start of month')")
                 ((eqv? group-by 2)       ; year
@@ -133,7 +133,7 @@
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
-                 "date(T.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+                 "date(T.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
                 ((eqv? group-by 1)       ; month
                  "date(T.start_time, 'unixepoch', 'localtime', 'start of month')")
                 ((eqv? group-by 2)       ; year
@@ -152,7 +152,7 @@
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
-                 "date(T.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+                 "date(T.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
                 ((eqv? group-by 1)       ; month
                  "date(T.start_time, 'unixepoch', 'localtime', 'start of month')")
                 ((eqv? group-by 2)       ; year

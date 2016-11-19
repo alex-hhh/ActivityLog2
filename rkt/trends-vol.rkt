@@ -119,7 +119,7 @@
              and ~a
            group by period order by period"
           (cond ((eqv? group-by 0)       ; week
-                 "date(VAL.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+                 "date(VAL.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
                 ((eqv? group-by 1)       ; month
                  "date(VAL.start_time, 'unixepoch', 'localtime', 'start of month')")
                 ((eqv? group-by 2)       ; year

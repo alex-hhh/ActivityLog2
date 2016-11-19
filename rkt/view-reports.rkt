@@ -104,7 +104,7 @@
   (define group-by-year
     "date(S.start_time, 'unixepoch', 'localtime', 'start of year')")
   (define group-by-week
-    "date(S.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+    "date(S.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
 
   (let ((time-range (if have-time-range? "S.start_time >= ? and S.start_time < ?" "1 = 1"))
         (sport (if have-sport? "S.sport_id = ?" "1 = 1"))
@@ -460,7 +460,7 @@
   (define group-by-year
     "date(T.start_time, 'unixepoch', 'localtime', 'start of year')")
   (define group-by-week
-    "date(T.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+    "date(T.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
 
   (let ((time-range (if have-time-range? "T.start_time >= ? and T.start_time < ?" "1 = 1"))
         (sport (if have-sport? "T.sport_id = ?" "1 = 1"))
@@ -954,7 +954,7 @@
   (define group-by-year
     "date(AM.timestamp, 'unixepoch', 'localtime', 'start of year')")
   (define group-by-week
-    "date(AM.timestamp, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+    "date(AM.timestamp, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
 
   (let ((time-range (if have-time-range? "AM.timestamp >= ? and AM.timestamp < ?" "1 = 1"))
         (group (cond ((eq? period 'week) group-by-week)

@@ -132,7 +132,7 @@
    and S.start_time between ? and ?
  group by period"
           (cond ((eqv? group-by 0)       ; week
-                 "date(S.start_time, 'unixepoch', 'localtime', '+1 days', 'weekday 1', '-7 days')")
+                 "date(S.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
                 ((eqv? group-by 1)       ; month
                  "date(S.start_time, 'unixepoch', 'localtime', 'start of month')")
                 ((eqv? group-by 2)       ; year

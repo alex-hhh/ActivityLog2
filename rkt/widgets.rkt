@@ -442,10 +442,10 @@
                 "> strftime('%s', 'now', '-7 days')")
    (time-period 'this-week "this week"
                 this-week-start this-day-end
-                "> strftime('%s', 'now', '+1 days', 'weekday 1', '-7 days')")
+                "> strftime('%s', 'now', '-6 days', 'weekday 1')")
    (time-period 'last-week "last week"
                 last-week-start this-week-start
-                "between strftime('%s', 'now', '+1 days', 'weekday 1', '-14 days') and strftime('%s', 'now', '+1 days', 'weekday 1', '-7 days')")
+                "between strftime('%s', 'now', '-13 days', 'weekday 1') and strftime('%s', 'now', '-6 days', 'weekday 1')")
    (time-period 'last-30-days "last 30 days"
                 last-30-days-start this-day-end
                 "> strftime('%s', 'now', '-30 days')")
