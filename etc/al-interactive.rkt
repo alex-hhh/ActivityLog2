@@ -24,17 +24,20 @@
          "../rkt/data-frame.rkt"
          "../rkt/session-df.rkt"
          "../rkt/dbapp.rkt"
-         "../rkt/hrv.rkt")
+         "../rkt/hrv.rkt"
+         "../rkt/fmt-util.rkt")
 
 (provide/contract
  (session-df (-> number? (is-a?/c data-frame%)))
  (hrv-df (-> number? (is-a?/c data-frame%)))
- (df->csv (-> (is-a?/c data-frame%) path-string? any/c)))
+ (df->csv (-> (is-a?/c data-frame%) path-string? any/c))
+ (pp-stops (-> (is-a?/c data-frame%) any/c)))
 
 (provide
  (all-from-out db)
  (all-from-out "../rkt/data-frame.rkt")
  (all-from-out "../rkt/hrv.rkt")
+ (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df.rkt")
  (all-from-out "../rkt/dbapp.rkt"))
 
@@ -62,3 +65,15 @@
 ;; Write the contents of the data frame DF into FILE in CSV format.
 (define (df->csv df file-name)
   (call-with-output-file file-name (lambda (port) (df-write/csv port df))))
+
+
+;...................................................... Other functions ....
+
+;; Pretty print the duration of each stop point (can be useful to determine
+;; stops that are very long)
+(define (pp-stops df)
+  (for ((sp (in-list (send df get-property 'stop-points))))
+    (let* ((index (send df get-index "timestamp" sp))
+           (ts1 (send df ref index "timestamp"))
+           (ts2 (send df ref (add1 index) "timestamp")))
+      (printf "timestamp ~a, index ~a: ~a~%" sp index (duration->string (- ts2 ts1))))))
