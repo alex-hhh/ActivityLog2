@@ -1225,7 +1225,7 @@
   ;; NOTE: keys are sorted and should not contain duplicates
   (match-define (list red green blue) (->pen-color base-color))
   (define range                         ; make sure range is never 0
-    (if (< (length keys) 1)
+    (if (< (length keys) 2)
         1
         (- (last keys) (first keys))))
   (match-define (list base-red base-green base-blue)
