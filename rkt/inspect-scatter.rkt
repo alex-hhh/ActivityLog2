@@ -20,6 +20,8 @@
          racket/list
          racket/match
          racket/math
+         math/statistics
+         racket/format
          "activity-util.rkt"
          "al-prefs.rkt"
          "series-meta.rkt"
@@ -160,6 +162,34 @@
       (send data-frame select*
             xnam ynam "elapsed"
             #:filter valid-only))))
+
+;; Simple linear regression parameters Y = alpha + beta * X.  r is the
+;; correlation coefficient.
+(struct slr (alpha beta r))
+
+;; Compute linear regression parameters for DATA (a list of samples).  Note
+;; that we compute this on the time delayed series.
+(define (slr-params data)
+  ;; https://en.wikipedia.org/wiki/Simple_linear_regression
+  (define xs '())
+  (define ys '())
+  (for ([d data])
+    (set! xs (cons (vector-ref d 0) xs))
+    (set! ys (cons (vector-ref d 1) ys)))
+  (let ((x-stats (foldl (lambda (x s) (update-statistics s x)) empty-statistics xs))
+        (y-stats (foldl (lambda (y s) (update-statistics s y)) empty-statistics ys))
+        (r (correlation xs ys)))
+    (let* ((beta (* r (/ (statistics-stddev y-stats) (statistics-stddev x-stats))))
+           (alpha (- (statistics-mean y-stats) (* beta (statistics-mean x-stats)))))
+      (slr alpha beta r))))
+
+;; Return a function renderer for the linear regression defined by SLR
+(define (make-slr-renderer slr)
+  (function
+   (lambda (x) (+ (slr-alpha slr) (* (slr-beta slr) x)))
+   #:color '(#x2f #x4f #x4f)
+   #:width 2
+   #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
 
 (define scatter-plot-panel%
   (class object% (init parent) (super-new)
@@ -391,7 +421,10 @@
                                (vector #f #f #f #f)))
                           (delayed (if damt (time-delay-series ds damt) ds))
                           (grouped (group-samples delayed x-digits y-digits))
-                          (renderer (make-scatter-group-renderer grouped #:color color)))
+                          (slr (slr-params delayed))
+                          (renderer (list
+                                     (make-scatter-group-renderer grouped #:color color)
+                                     (make-slr-renderer slr))))
                      (queue-callback
                       (lambda ()
                         (set! data-series ds)
