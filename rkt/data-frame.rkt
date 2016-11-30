@@ -639,6 +639,34 @@
             histogram))
       #f))
 
+;; Put an empty label every NTH item in DATA (a histogram/c) (which is a
+;; histogram data to be plotted).  The function tries to find a suitable
+;; anchor, so that the labels look nice (for example, if every second label is
+;; to be dropped, the labels with even values will be kept).
+(define (blank-nth data nth)
+  (define anchor
+    (or (for/or (((item index) (in-indexed (in-vector data))))
+          (let ((label (vector-ref item 0)))
+            (and (integer? label) (zero? (remainder label nth)) index)))
+        (for/or (((item index) (in-indexed (in-vector data))))
+          (let ((label (vector-ref item 0)))
+            (and (integer? label) index)))
+        0))
+  (for/vector #:length (vector-length data)
+              (((data index) (in-indexed (in-vector data))))
+    (match-define (vector label value) data)
+    (vector (if (= 0 (remainder (- index anchor) nth)) label "") value)))
+
+;; Empty some labels in DATA (a histogram/c), which is to be plotted as a
+;; histogram.  The number of blanked labels depends on how many items are in
+;; the data set.
+(define (blank-some-labels data)
+  (define nitems (vector-length data))
+  (cond ((< nitems 20) data)            ; no simplification needed
+        ((< nitems 40) (blank-nth data 2))
+        ((< nitems 80) (blank-nth data 5))
+        (#t (blank-nth data 10))))
+
 ;; Create a historgam plot renderer from DATA (a sequence of [BUCKET
 ;; NUM-SAMPLES]), as received from `df-histogram` (which see). COLOR will be
 ;; the color of the plot.  #:skip and #:x-min are used to plot dual
@@ -673,7 +701,7 @@
     (when color
       (add-arg '#:color color)
       (add-arg '#:alpha 0.8))
-    (keyword-apply discrete-histogram kwd val data '())))
+    (keyword-apply discrete-histogram kwd val (blank-some-labels data) '())))
 
 ;; Return a list of the buckets in a histogram (as made by `df-histogram`).
 (define (get-histogram-buckets h)
