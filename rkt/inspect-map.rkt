@@ -249,16 +249,18 @@
             (send the-pen-list find-or-create-pen
                   (make-object color% 226 34 62)
                   3 'solid 'round 'round))
-      (send map-view add-marker
-            (send data-frame ref* 0 "lat" "lon")
-            "Start"
-            1
-            (make-color 0 135 36))
-      (send map-view add-marker
-            (send data-frame ref* (- (send data-frame get-row-count) 1) "lat" "lon")
-            "End"
-            -1
-            (make-color 150 33 33))
+      (let ((nitems (send data-frame get-row-count)))
+        ;; Add flags for the first and last valid GPS points on the route.  We
+        ;; search the first valid point from both ends, rather than just
+        ;; assuming that the first and last points are valid.
+        (for*/first ((index (in-range 0 nitems))
+                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     #:when (and (vector-ref position 0) (vector-ref position 1)))
+          (send map-view add-marker position "Start" 1 (make-color 0 135 36)))
+        (for*/first ((index (in-range (sub1 nitems) 0 -1))
+                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     #:when (and (vector-ref position 0) (vector-ref position 1)))
+          (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)
       (set! selected-lap #f))
 
