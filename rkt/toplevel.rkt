@@ -246,7 +246,7 @@
 
 ;;....................................................... make-view-menu ....
 
-(define (make-view-menu menu-bar toplevel)
+(define (make-view-menu menu-bar toplevel the-sections)
 
   (define (is-qresults-object? o)
     (object-method-arity-includes? o 'get-qresults-object 0))
@@ -280,6 +280,16 @@
         (lambda (m e)
           (let ((q (get-qresults-object)))
             (when q (send q interactive-setup-visible-columns))))])
+
+  (new separator-menu-item% [parent view-menu])
+
+  (for ((s the-sections))
+    (new menu-item%
+         [parent view-menu]
+         [label (tl-section-name s)]
+         [callback
+          (lambda (m e)
+            (send toplevel select-section (tl-section-tag s)))]))
 
   view-menu)
 
@@ -671,7 +681,7 @@
     (let ((mb (new menu-bar% [parent tl-frame])))
       (make-file-menu mb this)
       (make-edit-menu mb this)
-      (make-view-menu mb this)
+      (make-view-menu mb this the-sections)
       (make-athlete-menu mb this)
       (make-activtiy-menu mb this)
       (make-tools-menu mb this)
@@ -736,6 +746,12 @@
     (define (switch-to-section-by-num n)
       (let ((p (list-ref the-sections n)))
         (switch-to-section (if n p #f))))
+
+    (define/public (select-section tag)
+      (let ((index (get-section-index tag)))
+        (when index
+          (switch-to-section-by-num index)
+          (send section-selector set-selection index))))
 
     (define/public (get-frame) tl-frame)
     (define/public (get-database) database)
