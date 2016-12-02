@@ -22,7 +22,8 @@
          "icon-resources.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
-         "dbutil.rkt")
+         "dbutil.rkt"
+         "dbglog.rkt")
 
 (provide get-lap-swim-editor)
 
@@ -548,7 +549,7 @@ select LE.start_time as timestamp,
     (define (on-paint-wrapped canvas dc)
       (with-handlers
         (((lambda (x) #t)
-          (lambda (x) (printf "*** ~a~%" x))))
+          (lambda (x) (dbglog (format "swl-view%/on-paint-wrapped: ~a" x)))))
         (when data (on-paint canvas dc))))
 
     (define canvas
