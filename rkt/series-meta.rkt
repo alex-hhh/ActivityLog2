@@ -314,6 +314,7 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "vosc")
+         (define/override (fractional-digits) 1)
          )))
 (provide axis-vertical-oscillation)
 
