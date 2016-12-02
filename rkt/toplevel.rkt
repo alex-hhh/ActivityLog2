@@ -585,6 +585,7 @@
     (let ((maximized? (al-get-pref 'activity-log:frame-maximized (lambda () #f))))
       (send tl-frame maximize maximized?))
     (send tl-frame create-status-line)
+    (make-log-output-window tl-frame)   ; notification banner
 
     (define tl-panel            ; Holds all the widgets in the toplevel window
       (new horizontal-pane% [parent tl-frame] [spacing 0]))
@@ -671,10 +672,6 @@
     (send section-selector clear)
     (for ((section the-sections))
       (send section-selector append (tl-section-name section)))
-
-    ;;; Construct the log output window
-
-    (make-log-output-window left-panel)
 
     ;;; Construct the toplevel menu bar
 
