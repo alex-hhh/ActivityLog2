@@ -24,6 +24,8 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
+         "al-prefs.rkt"
+         "al-log.rkt"
          "dbglog.rkt")
 
 (provide sport-selector%)
@@ -35,6 +37,32 @@
 (provide get-sql-export-dialog)
 
 (define identity (lambda (x) x))
+
+;; Some generic preferences
+
+(define al-pref-tablet-friendly?
+  (let* ((tag 'activity-log:tablet-friendly?)
+         (val (al-get-pref tag (lambda () #f))))
+    (make-parameter
+     val
+     (lambda (new-val)
+       ;; Write the value back to the store
+       (al-put-pref tag new-val)
+       (log-al-info "restart application for tablet friendly setting to take effect")
+       new-val))))
+(provide al-pref-tablet-friendly?)
+
+(define al-dlg-item-font
+  (if (al-pref-tablet-friendly?)
+      (send the-font-list find-or-create-font 16 'default 'normal 'normal)
+      normal-control-font))
+(provide al-dlg-item-font)
+
+(define al-dlg-item-spacing
+  (if (al-pref-tablet-friendly?)
+      20
+      10))
+(provide al-dlg-item-spacing)
 
 
 ;;....................................................... sport-selector ....

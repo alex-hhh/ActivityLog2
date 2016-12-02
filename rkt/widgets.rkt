@@ -44,32 +44,6 @@
 (provide al-edit-dialog%)
 (provide al-progress-dialog%)
 
-;; Some generic preferences
-
-(define al-pref-tablet-friendly?
-  (let* ((tag 'activity-log:tablet-friendly?)
-         (val (al-get-pref tag (lambda () #f))))
-    (make-parameter
-     val
-     (lambda (new-val)
-       ;; Write the value back to the store
-       (al-put-pref tag new-val)
-       (log-al-info "Restart application for tablet friendly setting to take effect")
-       new-val))))
-(provide al-pref-tablet-friendly?)
-
-(define al-dlg-item-font
-  (if (al-pref-tablet-friendly?)
-      (send the-font-list find-or-create-font 16 'default 'normal 'normal)
-      normal-control-font))
-(provide al-dlg-item-font)
-
-(define al-dlg-item-spacing
-  (if (al-pref-tablet-friendly?)
-      20
-      10))
-(provide al-dlg-item-spacing)
-
 
 ;;.............................................. validating-input-field% ....
 
@@ -1539,17 +1513,15 @@
 (define (make-group-box-panel parent (label ""))
   (let ((gb (new group-box-panel%
                  [parent parent] [label label] [alignment '(left center)]
-                 [spacing al-dlg-item-spacing]
-                 [border 5])))
+                 [spacing 10] [border 5])))
     ;; The group box panel seems to ignore the internal border, so we create
     ;; an inner vertical pane and return that.
-    (new vertical-pane% [parent gb] [spacing al-dlg-item-spacing] [alignment '(left center)])))
+    (new vertical-pane% [parent gb] [spacing 10] [alignment '(left center)])))
 
 (define al-edit-dialog%
   (class object%
     (init-field title
           [icon #f]
-          [tablet-friendly? #f]
           [save-button-name "Save"]
           [min-width 300]
           [min-height 300])
@@ -1575,8 +1547,8 @@
 
     (define edit-pane
       (let ((p (new vertical-panel% [parent toplevel-window]
-                    [spacing (if tablet-friendly? al-dlg-item-spacing 10)]
-                    [border (if tablet-friendly? al-dlg-item-spacing 10)]
+                    [spacing 10]
+                    [border 10]
                     [alignment '(left top)])))
         (let ((p0 (make-horizontal-pane p #f)))
           (set! dialog-icon
@@ -1587,18 +1559,16 @@
 
         (set! client-pane
               (new vertical-panel% [parent p]
-                   [border 0] [spacing (if tablet-friendly? al-dlg-item-spacing 10)]
+                   [border 0] [spacing 10]
                    [alignment '(left top)]))
 
         (let ((bp (new horizontal-pane% [parent p] [border 0]
-                       [spacing (if tablet-friendly? al-dlg-item-spacing 10)]
+                       [spacing 10]
                        [stretchable-height #f] [alignment '(right center)])))
           (set! save-button
                 (new button% [label save-button-name] [parent bp]
-                     [font (if tablet-friendly? al-dlg-item-font normal-control-font)]
                      [callback (lambda (b e) (on-save))]))
           (new button% [label "Cancel"] [parent bp]
-               [font (if tablet-friendly? al-dlg-item-font normal-control-font)]
                [callback (lambda (b e) (on-cancel))]))
 
         p))

@@ -41,8 +41,7 @@
     (init-field database
                 [default-name "Trends"]
                 [default-title "Trends Chart"])
-    (super-new [title "Chart Settings"] [icon edit-icon]
-               [min-height 10] [tablet-friendly? #t])
+    (super-new [title "Chart Settings"] [icon edit-icon] [min-height 10])
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
     (define name-field (new text-field% [parent name-gb] [label "Name "]))

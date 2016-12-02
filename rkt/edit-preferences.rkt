@@ -22,7 +22,9 @@
          "icon-resources.rkt"
          "map-tiles.rkt"
          "weather.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "al-widgets.rkt"
+         )
 
 (provide get-preferences-dialog)
 
@@ -31,7 +33,6 @@
     (init)
     (super-new [title "Edit Preferences"]
                [icon edit-icon]
-               [tablet-friendly? #t]
                [min-width 600]
                [min-height 300])
 
@@ -44,46 +45,38 @@
     (let ((p (send this get-client-pane)))
 
       (let ((p1 (new group-box-panel% [parent p] [label "General"]
-                     [border al-dlg-item-spacing]
-                     [spacing al-dlg-item-spacing]
+                     [border 10]
+                     [spacing 10]
                      [horiz-margin 10]
                      [alignment '(left top)]
                      [stretchable-height #f])))
         (set! measurement-system-choice
               (new choice% [parent p1]
-                   [font al-dlg-item-font]
                    [label "Measurement System "]
                    [choices '("Metric" "Imperial")]))
         (set! tablet-friendly-checkbox
               (new check-box% [label "Tablet friendly dialogs (requires application restart)"]
-                   [font al-dlg-item-font]
                    [parent p1])))
 
       (let ((p1 (new group-box-panel% [parent p] [label "Weather"]
-                     [spacing al-dlg-item-spacing]
                      [horiz-margin 10]
-                     [border al-dlg-item-spacing]
                      [alignment '(left top)]
                      [stretchable-height #f])))
         (set! allow-weather-download-check-box
               (new check-box% [label "Allow weather data download"]
-                   [font al-dlg-item-font]
                    [parent p1]))
         (set! wu-api-key-text-box
               (new text-field% [label "Wunderground API key"]
-                   [font al-dlg-item-font]
                    [parent p1])))
 
       (let ((p1 (new group-box-panel% [parent p] [label "Maps"]
-                     [font al-dlg-item-font]
-                     [spacing al-dlg-item-spacing]
+                     [spacing 10]
                      [horiz-margin 10]
-                     [border al-dlg-item-spacing]
+                     [border 10]
                      [alignment '(left top)]
                      [stretchable-height #f])))
         (set! allow-map-tile-download-check-box
               (new check-box% [label "Allow map tile download"]
-                   [font al-dlg-item-font]
                    [parent p1])))
 
 

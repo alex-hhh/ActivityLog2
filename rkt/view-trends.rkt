@@ -54,13 +54,13 @@
     (super-new [title "New Chart"]
                [icon reports-icon]
                [save-button-name "Select"]
-               [min-height 10] [tablet-friendly? #t])
+               [min-height 10])
 
     (define chart-choice #f)
 
     (let ((p (send this get-client-pane)))
       (let ((p0 (make-horizontal-pane p #f)))
-        (send p0 spacing al-dlg-item-spacing)
+        (send p0 spacing 10)
         (set! chart-choice (new choice%
                                 [parent p0] [label "Chart Type "]
                                 [choices (map chart-info-name chart-types)]))))

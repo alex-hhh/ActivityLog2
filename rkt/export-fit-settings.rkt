@@ -32,22 +32,6 @@
 
 (provide get-export-settings-dialog zones-pp)
 
-(define (make-group-box name parent)
-  (let ((gpb (new group-box-panel% [parent parent] [label name]
-                  [border 0]
-                  [spacing 0]
-                  [horiz-margin 0]
-                  [alignment '(left top)])))
-    (new vertical-pane% [parent gpb]
-         [spacing al-dlg-item-spacing]
-         [horiz-margin 10]
-         [vert-margin 10]
-         [alignment '(left top)])))
-
-(define (make-horizontal-pane parent)
-  (new horizontal-pane% [parent parent]
-       [spacing al-dlg-item-spacing]))
-
 (define activity-class-names
   (list
    "0 - No Exercise"
@@ -255,7 +239,6 @@ select body_weight
     (init)
     (super-new [title "Export FIT Settings"]
                [icon edit-icon]
-               [tablet-friendly? #f]
                [save-button-name "Export"]
                [min-width 600]
                [min-height 300])
@@ -384,7 +367,7 @@ select body_weight
           (send bike-ftp-field set-numeric-value ftp))))
     
     (let ([p (send this get-client-pane)])
-      (let ([p1 (make-group-box "Athlete Info" p)])
+      (let ([p1 (make-group-box-panel p "Athlete Info")])
 
         (let ([p (make-horizontal-pane p1)])
           (set! dob-field
@@ -413,7 +396,7 @@ select body_weight
         (set! hrv-chkbox
               (new check-box% [parent p1] [label "Collect HRV Data"])))
 
-      (let ([p2 (make-group-box "Running" p)])
+      (let ([p2 (make-group-box-panel p "Running")])
 
         (let ((p (make-horizontal-pane p2)))
           (set! run-hrz-chkbox
@@ -424,7 +407,7 @@ select body_weight
 
         (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 1)))
         
-      (let ([p3 (make-group-box "Cycling" p)])
+      (let ([p3 (make-group-box-panel p "Cycling")])
         (let ((p (make-horizontal-pane p3)))
           (set! bike-hrz-chkbox
                 (new check-box% [parent p] [label "Export HR Zones"]))

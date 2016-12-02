@@ -36,8 +36,7 @@
 (define edit-athlete-metrics%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit athlete metrics"] [icon wscale-icon]
-               [tablet-friendly? #t])
+    (super-new [title "Edit athlete metrics"] [icon wscale-icon])
 
     (define date-field #f)
     (define time-field #f)

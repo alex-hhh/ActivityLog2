@@ -38,8 +38,7 @@
 (define tiz-chart-settings%
   (class al-edit-dialog%
     (init-field database [default-name "TIZ"] [default-title "Time in Zone"])
-    (super-new [title "Chart Settings"] [icon edit-icon]
-               [min-height 10] [tablet-friendly? #t])
+    (super-new [title "Chart Settings"] [icon edit-icon] [min-height 10])
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
     (define name-field (new text-field% [parent name-gb] [label "Name "]))
