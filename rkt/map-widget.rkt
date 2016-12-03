@@ -339,7 +339,7 @@
          (distance (if entry (second entry) 1000))
          (label (if entry (third entry) "1 km")))
     (let ((km-dist (/ distance (zoom-level->mpp zoom-level)))
-          (label (format "~a  (level ~a)" label zoom-level))
+          (label (format "~a  (ZL ~a; BL ~a)" label zoom-level (get-download-backlog)))
           (ox 10)
           (oy 10))
       (let-values (([cw ch] (send canvas get-size)))
@@ -394,7 +394,7 @@
     ;;; data to display on the map
     (define tracks '())
     (define markers '())
-    (define zoom-level 15)
+    (define zoom-level 1)
     (define max-tile-num (expt 2 zoom-level))
     (define max-coord (* tile-size max-tile-num))
 
@@ -506,7 +506,8 @@
                             (- (* x tile-size) xofs)
                             (- (* y tile-size) yofs)))))))
 
-        (when request-redraw? (send redraw-timer start 500))))
+        (when (or request-redraw? (> (get-download-backlog) 0))
+          (send redraw-timer start 500))))
 
     (define canvas
       (new (class canvas% (init) (super-new)
@@ -555,6 +556,7 @@
       (send canvas suspend-flush)
       (set! tracks '())
       (set! markers '())
+      (set! zoom-level 1)
       (send canvas resume-flush)
       (send canvas refresh))
 

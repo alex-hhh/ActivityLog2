@@ -88,7 +88,7 @@
               (if (eq? ms 'metric) 0 1)))
       (let ((tablet-friendly? (al-pref-tablet-friendly?)))
         (send tablet-friendly-checkbox set-value (if tablet-friendly? #t #f)))
-      (let ((allow? (al-pref-allow-tile-download)))
+      (let ((allow? (allow-tile-download)))
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
       (let ((allow? (al-pref-allow-weather-download)))
         (send allow-weather-download-check-box set-value (if allow? #t #f)))
@@ -104,8 +104,8 @@
           (al-pref-tablet-friendly? val)))
 
       (let ((val (send allow-map-tile-download-check-box get-value)))
-        (unless (eq? val (al-pref-allow-tile-download))
-          (al-pref-allow-tile-download val)))
+        (unless (eq? val (allow-tile-download))
+          (set-allow-tile-download val)))
 
       (let ((val (send allow-weather-download-check-box get-value)))
         (unless (eq? val (al-pref-allow-weather-download))

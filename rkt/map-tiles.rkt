@@ -35,7 +35,9 @@
 (provide
  get-tile-bitmap
  vacuum-tile-cache-database
- al-pref-allow-tile-download)
+ get-download-backlog
+ allow-tile-download
+ set-allow-tile-download)
 
 
 ;........................................................ debug helpers ....
@@ -61,18 +63,16 @@
      (al-get-pref 'activity-log:tile-refresh-interval (lambda () 60))))
 
 ;; Tiles will not be downloaded if this parameter is #f.
-(define al-pref-allow-tile-download
-  (let* ((tag 'activity-log:allow-tile-download)
-         (val (al-get-pref tag (lambda () #t))))
-    (make-parameter
-     val
-     (lambda (new-val)
-       ;; Write the value back to the store
-       (al-put-pref tag new-val)
-       (if new-val
-           (dbglog "map tile download enabled")
-           (dbglog "map tile download disabled"))
-       new-val))))
+(define allow-tile-download-tag 'activity-log:allow-tile-download)
+(define allow-tile-download-val (al-get-pref allow-tile-download-tag (lambda () #t)))
+(define (allow-tile-download) allow-tile-download-val)
+(define (set-allow-tile-download new-val)
+  (al-put-pref allow-tile-download-tag new-val)
+  (set! allow-tile-download-val new-val)
+  (if new-val
+      (dbglog "map tile download enabled")
+      (dbglog "map tile download disabled")))
+
 
 
 ;..................................................... helper functions ....
@@ -148,6 +148,11 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
            (query-exec db update-tile-sql url timestamp data zoom x y)
            (query-exec db insert-tile-sql url timestamp data zoom x y))))))
 
+;; Store the size of the tile download backlog here, so the map view can show
+;; it.
+(define download-backlog 0)
+(define (get-download-backlog) download-backlog)
+
 ;; Create a thread to service tile fetch and store request for the database.
 ;; This is done so that the main GUI is not blocked.  Operations are performed
 ;; against the databse DB, requests are received from REQUEST channel and
@@ -158,12 +163,28 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (thread/dbglog
    #:name "tile db fbetch-store thread"
    (lambda ()
-     (let loop ((backlog (fill-backlog '() request)))
-       (unless backlog
-         (dbglog "Tile fetch/store backlog is unexpectedly empty")
-         (dbg-printf "Tile fetch/store backlog is unexpectedly empty~%"))
-       (when backlog
-         (match-define (cons operation data) (car backlog))
+
+     ;; Maintain a list of requested tiles, to avoid requesting a tile twice
+     ;; and also to provide feedback to the user on the number of tiles that
+     ;; need to be downloaded.
+     (define requested-tiles '())
+     (define (already-requested? tile) (member tile requested-tiles))
+     (define (remove-request tile)
+       (set! requested-tiles (remove tile requested-tiles))
+       (set! download-backlog (length requested-tiles)))
+     (define (add-request tile)
+       (if (allow-tile-download)
+           (begin
+             (set! requested-tiles (cons tile requested-tiles)))
+           (begin
+             ;; Somewhat of a hack, but if allow-tile-download becomes #f, the
+             ;; tile download threads will start discarding requests.
+             (set! requested-tiles '())))
+       (set! download-backlog (length requested-tiles)))
+     
+     (let loop ((work-item (async-channel-get request)))
+       (when work-item
+         (match-define (cons operation data) work-item)
          (cond ((eq? operation 'fetch)
                 (match-define (list tile) data)
                 (dbg-printf "DB Fetching ~a~%" tile)
@@ -172,17 +193,22 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
                       (let ((blob (vector-ref row 0))
                             (timestamp (vector-ref row 1)))
                         (when (> (- (current-seconds) timestamp) tile-refresh-interval)
-                          ;; Re-download an old tile
-                          (dbg-printf "DB ask re-download old tile ~a~%" tile)
-                          (async-channel-put net-fetch-request tile))
+                          (unless (already-requested? tile)
+                            ;; Re-download an old tile
+                            (dbg-printf "DB ask re-download old tile ~a~%" tile)
+                            (add-request tile)
+                            (async-channel-put net-fetch-request tile)))
                         (async-channel-put reply (list tile blob)))
                       ;; Download it
-                      (async-channel-put net-fetch-request tile))))
+                      (unless (already-requested? tile)
+                        (add-request tile)
+                        (async-channel-put net-fetch-request tile)))))
                ((eq? operation 'store)
                 (match-define (list tile url blob) data)
                 (dbg-printf "DB Storing ~a ~a~%" tile url)
+                (remove-request tile)
                 (db-store-tile tile url blob db)))
-         (loop (fill-backlog (cdr backlog) request)))))))
+         (loop (async-channel-get request)))))))
 
 (define (fetch-tile tile channel)
   (async-channel-put channel (list 'fetch tile)))
@@ -215,7 +241,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
        (dbglog (format "Failed to download tile ~a~%" e))
        (dbg-printf "Failed to download tile ~a~%" e)
        #f)))
-   (if (al-pref-allow-tile-download)
+   (if (allow-tile-download)
        (let* ((url (tile->osm-url tile))
               (data (port->bytes (get-pure-port
                                   (string->url url)
@@ -232,22 +258,16 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (thread/dbglog
    #:name "tile net fetch thread"
    (lambda ()
-     (let loop ((backlog (fill-backlog '() request)))
-       (unless backlog
-         (dbglog "Tile download backlog is unexpectedly empty")
-         (dbg-printf "Tile download backlog is unexpectedly empty~%"))
-       (when backlog
-         (let* ([tile (car backlog)]
+     (let loop ((work-item (async-channel-get request)))
+       (when work-item
+         (let* ([tile work-item]
                 [data (net-fetch-tile tile)])
            (when data
              (match-define (list tile url blob) data)
              (dbg-printf "NET Downloaded tile ~a~%" tile)
              (store-tile tile url blob db-request-channel)
              (async-channel-put reply (list tile blob)))
-           ;; NOTE: a tile may be present in the backlog multiple times,
-           ;; remove all such instances, now that we downloaded the data.
-           (let ([nbacklog (remove* (list tile) backlog)])
-             (loop (fill-backlog nbacklog request)))))))))
+           (loop (async-channel-get request))))))))
 
 
 ;......................................................... main section ....

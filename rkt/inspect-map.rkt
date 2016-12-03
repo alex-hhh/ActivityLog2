@@ -229,9 +229,7 @@
       (send elevation-graph set-x-axis axis-distance)
       (send map-view clear-items)
       (send info-message set-label
-            (if (al-pref-allow-tile-download)
-                ""
-                "Map tile download disabled"))
+            (if (allow-tile-download) "" "Map tile download disabled"))
 
       ;; Add the data tracks
 
