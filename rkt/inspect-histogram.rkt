@@ -79,7 +79,7 @@
    axis-left-right-balance
    (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
    (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
-   (list "Platform Centre Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
+   (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
    (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
    (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)
    (list "Power Phase Angle" axis-left-power-phase-angle axis-right-power-phase-angle)
@@ -193,10 +193,12 @@
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
     (define (axis-label index)
-      (let ((axis (list-ref axis-choices index)))
-        (if (list? axis)
-            (car axis)
-            (send axis axis-label))))
+      (if (and (> index 0) (< index (length axis-choices)))
+          (let ((axis (list-ref axis-choices index)))
+            (if (list? axis)
+                (car axis)
+                (send axis axis-label)))
+          #f))
 
     ;; Update the axis selection checkboxes with AXIS-LIST
     (define (install-axis-choices axis-list)
