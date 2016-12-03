@@ -593,7 +593,6 @@
     (define left-panel             ; Holds the section selector and log window
       (new vertical-pane%
            [parent tl-panel]
-           [min-width 150]
            [stretchable-width #f]
            [spacing 5]))
 
@@ -612,13 +611,9 @@
     (define/public (get-athlete-metrics-forwarder) amop-forwarer)
 
     (define section-selector
-      (new list-box%
-           [label ""]
+      (new tab-selector%
            [parent left-panel]
-           [choices '("Unused")]
-           [min-width 150]
-           [callback (lambda (c event)
-                       (switch-to-section-by-num (send c get-selection)))]))
+           [callback (lambda (c index) (switch-to-section-by-num index))]))
 
     (begin
 
@@ -630,7 +625,7 @@
       ;; NOTE: sections need to be added in the reverse order in which they
       ;; will appear in the `section-selector'
 
-      (add-section "Session View" 'session-view
+      (add-section "Session" 'session-view
                    (lambda (parent) (new view-session% [parent parent] [database database])))
 
       (add-section "Last Import" 'import
@@ -645,12 +640,12 @@
       (add-section "Trends" 'trends
                    (lambda (parent)
                      (new view-trends% [parent parent] [database database])))
-      
+
       (add-section "Reports" 'reports
                    (lambda (parent)
                      (new view-reports% [parent parent] [database database])))
 
-      (add-section "Athlete Metrics" 'athlete-metrics
+      (add-section "Athlete" 'athlete-metrics
                    (lambda (parent)
                      (new view-athlete-metrics% [parent parent] [database database])))
 
@@ -660,7 +655,7 @@
                           [database database]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
-      (add-section "Activity List" 'activity-list
+      (add-section "Activities" 'activity-list
                    (lambda (parent)
                      (new view-activities% [parent parent]
                           [database database]
