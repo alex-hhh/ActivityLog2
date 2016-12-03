@@ -76,15 +76,15 @@
     (string-append
      (~a (date-year ts))
      "/"
-     (~a (date-month ts) #:width 2 #:left-pad-string "0")
+     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
      "/"
-     (~a (date-month ts) #:width 2 #:left-pad-string "0")
+     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
      " "
-     (~a (date-hour ts) #:width 2 #:left-pad-string "0")
+     (~a (date-hour ts) #:width 2 #:left-pad-string "0" #:align 'right)
      ":"
-     (~a (date-minute ts) #:width 2 #:left-pad-string "0")
+     (~a (date-minute ts) #:width 2 #:left-pad-string "0" #:align 'right)
      ":"
-     (~a (date-second ts) #:width 2 #:left-pad-string "0"))))
+     (~a (date-second ts) #:width 2 #:left-pad-string "0" #:align 'right))))
 
 (define (build-app)
 
