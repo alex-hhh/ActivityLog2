@@ -23,7 +23,7 @@
          racket/runtime-path
          racket/string
          (rename-in srfi/48 (format format-48))
-         "al-log.rkt"
+         "dbglog.rkt"
          "al-prefs.rkt"
          "dbutil.rkt"
          "map-util.rkt")
@@ -179,7 +179,7 @@
                (al-put-pref tag new-val))
              (begin
                (al-put-pref tag #f)
-               (log-al-warning "No Wunderground API key defined.")))
+               (dbglog "no Wunderground API key defined.")))
          nval)))))
 (provide al-pref-wu-api-key)
 
@@ -195,8 +195,8 @@
        ;; Write the value back to the store
        (al-put-pref tag new-val)
        (if new-val
-           (log-al-info "Weaher data download enabled")
-           (log-al-warning "Weather data download disabled"))
+           (dbglog "weaher data download enabled")
+           (dbglog "weather data download disabled"))
        new-val))))
 (provide al-pref-allow-weather-download)
 

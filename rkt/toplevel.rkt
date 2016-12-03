@@ -673,6 +673,9 @@
     (for ((section the-sections))
       (send section-selector append (tl-section-name section)))
 
+    ;; all banner notifications also go to the debug log
+    (make-dbglog-sink)
+
     ;;; Construct the toplevel menu bar
 
     (let ((mb (new menu-bar% [parent tl-frame])))
@@ -797,13 +800,14 @@
 
       (send tl-frame show #t)
 
-      ;; Check for some basic things and log them.
+      ;; Check for some basic things and log them, might be useful to diagnose
+      ;; problems.
       (unless (al-get-pref 'activity-log:allow-tile-download (lambda () #t))
-        (log-al-warning "Map tile download disabled"))
+        (dbglog "map tile download disabled"))
       (unless (al-get-pref 'activity-log:wu-api-key (lambda () #f))
-        (log-al-error "No weather API key set"))
+        (dbglog "no weather API key set"))
       (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
-        (log-al-warning "Weather data download disabled"))
+        (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
         (send (tl-section-content equipment) log-due-items))
       (collect-garbage 'major))
@@ -863,7 +867,10 @@
                          (let ((iresult (db-import-activity-from-file file database)))
                            (refresh-current-view)
                            (if (eq? (car iresult) 'ok)
-                               (do-post-import-tasks database)
+                               (begin
+                                 (do-post-import-tasks database)
+                                 (let ((equipment (get-section-by-tag 'equipment)))
+                                   (send (tl-section-content equipment) log-due-items)))
                                (message-box
                                 "Import failed" (format "Failed to import ~a: ~a" file ecode)
                                 tl-frame '(stop ok))))))))
@@ -876,7 +883,9 @@
                     tl-frame '(stop ok)))
 
                   ((eq? ecode 'ok)
-                   (do-post-import-tasks database))
+                   (do-post-import-tasks database)
+                   (let ((equipment (get-section-by-tag 'equipment)))
+                     (send (tl-section-content equipment) log-due-items)))
 
                   (#t
                    (message-box
@@ -896,6 +905,8 @@
                 (al-put-pref 'activity-log:last-import-dir (path->string dir))
                 (send (new import-dialog%) run tl-frame database dir)
                 (refresh-current-view)
+                (let ((equipment (get-section-by-tag 'equipment)))
+                  (send (tl-section-content equipment) log-due-items))
                 dir)
               ;; This can happen since the "get-directory" will not check if
               ;; the initial directory exists (and it might not if it is on a

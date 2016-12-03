@@ -24,12 +24,15 @@
          "map-util.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
+         "map-tiles.rkt"
          "utilities.rkt")
 
 (provide map-panel%)
 
 (define *header-font*
   (send the-font-list find-or-create-font 18 'default 'normal 'normal))
+(define *warning-font*
+  (send the-font-list find-or-create-font 12 'default 'normal 'normal))
 
 ;; Return the time difference and map distance between the point at TIMESTAMP
 ;; and the next point.  Returns (values -1 -1) if we cannot determine the
@@ -116,6 +119,7 @@
                            [alignment '(left top)]))
 
     (define zoom-slider #f)
+    (define info-message #f)
 
     (let ((p (new horizontal-pane%
                   [parent map-panel]
@@ -136,7 +140,14 @@
                  [callback (lambda (b e) (set-zoom-level (send b get-value)))]))
       (new button% [parent p] [label "Fit to Window"]
            [callback (lambda (b e) (resize-to-fit))])
-      )
+      (let ((p0 (new horizontal-pane%
+                     [parent p]
+                     [alignment '(right center)])))
+        (set! info-message (new message% [parent p0] [label ""]
+                                [font *warning-font*]
+                                [stretchable-width #f] [auto-resize #t]))
+        ;; Add a spacer here
+        (new message% [parent p0] [label ""] [stretchable-width #f] [min-width 10])))
 
     (define map-view
       (new (class map-widget% (init) (super-new)
@@ -217,6 +228,10 @@
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
       (send map-view clear-items)
+      (send info-message set-label
+            (if (al-pref-allow-tile-download)
+                ""
+                "Map tile download disabled"))
 
       ;; Add the data tracks
 

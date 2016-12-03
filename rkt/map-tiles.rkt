@@ -29,7 +29,7 @@
  "dbglog.rkt"
  "al-prefs.rkt"
  "dbutil.rkt"
- "al-log.rkt"
+ "dbglog.rkt"
  "map-util.rkt")
 
 (provide
@@ -70,8 +70,8 @@
        ;; Write the value back to the store
        (al-put-pref tag new-val)
        (if new-val
-           (log-al-info "Map tile download enabled")
-           (log-al-warning "Map tile download disabled"))
+           (dbglog "map tile download enabled")
+           (dbglog "map tile download disabled"))
        new-val))))
 
 
