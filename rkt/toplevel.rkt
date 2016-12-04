@@ -46,7 +46,8 @@
          "widgets.rkt"
          "al-profiler.rkt"
          "import.rkt"
-         "metrics.rkt")
+         "metrics.rkt"
+         "session-df.rkt")
 
 (provide toplevel-window%)
 
@@ -702,6 +703,7 @@
         
         (disconnect database)
         (clear-metrics-cache)
+        (clear-session-df-cache)
         (set! database #f))
       )
 

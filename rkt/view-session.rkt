@@ -295,7 +295,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
     (define session-id #f)
     (define session #f)
-    (define session-df #f)
+    (define data-frame #f)                      ; data frame for the session
     (define generation 0)
     (define the-database database)
 
@@ -306,11 +306,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (lambda ()
             (unless (equal? (tdata-generation tab) generation)
               (set-tdata-generation! tab generation)
-              (send (tdata-contents tab) set-session session session-df))))))
+              (send (tdata-contents tab) set-session session data-frame))))))
 
-    (define (set-session-df df)
-      (set! session-df df)
-      (define is-lap-swim? (send df get-property 'is-lap-swim?))
+    (define (set-session-df sdf)
+      (set! data-frame sdf)
+      (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
 
       ;; Determine which tabs are needed, and only show those.  The Overview
       ;; panel always exists.
@@ -318,16 +318,16 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
         ;; data.
-        (when (send df get-row-count)
+        (when (send data-frame get-row-count)
 
           (set! tabs (cons charts tabs))
           (set! tabs (cons scatter tabs))
           (set! tabs (cons histogram tabs))
           (unless is-lap-swim? (set! tabs (cons best-avg tabs)))
-          (when (send (tdata-contents quadrant) should-display-for-data-frame? session-df)
+          (when (send (tdata-contents quadrant) should-display-for-data-frame? data-frame)
             (set! tabs (cons quadrant tabs)))
           (set! tabs (cons laps tabs))
-          (when (send session-df contains? "lat" "lon")
+          (when (send data-frame contains? "lat" "lon")
             (set! tabs (cons maps tabs))))
 
         (set! installed-tabs (reverse tabs))
@@ -342,11 +342,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
       ;; The session data frame takes a while to fetch, so we do it in a
       ;; separate thread.
-      (set! session-df #f)
+      (set! data-frame #f)
       (queue-task
        "fetch-session-data-frame"
        (lambda ()
-         (let ((df (make-session-data-frame the-database sid)))
+         (let ((df (session-df the-database sid)))
            (queue-callback
             (lambda () (set-session-df df))))))
 

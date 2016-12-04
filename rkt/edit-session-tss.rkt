@@ -349,7 +349,7 @@
                         (send notice set-label "No heart rate zones defined"))
                        (#t
                         (unless session-df
-                          (set! session-df (make-session-data-frame database session-id)))
+                          (set! session-df (session-df database session-id)))
                         (set! computed-tss (compute-session-tss/hr session-df))))))
               ((swim-tpace)
                (let ((sport (sql-column-ref effort 0 #f))

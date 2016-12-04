@@ -99,62 +99,10 @@
 ;; re-calculating/retrieving the data for subsequent calls.
 (define bavg-cache (make-hash))
 
-;; A data frame cache, to avoid reading data frames again if we need to
-;; compute BAVG values for several series.  This is a two stage cache,
-;; allowing us to expire old entries.  See 'session-df' on how this cache is
-;; managed.
-(define df-cache (make-hash))
-(define df-cache2 (make-hash))
-
-;; Number of data frames to keep in df-cache.  NOTE: total data frame count is
-;; up to (hash-count df-cache) + (hash-count df-cache2), so in total number of
-;; cached data frames can be up to (* 2 df-cache-limit)
-(define df-cache-limit 50)
-
-;; Reorder the session ids in SIDS such that the id's that are in df-cache are
-;; listed first.  This is used so that we don't invalidate the cache too
-;; quickly if we have a large number of SIDS and we compute BAVG values for
-;; different series.
-(define (reorder-sids sids)
-
-  (define (present-in-cache sid)
-    (or (hash-ref df-cache sid #f)
-        (hash-ref df-cache2 sid #f)))
-  
-  (let ((in-cache '())
-        (not-in-cache '()))
-    (for ((sid (in-list sids)))
-      (if (present-in-cache sid)
-          (set! in-cache (cons sid in-cache))
-          (set! not-in-cache (cons sid not-in-cache))))
-    (append in-cache not-in-cache)))
-
-;; Return the data frame for a session id SID.  Data frames are cached in
-;; memory, so retrieving the same one again should be fast.
-(define (session-df db sid)
-  (cond ((hash-ref df-cache sid #f)
-         => (lambda (df) df))
-        ((hash-ref df-cache2 sid #f)
-         => (lambda (df)
-              ;; Promote it to first cache
-              (hash-set! df-cache sid df)
-              df))
-        (#t
-         (let ((df (make-session-data-frame db sid)))
-           (hash-set! df-cache sid df)
-           (when (> (hash-count df-cache) df-cache-limit)
-             ;; Cache limit reached, demote df-cache to df-cache2 (loosing old
-             ;; data) and create a fresh df-cache
-             (set! df-cache2 df-cache)
-             (set! df-cache (make-hash)))
-           df))))
-
 ;; Clear all internal caches.  This is needed whenever the database is closed
 ;; and a new one is opened.
 (define (clear-metrics-cache)
-  (set! bavg-cache (make-hash))
-  (set! df-cache (make-hash))
-  (set! df-cache2 (make-hash)))
+  (set! bavg-cache (make-hash)))
 
 ;; Return the BEST-AVG data for SID + SERIES.  It is retrieved from one of the
 ;; caches (db or in memory) if possible, otherwise it is computed and also

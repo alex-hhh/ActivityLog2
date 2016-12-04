@@ -251,7 +251,7 @@ select S.name as title,
                 (if (eqv? rpe-scale 0) sql-null rpe-scale)
                 ssid)))
            (let* ((sid (db-get-last-pk "A_SESSION" db))
-                  (df (make-session-data-frame db sid)))
+                  (df (session-df db sid)))
              (maybe-update-session-tss sid df db)
              (send labels-input update-session-tags sid)
              (send equipment-input update-session-tags sid)

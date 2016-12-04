@@ -132,7 +132,7 @@ select P.id
 ;; power zones are updated (if available).  Previous data for this session is
 ;; deleted.
 (define (update-time-in-zone-data sid db)
-  (let* ((session (make-session-data-frame db sid))
+  (let* ((session (session-df db sid))
          (sport (send session get-property 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
          (hr-zone-id (get-zone-id sid 1 db)))

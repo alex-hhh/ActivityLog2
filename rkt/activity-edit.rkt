@@ -117,6 +117,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (send (get-edit-session-summary-dialog) show-dialog toplevel db sid)
+          (clear-session-df-cache sid) ; remove this session from the cache
           (send target after-update sid))))
 
     (define (on-new m e)
@@ -146,6 +147,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (when (equal? sport '(5 . 17))  ; lap swimming
           (when (send (get-lap-swim-editor) begin-edit toplevel db sid)
+            (clear-session-df-cache sid) ; remove this session from the cache
             (send target after-update sid)))))
 
     (define (on-edit-tss m e)
@@ -200,7 +202,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
           ;; unnecessary work if the user changes their mind.)
           (queue-task "activity-edit/on-export-csv"
                       (lambda ()
-                        (let ((df1 (make-session-data-frame db sid)))
+                        (let ((df1 (session-df db sid)))
                           (queue-callback
                            (lambda ()
                              (set! df df1))))))
