@@ -188,7 +188,7 @@
   (list
    (badge-field-def "Avg Power: " session-avg-power (lambda (v) (power->string v #t)))
    (badge-field-def "Max Power: " session-max-power (lambda (v) (power->string v #t)))
-   (badge-field-def "Adjusted Power: " session-normalized-power (lambda (v) (power->string v #t)))
+   (badge-field-def "Weighted Power: " session-normalized-power (lambda (v) (power->string v #t)))
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))

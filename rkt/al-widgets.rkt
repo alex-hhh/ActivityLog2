@@ -336,7 +336,7 @@ values (?, ?)" session-id id))
 
    (mk-column-info "Power" lap-avg-power n->string)
    (mk-column-info "Max Power" lap-max-power n->string)
-   (mk-column-info "Adjusted Power" lap-normalized-power n->string)
+   (mk-column-info "Weighted Power" lap-normalized-power n->string)
 
    (mk-column-info "L-R Bal" lap-left-right-balance pct->string)
    (mk-column-info "Left TEff" lap-avg-left-torque-effectiveness n->string)

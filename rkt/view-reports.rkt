@@ -298,7 +298,7 @@
                   (lambda (row) (vector-ref row index))))
 
    (let ((index 11))
-     (column-info "Avg Adjusted Power"
+     (column-info "Avg Weighted Power"
                   (lambda (row) (n->string (vector-ref row index)))
                   (lambda (row) (vector-ref row index))))
 

@@ -178,7 +178,7 @@
         ("Swim T-Pace" . swim-tpace)
         ;; ("HR Zone" . hr-zone)  ; rough hr based TSS calculation, not in use
         ("HR Zone" . hr-zone-2)
-        ("Normalized Power" . normalized-power)
+        ("Weighted Power" . normalized-power)
         ("Manual" . manual)))
 
     ;; selected method to calculate TSS, one of the symbols in
@@ -223,7 +223,7 @@
                    [parent hp] [label ""] [font message-font]
                    [min-width 80]
                    [stretchable-width #t]))
-        (new message% [parent hp] [label "Original TSS: "])
+        (new message% [parent hp] [label "Original Effort: "])
         (set! original-tss 
               (new message% [parent hp] [label "888"]
                    [min-width 80]
@@ -270,7 +270,7 @@
       
       (set! threshold-power
             (new number-input-field% [parent tss-selection-pane]
-                 [label "FTP: "] [style '(single deleted)]
+                 [label "Threshold Power: "] [style '(single deleted)]
                  [min-width 100] [stretchable-width #f]
                  [cue-text "watts"]
                  [valid-value-cb (lambda (v) (calculate-tss))]))

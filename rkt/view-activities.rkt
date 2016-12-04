@@ -367,7 +367,7 @@
                       fn))
 
        (let ((fn (lambda (row) (db-row-ref row "np" headers 0))))
-         (column-info "Adjusted Power"
+         (column-info "Weighted Power"
                       (lambda (row) (let ((v (fn row))) (power->string v #t)))
                       fn))
 
