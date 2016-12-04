@@ -38,29 +38,36 @@
 (define (filter-axis-list df axis-list)
   (define al
     (for/list ([axis axis-list]
-               #:when (let ((sn (send axis series-name)))
-                        (send df contains? sn)))
+               #:when
+               (if (list? axis)
+                   (let ()
+                     (match-define (list name a1 a2) axis)
+                     (send df contains?
+                           (send a1 series-name)
+                           (send a2 series-name)))
+                   (send df contains? (send axis series-name))))
       axis))
-  (sort al string<? #:key (lambda (a) (send a headline))))
+  (sort al string<?
+        #:key (lambda (a) (if (list? a) (first a) (send a headline)))))
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
 (define (find-axis series-name axis-list)
   (for/first ([(axis index) (in-indexed axis-list)]
-              #:when (equal? series-name (send axis series-name)))
+              #:when
+              (let ((sn (if (list? axis)
+                            (car axis)
+                            (send axis axis-label))))
+                (equal? series-name sn)))
     index))
 
 ;; Axis choices for all non lap swimming sports.  Any pair of axis from this
 ;; list is valid for the scatter plot.
 (define default-axis-choices
   (list
-   axis-distance
-   axis-elapsed-time
-   axis-timer-time
    axis-speed
    axis-pace
    axis-speed-zone
-   axis-corrected-elevation
    axis-grade
    axis-hr-bpm
    axis-hr-pct
@@ -69,29 +76,20 @@
    axis-vertical-oscillation
    axis-stance-time
    axis-stance-time-percent
-   axis-stride
    axis-vratio
+   axis-stride
    axis-power
    axis-power-zone
    axis-left-right-balance
-   axis-left-torque-effectiveness
-   axis-right-torque-effectiveness
-   axis-left-pedal-smoothness
-   axis-right-pedal-smoothness
-   axis-left-platform-centre-offset
-   axis-right-platform-centre-offset
-   axis-left-power-phase-start
-   axis-left-power-phase-end
-   axis-left-power-phase-angle
-   axis-left-peak-power-phase-start
-   axis-left-peak-power-phase-end
-   axis-left-peak-power-phase-angle
-   axis-right-power-phase-start
-   axis-right-power-phase-end
-   axis-right-power-phase-angle
-   axis-right-peak-power-phase-start
-   axis-right-peak-power-phase-end
-   axis-right-peak-power-phase-angle
+   (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
+   (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
+   (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
+   (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
+   (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)
+   (list "Power Phase Angle" axis-left-power-phase-angle axis-right-power-phase-angle)
+   (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
+   (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
+   (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
    ))
 
 ;; Axis choices for lap swimming
@@ -191,6 +189,71 @@
    #:width 2
    #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
 
+;; HACK: some plot-color methods return 'smart, we should fix this
+(define (get-color axis)
+  (let ((color (send axis plot-color)))
+    (if (or (not color) (eq? color 'smart))
+        '(0 148 255)
+        color)))
+
+;; Scatter plot state, contains data that is calculated in a separate thread
+;; and passed to the plot routines.
+(struct spstate (data                   ; data, as produced by `extract-data'
+                 bounds                 ; bounds of the plot
+                 qbounds                ; quantile bounds
+                 rt))                   ; the render tree for the plot
+
+(define empty-bounds (vector #f #f #f #f))
+(define empty-spstate (spstate #f empty-bounds empty-bounds #f))
+
+;; Create a new bounds vector from the union of b1 and b2.
+(define (union-bounds b1 b2)
+  (match-define (vector b1-left b1-right b1-low b1-high) b1)
+  (match-define (vector b2-left b2-right b2-low b2-high) b2)
+
+  (define (u-min v1 v2) (if (and v1 v2) (min v1 v2) (or v1 v2)))
+  (define (u-max v1 v2) (if (and v1 v2) (max v1 v2) (or v1 v2)))
+
+  (vector
+   (u-min b1-left b2-left)
+   (u-max b1-right b2-right)
+   (u-min b1-low b2-low)
+   (u-max b1-high b2-high)))
+
+;; Update a scatter plot state and return a new one. STATE is the old state,
+;; if the data member is valid, data will not be extracted again). DF is the
+;; data frame; XAXIS, YAXIS are the series meta data objects for the X and Y
+;; axis; DELAY specifies the amount (in seconds) to delay the Y series), OPCT
+;; is the outlier percentile, passed to `find-bounds/quantile'.  If ADD-LABEL?
+;; is #t, a label will be added to the plot (this is useful to add things like
+;; "Left Pedal", "Right Pedal" to dual plots).
+(define (update-spstate state df xaxis yaxis delay opct (add-label? #f))
+  (let ((ds (spstate-data state)))
+    (unless ds (set! ds (extract-data df xaxis yaxis)))
+    (let* ((x-digits (send xaxis fractional-digits))
+           (y-digits (send yaxis fractional-digits))
+           (color (get-color yaxis))
+           (bounds (find-bounds ds))
+           (qbounds (if opct
+                        (find-bounds/quantile
+                         df
+                         (send xaxis series-name)
+                         (send yaxis series-name)
+                         opct)
+                        empty-bounds))
+           (delayed (if delay (time-delay-series ds delay) ds))
+           (grouped (group-samples delayed x-digits y-digits))
+           (slr (slr-params delayed))
+           (renderer (list
+                      (make-scatter-group-renderer
+                       grouped
+                       #:color color
+                       #:label (and add-label?
+                                    (or (send yaxis plot-label)
+                                        (send xaxis plot-label))))
+                      (make-slr-renderer slr))))
+      (spstate ds bounds qbounds renderer))))
+
 (define scatter-plot-panel%
   (class object% (init parent) (super-new)
     (define pref-tag 'activity-log:scatter-plot)
@@ -203,7 +266,7 @@
     (define delay-amount #f)
     (define outlier-percentile #f)
     (define outlier-handling 'mark)
-    
+
     ;; Map a sport to an X-Y axis selection, to be restored when a similar
     ;; sport is selected.
     (define axis-by-sport (make-hash))
@@ -211,7 +274,7 @@
     ;; Map a delay value to an X-Y-Sport axsis selection, to be restored when
     ;; a similar axis choice is present.
     (define params-by-axis (make-hash))
-    
+
     ;; Restore the preferences now, we do it so the controls can be
     ;; initialized with the correct values.
     (let ((pref (al-get-pref pref-tag (lambda () #f))))
@@ -219,7 +282,7 @@
         (match-define (list abs dba) pref)
         (set! axis-by-sport (hash-copy abs))
         (set! params-by-axis (hash-copy dba))))
-    
+
     ;; Root widget of the entire scatter plot panel
     (define panel
       (new (class vertical-panel% (init) (super-new)
@@ -230,23 +293,23 @@
 
     ;;; Holds the widgets that control the look of the plot
     (define control-panel
-      (new horizontal-panel% 
+      (new horizontal-panel%
            [parent panel] [spacing 10] [border 0]
            [alignment '(center center)]
            [stretchable-height #f]))
-    
+
     (define x-axis-choice
       (new choice% [parent control-panel] [choices '()] [min-width 300]
            [label "X Axis: "]
            [callback (lambda (c e) (on-x-axis-changed (send c get-selection)))]))
-    
+
     (define y-axis-choice
       (new choice% [parent control-panel] [choices '()] [min-width 300]
            [label "Y Axis: "]
            [callback (lambda (c e) (on-y-axis-changed (send c get-selection)))]))
-    
+
     (define delay-amount-field
-      (new number-input-field% [parent control-panel] 
+      (new number-input-field% [parent control-panel]
            [label "Delay Amount: "] [cue-text "seconds"] [min-value 0]
            [stretchable-width #f]
            [valid-value-cb (lambda (v) (on-delay-amount v))]))
@@ -275,15 +338,20 @@
           (if (eq? outlier-handling 'mark) 0 1))
 
     ;; Pasteboard to hold the actual plot
-    (define plot-pb (new snip-canvas% [parent panel]))
+    (define plot-pane (new horizontal-pane% [parent panel]))
+    (define plot-left-pb (new snip-canvas% [parent plot-pane]))
+    (define plot-right-pb (new snip-canvas% [parent plot-pane] [style '(deleted)]))
 
     ;;; Data from the session we inspect
     (define data-frame #f)
-    (define data-series #f)
-    (define data-bounds (vector #f #f #f #f))
-    (define quantile-bounds (vector #f #f #f))
+    ;; State for the plot on the left side, for single plots, this is the only
+    ;; one displayed
+    (define lstate empty-spstate)
+    ;; State for the plot o the right side, for dual plots (e.g. when we have
+    ;; left and right pedal data), this will be displayed in addition to the
+    ;; LSTATE plot.
+    (define rstate empty-spstate)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
-    (define plot-rt #f)                 ; plot render tree
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when one of the axis
     ;; changes.
@@ -292,18 +360,27 @@
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
 
+    ;; get the label of the axis at INDEX.  This is compicated by the fact
+    ;; that some entries in AXIS-CHOICES are dual axes.
+    (define (axis-label index)
+      (if (and (> index 0) (< index (length axis-choices)))
+          (let ((axis (list-ref axis-choices index)))
+            (if (list? axis)
+                (car axis)
+                (send axis axis-label)))
+          #f))
+
     (define (invalidate-data)
-      (set! data-series #f)
-      (set! data-bounds #f)
-      (set! plot-rt #f)
+      (set! lstate empty-spstate)
+      (set! rstate empty-spstate)
       (refresh-plot))
 
-    ;; Update the axis selection checkboxes with AXIS-LIST
+    ;; Update the axis selection check-boxes with AXIS-LIST
     (define (install-axis-choices axis-list)
-      (send x-axis-choice clear)
       (send y-axis-choice clear)
+      (send x-axis-choice clear)
       (for ([a axis-list])
-        (let ((n (send a headline)))
+        (let ((n (if (list? a) (car a) (send a axis-label))))
           (send x-axis-choice append n)
           (send y-axis-choice append n))))
 
@@ -349,114 +426,152 @@
     ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
     ;; render tree is ready (if it is #f, there is no data for the plot).
     (define (put-plot-snip)
-      (when plot-rt
-        (let ((rt (list plot-rt)))
-          (set! rt (cons (tick-grid) rt))
+
+      ;; Get the quantile bounds of the plot, takes into consideration dual
+      ;; plots.  If we have dual plots, we use the same bounds, so that the
+      ;; two plots can be compared directly.
+      (define (qbounds)
+        (if (and (spstate-rt lstate) (spstate-rt rstate))
+            (union-bounds (spstate-qbounds lstate)
+                          (spstate-qbounds rstate))
+            (spstate-qbounds lstate)))
+
+      ;; Get the bounds of the plot, takes into consideration dual plots.  If
+      ;; we have dual plots, we use the same bounds, so that the two plots can
+      ;; be compared directly.
+      (define (bounds)
+        (if (and (spstate-rt lstate) (spstate-rt rstate))
+            (union-bounds (spstate-bounds lstate)
+                          (spstate-bounds rstate))
+            (spstate-bounds lstate)))
+
+      ;; Return the axis at INDEX.  LEFT-OR-RIGHT indicates which axis we
+      ;; prefer for dual axis plots.
+      (define (get-axis index left-or-right)
+        (let ((axis (list-ref axis-choices index)))
+          (if (list? axis)
+              (if (eq? left-or-right 'left) (list-ref axis 1) (list-ref axis 2))
+              axis)))
+
+      (when (spstate-rt lstate)
+        (let ((rt (list (tick-grid) (spstate-rt lstate))))
           (when (eq? outlier-handling 'mark)
-            (when (vector-ref quantile-bounds 0)
-              (set! rt (cons (vrule (vector-ref quantile-bounds 0)
-                                    #:color "blue" #:style 'short-dash) rt)))
-            (when (vector-ref quantile-bounds 1)
-              (set! rt (cons (vrule (vector-ref quantile-bounds 1)
-                                    #:color "blue" #:style 'short-dash) rt)))
-            (when (vector-ref quantile-bounds 2)
-              (set! rt (cons (hrule (vector-ref quantile-bounds 2)
-                                    #:color "blue" #:style 'short-dash) rt)))
-            (when (vector-ref quantile-bounds 3)
-              (set! rt (cons (hrule (vector-ref quantile-bounds 3)
-                                    #:color "blue" #:style 'short-dash) rt))))
-          (let ((x-axis (list-ref axis-choices x-axis-index))
-                (y-axis (list-ref axis-choices y-axis-index)))
+            (match-define (vector left right low high) (qbounds))
+            (when left
+              (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
+            (when right
+              (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
+            (when low
+              (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
+            (when high
+              (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
+          (let ((x-axis (get-axis x-axis-index 'left))
+                (y-axis (get-axis y-axis-index 'left)))
             (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
                            [plot-x-label (send x-axis axis-label)]
                            [plot-y-ticks (send y-axis plot-ticks)]
                            [plot-y-label (send y-axis axis-label)])
               (match-define (vector x-min x-max y-min y-max)
-                (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
-              (plot-snip/hack plot-pb rt
+                (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
+              (plot-snip/hack plot-left-pb rt
                               #:x-min x-min #:x-max x-max
-                              #:y-min y-min #:y-max y-max))))))
+                              #:y-min y-min #:y-max y-max))))
+
+        ;; Right side plot is never active by itself, so this WHEN clause is
+        ;; inside the LSTATE one.
+        (when (spstate-rt rstate)
+          (let ((rt (list (tick-grid) (spstate-rt rstate))))
+          (when (eq? outlier-handling 'mark)
+            (match-define (vector left right low high) (qbounds))
+            (when left
+              (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
+            (when right
+              (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
+            (when low
+              (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
+            (when high
+              (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
+          (let ((x-axis (get-axis x-axis-index 'right))
+                (y-axis (get-axis y-axis-index 'right)))
+            (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
+                           [plot-x-label (send x-axis axis-label)]
+                           [plot-y-ticks (send y-axis plot-ticks)]
+                           [plot-y-label (send y-axis axis-label)])
+              (match-define (vector x-min x-max y-min y-max)
+                (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
+              (plot-snip/hack plot-right-pb rt
+                              #:x-min x-min #:x-max x-max
+                              #:y-min y-min #:y-max y-max)))))))
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
     ;; that procesing happens in a separate task, and the render tree will
     ;; become available at a later time.  Once the new render tree is
     ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
-
-      ;; HACK: some plot-color methods return 'smart, we should fix this
-      (define (get-color axis)
-        (let ((color (send axis plot-color)))
-          (if (or (not color) (eq? color 'smart))
-              '(0 148 255)
-              color)))
-      
       (unless inhibit-refresh
-        (set! plot-rt #f)
-        (send plot-pb set-background-message "Working...")
-        (send plot-pb set-snip #f)
+        (send plot-left-pb set-background-message "Working...")
+        (send plot-right-pb set-background-message "Working...")
+        (send plot-left-pb set-snip #f)
+        (send plot-right-pb set-snip #f)
         ;; Capture all relavant vars, as we are about to queue up a separate
         ;; task
-        (let ((x (list-ref axis-choices x-axis-index))
-              (y (list-ref axis-choices y-axis-index))
-              (df data-frame)
-              (ds data-series)
-              (damt delay-amount)
-              (opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
+        (let* ((x (list-ref axis-choices x-axis-index))
+               (y (list-ref axis-choices y-axis-index))
+               (df data-frame)
+               (old-lstate lstate)
+               (old-rstate rstate)
+               (damt delay-amount)
+               (opct (if outlier-percentile (/ outlier-percentile 100.0) #f))
+               (dual? (or (list? x) (list? y)))) ; #t if we have two plots
+
+          (send plot-pane change-children
+                (lambda (old)
+                  (if dual? (list plot-left-pb plot-right-pb) (list plot-left-pb))))
+
           (queue-task
            "inspect-scatter%/refresh-plot"
            (lambda ()
-             (let ((ds (or ds (extract-data df x y))))
-               (if ds
-                   (let* ((x-digits (send x fractional-digits))
-                          (y-digits (send y fractional-digits))
-                          (color (get-color y))
-                          (bounds (find-bounds ds))
-                          (qbounds
-                           (if opct
-                               (find-bounds/quantile
-                                df
-                                (send x series-name)
-                                (send y series-name)
-                                opct)
-                               (vector #f #f #f #f)))
-                          (delayed (if damt (time-delay-series ds damt) ds))
-                          (grouped (group-samples delayed x-digits y-digits))
-                          (slr (slr-params delayed))
-                          (renderer (list
-                                     (make-scatter-group-renderer grouped #:color color)
-                                     (make-slr-renderer slr))))
+             (if dual?
+                 (let ((x-left (if (list? x) (list-ref x 1) x))
+                       (y-left (if (list? y) (list-ref y 1) y))
+                       (x-right (if (list? x) (list-ref x 2) x))
+                       (y-right (if (list? y) (list-ref y 2) y)))
+                   (let ((new-lstate (update-spstate old-lstate df x-left y-left damt opct #t))
+                         (new-rstate (update-spstate old-rstate df x-right y-right damt opct #t)))
                      (queue-callback
                       (lambda ()
-                        (set! data-series ds)
-                        (set! data-bounds bounds)
-                        (set! quantile-bounds qbounds)
-                        (set! plot-rt renderer)
-                        (put-plot-snip))))
+                        (set! lstate new-lstate)
+                        (set! rstate new-rstate)
+                        (if (spstate-rt lstate)
+                            (put-plot-snip)
+                            (send plot-left-pb set-background-message "No data to plot"))))))
+                 ;; Single plot
+                 (let ((new-lstate (update-spstate old-lstate df x y damt opct)))
                    (queue-callback
                     (lambda ()
-                      (send plot-pb set-background-message "No data to plot"))))))))))
+                      (set! lstate new-lstate)
+                      (set! rstate empty-spstate)
+                      (if (spstate-rt lstate)
+                          (put-plot-snip)
+                          (send plot-left-pb set-background-message "No data to plot")))))))))))
 
     ;; Store the plot parameters for the current sport, this includes axis
     ;; selection and the parameters for the current axis selection.
     (define (save-params-for-sport)
       (when (current-sport)
         (save-params-for-axis)
-        (let* ((sport (current-sport))
-               (x (list-ref axis-choices x-axis-index))
-               (y (list-ref axis-choices y-axis-index))
-               (xseries (send x series-name))
-               (yseries (send y series-name)))
-          (hash-set! axis-by-sport sport (list xseries yseries)))))
+        (let ((sport (current-sport))
+              (x-name (axis-label x-axis-index))
+              (y-name (axis-label y-axis-index)))
+          (hash-set! axis-by-sport sport (list x-name y-name)))))
 
     ;; Save the parameters for the currently selected axis combination
     (define (save-params-for-axis)
       (when (current-sport)
-        (let* ((sport (current-sport))
-               (x (list-ref axis-choices x-axis-index))
-               (y (list-ref axis-choices y-axis-index))
-               (xseries (send x series-name))
-               (yseries (send y series-name)))
-          (hash-set! params-by-axis (list sport xseries yseries)
+        (let ((sport (current-sport))
+              (x-name (axis-label x-axis-index))
+              (y-name (axis-label y-axis-index)))
+          (hash-set! params-by-axis (list sport x-name y-name)
                      (list delay-amount outlier-percentile outlier-handling)))))
 
     ;; Restore parameters for rhe current sport.  This assumes that a new
@@ -465,9 +580,9 @@
     (define (restore-params-for-sport)
       (when (current-sport)
         (let ((data (hash-ref axis-by-sport (current-sport) (lambda () (list 0 0)))))
-          (match-define (list xseries yseries) data)
-          (set! x-axis-index (or (find-axis xseries axis-choices) 0))
-          (set! y-axis-index (or (find-axis yseries axis-choices) 0)))
+          (match-define (list x-name y-name) data)
+          (set! x-axis-index (or (find-axis x-name axis-choices) 0))
+          (set! y-axis-index (or (find-axis y-name axis-choices) 0)))
         (when (> (send x-axis-choice get-number) x-axis-index)
           (send x-axis-choice set-selection x-axis-index))
         (when (> (send y-axis-choice get-number) y-axis-index)
@@ -480,13 +595,9 @@
     (define (restore-params-for-axis)
       (when (current-sport)
         (let* ((sport (current-sport))
-               (xseries (if (< x-axis-index (length axis-choices))
-                            (send (list-ref axis-choices x-axis-index) series-name)
-                            #f))
-               (yseries (if (< y-axis-index (length axis-choices))
-                            (send (list-ref axis-choices y-axis-index) series-name)
-                            #f))
-               (sport-data (hash-ref params-by-axis (list sport xseries yseries) #f)))
+               (x-name (axis-label x-axis-index))
+               (y-name (axis-label y-axis-index))
+               (sport-data (hash-ref params-by-axis (list sport x-name y-name) #f)))
           (cond ((list? sport-data)
                  (set! delay-amount (first sport-data))
                  (set! outlier-percentile (second sport-data))
@@ -526,14 +637,15 @@
                            (send y-axis series-name)))
                   (#t
                    "scatter.png")))))
-    
+
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
                             (get-default-export-file-name) "png" '()
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
           (set! export-file-name file)
-          (send plot-pb export-image-to-file file))))
+          ;; TODO: this needs to be fixed for dual plots
+          (send plot-left-pb export-image-to-file file))))
 
     (define/public (set-session session df)
       (set! inhibit-refresh #f)
