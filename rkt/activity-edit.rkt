@@ -25,7 +25,10 @@
          "elevation-correction.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "session-df.rkt"
+         "data-frame.rkt"
+         "workers.rkt")
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)
@@ -57,8 +60,8 @@
 
 (define (get-session-headline db sid)
   (let ((row (query-row db "
-select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id 
-  from A_SESSION S 
+select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
+  from A_SESSION S
  where S.id = ?" sid)))
     (let ((name (vector-ref row 0))
           (sport (vector-ref row 1))
@@ -68,8 +71,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                             (if (sql-null? sub-sport) #f sub-sport))))))
 
 (define (get-activity-original-file-name db guid)
-  (query-value 
-   db "select file_name 
+  (query-value
+   db "select file_name
          from ACTIVITY A, ACTIVITY_RAW_DATA ARD
         where A.guid = ? and ARD.activity_id = A.id" guid))
 
@@ -100,7 +103,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send edit-weather-menu-item enable have-sid?)
         (send edit-lap-swim-menu-item enable is-lap-swim?)
         ;; TODO: we need to enable it only if there's an actual file to export.
-        (send export-original-menu-item enable have-sid?)))
+        (send export-original-menu-item enable have-sid?)
+        (send export-csv-menu-item enable have-sid?)))
 
     (define (on-popdown m e)
       (send target after-popdown))
@@ -186,7 +190,35 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (when file
           (db-export-raw-data aid db file))))
 
-    (define the-menu 
+    (define (on-export-csv m e)
+      (let ((sid (send target get-selected-sid))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (let ((df #f) (fname #f))
+          ;; Triksy Hobbit, fetch the data frame while the user is selecting
+          ;; the file name, so that response time is improved (we will do some
+          ;; unnecessary work if the user changes their mind.)
+          (queue-task "activity-edit/on-export-csv"
+                      (lambda ()
+                        (let ((df1 (make-session-data-frame db sid)))
+                          (queue-callback
+                           (lambda ()
+                             (set! df df1))))))
+          (set! fname
+                (put-file "Select file to export to" toplevel #f
+                          (format "track-data-~a.csv" sid) ".csv" '()
+                          '(("CSV files" "*.csv") ("Any" "*.*"))))
+          (when fname
+            (unless df      ; wait for the data frame if it did not arrive yet
+              (for ((_ (in-range 20)) #:unless df) (sleep/yield 0.1)))
+            (if df
+                (let* ((sn (get-series/ordered df)))
+                  (call-with-output-file fname (lambda (port) (apply df-write/csv port df sn))
+                    #:mode 'text #:exists 'truncate/replace ))
+                (message-box "Failed to fetch data frame" "Failed to fetch data frame"
+                             toplevel '(ok stop)))))))
+
+    (define the-menu
       (if menu-bar
           (new menu% [parent menu-bar] [label "&Activity"]
                [demand-callback on-demand])
@@ -223,6 +255,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Copy session id to clipboard" on-copy-sid-to-clipboard))
     (define export-original-menu-item
       (make-menu-item "Export original file..." on-export-original-file))
+    (define export-csv-menu-item
+      (make-menu-item "Export track data (CSV)..." on-export-csv))
 
     (define/public (get-popup-menu) the-menu)
 

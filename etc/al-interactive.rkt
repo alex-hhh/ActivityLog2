@@ -63,8 +63,11 @@
 (define (hrv-df sid)
   (make-hrv-data-frame/db (current-database) sid))
 ;; Write the contents of the data frame DF into FILE in CSV format.
+
 (define (df->csv df file-name)
-  (call-with-output-file file-name (lambda (port) (df-write/csv port df))))
+  (let* ((sn (get-series/ordered df)))
+    (call-with-output-file file-name (lambda (port) (apply df-write/csv port df sn))
+      #:mode 'text #:exists 'truncate/replace )))
 
 
 ;...................................................... Other functions ....

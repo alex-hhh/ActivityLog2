@@ -62,8 +62,7 @@
 
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
  (make-plot-renderer/swim-stroke (-> ts-data/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
-
- )
+ (get-series/ordered (-> (is-a?/c data-frame%) (listof string?))))
 
 
 ;;.............................................. make-session-data-frame ....
@@ -914,3 +913,35 @@
             (vector-copy data (- (* 2 start) 1) (+ (* 2 start) 1))
             #f #:color "gray" #:width 0.7)
            (make-plot-renderer items #f #:color color))))))
+
+;; List of all data series in the order in which we want them exported in the
+;; CSV file.
+(define all-series
+  '("timestamp" "timer" "elapsed" "duration"
+    "lat" "lon" "alt" "calt" "grade" "dst" "distance"
+    "spd" "speed" "pace" "speed-zone"
+    "hr" "hr-pct" "hr-zone"
+    "cad" "stride"
+    "vosc" "vratio" "gct" "pgct"
+    "pwr" "pwr-zone" "lrbal" "lteff" "rteff" "lpsmth" "rpsmth"
+    "lpco" "rpco"
+    "lpps" "lppe" "rpps" "rppe" "lppa" "rppa"
+    "lppps" "lpppe" "rppps" "rpppe" "lpppa" "rpppa"
+    "swim_stroke" "strokes" "swolf"))
+
+;; Return a list of data series names, by reordering the items in ALL such
+;; that any PREFERRED items come first, and all remaining series come after.
+(define (ordered-series preferred all)
+  (define base-list
+    (for/list ([name (in-list preferred)] #:when (member name all))
+      name))
+  (define rest
+    (for/list ([name (in-list all)] #:unless (member name base-list))
+      name))
+  (append base-list rest))
+
+;; Return a list of the series names in DF, a data-frame% ordered in a "nice"
+;; way (such that related series, like lat, lon and alt, are close to each
+;; other)
+(define (get-series/ordered df)
+  (ordered-series all-series (send df get-series-names)))

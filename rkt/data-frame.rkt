@@ -502,7 +502,7 @@
   (send df for-each
         (if (null? series) (send df get-series-names) series)
         (lambda (val)
-          (for ([item val]) (write-string (format "~a," item) outp))
+          (for ([item val]) (write-string (format "~a," (or item "")) outp))
           (newline outp))))
 
 
