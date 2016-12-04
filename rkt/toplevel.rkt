@@ -488,11 +488,33 @@
 
 (define (interactive-open-database database-path)
 
+  (define frame #f)
   (define message-field #f)
   (define progress-bar #f)
   (define last-msg #f)
 
+  (define (make-frame)
+    (set! frame (new frame%
+                     [width 400]
+                     [height 250]
+                     [stretchable-width #f]
+                     [stretchable-height #f]
+                     [label (if (file-exists? database-path)
+                                "Opening database"
+                                "Creating database")]))
+    (let ((pane (new horizontal-pane% [parent frame] [border 20] [spacing 20])))
+      (new message% [parent pane] [label sql-export-icon]
+           [stretchable-height #f] [stretchable-width #f])
+      (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
+        (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
+        (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
+    (send progress-bar set-value 0)
+    (send frame show #t))
+
   (define (cb msg crt max)
+    ;; Make the frame the first time we are called.  If we are not called at
+    ;; all, the frame it not shown.
+    (unless frame (make-frame))
     ;; Setting the same message causes it to flicker.  Avoid doing that.
     (when (and msg (not (equal? last-msg msg)))
       (set! last-msg msg)
@@ -503,7 +525,7 @@
 
   (define database #f)
 
-  (define (db-open-thread dialog)
+  (define (db-open-thread)
     (with-handlers
       (((lambda (e) #t)
         (lambda (e)
@@ -512,43 +534,17 @@
                            (#t
                             (format "~a : ~a" database-path e)))))
             (dbglog (format "interactive-open-database: ~a" msg))
-            (message-box "Database open error" msg dialog '(ok stop))
-            (queue-callback (lambda () (send dialog show #f)))))))
+            (message-box "Database open error" msg frame '(ok stop))))))
       (let ((db (open-activity-log database-path cb)))
-        (queue-callback
-         (lambda ()
-           (set! database db)
-           (send dialog show #f))))))
-
-  (define interactive-open-database-dialog%
-    (class dialog% (init-field run-fn)
-      (define/override (on-superwindow-show show?)
-        (when show?
-          (thread/dbglog
-           #:name "interactive-open-database-dialog%/run-fn"
-           (lambda () (run-fn this)))))
-      (define/augment (on-close) #f)
-      (super-new)))
-
-  (define dlg
-    (new interactive-open-database-dialog%
-         [run-fn db-open-thread]
-         [min-width 400]
-         [stretchable-width #f]
-         [stretchable-height #f]
-         [label (if (file-exists? database-path)
-                    "Opening database"
-                    "Creating database")]))
-
-  (let ((pane (new horizontal-pane% [parent dlg] [border 20] [spacing 20])))
-    (new message% [parent pane] [label sql-export-icon]
-         [stretchable-height #f] [stretchable-width #f])
-    (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
-      (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
-      (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
+        (set! database db))))
   
-  (send progress-bar set-value 0)
-  (send dlg show #t)
+  (yield
+   (thread/dbglog
+    #:name "interactive-open-database-dialog%/interactive-open-database"
+    db-open-thread))
+
+  ;; Close the frame if it was created.
+  (when frame (send frame show #f))
 
   database)
 
