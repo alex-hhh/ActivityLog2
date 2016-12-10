@@ -16,6 +16,7 @@
 
 (require racket/gui/base
          racket/class
+         framework/splash
          "al-prefs.rkt"
          "dbglog.rkt"
          "dbutil.rkt"
@@ -45,6 +46,8 @@
     (unless (and database-file (file-exists? database-file))
       (let ((first-run-dlg (new first-run-dialog%)))
         (dbglog (format "running first-run-dialog%"))
+        (shutdown-splash)
+        (close-splash)
         (set! database-file (send first-run-dlg run))
         (dbglog (format "database file is now ~a" database-file))))
     (if database-file

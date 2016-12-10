@@ -18,6 +18,7 @@
          racket/class
          racket/gui/base
          racket/math
+         framework/splash
          "about-frame.rkt"
          "activity-edit.rkt"
          "al-log.rkt"
@@ -495,6 +496,8 @@
   (define last-msg #f)
 
   (define (make-frame)
+    (shutdown-splash)
+    (close-splash)
     (set! frame (new frame%
                      [width 400]
                      [height 250]
@@ -572,7 +575,9 @@
            (class frame% (init) (super-new)
              ;; Closing by sending show #f
              (define/override (on-superwindow-show show?)
-               (when (not show?) (on-toplevel-close)))
+               (if show?
+                   (queue-callback (lambda () (shutdown-splash) (close-splash)))
+                   (on-toplevel-close)))
              ;; Closing by clicking the close button
              (define/augment (on-close) (on-toplevel-close)))
            [width (car dims)] [height (cdr dims)]
