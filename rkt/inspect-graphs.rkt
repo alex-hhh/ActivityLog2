@@ -456,6 +456,7 @@
       (set! data-series #f)
       (set! data-series2 #f)
       (set! factored-data #f)
+      (set! data-y-range #f)
       (prepare-render-tree))
 
     (define/public (set-y-axis new-y-axis (new-y-axis2 #f))
