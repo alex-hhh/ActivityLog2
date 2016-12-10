@@ -28,8 +28,7 @@
          "../rkt/fmt-util.rkt")
 
 (provide/contract
- (session-df (-> number? (is-a?/c data-frame%)))
- (hrv-df (-> number? (is-a?/c data-frame%)))
+ (sid->df (-> number? (is-a?/c data-frame%)))
  (df->csv (-> (is-a?/c data-frame%) path-string? any/c))
  (pp-stops (-> (is-a?/c data-frame%) any/c)))
 
@@ -57,8 +56,8 @@
 ;;................................................ convenience functions ....
 
 ;; Get a data frame with all recorded series from a session id
-(define (session-df sid)
-  (make-session-data-frame (current-database) sid))
+(define (sid->df sid)
+  (session-df (current-database) sid))
  ;; Get a HRV data frame from a session id
 (define (hrv-df sid)
   (make-hrv-data-frame/db (current-database) sid))

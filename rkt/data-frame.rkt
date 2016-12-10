@@ -169,7 +169,7 @@
 ;; Helper function to select only entries with valie values.  Usefull as a
 ;; parameter for the #:filter parameter of the select and select* methods of
 ;; data-frame%
-(define (valid-only vec) (and (for/and ([v vec]) v) #t))
+(define (valid-only vec) (if (vector? vec) (and (for/and ([v vec]) v) #t) (not (not vec))))
 
 ;; A data-frame% holds one or more "columns" of data plus additional
 ;; properties.  Each column is a data-series% object which has a name and
@@ -341,7 +341,7 @@
     ;; `map` and `fold` (see below).
     (define (make-generator series-names #:start (start 0) #:end (end (get-row-count)))
       (define series-data
-        (for/list ([s series-names])
+        (for/list ([s (if (list? series-names) (in-list series-names) (in-value series-names))])
           (send (get-series s) get-data)))
       (define vwidth (length series-data))
       (generator
@@ -1011,6 +1011,33 @@
           (vector d (compute-avg-at-position delta-series d p) p)
           (vector d #f #f)))))
 
+;; Return "best average" values from data frame COLUMN, for a set of
+;; durations.  For each duration in DURATION the series is searched for the
+;; segment with the best average value of that duration.  This can be used,
+;; for example to find the best average power for some predefined intervals
+;; (e.g. 5, 10 and 20 minutes)
+;;
+;; DF -- is the data frame
+;;
+;; COLUMN -- is the name of the series of which bests are calculated
+;;
+;; INVERTED? -- if #t, the data is minimized (best is smallest) . This is used
+;; for example for Pace, or Ground Contact Time values, where smaller is
+;; better.
+;;
+;; WEIGHT-COLUMN is the name of the column to act as a base.  If it is a time
+;; column, the bests are computed for time intervals, if it is a distance
+;; column the bests are computed over distance intervals.
+;;
+;; DURATIONS is a list of values for which the bests are calculated.  For
+;; example, if WEIGHT-COLUMN is "elapsed" and DURATIONS contains '(300 600),
+;; than the best efforts for 5 and 10 minutes are found.  If WEIGHT-COLUMN is
+;; "dst" and DURATIONS contains '(1000 1600), the best efforts for 1 km and 1
+;; mile are calculated.
+;;
+;; Returns a list of items where each item is a vector of DURATION, VALUE,
+;; POSITION, this is the position in the data frame where the corresponding
+;; best interval starts.
 (define (df-best-avg df column
                      #:inverted? (inverted? #f)
                      #:weight-column [weight "elapsed"]
@@ -1019,6 +1046,10 @@
   (define data (send df select* weight column #:filter filter-fn))
   (make-best-avg data inverted? durations))
 
+;; Return average values for a second data series at the same positions as the
+;; BEST-AVG-DATA bests are determined.  This can be used, for example, to
+;; determine the average cadence for each best power value obtained from
+;; `df-best-avg`
 (define (df-best-avg-aux df column best-avg-data
                          #:weight-column [weight "elapsed"])
   (define (filter-fn val) (and (vector-ref val 0) (vector-ref val 1)))
@@ -1323,7 +1354,7 @@
                                   ()
                                   #:rest (listof any/c)
                                   (is-a?/c data-frame%)))
- (valid-only (-> vector? boolean?))
+ (valid-only (-> any/c boolean?))
  (bsearch (->* ((vectorof any/c) any/c)
                (#:cmp (-> any/c any/c boolean?)
                 #:key (-> any/c any/c)

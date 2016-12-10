@@ -265,6 +265,10 @@
     (vector-ref val 0))
 
   (when (send df contains? "dst")
+
+    ;; Mark the dst series as sorted
+    (send (send df get-series "dst") set-sorted #t)
+    
     ;; NOTE: the dst series contains #f's on lap swim activities.  Since this
     ;; series is used as a bases for the grahs, we patch the distance series
     ;; to contain valid values.
