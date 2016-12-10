@@ -103,9 +103,16 @@
    axis-swim-swolf
    axis-swim-pace))
 
-(define (find-bounds data-series)
+;; Find the bounds of the DATA-SERIES. The bounds are rounded to X-DIGITS and
+;; Y-DIGITS and made slightly larger so they fit all the data points nicely.
+;; A vector of xmin, xmax, ymin, ymax is returned.
+(define (find-bounds data-series x-digits y-digits)
   (define (good-or-false num)
     (and (number? num) (not (nan? num)) (not (infinite? num)) num))
+
+  (define (round n digits)
+    (* (exact-round (* n (expt 10 digits))) (expt 10 (- digits))))
+
   (let ((xmin #f)
         (xmax #f)
         (ymin #f)
@@ -117,8 +124,17 @@
       (set! xmax (if xmax (max xmax x) x))
       (set! ymin (if ymin (min ymin y) y))
       (set! ymax (if ymax (max ymax y) y)))
+
+    ;; Round the min and max to the actual digits, so we don't cut them out in
+    ;; case we have values along the boundary
+    (set! xmin (round xmin x-digits))
+    (set! xmax (round xmax x-digits))
+    (set! ymin (round ymin y-digits))
+    (set! ymax (round ymax y-digits))
+
     (define xrange (if (and xmin xmax) (- xmax xmin) #f))
     (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+
     (when xrange
       (when xmin (set! xmin (- xmin (* xrange 0.05))))
       (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
@@ -201,7 +217,8 @@
 (struct spstate (data                   ; data, as produced by `extract-data'
                  bounds                 ; bounds of the plot
                  qbounds                ; quantile bounds
-                 rt))                   ; the render tree for the plot
+                 rt)                    ; the render tree for the plot
+  #:transparent)
 
 (define empty-bounds (vector #f #f #f #f))
 (define empty-spstate (spstate #f empty-bounds empty-bounds #f))
@@ -233,14 +250,16 @@
     (let* ((x-digits (send xaxis fractional-digits))
            (y-digits (send yaxis fractional-digits))
            (color (get-color yaxis))
-           (bounds (find-bounds ds))
+           (bounds (find-bounds ds x-digits y-digits))
            (qbounds (if opct
                         (find-bounds/quantile
                          df
                          (send xaxis series-name)
                          (send yaxis series-name)
                          opct)
-                        empty-bounds))
+                        ;; use the default bounds, as they have a safety band
+                        ;; around them!
+                        bounds))
            (delayed (if delay (time-delay-series ds delay) ds))
            (grouped (group-samples delayed x-digits y-digits))
            (slr (slr-params delayed))

@@ -662,10 +662,13 @@
 ;; the data set.
 (define (blank-some-labels data)
   (define nitems (vector-length data))
-  (cond ((< nitems 20) data)            ; no simplification needed
-        ((< nitems 40) (blank-nth data 2))
-        ((< nitems 80) (blank-nth data 5))
-        (#t (blank-nth data 10))))
+  (cond ((< nitems 25) data)            ; no simplification needed
+        ((< nitems 50) (blank-nth data 2))
+        ((< nitems 100) (blank-nth data 5))
+        ((< nitems 200) (blank-nth data 10))
+        ((< nitems 400) (blank-nth data 20))
+        ((< nitems 800) (blank-nth data 50))
+        (#t (blank-nth data 100))))
 
 ;; Create a historgam plot renderer from DATA (a sequence of [BUCKET
 ;; NUM-SAMPLES]), as received from `df-histogram` (which see). COLOR will be

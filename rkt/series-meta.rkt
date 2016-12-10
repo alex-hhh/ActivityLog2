@@ -222,8 +222,8 @@
          (define/override (axis-label) "Grade (%)")
          (define/override (plot-color) *green*)
          (define/override (series-name) "grade")
-         (define/override (histogram-bucket-slot) 0.1)
-         (define/override (fractional-digits) 1)
+         (define/override (histogram-bucket-slot) 0.01)
+         (define/override (fractional-digits) 2)
          )))
 (provide axis-grade)
 
