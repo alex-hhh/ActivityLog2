@@ -164,6 +164,8 @@
            [callback (lambda (b e) (on-revert-headline))]
            [style '(deleted)]))
 
+    (define is-editing? #f)
+
     (define (on-edit-headline)
       (switch-to-edit-mode))
 
@@ -175,6 +177,7 @@
       (switch-to-view-mode))
 
     (define (switch-to-edit-mode)
+      (set! is-editing? #t)
       ;; Set the min-height of the top panel (panel0) to its current height.
       ;; This will prevent re-flowing of the entire viewwhen we switch to edit
       ;; mode which has a smaller height.
@@ -192,6 +195,7 @@
       (send session-title-edit focus))
 
     (define (switch-to-view-mode)
+      (set! is-editing? #f)
       (send sport-icon set-label 
             (get-sport-bitmap-colorized sport sub-sport))
       (send sport-name set-label (get-sport-name sport sub-sport))
@@ -228,6 +232,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
     (define/public (set-database db)
       (set! database db))
+
+    (define/public (has-unsaved-edits?) is-editing?)
 
     ))
 
@@ -377,6 +383,10 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (send (tdata-contents best-avg) save-visual-layout)
       (send (tdata-contents quadrant) save-visual-layout)
       (send (tdata-contents maps) save-visual-layout))
+
+    (define/public (has-unsaved-edits?)
+      (or (send (tdata-contents overview) has-unsaved-edits?)
+          (send header has-unsaved-edits?)))
 
     ;; Activity operations interface implementation
 

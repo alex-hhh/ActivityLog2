@@ -578,8 +578,8 @@
                (if show?
                    (queue-callback (lambda () (shutdown-splash) (close-splash)))
                    (on-toplevel-close)))
-             ;; Closing by clicking the close button
-             (define/augment (on-close) (on-toplevel-close)))
+             (define/augment (can-close?) (can-close-toplevel?))
+             (define/override (can-exit?) (can-close-toplevel?)))
            [width (car dims)] [height (cdr dims)]
            [style '(fullscreen-button)]
            [label (format "~a (~a) - ActivityLog2" file dir)]))))
@@ -684,8 +684,37 @@
       (make-tools-menu mb this)
       (make-help-menu mb this))
 
+    (define (can-close-toplevel?)
+      (check-unsaved-edits))
+
+    ;; Check if there are any unsaved edits, and prompts the user if there
+    ;; are.  Returns #t if there are no unsaved edits, or the user does not
+    ;; care about them (and therefore can be discarded)
+    (define (check-unsaved-edits)
+      (define section (get-section-by-tag 'session-view))
+      (define unsaved-edits? (send (tl-section-content section) has-unsaved-edits?))
+      (if unsaved-edits?
+          (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
+                                             "Review" "Discard" #f
+                                             tl-frame
+                                             '(stop default=1)
+                                             #f)))
+            (cond ((eq? #f mresult)
+                   ;; Just cancel the close
+                   #f)
+                  ((eq? 1 mresult)
+                   (switch-to-section section)
+                   (send section-selector select (get-section-index 'session-view) #t)
+                   #f)
+                  ((eq? 2 mresult)
+                   ;; User wants the changes discarded
+                   #t)
+                  (#t #f)))
+          #t))
+
     (define (on-toplevel-close)
       ;; NOTE: we might be called twice
+      (dbglog (format "closing toplevel% for ~a" database-path))
 
       ;; Tell all our sections to save their visual layout
       (for-each (lambda (section)
@@ -705,7 +734,7 @@
         ;;   #:mode 'text
         ;;   #:exists 'append
         ;;   profile-display)
-        
+
         (disconnect database)
         (clear-metrics-cache)
         (clear-session-df-cache)
@@ -723,23 +752,25 @@
               (#t (loop (+ index 1) (cdr sections))))))
 
     (define (inspect-session dbid)
-      (with-busy-cursor
-       (lambda ()
-         (let ((s (get-section-by-tag 'session-view)))
-           (send (tl-section-content s) set-session dbid)
-           (switch-to-section s)
-           (send section-selector select (get-section-index 'session-view) #t)))))
+      (when (check-unsaved-edits)
+        (with-busy-cursor
+          (lambda ()
+            (let ((s (get-section-by-tag 'session-view)))
+              (send (tl-section-content s) set-session dbid)
+              (switch-to-section s)
+              (send section-selector select (get-section-index 'session-view) #t))))))
     (set-inspect-callback inspect-session)
 
     (define (switch-to-section section)
-      (when the-selected-section
-        (send tl-panel delete-child (tl-section-panel the-selected-section)))
-      (set! the-selected-section section)
-      (when the-selected-section
-        (send tl-panel add-child (tl-section-panel the-selected-section))
-        (send tl-frame set-status-text "")
-        (send (tl-section-content section) activated))
-      (send tl-panel reflow-container))
+      (unless (eq? the-selected-section section)
+        (when the-selected-section
+          (send tl-panel delete-child (tl-section-panel the-selected-section)))
+        (set! the-selected-section section)
+        (when the-selected-section
+          (send tl-panel add-child (tl-section-panel the-selected-section))
+          (send tl-frame set-status-text "")
+          (send (tl-section-content section) activated))
+        (send tl-panel reflow-container)))
 
     (define (switch-to-section-by-num n)
       (let ((p (list-ref the-sections n)))
@@ -816,7 +847,7 @@
         (((lambda (e) #t)
           (lambda (e)
             (dbglog (format "open-another-activity-log: ~a" e)))))
-        (let ((tl (new toplevel-window% [database-path file])))
+        (let ((new-tl (new toplevel-window% [database-path file])))
           ;; Toplevel window was successfully created, save the database file
           ;; as the new default to open next time.
           (al-put-pref 'activity-log:database-file
@@ -824,23 +855,25 @@
           ;; close this window than open the other one.  note that at this
           ;; moment we cannot have multiple databases open beacuse of
           ;; `init-sport-charms'.  This could be fixed with a medium effort.
-          (on-exit)
-          (send tl run))))
+          (send tl-frame show #f)
+          (send new-tl run))))
 
     (define/public (on-exit)
-      (dbglog (format "closing toplevel% for ~a" database-path))
-      (send tl-frame show #f))
+      (when (can-close-toplevel?)
+        (send tl-frame show #f)))
 
     (define/public (on-new-database)
-      (let ((file (get-file "Create database..." tl-frame
-                            (find-system-path 'doc-dir)
-                            "ActivityLog.db")))
-        (when file (open-another-activity-log file))))
+      (when (can-close-toplevel?)
+        (let ((file (get-file "Create database..." tl-frame
+                              (find-system-path 'doc-dir)
+                              "ActivityLog.db")))
+          (when file (open-another-activity-log file)))))
 
     (define/public (on-open-database)
-      (let ((file (get-file "Open database..." tl-frame
-                            (find-system-path 'doc-dir))))
-        (when file (open-another-activity-log file))))
+      (when (can-close-toplevel?)
+        (let ((file (get-file "Open database..." tl-frame
+                              (find-system-path 'doc-dir))))
+          (when file (open-another-activity-log file)))))
 
     (define/public (on-import-activity)
       (let ((file (get-file "Select activity..." tl-frame)))

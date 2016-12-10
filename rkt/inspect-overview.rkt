@@ -776,6 +776,8 @@
                   (lambda (old) (list description-label)))))
         (set! the-session session)))
 
+    (define/public (has-unsaved-edits?) is-editing?)
+
     ;; Do this last, as it will invoke the on-change method which will try to
     ;; call on-edit-description.
     (send description-field auto-wrap #t)
