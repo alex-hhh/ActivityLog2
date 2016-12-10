@@ -138,15 +138,15 @@
     ;; Return the number of invalid values (NA's) in the data series.  These
     ;; are #f values.
     (define/public (count-invalid-values)
-      (for/sum ([x data] #:unless x) 1))
+      (for/sum ([x (in-vector data)] #:unless x) 1))
 
     ;; Return true if there is at least a valid value in the series.
     (define/public (has-valid-values)
-      (not (has-invalid-values)))
+      (for/first ([x (in-vector data)] #:when x) #t))
 
     ;; Return true if there is an invalid value in the series
     (define/public (has-invalid-values)
-      (eq? (for/first ([x data] #:when x) x) #f))
+      (for/first ([x (in-vector data)] #:unless x) #t))
 
     (define (check-consistency)
       (when sorted?

@@ -266,8 +266,11 @@
 
   (when (send df contains? "dst")
 
-    ;; Mark the dst series as sorted
-    (send (send df get-series "dst") set-sorted #t)
+    ;; Mark the dst series as sorted, but only if all values are valid (swim
+    ;; sessions contain N/A's for some values in the DST series.
+    (let ((series (send df get-series "dst")))
+      (unless (send series has-invalid-values)
+        (send series set-sorted #t)))
     
     ;; NOTE: the dst series contains #f's on lap swim activities.  Since this
     ;; series is used as a bases for the grahs, we patch the distance series
@@ -570,7 +573,12 @@
             (match-define (vector spd cad vosc) val)
             (if (and spd cad vosc)
                 (let ((st (stride spd cad)))
-                  (if (and st (> st 0)) (* 100.0 (/ vosc (* st 1000))) #f))
+                  (if (and st (> st 0))
+                      (let ((vratio (* 100.0 (/ vosc (* st 1000)))))
+                        ;; VRATIO values greater than 25% are unrealistic,
+                        ;; discard them.
+                        (if (> vratio 25) #f vratio))
+                      #f))
                 #f)))))
 
 (define (add-power-zone-series df)
