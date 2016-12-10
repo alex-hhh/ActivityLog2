@@ -124,6 +124,8 @@
            [alignment '(left center)]))
 
     (define title-field #f)
+    (define move-left-button #f)
+    (define move-right-button #f)
 
     (let ((sel-pane (new horizontal-pane% [parent pane] 
                          [spacing 20]
@@ -138,6 +140,14 @@
         (set! title-field (new message% [parent sel-pane] [font font]
                                [label ""] [stretchable-width #t])))
 
+      (set! move-left-button
+            (new button% [parent sel-pane] [label "Move left"]
+                 [callback (lambda (b e) (on-move-left))]))
+      (set! move-right-button
+            (new button% [parent sel-pane] [label "Move right"]
+                 [callback (lambda (b e) (on-move-right))]))
+      ;; This is a spacer
+      (new message% [parent sel-pane] [label ""] [min-width 30] [stretchable-width #f])
       (new button% [parent sel-pane] [label "New..."]
            [callback (lambda (b e) (on-new-chart))])
       (new button% [parent sel-pane] [label "Delete..."]
@@ -232,6 +242,27 @@
                   (ntitle (send c get-title)))
               (send trend-charts-panel set-item-label n nname)
               (send title-field set-label ntitle))))))
+
+    (define (on-move-left)
+      (define sel (send trend-charts-panel get-selection))
+      (when (and sel (> sel 0))
+        (let-values (((head tail) (split-at trend-charts (sub1 sel))))
+          (set! trend-charts (append head (list (car (cdr tail))) (list (car tail)) (cdr (cdr tail)))))
+        (after-move (sub1 sel))))
+        
+    (define (on-move-right)
+      (define sel (send trend-charts-panel get-selection))
+      (when (and sel (< sel (sub1 (length trend-charts))))
+        (let-values (((head tail) (split-at trend-charts sel)))
+          (set! trend-charts (append head (list (car (cdr tail))) (list (car tail)) (cdr (cdr tail)))))
+        (after-move (add1 sel))))
+
+    (define (after-move new-sel)
+      (for (((chart index) (in-indexed (in-list trend-charts))))
+        (send trend-charts-panel set-item-label index (send chart get-name)))
+      (send trend-charts-panel set-selection new-sel)
+      (send move-left-button enable (not (zero? new-sel)))
+      (send move-right-button enable (< new-sel (sub1 (length trend-charts)))))
     
     (define (switch-tabs n)
       (send trend-charts-panel set-selection n)
@@ -239,7 +270,9 @@
         (send trend-charts-panel change-children
               (lambda (old) (list chart)))
         (send chart activate)
-        (send title-field set-label (send chart get-title))))
+        (send title-field set-label (send chart get-title)))
+      (send move-left-button enable (not (zero? n)))
+      (send move-right-button enable (< n (sub1 (length trend-charts)))))
     
     (define (on-interactive-export-image)
       (let ((n (send trend-charts-panel get-selection)))
