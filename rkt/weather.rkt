@@ -22,6 +22,8 @@
          racket/port
          racket/runtime-path
          racket/string
+         racket/contract
+         racket/exn
          (rename-in srfi/48 (format format-48))
          "dbglog.rkt"
          "al-prefs.rkt"
@@ -48,7 +50,8 @@
          (h (* 0.5555 (- e 10.0))))
     (+ temperature h)))
 
-(provide humindex)
+(provide/contract
+ (humindex (-> real? real? real?)))
 
 
 ;;...................................................... small utilities ....
@@ -123,11 +126,15 @@
         (lat (hash-ref node 'lat))
         (lon (hash-ref node 'lon))
         (icao (hash-ref node 'icao #f))
+        (country (hash-ref node 'country #f))
         (pws (hash-ref node 'id #f)))
     (let* ((ident (or icao pws))
            (name (or city ident)))
       (if (and ident (not (equal? "" ident)))
-          (wstation name ident (if icao 'icao 'pws)
+          (wstation name
+                    (if icao (format "~a/~a" country ident)
+                        (format "pws:~a" ident))
+                    (if icao 'icao 'pws)
                     (if (string? lat) (string->number lat) lat)
                     (if (string? lon) (string->number lon) lon)
                     #f)
@@ -166,85 +173,109 @@
         (let ((ts (current-seconds)))
           (set! past-requests (cons ts prq)))))))
 
-(define al-pref-wu-api-key
-  (let* ((tag 'activity-log:wu-api-key)
-         (val (al-get-pref tag (lambda () #f))))
-    (make-parameter
-     val
-     (lambda (new-val)
-       ;; Write the value back to the store
-       (let ((nval (string-trim new-val)))
-         (if (not (string=? nval ""))
-             (begin
-               (al-put-pref tag new-val))
-             (begin
-               (al-put-pref tag #f)
-               (dbglog "no Wunderground API key defined.")))
-         nval)))))
-(provide al-pref-wu-api-key)
-
 ;; Weather requests not work if the internet access needs to be done via a
 ;; proxy or there is no internet connnection.  This will prevent the
 ;; downloader from even trying.
-(define al-pref-allow-weather-download
-  (let* ((tag 'activity-log:allow-weather-download)
-         (val (al-get-pref tag (lambda () #t))))
-    (make-parameter
-     val
-     (lambda (new-val)
-       ;; Write the value back to the store
-       (al-put-pref tag new-val)
-       (if new-val
-           (dbglog "weaher data download enabled")
-           (dbglog "weather data download disabled"))
-       new-val))))
-(provide al-pref-allow-weather-download)
+(define allow-weather-download-tag 'activity-log:allow-weather-download)
+(define allow-weather-download-val (al-get-pref allow-weather-download-tag (lambda () #t)))
+(define (allow-weather-download) allow-weather-download-val)
+(define (set-allow-weather-download new-val)
+  ;; Write the value back to the store
+  (al-put-pref allow-weather-download-tag new-val)
+  (set! allow-weather-download-val new-val)
+  (if new-val
+      (dbglog "weaher data download enabled")
+      (dbglog "weather data download disabled")))
+(provide/contract
+ (allow-weather-download (-> (or/c #t #f)))
+ (set-allow-weather-download (-> (or/c #t #f) any/c)))
 
+(define wu-api-key-tag 'activity-log:wu-api-key)
+(define wu-api-key-val (al-get-pref wu-api-key-tag (lambda () #f)))
+(define (wu-api-key) wu-api-key-val)
+(define (set-wu-api-key new-val)
+  ;; Write the value back to the store
+  (let ((nval (string-trim new-val)))
+    (if (not (string=? nval ""))
+        (begin
+          (al-put-pref wu-api-key-tag new-val)
+          (set! wu-api-key-val new-val))
+        (begin
+          (al-put-pref wu-api-key-tag #f)
+          (set! wu-api-key-val #f)
+          (dbglog "no Wunderground API key defined.")))))
+(provide/contract
+ (wu-api-key (-> (or/c string? #f)))
+ (set-wu-api-key (-> (or/c string? #f) any/c)))
 
 (define wu-api-url "http://api.wunderground.com/api")
 
 ;; Limit requests to 8 every 60 seconds
 (define wu-request-limiter (make-request-limiter 8 60))
 
-(define (wu-fetch-json url)
+(struct exn:fail:wufetch exn:fail:network (url json)
+  #:extra-constructor-name make-exn:fail:wufetch
+  #:transparent)
+
+;; Wrap thunk in exception handlers, log any exceptions and re-throw as
+;; necessary
+(define (with-wu-handlers thunk)
   (with-handlers
    (((lambda (e) #t)
-     (lambda (e) (printf "Failed to fetch ~a~%" e) #f)))
-   (unless (al-pref-wu-api-key) (error "no WU api key set"))
-   (unless (al-pref-allow-weather-download) (error "weather download not permited"))
-   (wu-request-limiter)
-   ;; (printf "wu-fetch-json: ~a~%" url)
-   (let* ((data (port->string (get-pure-port (string->url url))))
-          (json (call-with-input-string data read-json))
-          (response (hash-ref json 'response #f)))
-     (if response
-         (if (hash-ref response 'error #f)
-             (begin (printf "wu-fetch-json: failed, response ~a~%" json) #f)
-             json)
-         #f))))
+     (lambda (e)
+       ;; First, put the actual error to the log file
+       (dbglog (format "wu-fetch-json: ~a" e))
+       (cond
+         ((exn:fail:network? e)
+          (raise-user-error "Network error while fetching weather"))
+         ((exn:fail:wufetch? e)
+          (raise-user-error "Error reply from weather server"))
+         ((exn:fail:user? e)
+          (raise e))                    ; raise it again
+         (#t
+          (raise-user-error "Unknown error while fetching weather data"))))))
+   (thunk)))
+
+(define (wu-fetch-json url)
+  ;; Normally, these two conditions should not be encountered.
+  (unless (wu-api-key) (raise-user-error "no Wunderground api key set"))
+  (unless (allow-weather-download) (raise-user-error "weather download not permitted"))
+  (wu-request-limiter)
+  (let* ((data (port->string (get-pure-port (string->url url))))
+         (json (call-with-input-string data read-json))
+         (response (hash-ref json 'response #f)))
+    (if response
+        (if (hash-ref response 'error #f)
+            (raise (make-exn:fail:wufetch "Error Wunderground reply" (current-continuation-marks) url json))
+            json)
+        (raise (make-exn:fail:wufetch "Bad Wunderground reply" (current-continuation-marks) url json)))))
 
 (define (wu-make-geolookup-url lat lon)
-  (format-48 "~a/~a/geolookup/q/~a,~a.json" wu-api-url (al-pref-wu-api-key) lat lon))
+  (format-48 "~a/~a/geolookup/q/~a,~a.json" wu-api-url (wu-api-key) lat lon))
 
 (define (wu-fetch-nearby lat lon)
-  (let* ((url (wu-make-geolookup-url lat lon))
-         (json (wu-fetch-json url)))
-    (if json (parse-nearby-response json) '())))
+  (with-wu-handlers
+    (lambda ()
+      (let* ((url (wu-make-geolookup-url lat lon))
+             (json (wu-fetch-json url)))
+        (if json (parse-nearby-response json) '())))))
 
-(define (wu-make-history-url wstype wsident timestamp)
+(define (wu-make-history-url wsident timestamp)
   (let* ((d (seconds->date timestamp #t))
          (dtext (string-replace
                  (format-48 "~4F~2F~2F"
                             (date-year d) (date-month d) (date-day d))
                  " " "0")))
     (format-48
-     "~a/~a/history_~a/q/~a:~a.json"
-     wu-api-url (al-pref-wu-api-key) dtext (symbol->string wstype) wsident)))
+     "~a/~a/history_~a/q/~a.json"
+     wu-api-url (wu-api-key) dtext wsident)))
 
-(define (wu-fetch-history wstype wsident timestamp)
-  (let* ((url (wu-make-history-url wstype wsident timestamp))
-         (json (wu-fetch-json url)))
-    (if json (parse-history-response json) '())))
+(define (wu-fetch-history wsident timestamp)
+  (with-wu-handlers
+    (lambda ()
+      (let* ((url (wu-make-history-url wsident timestamp))
+             (json (wu-fetch-json url)))
+        (if json (parse-history-response json) '())))))
 
 
 ;;............................................................. WU cache ....
@@ -368,10 +399,7 @@ select ifnull(active_since, 0) from WU_WSTATION
 
 (define (wucache-update-active-since db type ident active-since)
   (let ((old-as (wucache-get-active-since db type ident)))
-    ;; (printf "*** wucache-update-active-since new = ~a, old = ~a~%"
-    ;;         active-since old-as)
     (when (or (not old-as) (> active-since old-as))
-      ;; (printf "*** wucache-update-active-since will update~%")
       (query-exec
        db "\
 update WU_WSTATION set active_since = ?
@@ -383,7 +411,7 @@ update WU_WSTATION set active_since = ?
 ;;....................................................... Weather Lookup ....
 
 (define (can-do-web-requests?)
-  (and (al-pref-allow-weather-download) (al-pref-wu-api-key)))
+  (and (allow-weather-download) (wu-api-key)))
 
 (define (distance-from-wstation wstation lat lon)
   (map-distance/degrees
@@ -433,7 +461,7 @@ update WU_WSTATION set active_since = ?
           '())))
 
   (define (get-history/web-req wstype wsident timestamp)
-    (let ((wobs (wu-fetch-history wstype wsident timestamp)))
+    (let ((wobs (wu-fetch-history wsident timestamp)))
       (if (null? wobs)
           (wucache-update-active-since *wucache-db* wstype wsident timestamp)
           (wucache-store-wobs-list *wucache-db* wstype wsident wobs))
@@ -557,9 +585,11 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
       (or (wobs-pressure wo) sql-null)))))
 
 (define (update-session-weather-auto db sid)
-  (let ((w (get-session-weather db sid)))
-    (when w
-      (update-session-weather db sid (first w) (second w)))))
+  (with-handlers
+    (((lambda (e) #t) (lambda (e) #f)))
+    (let ((w (get-session-weather db sid)))
+      (when w
+        (update-session-weather db sid (first w) (second w))))))
 
 
 ;;.............................................................. public data ....
@@ -578,12 +608,11 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         '())))
 
 (define (get-observations-for-station ws time)
-  (let ((type #f) (ident #f))
+  (let ((type 'icao) (ident ws))
     (if (string? ws)
         (let ((m (regexp-match "^(.*):(.*)$" ws)))
           (when m
-            (set! type (string->symbol (list-ref m 1)))
-            (set! ident (list-ref m 2))))
+            (set! type (string->symbol (list-ref m 1)))))
         (begin
           (set! type (wstation-type ws))
           (set! ident (wstation-ident ws))))

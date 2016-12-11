@@ -90,9 +90,9 @@
         (send tablet-friendly-checkbox set-value (if tablet-friendly? #t #f)))
       (let ((allow? (allow-tile-download)))
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
-      (let ((allow? (al-pref-allow-weather-download)))
+      (let ((allow? (allow-weather-download)))
         (send allow-weather-download-check-box set-value (if allow? #t #f)))
-      (let ((wukey (al-pref-wu-api-key)))
+      (let ((wukey (wu-api-key)))
         (send wu-api-key-text-box set-value (or wukey ""))))
 
     (define (save-preferences)
@@ -108,12 +108,12 @@
           (set-allow-tile-download val)))
 
       (let ((val (send allow-weather-download-check-box get-value)))
-        (unless (eq? val (al-pref-allow-weather-download))
-          (al-pref-allow-weather-download val)))
+        (unless (eq? val (allow-weather-download))
+          (set-allow-weather-download val)))
 
       (let ((val (send wu-api-key-text-box get-value)))
-        (unless (equal? val (al-pref-wu-api-key))
-          (al-pref-wu-api-key val))))
+        (unless (equal? val (wu-api-key))
+          (set-wu-api-key val))))
 
     (define/public (run parent)
       (setup)
