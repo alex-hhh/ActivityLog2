@@ -975,14 +975,20 @@
                 reorderable-headers)]
        [columns '("")]))
 
+    (define/public (set-tag new-tag)
+      (save-visual-layout)              ; for the existing key, if any
+      (set! pref-key #f)
+      (set! the-tag new-tag))
+
     (define/public (save-visual-layout)
       ;; NOTE: we only save the preferences for the current pref key.  Saving
       ;; for previous ones (when the columns are changes) is done as part of
       ;; `setup-column-defs'.
       ;; (printf "put-pref ~a -- ~a~%" pref-key (get-visual-layout the-list-box))
-      (al-put-pref pref-key 
-                   (cons visible-columns 
-                         (lb-get-visual-layout the-list-box))))
+      (when pref-key
+        (al-put-pref pref-key 
+                     (cons visible-columns 
+                           (lb-get-visual-layout the-list-box)))))
 
     (define/public (setup-column-defs fd)
       (save-visual-layout)              ; for the previous field definitions

@@ -497,6 +497,8 @@ values (?, ?)" session-id id))
     (define/public (save-visual-layout)
       (send lb save-visual-layout))
 
+    (define/public (set-tag new-tag) (send lb set-tag new-tag))
+
     ))
 
 
