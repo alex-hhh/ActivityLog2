@@ -420,7 +420,7 @@ select max(zone_id) from V_SPORT_ZONE
       (#t (error "get-athlete-dob")))))
 
 (define (put-athlete-dob dob (db (current-database)))
-  (query-exec db "update ATHLETE set dob = date(?, 'unixepoch')" (or dob sql-null)))
+  (query-exec db "update ATHLETE set dob = date(?, 'unixepoch', 'localtime')" (or dob sql-null)))
 
 (define (get-athlete-height (db (current-database)))
   (let ((v (query-maybe-value db "select height from ATHLETE")))
