@@ -432,15 +432,15 @@ update WU_WSTATION set active_since = ?
               (and (let ((as (wstation-active-since ws)))
                      (or (not as) (> active-at as)))
                    (< (distance-from-wstation ws lat lon) *max-cache-dist*)))
-            (wucache-get-all-wstations *wucache-db*)))
+            (wucache-get-all-wstations (wu-cache-db))))
 
   (define (get-nearby/web-req lat lon active-at)
     (let ((nearby (wu-fetch-nearby lat lon)))
-      (wucache-store-wstation-list *wucache-db* nearby)
+      (wucache-store-wstation-list (wu-cache-db) nearby)
       ;; Use the cache to determine the "active since" value for stations
       (filter (lambda (ws)
                 (let ((as (wucache-get-active-since
-                           *wucache-db* (wstation-type ws) (wstation-ident ws))))
+                           (wu-cache-db) (wstation-type ws) (wstation-ident ws))))
                   (or (not as) (> active-at as))))
               nearby)))
 
@@ -453,9 +453,9 @@ update WU_WSTATION set active_since = ?
 (define (wu-get-history wstype wsident timestamp)
 
   (define (get-history/cache wstype wsident timestamp)
-    (let ((station-id (wucache-get-wstation-id *wucache-db* wstype wsident)))
+    (let ((station-id (wucache-get-wstation-id (wu-cache-db) wstype wsident)))
       (if station-id
-          (wucache-get-wobs *wucache-db* station-id
+          (wucache-get-wobs (wu-cache-db) station-id
                             (- timestamp (* 2 3600))
                             (+ timestamp (* 5 3600)))
           '())))
@@ -463,8 +463,8 @@ update WU_WSTATION set active_since = ?
   (define (get-history/web-req wstype wsident timestamp)
     (let ((wobs (wu-fetch-history wsident timestamp)))
       (if (null? wobs)
-          (wucache-update-active-since *wucache-db* wstype wsident timestamp)
-          (wucache-store-wobs-list *wucache-db* wstype wsident wobs))
+          (wucache-update-active-since (wu-cache-db) wstype wsident timestamp)
+          (wucache-store-wobs-list (wu-cache-db) wstype wsident wobs))
       wobs))
 
   (let ((cached (get-history/cache wstype wsident timestamp)))
@@ -572,9 +572,7 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
      (query-exec
       db session-weather-store-sql
       sid
-      (if (wstation? ws) 
-          (format "~a:~a" (wstation-type ws) (wstation-ident ws))
-          ws)
+      (if (wstation? ws) (wstation-ident ws) ws)
       (wobs-ts wo)
       (or (wobs-temp wo) sql-null)
       (or (wobs-dewp wo) sql-null)
@@ -622,5 +620,16 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
 
 
 
-;; TOTO: put this in the right place...
-(define *wucache-db* (open-wucache-database wucache-file-name))
+(define *wucache-db* #f)
+
+(define (wu-cache-db)
+  ;; Open an in-memory database, which will be only valid while the app is up
+  ;; and running.  This will cache data requests to reduce the number of
+  ;; calls, but avoid the problems of keeping old data in the database.
+  ;;
+  ;; NOTE: we don't need a database at all now, as all caching could be
+  ;; implemented with hash tables, but it is more convenient to keep it around
+  ;; for the caching mechanism.  Maybe one day I will remove it.
+  (unless *wucache-db*
+    (set! *wucache-db* (open-wucache-database 'memory)))
+  *wucache-db*)

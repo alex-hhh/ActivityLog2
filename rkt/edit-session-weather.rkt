@@ -255,16 +255,18 @@
                    (send wstation-field mark-valid #t)))))))))
 
     (define (on-wstation-selected index)
-      (with-handlers
-        (((lambda (e) #t)
-          (lambda (e)
-            (send info-message set-label
-                  (if (exn? e) (exn-message e) "Unknown error while fetching weather"))
-            (clear-weather-fields))))
-        (let* ((wstation (car (list-ref nearby-stations index)))
-               (obs (get-observations-for-station wstation start-time)))
-          (setup-observations obs)
-          (send info-message set-label ""))))
+      (with-busy-cursor
+        (lambda ()
+          (with-handlers
+            (((lambda (e) #t)
+              (lambda (e)
+                (send info-message set-label
+                      (if (exn? e) (exn-message e) "Unknown error while fetching weather"))
+                (clear-weather-fields))))
+            (let* ((wstation (car (list-ref nearby-stations index)))
+                   (obs (get-observations-for-station wstation start-time)))
+              (setup-observations obs)
+              (send info-message set-label ""))))))
 
     (define (on-observation-selected index)
       (setup-weather-fields (list-ref observations index) #t))
@@ -512,7 +514,7 @@ from SESSION_WEATHER where session_id =?" sid)))
           ;; Retrieve previous weather data, if any, for this activity and
           ;; setup dialog mode accordingly.
           (setup-activity-weather database sid)))
-
+         
       (let ((result (send this do-edit parent)))
         (when (and result (has-valid-data?))
           (save-weather-data database sid))
