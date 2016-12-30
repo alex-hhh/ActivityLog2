@@ -508,13 +508,17 @@
                                     record)))
                           (#t record))))
 
-            (set! current-timestamp
-                  (cond ((assq 'timestamp record) => cdr)
-                        (#t current-timestamp)))
-            (unless start-timestamp
-              (set! start-timestamp current-timestamp))
+        (let ((new-timestamp (cond ((assq 'timestamp record) => cdr)
+                                   (#t current-timestamp))))
+          ;; Don't allow time to go backwards
+          (set! current-timestamp
+                (if current-timestamp
+                    (max new-timestamp current-timestamp)
+                    new-timestamp)))
+        (unless start-timestamp
+          (set! start-timestamp current-timestamp))
             
-            record))
+        record))
 
     (define/public (get-start-timestamp) start-timestamp)
     (define/public (get-current-timestamp) current-timestamp)
