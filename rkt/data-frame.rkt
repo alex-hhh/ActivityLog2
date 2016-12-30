@@ -89,6 +89,21 @@
     (do-search true-start true-end)))
 
 
+;;.................................................. exn:fail:data-frame ....
+
+(struct exn:fail:data-frame exn:fail ()
+  #:extra-constructor-name make-exn:fail:data-frame
+  #:transparent)
+
+;; Raise an exn:fail:data-frame exception first composing a message by
+;; applying MESSAGE and ARGS to format, an embedding the stack
+;; (current-continuation-marks)
+(define (df-raise message . args)
+  (make-exn:fail:data-frame
+   (apply format message args)
+   (current-continuation-marks)))
+
+
 ;;.......................................................... data-series% ....
 
 ;; A data-series% represends a column of data in a data frame.  It has a name
@@ -133,7 +148,7 @@
                      (< result (vector-length data))
                     result))
               #f)
-          (raise "data-series%/get-index: ~a not sorted" name)))
+          (df-raise "data-series%/get-index: ~a not sorted" name)))
 
     ;; Return the number of invalid values (NA's) in the data series.  These
     ;; are #f values.
@@ -151,13 +166,16 @@
     (define (check-consistency)
       (when sorted?
         (when (has-invalid-values)
-          (raise (format "data-series% ~a is maked sorted, but has invalid values" name)))
+          (df-raise "sorted series ~a contains #f values" name))
         ;; NOTE: we might want to remove this test later, as it is slow for
         ;; larger datasets
         (for ([idx (in-range 1 (get-count))])
           (unless (cmp-fn (vector-ref data (- idx 1))
                           (vector-ref data idx))
-            (raise (format "data-series% ~a not really sorted at index ~a" name idx))))))
+            (df-raise "series ~a not really sorted @~a (~a vs ~a)"
+                      name idx
+                      (vector-ref data (- idx 1))
+                      (vector-ref data idx))))))
 
     (check-consistency)
 
@@ -211,7 +229,7 @@
     (define/public (get-series name)
       (define series (hash-ref data-series name (lambda () #f)))
       (unless series
-        (raise (format "data-frame%/get-series: ~a not found" name)))
+        (df-raise "series ~a not found" name))
       series)
 
     (define/public (put-property key value)
@@ -320,8 +338,8 @@
       (let ((row-count (get-row-count))
             (srow-count (send series get-count)))
         (unless (or (not row-count) (equal? row-count srow-count))
-          (raise (format "data-frame%/add-series: bad length for ~a, expecting ~a, got ~a"
-                         (send series get-name) row-count srow-count))))
+          (df-raise "cannot add series ~a: bad length ~a, expecting ~a"
+                    (send series get-name) srow-count row-count)))
       (let ([name (send series get-name)])
         (hash-set! data-series name series)))
 
