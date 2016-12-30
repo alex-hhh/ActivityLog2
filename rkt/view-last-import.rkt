@@ -17,6 +17,8 @@
 (require db
          racket/class
          racket/gui/base
+         racket/port
+         errortrace
          "activity-edit.rkt"
          "dbglog.rkt"
          "fmt-util.rkt"
@@ -103,8 +105,13 @@
          (with-handlers
            (((lambda (e) #t)
              (lambda (e)
-               (dbglog (format "import error: ~a" e))
-               (message-box "Import error error" (format "~a" e) toplevel-window '(ok stop)))))
+               (let ((message (if (exn? e) (exn-message e) e))
+                     (call-stack (if (exn? e)
+                                     (call-with-output-string
+                                      (lambda (o) (print-error-trace o e)))
+                                     "#<no call stack>")))
+                 (dbglog (format "import error: ~a, ~a ~a" message call-stack))
+                 (message-box "Import error" message toplevel-window '(ok stop))))))
            (import-new-activities-from-directory
             import-directory
             database 

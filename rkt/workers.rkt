@@ -51,11 +51,12 @@
                ;; NOTE: 'print-error-trace' will only print a stack trace if
                ;; the error trace library is used.  To use it, remove all .zo
                ;; files and run "racket -l errortrace -t run.rkt"
-               (dbglog (format "task ~a: ~a ~a"
-                               (task-name task)
-                               e
-                               (call-with-output-string
-                                 (lambda (o) (print-error-trace o e))))))))
+               (let ((message (if (exn? e) (exn-message e) e))
+                     (call-stack (if (exn? e)
+                                     (call-with-output-string
+                                      (lambda (o) (print-error-trace o e)))
+                                     "#<no call stack>")))
+                 (dbglog (format "task ~a: ~a ~a" (task-name task) message call-stack))))))
            ((task-thunk task)))
          (loop (async-channel-get request-channel)))))))
 
