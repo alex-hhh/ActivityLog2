@@ -35,7 +35,7 @@ HRV data into CSV files:
     > 
     Opened C:\Users\alexh\AppData\Local\ActivityLog\Alex-AL.db
     scratch.rkt> ;; HINT: Use "Activity/Copy session id to clipboard" menu
-    scratch.rkt> (define df (hrv-df 1717))
+    scratch.rkt> (define df (hrv->df 1717))
     scratch.rkt> (df-describe df)
     data-frame: 4 series, 6223 items
     properties:

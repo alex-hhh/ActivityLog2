@@ -29,6 +29,7 @@
 
 (provide/contract
  (sid->df (-> number? (is-a?/c data-frame%)))
+ (hrv->df (-> number? (or/c (is-a?/c data-frame%) #f)))
  (df->csv (-> (is-a?/c data-frame%) path-string? any/c))
  (pp-stops (-> (is-a?/c data-frame%) any/c)))
 
@@ -59,7 +60,7 @@
 (define (sid->df sid)
   (session-df (current-database) sid))
  ;; Get a HRV data frame from a session id
-(define (hrv-df sid)
+(define (hrv->df sid)
   (make-hrv-data-frame/db (current-database) sid))
 ;; Write the contents of the data frame DF into FILE in CSV format.
 
