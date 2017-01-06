@@ -12,6 +12,7 @@ To build an executable, open the file "build.rkt" in DrRacket, run it by
 clicking the "Run" button or pressing "Ctrl-R", than type the following
 expressions in the interactions window:
 
+    (compile-app)
     (build-app)
     (mkdist)
 
@@ -30,7 +31,7 @@ The application can be run from the command line using the following command:
 If this is done repeatedly, it might be worth compiling the files first to
 speed things up:
 
-    raco make run.rkt
+    raco make run.rkt rkt/main.rkt
 
 Note that if compiled files are present, racket will not re-compile modified
 files, you will need to recompile them explicitly, otherwise you will

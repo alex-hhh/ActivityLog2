@@ -21,14 +21,16 @@
          "dbglog.rkt"
          "dbutil.rkt"
          "first-run.rkt"
-         "toplevel.rkt")
+         "toplevel.rkt"
+         "version.rkt")
 
 (provide main)
 
 (define dbfile-key 'activity-log:database-file)
 
 (define (main)
-  (dbglog "main started")
+  (dbglog (format "main started, version ~a, ~a, ~a"
+                  (app-version) (app-commit-id) (app-build-timestamp)))
   (with-handlers
     (((lambda (e) #t)
       (lambda (e)

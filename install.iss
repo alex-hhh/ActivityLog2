@@ -14,7 +14,9 @@
 ;; Inno setup file to generate windows installer for ActivityLog2.
 
 #define MyAppName "ActivityLog2"
-#define MyAppVersion "1.0"
+#ifndef MyAppVersion
+#define MyAppVersion "0.0"
+#endif
 #define MyAppPublisher "Alex Harsanyi"
 #define MyAppURL "http://alex-hhh.github.io/ActivityLog2/"
 #define MyAppExeName "ActivityLog2.exe"
@@ -36,7 +38,7 @@ AppComments=Fitness activity tracker
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputBaseFilename=ActivityLog2-{#MyAppVersion}-install
+OutputBaseFilename=ActivityLog2Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 LicenseFile=LICENSE

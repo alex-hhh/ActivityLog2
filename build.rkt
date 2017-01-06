@@ -20,6 +20,7 @@
 (require compiler/bundle-dist
          compiler/distribute
          compiler/embed
+         compiler/cm
          file/ico
          images/icons/stickman
          launcher/launcher
@@ -71,30 +72,30 @@
           rev
           (format "~a (modified)" rev)))))
 
-(define (app-build-time)
-  (let ((ts (seconds->date (current-seconds))))
-    (string-append
-     (~a (date-year ts))
-     "/"
-     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
-     "/"
-     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
-     " "
-     (~a (date-hour ts) #:width 2 #:left-pad-string "0" #:align 'right)
-     ":"
-     (~a (date-minute ts) #:width 2 #:left-pad-string "0" #:align 'right)
-     ":"
-     (~a (date-second ts) #:width 2 #:left-pad-string "0" #:align 'right))))
+(define (compile-app)
+  (managed-compile-zo "./rkt/main.rkt")
+  (managed-compile-zo "./run.rkt"))
 
 (define (build-app)
 
   (unless (file-exists? app-icon-file)
     (create-icon-file app-icon-file make-app-icon icon-sizes))
 
+  (define revision (app-revision))
+
+  ;; Write the application revision, version.rkt will read it in and store it
+  ;; in the compiled .zo file.
   (with-output-to-file "./build-id.txt"
-    (lambda ()
-      (printf "~a ~a~%" (app-revision) (app-build-time)))
+    (lambda () (printf "~a~%" revision))
     #:mode 'text #:exists 'truncate/replace)
+
+  ;; Remove stale compiled versions of version.rkt, otherwise it will not pick
+  ;; up new versions, build ids and timestamps
+  (with-handlers
+    (((lambda (e) #t)
+      (lambda (e) (printf (exn-message e)))))
+    (delete-file "rkt/compiled/version_rkt.zo")
+    (delete-file "rkt/compiled/version_rkt.dep"))
 
   (parameterize
       ([use-compiled-file-paths (list "compiled")])
@@ -113,3 +114,11 @@
   (assemble-distribution
    "dist"
    (list app-exe-file)))
+
+(define issc-program "C:/Program Files (x86)/Inno Setup 5/iscc.exe")
+
+(define (mkinstaller)
+  (define version (string-trim (file->string "./version.txt" #:mode 'text)))
+  (system (format "\"~a\" /DMyAppVersion=~a install.iss" issc-program version)))
+
+(provide compile-app build-app mkdist mkinstaller)
