@@ -537,7 +537,7 @@
                             (db-exn-bad-version-message e))
                            (#t
                             (format "~a : ~a" database-path e)))))
-            (dbglog (format "interactive-open-database: ~a" msg))
+            (dbglog "interactive-open-database: ~a" msg)
             (message-box "Database open error" msg frame '(ok stop))))))
       (let ((db (open-activity-log database-path cb)))
         (set! database db))))
@@ -714,7 +714,7 @@
 
     (define (on-toplevel-close)
       ;; NOTE: we might be called twice
-      (dbglog (format "closing toplevel% for ~a" database-path))
+      (dbglog "closing toplevel% for ~a" database-path)
 
       ;; Tell all our sections to save their visual layout
       (for-each (lambda (section)
@@ -842,11 +842,11 @@
       (collect-garbage 'major))
     
     (define (open-another-activity-log file)
-      (dbglog (format "open-another-activity-log: will try to open ~a" file))
+      (dbglog "open-another-activity-log: will try to open ~a" file)
       (with-handlers
         (((lambda (e) #t)
           (lambda (e)
-            (dbglog (format "open-another-activity-log: ~a" e)))))
+            (dbglog "open-another-activity-log: ~a" e))))
         (let ((new-tl (new toplevel-window% [database-path file])))
           ;; Toplevel window was successfully created, save the database file
           ;; as the new default to open next time.

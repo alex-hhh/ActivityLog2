@@ -202,7 +202,7 @@ select P.id
       (with-handlers
         (((lambda (e) #t)
           (lambda (e)                   ; log the exception, than propagate it
-            (dbglog (format "while updating session ~a: ~a" sid e))
+            (dbglog "while updating session ~a: ~a" sid e)
             (raise e))))
         (update-time-in-zone-data sid database)))
     (dbglog "interactive-update-time-in-zone-data complete"))

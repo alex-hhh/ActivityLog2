@@ -28,14 +28,14 @@
 
 (define (import-new-activities-from-directory dir db [file-callback #f] [global-callback #f])
   (query-exec db "delete from LAST_IMPORT")
-  (dbglog (format "importing activities from ~a" dir))
+  (dbglog "importing activities from ~a" dir)
   (when global-callback
     (global-callback (format "Importing activities from ~a~%" dir)))
   (db-import-activities-from-directory dir db file-callback)
   (let ((num-imported (query-value db "select count(*) from LAST_IMPORT")))
     (when (> num-imported 0)
       (do-post-import-tasks db global-callback))
-    (dbglog (format "import complete (~a activities imported)" num-imported))))
+    (dbglog "import complete (~a activities imported)" num-imported)))
 
 ;; Perform database maintenance tasks after an import.  `global-callback' will
 ;; be used to report progress.

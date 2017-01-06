@@ -18,9 +18,7 @@
 (require
  racket/async-channel
  racket/contract
- racket/port                            ; for call-with-output-to-string
  "dbglog.rkt")
-(require errortrace/errortrace-lib)
 
 (provide/contract
  [queue-task (-> string? procedure? any/c)])
@@ -47,16 +45,7 @@
        (when (task? task)               ; anything else stops the thread
          (with-handlers
            (((lambda (e) #t)
-             (lambda (e)
-               ;; NOTE: 'print-error-trace' will only print a stack trace if
-               ;; the error trace library is used.  To use it, remove all .zo
-               ;; files and run "racket -l errortrace -t run.rkt"
-               (let ((message (if (exn? e) (exn-message e) e))
-                     (call-stack (if (exn? e)
-                                     (call-with-output-string
-                                      (lambda (o) (print-error-trace o e)))
-                                     "#<no call stack>")))
-                 (dbglog (format "task ~a: ~a ~a" (task-name task) message call-stack))))))
+             (lambda (e) (dbglog-exception (task-name task) e))))
            ((task-thunk task)))
          (loop (async-channel-get request-channel)))))))
 

@@ -29,12 +29,12 @@
 (define dbfile-key 'activity-log:database-file)
 
 (define (main)
-  (dbglog (format "main started, version ~a, ~a, ~a"
-                  (app-version) (app-commit-id) (app-build-timestamp)))
+  (dbglog "main started, version ~a, ~a, ~a"
+          (app-version) (app-commit-id) (app-build-timestamp))
   (with-handlers
     (((lambda (e) #t)
       (lambda (e)
-        (dbglog (format "caught exception in main: ~a" e))
+        (dbglog "caught exception in main: ~a" e)
         ;; Reset the default database on exception, next restard, this will
         ;; prompt the user to open another database...
         (al-put-pref dbfile-key #f))))
@@ -42,16 +42,16 @@
     (cond ((not database-file)
            (dbglog "no database file stored in preferences"))
           ((and database-file (not (file-exists? database-file)))
-           (dbglog (format "missing ~a" database-file)))
+           (dbglog "missing ~a" database-file))
           (#t
-           (dbglog (format "will try to open ~a" database-file))))
+           (dbglog "will try to open ~a" database-file)))
     (unless (and database-file (file-exists? database-file))
       (let ((first-run-dlg (new first-run-dialog%)))
-        (dbglog (format "running first-run-dialog%"))
+        (dbglog "running first-run-dialog%")
         (shutdown-splash)
         (close-splash)
         (set! database-file (send first-run-dlg run))
-        (dbglog (format "database file is now ~a" database-file))))
+        (dbglog "database file is now ~a" database-file)))
     (if database-file
         (begin
           (maybe-backup-database database-file)

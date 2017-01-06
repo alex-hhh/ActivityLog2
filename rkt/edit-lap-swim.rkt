@@ -549,7 +549,7 @@ select LE.start_time as timestamp,
     (define (on-paint-wrapped canvas dc)
       (with-handlers
         (((lambda (x) #t)
-          (lambda (x) (dbglog (format "swl-view%/on-paint-wrapped: ~a" x)))))
+          (lambda (x) (dbglog-exception "swl-view%/on-paint-wrapped" x))))
         (when data (on-paint canvas dc))))
 
     (define canvas

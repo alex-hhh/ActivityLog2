@@ -507,13 +507,13 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
   (define altidude-data (make-tile-code-fetcher db))
   (if (cons? session-id)
       (for/list ([sid session-id])
-        (dbglog (format "fixup-elevation-for-session ~a started" sid))
+        (dbglog "fixup-elevation-for-session ~a started" sid)
         (fixup-elevation-for-session-internal db sid altidude-data progress-monitor)
-        (dbglog (format "fixup-elevation-for-session ~a completed" sid)))
+        (dbglog "fixup-elevation-for-session ~a completed" sid))
       (begin
-        (dbglog (format "fixup-elevation-for-session ~a started" session-id))
+        (dbglog "fixup-elevation-for-session ~a started" session-id)
         (fixup-elevation-for-session-internal db session-id altidude-data progress-monitor)
-        (dbglog (format "fixup-elevation-for-session ~a completed" session-id))))
+        (dbglog "fixup-elevation-for-session ~a completed" session-id)))
   (when progress-monitor
     (send progress-monitor finished)))
 

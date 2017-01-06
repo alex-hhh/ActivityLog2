@@ -19,14 +19,13 @@
 
 (require
  racket/runtime-path
- racket/port
  racket/async-channel
+ racket/port
  net/url
  racket/match
  racket/draw
  racket/list
  db
- "dbglog.rkt"
  "al-prefs.rkt"
  "dbutil.rkt"
  "dbglog.rkt"
@@ -238,7 +237,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (with-handlers
    (((lambda (e) #t)
      (lambda (e)
-       (dbglog (format "Failed to download tile ~a~%" e))
+       (dbglog "Failed to download tile ~a~%" e)
        (dbg-printf "Failed to download tile ~a~%" e)
        #f)))
    (if (allow-tile-download)
@@ -334,7 +333,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (with-handlers
    (((lambda (e) #t)
      (lambda (e)
-       (dbglog (format "get-tile-bitmap(~a): ~a" tile e))
+       (dbglog-exception (format "get-tile-bitmap(~a)" tile) e)
        (dbg-printf "get-tile-bitmap(~a): ~a~%" tile e)
        #f)))
 

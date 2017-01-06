@@ -224,7 +224,7 @@
    (((lambda (e) #t)
      (lambda (e)
        ;; First, put the actual error to the log file
-       (dbglog (format "wu-fetch-json: ~a" e))
+       (dbglog-exception "wu-fetch-json" e)
        (cond
          ((exn:fail:network? e)
           (raise-user-error "Network error while fetching weather"))

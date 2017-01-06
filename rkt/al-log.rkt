@@ -53,6 +53,6 @@
            (level (vector-ref log-item 0))
            (message (vector-ref log-item 1))
            (msg (string-trim message al-prefix #:left? #t #:right? #f)))
-      (dbglog (format "~a: ~a" level msg)))
+      (dbglog "~a: ~a" level msg))
     (write-file source))
   (thread (lambda () (write-file (make-log-receiver al-logger 'info)))))

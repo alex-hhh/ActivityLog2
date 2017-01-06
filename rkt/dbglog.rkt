@@ -15,9 +15,12 @@
 
 (require racket/format
          racket/math
+         errortrace/errortrace-lib
+         racket/port
          "al-prefs.rkt")
 
 (provide dbglog
+         dbglog-exception
          thread/dbglog)
 
 (define log-port #f)                    ; port to which all log messages go
@@ -59,7 +62,8 @@
 ;; Write MSG to the log file.  A timestamp is prepended and a newline is
 ;; appended.  The log port is flushed immediately, so it is not particularily
 ;; efficient to log many things...
-(define (dbglog msg)
+(define (dbglog format-string . args)
+  (define msg (apply format format-string args))
   (maybe-init-log-port)
   (write-string (get-current-timestamp) log-port)
   (write-string " " log-port)
@@ -67,6 +71,18 @@
   (write-string "\n" log-port)
   (flush-output log-port))
 
+;; Log an exception, WHO is prepended to the log message, can be the function
+;; name that calls `dbglog-exception'
+(define (dbglog-exception who e)
+  ;; NOTE: 'print-error-trace' will only print a stack trace if the error
+  ;; trace library is used.  To use it, remove all .zo files and run "racket
+  ;; -l errortrace -t run.rkt"
+  (let ((message (if (exn? e) (exn-message e) e))
+        (call-stack (if (exn? e)
+                        (call-with-output-string
+                         (lambda (o) (print-error-trace o e)))
+                        "#<no call stack>")))
+    (dbglog "~a: ~a ~a" who message call-stack)))
 
 ;; Wrapper around `thread', log a message if THUNK throws an exception and
 ;; optionally log messages when the thread starts and finishes.

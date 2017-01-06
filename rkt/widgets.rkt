@@ -1964,7 +1964,7 @@
     (define (on-paint-wrapped canvas dc)
       (with-handlers
         (((lambda (x) #t)
-          (lambda (x) (dbglog (format "al-section-selector%/on-paint-wrapped: ~a" x)))))
+          (lambda (x) (dbglog "al-section-selector%/on-paint-wrapped: ~a" x))))
         (send dc clear)
         (unless (null? labels)
           (on-paint canvas dc))))
@@ -2172,7 +2172,7 @@
     (define (on-paint-wrapped canvas dc)
       (with-handlers
         (((lambda (x) #t)
-          (lambda (x) (dbglog (format "al-notification-box%/on-paint-wrapped: ~a" x)))))
+          (lambda (x) (dbglog "al-notification-box%/on-paint-wrapped: ~a" x))))
         (send dc clear)
         (when label-text
           (on-paint canvas dc))))

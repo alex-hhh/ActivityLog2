@@ -153,7 +153,7 @@
          (for/first ([t (in-sequences session-tags available-tags)]
                      #:when (string=? tag (vector-ref t 1)))
            (vector-ref t 0))
-         (begin (dbglog (format "Unexpected tag ~a for SID ~a" tag session-id)) #f)))
+         (begin (dbglog "unexpected tag ~a for SID ~a" tag session-id) #f)))
 
       (let ((contents (get-contents)))
         (for/list ([tag contents])
