@@ -166,6 +166,12 @@
   (add-timer-series df)
   (add-elapsed-series df)
   (add-distance-series df)
+  (fixup-invalid-zero-values df "gct")
+  (fixup-invalid-zero-values df "pgct")
+  (smooth-start-of-series df "gct")
+  (smooth-start-of-series df "pgct")
+  (smooth-start-of-series df "vosc")
+  (smooth-start-of-series df "cad")
   (add-speed-series df)
   (add-pace-series df)
   (add-speed-zone-series df)
@@ -174,6 +180,7 @@
   (add-hr-zone-series df)
   (add-stride-series df)
   (add-vratio-series df)
+  (smooth-start-of-series df "vratio")
   (add-power-zone-series df)
   (add-lppa-series df)                  ; left power phase angle
   (add-lpppa-series df)                 ; left peak power phase angle
@@ -183,6 +190,7 @@
   (fixup-pp-series df "rppps")
   (add-rppa-series df)
   (add-rpppa-series df)
+  (fixup-lrbal-series df)
   (when is-lap-swim?
     (add-swolf-series df))
 
@@ -313,6 +321,43 @@
           '("spd")
           (if (eq? (al-pref-measurement-system) 'metric)
               speed-km/h speed-mi/h))))
+
+;; Smooth the first LIMIT (in seconds) worth of samples from SERIES-NAME.
+;; This is used for series that have huge unrealistic values at the start (e.g
+;; GCT) using up space on plots and pushing the useful values to a very narrow
+;; range.
+;;
+;; Smoothing is done by proportionally combining each value with the value
+;; @LIMIT.
+(define (smooth-start-of-series df series-name (limit 30))
+
+  (define (combine val limit-val elapsed)
+    ;; If there is no value @ limit, we effectively disable the smoothing.
+    ;; This can happen, among other things, if the session is shorter than
+    ;; "limit" seconds (e.g. triathlon transitions)
+    (if (or (not val) (not limit-val) (> elapsed limit))
+        val
+        (let ((alpha (/ elapsed limit)))
+          (exact->inexact
+           (+ (* (- 1 alpha) limit-val)
+              (* alpha val))))))
+  
+  (when (send df contains? series-name "elapsed")
+    (let* ((index (send df get-index "elapsed" limit))
+           (limit-val (if index (send df ref index series-name) #f)))
+      ;; If we have no value at INDEX, don't do any smoothing.  We could
+      ;; improve this by searching further forward for a valid value, but it
+      ;; is not needed for now.
+      (when limit-val
+        (define sdata (let ((series (send df get-series series-name)))
+                        (send series get-data)))
+        (define edata (let ((series (send df get-series "elapsed")))
+                        (send series get-data)))
+        (for ([idx (in-range index)])
+          (vector-set! sdata idx
+                       (combine (vector-ref sdata idx)
+                                limit-val
+                                (vector-ref edata idx))))))))
 
 (define (add-pace-series df)
 
@@ -575,9 +620,7 @@
                 (let ((st (stride spd cad)))
                   (if (and st (> st 0))
                       (let ((vratio (* 100.0 (/ vosc (* st 1000)))))
-                        ;; VRATIO values greater than 25% are unrealistic,
-                        ;; discard them.
-                        (if (> vratio 25) #f vratio))
+                        vratio)
                       #f))
                 #f)))))
 
@@ -681,6 +724,29 @@
 
 (provide add-torque-series)
 
+;; Convert some invalid values (e.g 0, 100) to #f.  This is used to replace 0
+;; with #f in series like "gct" where a 0 is really invalid and messes up best
+;; avg calculations
+(define (fixup-invalid-zero-values df series-name)
+  (when (send df contains? series-name)
+    (let* ([series (send df get-series series-name)]
+           [data (send series get-data)])
+      (for ([index (in-range (vector-length data))]
+            #:when (let ((val (vector-ref data index)))
+                     (and (number? val) (zero? val))))
+        (vector-set! data index #f)))))
+
+;; Replace 0 and 100 with #f in the "lrbal" series -- these are invalid values
+;; at the two extremes
+(define (fixup-lrbal-series df)
+  (when (send df contains? "lrbal")
+    (let* ([series (send df get-series "lrbal")]
+           [data (send series get-data)])
+      (for ([index (in-range (vector-length data))]
+            #:when (let ((val (vector-ref data index)))
+                     (and (number? val) (or (zero? val) (zero? (- 100 val))))))
+        (vector-set! data index #f)))))
+    
 
 ;;................................................................ other ....
 

@@ -1,16 +1,17 @@
-# Some notes on using session data frames
+# Session data-frames% objects
 
 Session data is loaded into a `data-frame%` object (defined in
-"data-frame.rkt") by `session-df`.  Data frames are used to store in memory
-the data for the activities, all data operations are done on these data frame
-objects
+"data-frame.rkt") by `session-df`.  Data frames contain track data for a
+session, all data operations and plotting is done on these data frame objects.
 
 This document describes the contents of the data frame object as created by
-`session-df`
+`session-df`.
 
-## Properties in a data frame
+## Properties
 
-The following properties are present:
+The data-frame% object can store a set of properties, which are key - value
+mappings. The following properties are present in the session data frame,
+while other parts of the application can attach additional properties:
 
 * **is-lap-swim?** is #t if this is a swim activity
 * **session-id** the database id for the session (A_SESSION.id)
@@ -44,19 +45,19 @@ use the `ref` and `ref*` methods:
     (send df ref* 52561 "speed" "cad" "pwr")
     => '#(30.636 58.0 103.0)
 
-## Series in the session data frame
+## Data Series
 
-The data-frame% object will containing several series for the session data.
-Some of the data comes from the database, others some is calculated.  Below is
-a brief explanation what each series means.  Not all series will be present in
-each data-frame, as series are created only if there is data for them in the
+The data-frame% object contains several series for the session data.  Some of
+the data series come from the database, others some is calculated.  Below is a
+brief explanation what each series means.  Not all series will be present in
+every data-frame%, as series are created only if there is data for them in the
 session.  To check if a data frame contains some series, use the `contains?`
 method:
 
     (send df contains? "lat" "lon" "alt")
     => #t
 
-### Time related fields
+### Time Series
 
 * **timestamp** is the UNIX timestamp in seconds when each recording was made
 * **timer** counts number of seconds since the start of the activity, but
@@ -67,7 +68,7 @@ method:
 * **duration** is the duration of the current point. This is used in lap
   swimming activities, where each point is a length of the pool.
 
-### Position and distance related fields
+### Position and Distance Series
 
 * **lat**, **lon** are the latitude, longitude coordinates for the point
 * **alt**, **calt** are the altitude (as recorded by the device) and corrected
@@ -78,7 +79,7 @@ method:
   convenient metric.  Can be Km or Miles or yards and meters (for swim
   activities)
 
-### Speed related fields
+### Speed and Pace Series
 
 * **spd** is the speed in meters per second
 * **speed** is the speed, in a convenient metric (either Km/Hour or
@@ -88,20 +89,20 @@ method:
   Seconds/100yd).
 * **speed-zone** is the speed zone, of speed zones are defined for the sport.
 
-### Heart rate related fields
+### Heart Rate Series
 
 * **hr** is the rate as beats per minute (BPM)
 * **hr-pct** is the heart rate as percentage of maximum heart rate, if HR
   zones are defined for the sport
 * **hr-zone** is the heart rate zone , if HR zones are defined for the sport
 
-### Cadence and stride related fields
+### Cadence and Stride Series
 
 * **cad** is the cadence as steps per minute or rotations per minute (for
   cycling)
 * **stride** is the length of the step
 
-### Running dynamics fields
+### Running Dynamics Series
 
 * **vosc** is the vertical oscillation in millimeters
 * **vratio** is the vertical ratio, the ratio of **vosc** and **stride**, as a
@@ -109,31 +110,75 @@ method:
 * **gct** is the ground contact time in milliseconds
 * **pgct** is the ground contact time as a percentage of the step duration
 
-### Power related fields
+### Power and Cycling Dynamics Series
 
 * **pwr** is the power, in watts
 * **pwr-zone** is the power zone, if power zones are defined for the sport
 * **lrbal** left right balance, either for running or for cycling (with a
   power meter)
-* **lteff**, **rteff** are the left and right torque effectiveness
-* **lpsmth**, **rpsmth** are the left and right pedal smoothness
-* **lpco**, **rpco** are the left and right platform center offset, in
-  millimeters
-* **lpps**, **lppe**, **rpps**, **rppe** are the left and right power phase
-  start/end, as an angle in degrees, where 0 is the top, 180 is the bottom of
-  the pedal stroke.
-* **lppa**, **rppa** are the left and right power phase angles, in degrees
-* **lppps**, **lpppe**, **rppps**, **rpppe** are left and right peak power
-  phase start/end
-* **lpppa**, **rpppa** -- left and right peak power phase angles
+* **lteff**, **rteff** is the torque effectiveness, for left and right pedal
+  respectively
+* **lpsmth**, **rpsmth** is the pedal smoothness, for left and right pedal
+  respectively
+* **lpco**, **rpco** is the platform center offset for left and right pedal
+  respectively.  The value is in millimeters.
+* **lpps**, **lppe**, **rpps**, **rppe** is the power phase start and end
+  angle, for the left and right pedals respectively.  The angle is in degrees,
+  where 0 is the top, 180 is the bottom of the pedal stroke.
+* **lppa**, **rppa** is the power phase angle for the left and right pedal
+  respectively.  The angle is in degrees.
+* **lppps**, **lpppe**, **rppps**, **rpppe** is the peak power phase start and
+  end angle, for the left and right pedals respectively.  The angle is in
+  degrees, where 0 is the top, 180 is the bottom of the pedal stroke.
+* **lpppa**, **rpppa** -- is the peak power angle for the left and right pedal
+  respectively.  The angle is in degrees.
 
-Swim activities also contain the following:
+### Swim Specific Series
 
 * **swim_stroke** is the swim stroke for the recorded length
 * **strokes** is the number of strokes in the length
 * **swolf** is the SWOLF metric (duration + strokes)
 
-## Interactive use and exporting data
+## Processing of Data in the Data Frame
+
+The series in the data frame are created from data in the A_TRACKPOINT table,
+which contains the track points for a session.  In addition, some series are
+"derived", that is, computed from already existing series (e.g. stride is
+computed from speed and cadence series).  Some series have corrections applied
+to them, so data in the data frame is different than what data is available in
+the data base.  These corrections makes it easier to work with the data and
+should have no detrimental effect, however, the corrections are described
+below:
+
+* "pace" series is filtered (smoothed) at the start (first 2 minutes) to
+  compensate for erratic readings
+  
+* "gct", "pgct", "cad", "vosc" and "vratio" series are filtered (smoothed) at
+  the start (first 30 seconds) to compensate for erratic readings
+  
+* "gct" and "pgct" series have their 0 values converted to #f.  It makes data
+  processing easier as 0 is an invalid value.
+
+* "lrbal" series has the values 0 and 100 converted to #f.  It makes data
+  processing easier as 0 and 100 are invalid values.
+  
+* "lpps", "lppps", "rpps", "rppps" series have the angle range converted from
+  0 .. 360 to -180 .. 180 range, to avoid discontinuity at 0 (when crossing
+  from 360 to 0)
+
+## Caching Session Data Frames
+
+Data frame objects are cached in memory, so a second invocation of
+`session-df` for the same session id will return a cached object instead of
+reading data from the database and re-computing the series.  It is therefore
+cheap to call `session-df` repeatedly.
+
+Normally, data frames should not change, however, to force reloading them, the
+function `clear-session-df-cache` will invalidate data frames.  When called
+with a single argument, a session id, it will invalidate the data frame for a
+single session, with no arguments it will invalidate all cached data frames.
+
+## Interactive Use and Exporting Data
 
 **NOTE** we assume the working directory is ActivityLog2/etc, otherwise the
 path to "al-interactive.rkt" will need to be adjusted.
@@ -154,7 +199,7 @@ session id to clipboard..." menu:
 
 We can also load and save the HRV data for a session, if that data is present:
 
-    (define hrv (hrv-df SESSION-ID))
+    (define hrv (hrv->df SESSION-ID))
     (df->csv df "session-hrv.csv")
 
 To open the CSV file in R as a data frame (the Racket code uses #f as the NA
