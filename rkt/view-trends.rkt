@@ -87,12 +87,12 @@
 
     (define/public (activate)
       (when first-activation?
-        (refresh-chart)
-        (set! first-activation? #f)))
+        (refresh-chart)))
     
     (define/public (refresh-chart)
       (send trend-chart invalidate-data)
-      (send trend-chart put-plot-snip graph-pb))
+      (send trend-chart put-plot-snip graph-pb)
+      (set! first-activation? #f))
 
     (define/public (interactive-setup parent)
       (when (send trend-chart interactive-setup parent)
@@ -137,7 +137,8 @@
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
-      
+
+      (make-spacer sel-pane)
       (new message% [parent sel-pane] [label reports-icon])
 
       (let ([font (send the-font-list find-or-create-font 14 'default 'normal 'normal)])
@@ -150,19 +151,14 @@
       (set! move-right-button
             (new button% [parent sel-pane] [label "Move right"]
                  [callback (lambda (b e) (on-move-right))]))
-      ;; This is a spacer
-      (new message% [parent sel-pane] [label ""] [min-width 30] [stretchable-width #f])
+      (make-spacer sel-pane 30)
       (new button% [parent sel-pane] [label "New..."]
            [callback (lambda (b e) (on-new-chart))])
       (new button% [parent sel-pane] [label "Delete..."]
            [callback (lambda (b e) (on-delete-chart))])
       (new button% [parent sel-pane] [label "Setup..."]
            [callback (lambda (b e) (on-setup-chart))])
-
-      ;; This is a spacer
-      (new message% [parent sel-pane] [label ""] [min-width 10] [stretchable-width #f])
-      
-      )
+      (make-spacer sel-pane))
 
     (define trend-charts '())
 

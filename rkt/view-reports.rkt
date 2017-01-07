@@ -1219,6 +1219,7 @@
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
+      (make-spacer sel-pane)
       (new message%
            [parent sel-pane]
            [label reports-icon])
@@ -1247,9 +1248,10 @@
           (send drs set-seasons (db-get-seasons the-database))
           ;; Setup the date-range-filter to the selector's initial value
           (set! date-range-filter (send drs get-selection))
-          (set! date-range-field drs))
+          (set! date-range-field drs)))
 
-        ))
+      (make-spacer sel-pane))
+        
 
     (define the-list-box (new qresults-list% [parent the-pane]
                               [tag 'activity-log:reports-view]))

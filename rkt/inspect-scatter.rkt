@@ -65,6 +65,9 @@
 ;; list is valid for the scatter plot.
 (define default-axis-choices
   (list
+   axis-distance
+   axis-timer-time
+   axis-elapsed-time
    axis-speed
    axis-pace
    axis-speed-zone
@@ -606,6 +609,7 @@
           (send x-axis-choice set-selection x-axis-index))
         (when (> (send y-axis-choice get-number) y-axis-index)
           (send y-axis-choice set-selection y-axis-index))
+        (set! export-file-name #f)
         (restore-params-for-axis)))
 
     ;; Restore parameters for the current axis selection.  This assumes a new

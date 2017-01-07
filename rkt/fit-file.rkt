@@ -285,7 +285,13 @@
     ;; two bytes count the CRC at the end.
     (let ((expected (+ header-length data-length 2))
           (actual (bytes-length buffer)))
-      (unless (= actual expected )
+      ;; NOTE: fit files can contain chunks, which are effectively multiple
+      ;; FIT files concatenated, so we check for actual being greater or equal
+      ;; to expected. This FIT file feature is used to record HR data in
+      ;; swimming activities (where the strap stores the data and transmits it
+      ;; at the end of the activity).  We don't support loading HR data from
+      ;; such FIT files yet, but at least we can load the swimming part.
+      (unless (>= actual expected)
         (raise-error
          (format "bad data-length: ~a, expecting ~a" actual expected))))
 

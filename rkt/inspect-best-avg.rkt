@@ -297,9 +297,15 @@
         (set! selected-period new-index)
         (refresh-bests-plot)))
 
-    (define (on-axis-changed new-index)
+    ;; When 'dont-save-previous' is #t, previous axis params are not saved
+    ;; before setting up the new axis.  This is used when
+    ;; 'restore-params-for-sport' installs the new axis and there is no
+    ;; previous axis to save (otherwise the selected axis params will be
+    ;; crossing from one sport to the other).
+    (define (on-axis-changed new-index (dont-save-previous #f))
       (unless (equal? selected-axis new-index)
-        (save-params-for-series)
+        (unless dont-save-previous
+          (save-params-for-series))
         (set! selected-axis new-index)
         (set! img-export-file-name #f)
         (set! data-export-file-name #f)
@@ -461,10 +467,10 @@
                   (let ((index (find-axis series-name axis-choices)))
                     
                     (set! selection (min (or index 0) (sub1 (length axis-choices))))))
-                (on-axis-changed selection)
+                (on-axis-changed selection #t)
                 (set! params-by-series (hash-copy pbs))))
             (begin
-              (on-axis-changed 0)
+              (on-axis-changed 0 #t)
               (set! params-by-series (make-hash))))
         (send axis-choice-box set-selection selected-axis)
         (restore-params-for-series)

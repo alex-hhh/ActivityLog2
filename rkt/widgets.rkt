@@ -21,6 +21,7 @@
          racket/date
          racket/math
          racket/gui/base
+         racket/match
          (rename-in srfi/48 (format format-48))
          racket/list
          racket/string
@@ -41,6 +42,7 @@
 (provide with-busy-cursor)
 (provide make-horizontal-pane)
 (provide make-group-box-panel)
+(provide make-spacer)
 (provide al-edit-dialog%)
 (provide al-progress-dialog%)
 (provide tab-selector%)
@@ -1526,6 +1528,10 @@
     ;; an inner vertical pane and return that.
     (new vertical-pane% [parent gb] [spacing 10] [alignment '(left center)])))
 
+;; Create a spacer widget, with a fixed width.
+(define (make-spacer parent (witdh 5) (stretchable? #f))
+  (new message% [parent parent] [label ""] [min-width witdh] [stretchable-width stretchable?]))
+
 (define al-edit-dialog%
   (class object%
     (init-field title
@@ -1775,7 +1781,10 @@
      ;; called when the layout of the widget changes from vertical to
      ;; horizontal or reverse; it is called with two parameters: the current
      ;; object, and a flag which is #t for vertical, #f for horizontal
-     [layout-changed-cb #f])
+     [layout-changed-cb #f]
+     ;; Tag used by this object to store its preferences with
+     ;; `save-visual-layout'
+     [tag 'tab-selector-prefs])
     (super-new)
 
     ;; Font used to draw the labels
@@ -1802,6 +1811,14 @@
     (define hover-index #f)     ; index in labels for the item under the mouse
     (define expand-label #f)    ; created below
     (define collapse-label #f)  ; created below
+
+    ;; Restore preferences here
+    (let ((visual-layout (al-get-pref tag (lambda () '(gen1 #t)))))
+      (when (and visual-layout (list? visual-layout) (> (length visual-layout) 1))
+        ;; Visual layout is valid, check version
+        (when (eq? (car visual-layout) 'gen1)
+          (match-define (list 'gen1 v?) visual-layout)
+          (set! vertical? v?))))
 
     ;; Returns the width of the label text.  Does the right thing if the
     ;; layout is vertical.
@@ -2047,6 +2064,9 @@
             (send canvas refresh))
           (when select?
             (set-selection index))))
+
+    (define/public (save-visual-layout)
+      (al-put-pref tag (list 'gen1 vertical?)))
 
     ))
 

@@ -857,6 +857,7 @@
                          [stretchable-width #t]
                          [alignment '(left center)])))
 
+      (make-spacer sel-pane)
       (new message% [parent sel-pane] [label planner-icon])
 
       (let ((p (new horizontal-pane%
@@ -875,8 +876,7 @@
                                [font f]
                                [callback (lambda (c e) (on-date-selected))]))
 
-        ;; This is really a spacer
-        (new message% [parent p] [label ""] [min-width 50] [stretchable-width #t])
+        (make-spacer p 50 #t)
 
         (set! prev-button
               (new button% [parent p]
@@ -888,8 +888,9 @@
                    [callback (lambda (b e) (jump-to-next-month))]))
         (new button% [parent p]
              [label "Today"]
-             [callback (lambda (b e) (jump-to-today))])
-        ))
+             [callback (lambda (b e) (jump-to-today))]))
+
+      (make-spacer sel-pane))
 
     (define the-calendar
       (let ((calendar (new calendar-pasteboard%

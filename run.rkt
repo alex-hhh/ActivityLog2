@@ -38,12 +38,12 @@
           (msg-y (- (/ ch 2) (/ h 2))))
       (send dc draw-text message msg-x msg-y))))
 
-(start-splash (vector draw-splash 400 100) "ActivityLog2" 100)
-
 ;; Remove the progress bar.  The progress works fine while running the
 ;; application using racket, but does not work (shows no progress) when the
 ;; application is compiled into an executable...
 (set-splash-progress-bar?! #f)
+
+(start-splash (vector draw-splash 400 100) "ActivityLog2" 100)
 
 (lazy-require ("rkt/main.rkt" (main)))
 (main)

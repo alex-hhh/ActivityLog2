@@ -163,7 +163,7 @@
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
-
+      (make-spacer sel-pane)
       (new message% [parent sel-pane] [label stopwatch-icon])
 
       (let ((q (new vertical-pane% [spacing 5] [parent sel-pane] [alignment '(left center)])))
@@ -213,8 +213,9 @@
                        [use-retired-equipment? #t]
                        [callback (lambda (o)
                                    (set! equipment-filter (send o get-contents-as-tag-ids))
-                                   (on-filter-changed))]))))
-        ))
+                                   (on-filter-changed))])))))
+      
+      (make-spacer sel-pane))
 
     (define lb
       (new (class qresults-list% (init) (super-new)

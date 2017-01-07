@@ -271,16 +271,15 @@
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
-
-      (new message% 
-           [parent sel-pane]
-           [label import-icon])
+      (make-spacer sel-pane)
+      (new message% [parent sel-pane] [label import-icon])
 
       (let ((p (new horizontal-pane% [parent sel-pane]
                     [stretchable-width #t] [border 20]
                     [alignment '(right center)])))
         (new button% [parent p] [label "Import..."]
-             [callback (lambda (b e) (on-import-new-activities))])))
+             [callback (lambda (b e) (on-import-new-activities))]))
+      (make-spacer sel-pane))
 
     (define lb 
       (new (class qresults-list% (init) (super-new)

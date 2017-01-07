@@ -74,6 +74,8 @@
 			[stretchable-height #f]
 			[alignment '(left center)]))
 
+    (define begining-spacer (make-spacer panel0))
+
     (define sport-icon (new message% [parent panel0]
 			    [label (get-sport-bitmap-colorized 0 0)]
 			    [stretchable-width #f]
@@ -164,6 +166,8 @@
            [callback (lambda (b e) (on-revert-headline))]
            [style '(deleted)]))
 
+    (define end-spacer (make-spacer panel0))
+
     (define is-editing? #f)
 
     (define (on-edit-headline)
@@ -191,7 +195,7 @@
               (list session-title-edit sport-panel-edit)))
       (send panel0 change-children
             (lambda (old)
-              (list sport-icon panel save-button revert-button)))
+              (list begining-spacer sport-icon panel save-button revert-button end-spacer)))
       (send session-title-edit focus))
 
     (define (switch-to-view-mode)
@@ -205,7 +209,7 @@
               (list session-title start-time sport-panel)))
       (send panel0 change-children
             (lambda (old)
-              (list sport-icon panel edit-button))))
+              (list begining-spacer sport-icon panel edit-button end-spacer))))
 
     (define (update-session-healine sid db)
       (when (and db sid)

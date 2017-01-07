@@ -263,6 +263,7 @@
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
+      (make-spacer sel-pane)
       (new message% [parent sel-pane] [label wscale-icon])
       (let ((p (new horizontal-pane% [parent sel-pane]
                     [stretchable-width #f] [border 20]
@@ -273,7 +274,8 @@
                         [callback (lambda (s) (on-date-range s))])))
           (send drf set-seasons (db-get-seasons database))
           (set! date-range (send drf get-selection))
-          (set! date-range-selector drf))))
+          (set! date-range-selector drf)))
+      (make-spacer sel-pane))
 
     (define lb (new qresults-list% [parent pane]
                     [tag 'activity-log:athlete-metrics]

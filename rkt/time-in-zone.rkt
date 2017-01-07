@@ -186,7 +186,7 @@ select P.id
 
   (define progress-dialog
     (new al-progress-dialog%
-         [title "Update time in zone data"]
+         [title "Update metrics"]
          [icon sql-export-icon]))
 
   (define (task progress-dialog)

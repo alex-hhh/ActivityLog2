@@ -345,13 +345,13 @@
           (send toplevel rebuild-elevation-data))])
 
   (new menu-item%
-       [parent tools-menu] [label "Rebuild time in zone data..."]
+       [parent tools-menu] [label "Rebuild metrics..."]
        [callback
         (lambda (m e)
           (send toplevel rebuild-time-in-zone-data))])
 
   (new menu-item%
-       [parent tools-menu] [label "Optimize database (vacuum)..."]
+       [parent tools-menu] [label "Optimize database..."]
        [callback
         (lambda (m e)
           (send toplevel vacuum-database))])
@@ -721,6 +721,8 @@
                   (send (tl-section-content section) save-visual-layout))
                 the-sections)
 
+      (send section-selector save-visual-layout)
+
       ;; Save the size of the frame, so we can re-open it with the same
       ;; dimensions
       (unless (or (send tl-frame is-maximized?) (send tl-frame is-fullscreened?))
@@ -802,18 +804,25 @@
 
       (define progress-dialog
         (new al-progress-dialog%
-             [title "Optimize database (vacuum)"]
+             [title "Optimize database (vacuum and analyze)"]
              [can-cancel? #f]
              [icon sql-export-icon]))
 
       (define (task progress-dialog)
-        (dbglog "vacuum-database thread started (main database)")
-        (send progress-dialog set-message "This will take a while...")
+        (dbglog "vacuum-database started (main database)")
+        (send progress-dialog set-message "Vacuum database ...")
         (query-exec database "vacuum")
-        (dbglog "vacuum-database thread started (tile cache database)")
+        (dbglog "analyze-database started (main database)")
+        (send progress-dialog set-message "Analyze database ...")
+        (query-exec database "analyze")
+        ;; The command below forces the statistics to be reloaded in the
+        ;; current session.
+        (query-exec database "analyze sqlite_master")
+        (dbglog "vacuum-database started (tile cache database)")
+        (send progress-dialog set-message "Vacuum tile cache database ...")
         (vacuum-tile-cache-database)
-        (dbglog "vacuum-database thread completed")
-        (send progress-dialog set-message "Completed..."))
+        (dbglog "vacuum-database completed")
+        (send progress-dialog set-message "Completed."))
 
       (when database
         (send progress-dialog run tl-frame task)))

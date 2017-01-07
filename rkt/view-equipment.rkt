@@ -607,7 +607,9 @@ where EQ.id = ?" eqid))
      (column-info "Device Name" fn fn))
    (let ((fn (lambda (row) (vector-ref row 3))))
      (column-info "Serial Number"
-                  (lambda (row) (number->string (fn row)))
+                  (lambda (row)
+                    (let ((sn (fn row)))
+                      (if (zero? sn) "" (number->string (fn row)))))
                   fn))
    (let ((fn (lambda (row) (sql-column-ref row 4 0))))
      (column-info "Retired?"
@@ -880,12 +882,14 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
                          [stretchable-height #f]
                          [stretchable-width #t]
                          [alignment '(left center)])))
+      (make-spacer sel-pane)
       (new message% [parent sel-pane] [label equipment-icon]))
 
     (let ((p (new horizontal-pane% [parent pane] 
                   [border 0] [spacing 20] 
                   [alignment '(left center)]
                   [stretchable-height #f])))
+      (make-spacer p)
       (new message%
            [parent p]
            [stretchable-height #f]
@@ -911,6 +915,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
                   [border 0] [spacing 20] 
                   [alignment '(left center)]
                   [stretchable-height #f])))
+      (make-spacer p)
       (new message%
            [parent p]
            [stretchable-height #f]

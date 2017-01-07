@@ -37,12 +37,12 @@
 ;;.............................................. badge field definitions ....
 
 (define *color-16* (make-color 238 238 238))
-(define *hr-color* (make-color 255 214 218))
-(define *elevation-color* (make-color 216 255 223))
-(define *cadence-color* (make-color 255 247 216))
-(define *timing-color* (make-color 147 224 255))
-(define *power-color* (make-color #xff #xbb #xff))
-(define *weather-color* (make-color #xf5 #xde #xb3))
+(define *hr-color* (make-color 255 242 243))
+(define *elevation-color* (make-color 229 255 233))
+(define *cadence-color* (make-color 255 249 229))
+(define *timing-color* (make-color 229 247 255))
+(define *power-color* (make-color 255 229 255))
+(define *weather-color* (make-color 244 236 220))
 
 
 (struct badge-field-def (name extractor formatter))

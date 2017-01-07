@@ -346,6 +346,7 @@
           (let ((index (find-axis name axis-choices)))
             (set! y-axis-index (or index 0)))))
       (send y-axis-choice set-selection y-axis-index)
+      (set! export-file-name #f)
       (restore-params-for-axis))
 
     (define/public (save-visual-layout)
