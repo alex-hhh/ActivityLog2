@@ -109,10 +109,10 @@
 
 (define (make-sql-query start-date end-date group-by sport sub-sport)
   (format "select ~a as period,
-           total(VAL.duration) / 3600.0 as duration,
-           total(VAL.distance) / 1000.0 as distance,
+           round(total(VAL.duration) / 3600.0, 2) as duration,
+           round(total(VAL.distance) / 1000.0, 2) as distance,
            count(VAL.session_id) as session_count,
-           total(VAL.tss) as training_stress
+           round(total(VAL.tss)) as training_stress
            from V_ACTIVITY_LIST VAL
            where VAL.start_time between ~a and ~a
              and ~a
@@ -183,6 +183,7 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
+    (define y-label #f)
 
     (define/override (make-settings-dialog)
       (new vol-chart-settings%
@@ -193,14 +194,21 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (export-data-to-file file formatted?)
+      (when chart-data
+        (call-with-output-file file export-data-as-csv
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out)
+      (write-string (format "Timestamp, ~a~%" y-label) out)
+      (for ((datum chart-data) #:when (> (vector-length datum) 1))
+        (match-define (vector timestamp val) datum)
+        (write-string (format "~a, ~a~%" timestamp val) out)))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (and data-valid?
-           (let* ((metric (vol-params-metric (send this get-params)))
-                  (y-label (case metric
-                             ((0) "Time") ((1) "Distance")
-                             ((2) "Session Count") ((3) "Trainning Stress"))))
-             (vol-trends-plot canvas chart-data y-label))))
+           (vol-trends-plot canvas chart-data y-label)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -213,6 +221,9 @@
                    (sport (vol-params-sport params))
                    (sub-sport (vol-params-sub-sport params))
                    (timestamps (generate-timestamps start end group-by)))
+              (set! y-label (case metric
+                              ((0) "Time") ((1) "Distance")
+                              ((2) "Session Count") ((3) "Trainning Stress")))
               (set! sql-query (make-sql-query start end group-by sport sub-sport))
               (set! sql-query-result (get-data database sql-query metric))
               (when (> (length sql-query-result) 0)

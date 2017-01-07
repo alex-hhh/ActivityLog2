@@ -21,6 +21,7 @@
  racket/match
  racket/gui/base
  racket/stream
+ racket/format
  db
  plot
  "plot-hack.rkt"
@@ -28,7 +29,8 @@
  "database.rkt"
  "widgets.rkt"
  "al-widgets.rkt"
- "trends-chart.rkt")
+ "trends-chart.rkt"
+ "fmt-util.rkt")
 
 (provide pmc-trends-chart%)
 
@@ -311,6 +313,28 @@
 
     (define/override (invalidate-data)
       (set! data-valid? #f))
+
+    (define/override (export-data-to-file file formatted?)
+      (when pmc-data
+        (call-with-output-file file
+          (lambda (out) (export-data-as-csv out formatted?))
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out formatted?)
+      (define (fmt val) (~r val #:precision 2 #:notation 'positional))
+      (write-string "Day, ATL, CTL, TSB, Stress" out)
+      (newline out)
+      ;; PMC is computed well in advance to compensate for the long ramp up
+      ;; time of ATL CTL values.  Only print out the actual range, values
+      ;; before start-date are not accurate.
+      (let ((params (send this get-params)))
+        (for ((datum pmc-data) #:when (>= (vector-ref datum 0) (pmc-params-start-date params)))
+          (match-define (vector day ctl atl tss) datum)
+          (write-string
+           (format "~a, ~a, ~a, ~a, ~a~%"
+                   (calendar-date->string day)
+                   (fmt atl) (fmt ctl) (fmt (- ctl atl)) (fmt tss))
+           out))))
 
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)

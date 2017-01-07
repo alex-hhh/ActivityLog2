@@ -127,6 +127,19 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (export-data-to-file file formatted?)
+      (when bw-data
+        (call-with-output-file file export-data-as-csv
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out)
+      ;; NOTE: we write out the filtered bodyweight, as plotted on the graph.
+      (write-string "Timestamp, Bodyweight (filtered)" out)
+      (newline out)
+      (for ((datum bw-data))
+        (match-define (vector timestamp bw) datum)
+        (write-string (format "~a, ~a~%" timestamp bw) out)))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (when data-valid?

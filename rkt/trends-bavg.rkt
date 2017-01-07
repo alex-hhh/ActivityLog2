@@ -287,6 +287,33 @@
     (define/override (invalidate-data)
       (set! cached-data #f))
 
+    (define/override (export-data-to-file file formatted?)
+      (when cached-data
+        (call-with-output-file file export-data-as-csv
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out)
+      (define data (tbavg-data cached-data))
+      (define heat-map (tbavg-heat-map cached-data))
+      (write-string "Duration, Value, Sid, Time" out)
+      (when heat-map (write-string ", Heat" out))
+      (newline out)
+      (for (((datum index) (in-indexed data)))
+        (match-define (list sid pos duration value) datum)
+        (write-string (format "~a, ~a, ~a, ~a"
+                              duration
+                              value
+                              sid
+                              pos)
+                      out)
+        ;; Heat map, if present, should have the same number of items as the
+        ;; main data, in the same order for the same durations.  We don't
+        ;; check that, though.
+        (when heat-map
+          (let ((h (list-ref heat-map index)))
+            (write-string (format ", ~a" (vector-ref h 1)) out)))
+        (newline out)))
+
     (define/override (put-plot-snip canvas)
       (send canvas set-snip #f)
       (send canvas set-background-message "Working...")

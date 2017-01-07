@@ -271,6 +271,19 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (export-data-to-file file formatted?)
+      (when tt-data
+        (call-with-output-file file
+          (lambda (out) (export-data-as-csv out formatted?))
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out formatted?)
+      (define all-series '("dow" "time" "ntotal" "nstrength" "nswim" "ncycle" "nrun" "sport_id" "sub_sport_id"))
+      (define actual-series
+        (for/list ([series all-series] #:when (send tt-data contains? series))
+          series))
+      (apply df-write/csv out tt-data actual-series))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (when data-valid?

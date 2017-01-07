@@ -78,6 +78,9 @@
     ;; the plot has not changed.  This needs to be overriden.
     (define/public (put-plot-snip canvas)
       #f)
+
+    (define/public (export-data-to-file file formatted?)
+      #f)
     
     (define/public (get-settings-dialog)
       (unless settings-dialog (set! settings-dialog (make-settings-dialog)))

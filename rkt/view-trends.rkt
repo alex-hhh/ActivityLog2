@@ -21,6 +21,7 @@
  racket/list
  "al-prefs.rkt"
  "widgets.rkt"
+ "dbglog.rkt"
  "snip-canvas.rkt"
  "icon-resources.rkt"
  "trends-chart.rkt"
@@ -102,6 +103,9 @@
 
     (define/public (export-image-to-file file)
       (send graph-pb export-image-to-file file))
+
+    (define/public (export-data-to-file file formatted?)
+      (send trend-chart export-data-to-file file formatted?))
 
     ))
 
@@ -273,21 +277,48 @@
         (send title-field set-label (send chart get-title)))
       (send move-left-button enable (not (zero? n)))
       (send move-right-button enable (< n (sub1 (length trend-charts)))))
+
+    (define (with-exn-handling name thunk)
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e)
+            ;; NOTE: 'print-error-trace' will only print a stack trace if the
+            ;; error trace library is used.  To use it, remove all .zo files
+            ;; and run "racket -l errortrace -t run.rkt"
+            (let ((message (if (exn? e) (exn-message e) e)))
+              (dbglog-exception name e)
+              (message-box name message
+                           (send parent get-top-level-window)
+                           '(ok stop))))))
+        (thunk)))
     
     (define (on-interactive-export-image)
-      (let ((n (send trend-charts-panel get-selection)))
-        (when n
-          (let* ((c (list-ref trend-charts n))
-                 (file (put-file "Select file to export to" #f #f
-                                 (format "~a.csv" (send c get-name))
-                                 "png" '()
-                                 '(("PNG Files" "*.png") ("Any" "*.*")))))
-            (when file
-              (send (list-ref trend-charts n) export-image-to-file file))))))
-    
+      (with-exn-handling
+        "on-interactive-export-image"
+        (lambda ()
+          (let ((n (send trend-charts-panel get-selection)))
+            (when n
+              (let* ((c (list-ref trend-charts n))
+                     (file (put-file "Select file to export to" #f #f
+                                     (format "~a.png" (send c get-name))
+                                     "png" '()
+                                     '(("PNG Files" "*.png") ("Any" "*.*")))))
+                (when file
+                  (send c export-image-to-file file))))))))
+        
     (define (on-interactive-export-data formatted?)
-      #f)
-
+      (with-exn-handling
+        "on-interactive-export-data"
+        (lambda ()
+          (let ((n (send trend-charts-panel get-selection)))
+            (when n
+              (let* ((c (list-ref trend-charts n))
+                     (file (put-file "Select file to export to" #f #f
+                                     (format "~a.csv" (send c get-name))
+                                     "csv" '()
+                                     '(("CSV Files" "*.csv") ("Any" "*.*")))))
+                (send c export-data-to-file file formatted?)))))))
+        
     (define first-activation #t)
 
     (define/public (activated)

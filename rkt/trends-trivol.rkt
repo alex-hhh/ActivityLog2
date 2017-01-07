@@ -28,7 +28,8 @@
  "widgets.rkt"
  "al-widgets.rkt"
  "trends-chart.rkt"
- "sport-charms.rkt")
+ "sport-charms.rkt"
+ "fmt-util.rkt")
 
 (provide trivol-trends-chart%)
 
@@ -58,7 +59,7 @@
            [choices '("Week" "Month" "Year")]))
     (define metric-choice
       (new choice% [parent grouping-gb] [label "Metric "]
-           [choices '("Time" "Distance" "Session Count")]))
+           [choices '("Time" "Distance" "Session Count" "Effort")]))
 
     (define/public (get-restore-data)
       (list
@@ -106,10 +107,10 @@
 
 (define (make-sql-query/time start-date end-date group-by)
   (format "select ~a as period,
-           total(T.strength_time) / 3600.0 as strength_time,
-           total(T.swim_time) / 3600.0 as swim_time,
-           total(T.bike_time) / 3600.0 as bike_time,
-           total(T.run_time) / 3600.0 as run_time
+           round(total(T.strength_time) / 3600.0, 2) as strength_time,
+           round(total(T.swim_time) / 3600.0, 2) as swim_time,
+           round(total(T.bike_time) / 3600.0, 2) as bike_time,
+           round(total(T.run_time) / 3600.0, 2) as run_time
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
@@ -145,9 +146,28 @@
 (define (make-sql-query/distance start-date end-date group-by)
   (format "select ~a as period,
            0 as strength_distance,
-           total(T.swim_distance) / 1000.0,
-           total(T.bike_distance) / 1000.0,
-           total(T.run_distance) / 1000.0
+           round(total(T.swim_distance) / 1000.0, 2),
+           round(total(T.bike_distance) / 1000.0, 2),
+           round(total(T.run_distance) / 1000.0, 2)
+           from V_TRIATHLON_SESSIONS T
+           where T.start_time between ~a and ~a group by period order by period"
+          (cond ((eqv? group-by 0)       ; week
+                 "date(T.start_time, 'unixepoch', 'localtime', '-6 days', 'weekday 1')")
+                ((eqv? group-by 1)       ; month
+                 "date(T.start_time, 'unixepoch', 'localtime', 'start of month')")
+                ((eqv? group-by 2)       ; year
+                 "date(T.start_time, 'unixepoch', 'localtime', 'start of year')")
+                (#t
+                 #f))
+          start-date
+          end-date))
+
+(define (make-sql-query/stress start-date end-date group-by)
+  (format "select ~a as period,
+           round(total(T.strength_effort)),
+           round(total(T.swim_effort)),
+           round(total(T.bike_effort)),
+           round(total(T.run_effort))
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
@@ -219,8 +239,24 @@
       (and data-valid?
            (let* ((metric (trivol-params-metric (send this get-params)))
                   (y-label (case metric
-                             ((0) "Time") ((1) "Distance") ((2) "Session Count"))))
+                             ((0) "Time") ((1) "Distance") ((2) "Session Count") ((3) "Effort"))))
              (trivol-trends-plot canvas chart-data y-label))))
+
+    (define/override (export-data-to-file file formatted?)
+      (when chart-data
+        (call-with-output-file file
+          (lambda (out) (export-data-as-csv out formatted?))
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out formatted?)
+      (write-string "Timestamp, Strength, Swim, Bike, Run" out)
+      (newline out)
+
+      (for ((datum chart-data) #:when (> (vector-length datum) 1))
+        (match-define (vector timestamp wtime stime btime rtime) datum)        
+        (write-string
+         (format "~a, ~a, ~a, ~a, ~a~%" timestamp wtime stime btime rtime))
+         out))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -235,7 +271,8 @@
                     (case metric
                       ((0) (make-sql-query/time start end group-by))
                       ((1) (make-sql-query/distance start end group-by))
-                      ((2) (make-sql-query/count start end group-by))))
+                      ((2) (make-sql-query/count start end group-by))
+                      ((3) (make-sql-query/stress start end group-by))))
               (set! sql-query-result (get-data database sql-query))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))

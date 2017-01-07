@@ -29,7 +29,8 @@
  "widgets.rkt"
  "al-widgets.rkt"
  "trends-chart.rkt"
- "sport-charms.rkt")
+ "sport-charms.rkt"
+ "fmt-util.rkt")
 
 (provide tiz-trends-chart%)
 
@@ -244,6 +245,37 @@
 
     (define/override (invalidate-data)
       (set! data-valid? #f))
+
+    (define/override (export-data-to-file file formatted?)
+      (when chart-data
+        (call-with-output-file file
+          (lambda (out) (export-data-as-csv out formatted?))
+          #:mode 'text #:exists 'truncate)))
+
+    (define (export-data-as-csv out formatted?)
+      (write-string
+       "Timestamp, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, Z9, Z10" out)
+      (newline out)      
+      (for ((datum chart-data) #:when (> (vector-length datum) 1))
+        (match-define (vector timestamp z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10) datum)
+        (write-string
+         (if formatted?
+             (format "~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a~%"
+                     timestamp
+                     (duration->string (* z0 3600.0))
+                     (duration->string (* z1 3600.0))
+                     (duration->string (* z2 3600.0))
+                     (duration->string (* z3 3600.0))
+                     (duration->string (* z4 3600.0))
+                     (duration->string (* z5 3600.0))
+                     (duration->string (* z6 3600.0))
+                     (duration->string (* z7 3600.0))
+                     (duration->string (* z8 3600.0))
+                     (duration->string (* z9 3600.0))
+                     (duration->string (* z10 3600.0)))
+             (format "~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a, ~a~%"
+                     timestamp z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
+         out)))
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
