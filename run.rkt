@@ -17,26 +17,36 @@
 (require framework/splash
          racket/class
          racket/draw
-         racket/lazy-require)
+         racket/lazy-require
+         "rkt/version.rkt")
 
 ;; Start up a splash screen, rest of the application will be lazy-required
 ;; below.  This will make the splash screen show up while the rest of the app
 ;; is loading.
 (define font
   (send the-font-list find-or-create-font 24 'default 'normal 'normal))
+(define small-font
+  (send the-font-list find-or-create-font 8 'default 'normal 'normal))
 (define color (make-color #x69 #x69 #x69))
 (define message "ActivityLog2 is loading ...")
 
 (define (draw-splash dc gauge max-gauge width height)
   (send dc clear)
   (send dc set-smoothing 'smoothed)
-  (send dc set-font font)
+
   (send dc set-text-foreground color)
-  (let-values (((cw ch) (send dc get-size))
-               ([w h x y] (send dc get-text-extent message font #t)))
-    (let ((msg-x (- (/ cw 2) (/ w 2)))
-          (msg-y (- (/ ch 2) (/ h 2))))
-      (send dc draw-text message msg-x msg-y))))
+  (let-values (((cw ch) (send dc get-size)))
+    (let-values (([w h x y] (send dc get-text-extent message font #t)))
+      (let ((msg-x (- (/ cw 2) (/ w 2)))
+            (msg-y (- (/ ch 2) (/ h 2))))
+        (send dc set-font font)
+        (send dc draw-text message msg-x msg-y)))
+    (let ((version (string-append "Version " (app-version))))
+      (let-values (([w h x y] (send dc get-text-extent version small-font #t)))
+        (let ((msg-x 5)
+              (msg-y (- ch h 5)))
+          (send dc set-font small-font)
+          (send dc draw-text version msg-x msg-y))))))
 
 ;; Remove the progress bar.  The progress works fine while running the
 ;; application using racket, but does not work (shows no progress) when the

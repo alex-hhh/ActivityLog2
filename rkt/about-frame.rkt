@@ -91,8 +91,8 @@
 
   (send editor insert logo)
   (insert-newline editor)
-  (insert-heading editor "ActivityLog2 - fitness activity tracker")
-  (insert-text editor "Copyright (C) 2015 - 2016, Alex Harsanyi")
+  (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
+  (insert-text editor "Copyright (C) 2015 - 2017, Alex Harsanyi")
   (insert-newline editor)
   (insert-newline editor)
   (insert-text editor "Project source: ")
