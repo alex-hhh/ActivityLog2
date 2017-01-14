@@ -602,6 +602,15 @@
         (send track set-zorder zorder))
       (send canvas refresh))
 
+    ;; Delete all tracks in GROUP, or delete all tracks if GROUP is #f.
+    (define/public (delete-track-group group)
+      (define ntracks
+        (for/list ([track tracks]
+                   #:unless (or (not group) (equal? group (send track get-group))))
+          track))
+      (set! tracks ntracks)
+      (send canvas refresh))
+          
     (define/public (get-bbox [group #f])
       (for/fold ([bbox #f])
                 ([track tracks]

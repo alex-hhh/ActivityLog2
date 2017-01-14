@@ -354,9 +354,9 @@
       (define series (new data-series% [name name] [data data]))
       (add-series series))
 
-    ;; Create a generator that produces values from SERIES-NAMES (a list of
-    ;; series names).  The values are packed into a vector.  This is used by
-    ;; `map` and `fold` (see below).
+    ;; Create a generator that produces values from SERIES-NAMES (a series
+    ;; name or a list of series names).  The values are packed into a vector.
+    ;; This is used by `map` and `fold` (see below).
     (define (make-generator series-names #:start (start 0) #:end (end (get-row-count)))
       (define series-data
         (for/list ([s (if (list? series-names) (in-list series-names) (in-value series-names))])

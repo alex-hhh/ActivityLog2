@@ -531,6 +531,7 @@
 (provide
  lap-start-time
  lap-time
+ lap-elapsed-time
 
  lap-distance
  lap-calories
@@ -574,6 +575,7 @@
 
 (define lap-time session-time)
 (define lap-start-time session-start-time)
+(define lap-elapsed-time session-elapsed-time)
 
 (define lap-distance session-distance)
 (define lap-calories session-calories)
@@ -626,13 +628,13 @@
 
 (define (lap-avg-strokes lap)
   (let ((total-strokes (lap-total-cycles lap))
-        (num-lengths (length (lap-lengths lap))))
+        (num-lengths (lap-num-lengths lap)))
     (if (and total-strokes num-lengths (> num-lengths 0))
         (/ total-strokes num-lengths)
         #f)))
 
 (define (lap-lengths lap)
-  (cdr (assq 'lengths lap)))
+  (or (assq1 'lengths lap) '()))
 
 (define (lap-num-lengths lap)
   (length (lap-lengths lap)))

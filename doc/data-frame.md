@@ -120,8 +120,9 @@ The following methods can be used to get information about what series are
 available in the data frame:
 
 * `get-series-names` -- returns a list of all the series names
-* `contains?` -- returns #t if the data frame contains a certain series
-* `contains/any?` -- returns #t if the data frame contains any of the
+* `contains?` -- returns #t if the data frame contains *all* of the specified
+  series
+* `contains/any?` -- returns #t if the data frame contains *any* of the
   specified series
 * `get-row-count` -- returns the number of elements in each series of the data
   frame (all series have the same number of elements)
@@ -137,7 +138,11 @@ For example:
       "lpppa" "lpco")
     scratch.rkt> (send df contains? "timer")
     #t
+    scratch.rkt> (send df contains? "lat" "lon")
+    #t
     scratch.rkt> (send df contains? "non-existent")
+    #f
+    scratch.rkt> (send df contains? "timer" "non-existent")
     #f
     scratch.rkt> (send df contains/any? "timer" "non-existent")
     #t

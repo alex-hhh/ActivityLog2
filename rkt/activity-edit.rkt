@@ -131,6 +131,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
+        (clear-session-df-cache sid) ; remove this session from the cache
         (interactive-fixup-elevation db sid toplevel)))
 
     (define (on-edit-weather m e)
@@ -169,6 +170,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                            #f "Delete" "Cancel" toplevel '(caution default=3))))
             (when (equal? mresult 2)
               (db-delete-session sid db)
+              (clear-session-df-cache sid) ; remove this session from the cache
               (send target after-delete sid))))))
 
     (define (on-copy-guid-to-clipboard m e)

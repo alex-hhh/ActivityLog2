@@ -64,7 +64,8 @@
  (get-series/ordered (-> (is-a?/c data-frame%) (listof string?)))
  (session-df (-> connection? number? (is-a?/c data-frame%)))
  (reorder-sids (-> (listof integer?) (listof integer?)))
- (clear-session-df-cache (->* () ((or/c integer? #f)) any/c)))
+ (clear-session-df-cache (->* () ((or/c integer? #f)) any/c))
+ (is-teleport? (-> (is-a?/c data-frame%) number? boolean?)))
 
 
 ;;.............................................. make-session-data-frame ....
@@ -162,6 +163,20 @@
 
   (when (send df contains? "timestamp")
     (send (send df get-series "timestamp") set-sorted #t))
+
+  ;; If we have a "dst" series, mark it as sorted, but first make sure it does
+  ;; not contain invalid values and it is monotonically growing (a lot of code
+  ;; depends on this).
+  (when (send df contains? "dst")
+    (let* ((series (send df get-series "dst"))
+           (data (send series get-data)))
+      (unless (vector-ref data 0)
+        (vector-set! data 0 0))
+      (for ([index (in-range 1 (vector-length data))])
+        (let ((item (vector-ref data index)))
+          (unless (and item (>= item (vector-ref data (sub1 index))))
+            (vector-set! data index (vector-ref data (sub1 index))))))
+      (send series set-sorted #t)))
 
   (add-timer-series df)
   (add-elapsed-series df)
@@ -274,12 +289,6 @@
 
   (when (send df contains? "dst")
 
-    ;; Mark the dst series as sorted, but only if all values are valid (swim
-    ;; sessions contain N/A's for some values in the DST series.
-    (let ((series (send df get-series "dst")))
-      (unless (send series has-invalid-values)
-        (send series set-sorted #t)))
-    
     ;; NOTE: the dst series contains #f's on lap swim activities.  Since this
     ;; series is used as a bases for the grahs, we patch the distance series
     ;; to contain valid values.
@@ -303,9 +312,10 @@
         (when (or (not current-point) (< current-point prev-point))
           (vector-set! distance idx prev-point))))
 
-    (send df add-series
-          (new data-series% [name "distance"] [data distance]))
-    (send (send df get-series "distance") set-sorted #t)))
+    (let ((series (new data-series% [name "distance"] [data distance])))
+      (send df add-series series)
+      (unless (send series has-invalid-values)
+        (send series set-sorted #t)))))
 
 (define (add-speed-series df)
 
@@ -1028,6 +1038,45 @@
 ;; other)
 (define (get-series/ordered df)
   (ordered-series all-series (send df get-series-names)))
+
+
+;;............................................................ utilities ....
+
+;; Return the time difference and map distance between the point at TIMESTAMP
+;; and the next point.  Returns (values -1 -1) if we cannot determine the
+;; difference.
+(define (delta-time-and-distance df timestamp)
+  (let ((index (send df get-index "timestamp" timestamp))
+        (timer-s (send df select "timestamp"))
+        (lat-s (send df select "lat"))
+        (lon-s (send df select "lon"))
+        (max-index (send df get-row-count)))
+    (if (and index (< (add1 index) max-index))
+        (let ((t1 (vector-ref timer-s index))
+              (t2 (vector-ref timer-s (+ index 1)))
+              (lat1 (vector-ref lat-s index))
+              (lat2 (vector-ref lat-s (+ index 1)))
+              (lon1 (vector-ref lon-s index))
+              (lon2 (vector-ref lon-s (+ index 1))))
+          ;; TODO: We have missing values at this timestamp, perhaps we should
+          ;; search forward (or backward?) for the a pair of valid points.
+          ;; This search can be quite complex however.  For now, we just give
+          ;; up if we have missing values.
+          (if (and t1 t2 lat1 lat2 lon1 lon2)
+              (values
+               (- t2 t1)
+               (map-distance/degrees lat1 lon1 lat2 lon2))
+              (values -1 -1)))
+        ;; We landed on the last index in the series...
+        (values -1 -1))))
+
+;; Return true if the point at TIMESTAMP is a teleportation point, where the
+;; recording was stopped, the user moved to a different spot and started
+;; recording again.
+(define (is-teleport? df timestamp)
+  (let-values (([dt dd] (delta-time-and-distance df timestamp)))
+    (> dd 20)))
+
 
 
 ;;............................................................. df cache ....
