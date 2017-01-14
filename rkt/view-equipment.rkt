@@ -947,10 +947,12 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
     (define (on-filter-changed)
       (refresh))
 
-    (send lb setup-column-defs *equipment-display-columns*)
-    (send service-log-lb setup-column-defs *service-log-display-columns*)
-
+    (define first-time? #t)
     (define/public (activated)
+      (when first-time?
+        (send lb setup-column-defs *equipment-display-columns*)
+        (send service-log-lb setup-column-defs *service-log-display-columns*)
+        (set! first-time? #f))
       (refresh))
 
     (define/public (refresh)

@@ -129,8 +129,8 @@
     ;; the user types "123", we don't want to fire the callback with 1, 12 and
     ;; 123)
     (define cb-timer
-      (new timer% [notify-callback 
-                   (lambda () 
+      (new timer% [notify-callback
+                   (lambda ()
                      (let ((value (get-value)))
                        (unless (equal? old-value value)
                          (when cb (cb (cvfn value)))
@@ -626,7 +626,7 @@
     (define low #f)
     (define high #f)
 
-    (define pane (new horizontal-pane% [parent parent] [stretchable-height #f] 
+    (define pane (new horizontal-pane% [parent parent] [stretchable-height #f]
                       [spacing 0] [border 0] [alignment '(left center)]))
 
     (new message% [parent pane] [label label] [min-width 70])
@@ -660,10 +660,55 @@
     (send lb set-column-width c (vector-ref w 0)
           (vector-ref w 1) (vector-ref w 2))))
 
+;; Resize header columns in the list-box% LB so that they fit in the client
+;; width.  This is not always possible, but we do the best job we can, see
+;; comments inside this function.
 (define (lb-set-default-visual-layout lb)
-  (let ((ncols (length (send lb get-column-order))))
-    (for ((c (in-range ncols)))
-      (send lb set-column-width c 100 0 10000))))
+  
+  ;; get-label-font reports as unimplemented on win32, so we use
+  ;; view-control-font as a fall back (we don't change fonts in any of our
+  ;; views
+
+  ;;(define font (send lb get-label-font))
+  (define font view-control-font)
+  (define dc (new bitmap-dc% [bitmap (make-screen-bitmap 100 100)]))
+  (define headers (send lb get-column-labels))
+  (define header-count (length headers))
+  ;; We have no way to find out the minimum column width that would fit the
+  ;; label without truncation, so we add a fudge factor to the size of the
+  ;; label text.
+  (define fudge 20)
+
+  ;; Determine the ideal width of each column.  This is computed so that the
+  ;; header text is completely visible, but we don't consider the cell
+  ;; contents (which might not be present at this time anyway).
+  (define column-widths
+    (for/vector #:length header-count ((label (in-list headers)))
+      (let-values (([w h x y] (send dc get-text-extent label font #t)))
+        (+ w fudge))))
+
+  (define total-width (for/sum ((w (in-vector column-widths))) w))
+  (define client-width (let-values (((w h) (send lb get-client-size))) w))
+  ;; NOTE: client-width might be 0 if the widget was not shown yet, if that is
+  ;; the case, we cannot further adjust the column widths.
+  (when (> client-width 0)
+    (cond ((> total-width (- client-width fudge))
+           ;; shrink large column widths so the total width fits in the client
+           ;; area.  We won't shrink columns to less than 3 * fudge, so avoid
+           ;; columns that are too small.
+           (let ((fair-width (max (* 3 fudge) (/ client-width header-count))))
+             (for ([index (in-range (vector-length column-widths))]
+                   #:when (> (vector-ref column-widths index) fair-width))
+               (vector-set! column-widths index fair-width))))
+          ((< total-width (- client-width fudge))
+           ;; Increase column widths to fill up client width
+           (let ((adjust (/ (- client-width total-width fudge) header-count)))
+             (for ([index (in-range (vector-length column-widths))])
+               (let ((val (vector-ref column-widths index)))
+                 (vector-set! column-widths index (+ val adjust))))))))
+
+  (for (((width index) (in-indexed (in-vector column-widths))))
+    (send lb set-column-width index (exact-truncate width) 0 10000)))
 
 (define (lb-ensure-row-count lb count)
   (let ((actual (send lb get-number)))
@@ -742,7 +787,7 @@
                     [spacing 10] [border 20]
                     [alignment '(center top)])))
         (set! fsel-pane
-              (new vertical-panel% [parent p] [spacing 5] 
+              (new vertical-panel% [parent p] [spacing 5]
                    [style '(vscroll)]
                    [alignment '(left top)]))
         (let ((p (new horizontal-pane% [parent p] [border 0]
@@ -770,12 +815,12 @@
     (define (setup fields visible-fields)
 
       (define (make-check-box label)
-        (new check-box% 
-             [parent fsel-pane] [label label] 
+        (new check-box%
+             [parent fsel-pane] [label label]
              [value (member label visible-fields)]
              [style '(deleted)]))
 
-      (send fsel-pane change-children 
+      (send fsel-pane change-children
             (lambda (old) (map make-check-box fields))))
 
     (define/public (begin-edit parent field-list visible-fields)
@@ -811,7 +856,7 @@
 
 (define qresults-list%
   (class object%
-    (init parent tag 
+    (init parent tag
           [label ""]
           [right-click-menu #f])
     (super-new)
@@ -876,7 +921,7 @@
 
       ;; Sort the data
       (let* ((cname (list-ref visible-columns n))
-             (key (column-info-sort-key 
+             (key (column-info-sort-key
                    (findf (lambda (ci) (equal? (column-info-name ci) cname))
                           column-defs)))
              (cmp (cond ((= (length the-data) 0) <) ; doesn't matter
@@ -909,10 +954,10 @@
     (define setup-fields-dlg #f)
 
     (define/public (interactive-setup-visible-columns)
-      (unless setup-fields-dlg 
+      (unless setup-fields-dlg
         (set! setup-fields-dlg (new fields-edit%)))
       (let ((visible-fields
-             (send setup-fields-dlg begin-edit 
+             (send setup-fields-dlg begin-edit
                    (send the-pane get-top-level-window)
                    (map column-info-name column-defs)
                    visible-columns)))
@@ -988,8 +1033,8 @@
       ;; `setup-column-defs'.
       ;; (printf "put-pref ~a -- ~a~%" pref-key (get-visual-layout the-list-box))
       (when pref-key
-        (al-put-pref pref-key 
-                     (cons visible-columns 
+        (al-put-pref pref-key
+                     (cons visible-columns
                            (lb-get-visual-layout the-list-box)))))
 
     (define/public (setup-column-defs fd)
@@ -998,8 +1043,8 @@
       (set! pref-key (make-pref-key the-tag column-defs))
       (set! sort-column #f)
       (let ((visual-layout (al-get-pref pref-key (lambda () #f))))
-        (let ((visible-fields (if visual-layout 
-                                  (car visual-layout) 
+        (let ((visible-fields (if visual-layout
+                                  (car visual-layout)
                                   (map column-info-name column-defs)))
               (lb-visual-layout (if visual-layout
                                     (cdr visual-layout)
@@ -1046,7 +1091,7 @@
 
     (define/public (update-row row-index new-data)
       (set! the-data
-            (append 
+            (append
              (take the-data row-index)
              (list new-data)
              (drop the-data (+ row-index 1))))
@@ -1061,10 +1106,10 @@
         (refresh-contents-1 row-index data)
         (send the-list-box set-selection row-index)
         (send the-list-box set-first-visible-item row-index)))
-    
+
     (define/public (delete-row row-index)
       (set! the-data
-            (append 
+            (append
              (take the-data row-index)
              (drop the-data (+ row-index 1))))
       (send the-list-box delete row-index))
@@ -1075,10 +1120,10 @@
     (define/public (clear)
       (send the-list-box clear)
       (set! the-data '()))
-    
+
     ;; Can be overriden if the user is interested in a double click on an
     ;; intem
-    (define/public (on-double-click row-index row-data) 
+    (define/public (on-double-click row-index row-data)
       #f)
 
     ;; Can be overriden if the user wants to be notified when an item is
@@ -1320,7 +1365,7 @@
 
     (define (get-max-snip-height snip-list)
       (set! max-snip-height
-            (foldl (lambda (snip h) 
+            (foldl (lambda (snip h)
                      ;; (when (> (snip-height snip) 16)
                      ;;   (printf "sh: ~a~%" snip))
                      (max h (snip-height snip)))
@@ -1481,13 +1526,13 @@
     (define pb #f)
     (define cb callback)
 
-    (let ((p (new horizontal-pane% 
+    (let ((p (new horizontal-pane%
                   [stretchable-height #f]
                   [parent parent] [alignment '(left top)] [spacing 5])))
       (when label
         (new message% [parent p] [label label]))
-      (set! pb (new tag-pasteboard% 
-                    [cue-text cue-text] 
+      (set! pb (new tag-pasteboard%
+                    [cue-text cue-text]
                     [callback (lambda (pb) (when callback (callback this)))]))
       (new editor-canvas% [parent p] [editor pb]
            [style '(no-border hide-hscroll)]
@@ -1674,7 +1719,7 @@
     (define start-timestamp (current-inexact-milliseconds))
     (define update-complete-flag #f)
     (define terminate-update-flag #f)
-    
+
     (define dialog-pane
       (let ((pane (new vertical-panel%
                        [parent toplevel-window] [border 20] [spacing 5]
@@ -1702,7 +1747,7 @@
 
     (define/public (set-message msg)
       (send message-box set-label msg))
-    
+
     (define/public (set-progress pct)
       (when (eqv? (inexact->exact pct) 0)
         (set! start-timestamp (current-inexact-milliseconds)))
@@ -1756,7 +1801,7 @@
         (send toplevel-window show #t) ; will block
         (send dialog-pane reparent old-toplevel)
         (set! toplevel-window old-toplevel)))
-    
+
     ))
 
 
@@ -2161,7 +2206,7 @@
                 (y2 (- (+ voffset label-height) (* 1/3 label-height))))
             (send dc draw-line x1 y1 x2 y2)
             (send dc draw-line x1 y2 x2 y1)))))
-        
+
     (define (on-key canvas event)
       #f)
 
@@ -2258,6 +2303,5 @@
       (let ((empty? (null? queued-messages)))
         (set! queued-messages (reverse (cons message (reverse queued-messages))))
         (when empty? (on-timer))))
-    
-    ))
 
+    ))

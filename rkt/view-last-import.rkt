@@ -293,8 +293,6 @@
 
     (send lb set-default-export-file-name "last-import.csv")
 
-    (send lb setup-column-defs *display-columns*)
-
     ;; The activty-operations interface
 
     (define selected-row-index #f)
@@ -344,7 +342,11 @@
     (define/public (after-popdown)
       (set! selected-row-index #f))
 
+    (define first-time? #t)
     (define/public (activated)
+      (when first-time?
+        (send lb setup-column-defs *display-columns*)
+        (set! first-time? #f))
       (refresh))
 
     (define/public (refresh)

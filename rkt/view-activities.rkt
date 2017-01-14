@@ -537,8 +537,6 @@
 
        ))
 
-    (send lb setup-column-defs *activity-list-display-columns*)
-
     (define (get-text-filtered-data data text)
       (if (and text (not (equal? text "")))
           (let ((regexps (map (lambda (s) (regexp-quote s #f)) (string-split text))))
@@ -566,18 +564,20 @@
               set-status-text 
               (make-activity-summary-label rows headers))))
 
-    (define dirty? #t)
+    (define first-time? #t)
 
     (define/public (activated)
-      (if dirty?
-          (refresh)
-          ;; Set the status text when activated
-          (let ((rows (get-text-filtered-data data text-filter)))
-            (send (send pane get-top-level-window) 
-                  set-status-text 
-                  (make-activity-summary-label rows headers))))
-      (set! dirty? #f))
-
+      (when first-time?
+        (send lb setup-column-defs *activity-list-display-columns*)
+        (refresh)
+        (set! first-time? #f))
+      
+      ;; Set the status text when activated
+      (let ((rows (get-text-filtered-data data text-filter)))
+        (send (send pane get-top-level-window) 
+              set-status-text 
+              (make-activity-summary-label rows headers))))
+ 
     (define/public (refresh)
       (send label-input-field setup-for-session database #f)
       (send equipment-input-field setup-for-session database #f)

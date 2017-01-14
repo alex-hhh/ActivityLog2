@@ -292,9 +292,13 @@
             set-status-text 
             (make-athlete-metrics-summary-label rows))))
 
-    (send lb setup-column-defs athlete-metrics-display-columns)
 
+    (define first-time? #t)
+    
     (define/public (activated)
+      (when first-time?
+        (send lb setup-column-defs athlete-metrics-display-columns)
+        (set! first-time? #f))
       (refresh))
 
     (define/public (refresh)
