@@ -36,7 +36,8 @@
  vacuum-tile-cache-database
  get-download-backlog
  allow-tile-download
- set-allow-tile-download)
+ set-allow-tile-download
+ shutdown-map-tile-workers)
 
 
 ;........................................................ debug helpers ....
@@ -296,6 +297,17 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; threads.
 ;; TODO: stop these threads nicely when the application exits.
 (define worker-threads '())
+
+;; Shutdown all the worker threads.  We tell the threads to stop and allow
+;; them to finish their current task.
+(define (shutdown-map-tile-workers)
+  (for ((worker worker-threads))
+    ;; We have several threads servicing the same channel, put a number of #f
+    ;; values so that each thread gets one and shuts down.
+    (async-channel-put db-request-channel #f)
+    (async-channel-put net-request-channel #f))
+  (for ((worker worker-threads))
+    (sync/timeout 0.1 (thread-dead-evt worker))))
 
 ;; Proces some replies from CHANNEL as sent by the database service or the
 ;; tile download threads.  Replies are tiles and theis corresponding PNG

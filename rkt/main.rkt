@@ -37,7 +37,10 @@
         (dbglog "caught exception in main: ~a" e)
         ;; Reset the default database on exception, next restard, this will
         ;; prompt the user to open another database...
-        (al-put-pref dbfile-key #f))))
+        (al-put-pref dbfile-key #f)
+        ;; Don't attempt to shut down workers here, as we might make a bad
+        ;; problem worse...
+        (exit 1))))
     (define database-file (al-get-pref dbfile-key (lambda () #f)))
     (cond ((not database-file)
            (dbglog "no database file stored in preferences"))

@@ -21,7 +21,8 @@
  "dbglog.rkt")
 
 (provide/contract
- [queue-task (-> string? procedure? any/c)])
+ [queue-task (-> string? procedure? any/c)]
+ [shutdown-workers (-> any/c)])
 
 ;; Requests to the worker threads are sent on this channel
 (define *request-channel* (make-async-channel #f))
@@ -55,3 +56,9 @@
 (define workers
   (for/list ([id (in-range 3)])
     (make-worker-thread id *request-channel*)))
+
+(define (shutdown-workers)
+  (for ((worker workers))
+    (async-channel-put *request-channel* #f))
+  (for ((worker workers))
+    (sync/timeout 0.1 (thread-dead-evt worker))))

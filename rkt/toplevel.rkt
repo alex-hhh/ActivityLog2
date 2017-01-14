@@ -48,7 +48,8 @@
          "al-profiler.rkt"
          "import.rkt"
          "metrics.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "workers.rkt")
 
 (provide toplevel-window%)
 
@@ -573,11 +574,9 @@
         (let ((dims (al-get-pref 'activity-log:frame-dimensions (lambda () (cons 1200 750)))))
           (new
            (class frame% (init) (super-new)
-             ;; Closing by sending show #f
-             (define/override (on-superwindow-show show?)
-               (if show?
-                   (queue-callback (lambda () (shutdown-splash) (close-splash)))
-                   (on-toplevel-close)))
+             ;; Note: the default implementation of on-exit is to call
+             ;; on-close and hide the window.
+             (define/augment (on-close) (send this show #f) (on-toplevel-close #t))
              (define/augment (can-close?) (can-close-toplevel?))
              (define/override (can-exit?) (can-close-toplevel?)))
            [width (car dims)] [height (cdr dims)]
@@ -588,6 +587,9 @@
       (send tl-frame maximize maximized?))
     (send tl-frame create-status-line)
     (make-log-output-window tl-frame)   ; notification banner
+    (queue-callback
+     (lambda () (shutdown-splash) (close-splash))
+     #f)
 
     (define tl-panel            ; Holds all the widgets in the toplevel window
       (new horizontal-pane% [parent tl-frame] [spacing 0]))
@@ -712,7 +714,7 @@
                   (#t #f)))
           #t))
 
-    (define (on-toplevel-close)
+    (define (on-toplevel-close (exit-application? #f))
       ;; NOTE: we might be called twice
       (dbglog "closing toplevel% for ~a" database-path)
 
@@ -741,7 +743,11 @@
         (clear-metrics-cache)
         (clear-session-df-cache)
         (set! database #f))
-      )
+
+      (when exit-application?
+        (shutdown-workers)
+        (shutdown-map-tile-workers)
+        (exit 0)))
 
     (define (get-section-by-tag tag)
       (findf (lambda (s) (eq? tag (tl-section-tag s))) the-sections))
@@ -865,11 +871,13 @@
           ;; moment we cannot have multiple databases open beacuse of
           ;; `init-sport-charms'.  This could be fixed with a medium effort.
           (send tl-frame show #f)
+          (on-toplevel-close #f)
           (send new-tl run))))
 
     (define/public (on-exit)
       (when (can-close-toplevel?)
-        (send tl-frame show #f)))
+        (send tl-frame show #f)
+        (on-toplevel-close #t)))
 
     (define/public (on-new-database)
       (when (can-close-toplevel?)
