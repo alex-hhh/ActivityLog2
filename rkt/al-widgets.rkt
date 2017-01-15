@@ -18,6 +18,7 @@
          racket/class
          racket/gui/base
          racket/math
+         racket/match
          "activity-util.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
@@ -26,14 +27,16 @@
          "widgets.rkt"
          "al-prefs.rkt"
          "al-log.rkt"
+         "intervals.rkt"
          "dbglog.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
 (provide equipment-input-field%)
-(provide lap-view%)
-(provide mini-lap-view%)
+(provide interval-view%)
+(provide mini-interval-view%)
 (provide swim-lengths-view%)
+(provide interval-choice%)
 (provide get-sql-export-dialog)
 
 (define identity (lambda (x) x))
@@ -260,6 +263,143 @@ values (?, ?)" session-id id))
 
     ))
 
+
+;..................................................... interval-choice% ....
+
+(struct split (name tag fn))
+
+
+;; A choice box widget that can select various types of intervals to be
+;; displayed in an associated interval-view% widget.
+(define interval-choice%
+  (class object%
+    (init-field parent [tag 'lap-type-selector] [label "Show Split Types: "])
+    (super-new)
+
+    (define interval-view #f)           ; the view we are controlling
+    (define session #f) ; the session object from which we fetch recorded laps
+    (define data-frame #f)
+    (define sport #f)
+    (define sid #f)
+
+    ;; Remember the type of intervals last used for each sport type.  We will
+    ;; restore these when a session for the same sport is installed.
+    (define interval-type-by-sport (make-hash))
+
+    ;; Restore preferences
+    (let ((pref (al-get-pref tag (lambda () #f))))
+      (when (and pref (eq? (car pref) 'gen1))
+        (match-define (list 'gen1 ltbs) pref)
+        (set! interval-type-by-sport (hash-copy ltbs))))
+
+    ;; Switch the interval view to display splits by 1 km
+    (define (on-km-splits)
+      (define km-splits (send data-frame get-property 'intervals-km-splits))
+      (unless km-splits
+        (set! km-splits (make-split-intervals data-frame "dst" 1000))
+        (send data-frame put-property 'intervals-km-splits km-splits))
+      (send interval-view set-intervals sport 'default km-splits sid))
+
+    ;; Switch the interval view to display splits by 1 mile
+    (define (on-mile-splits)
+      (define mile-splits (send data-frame get-property 'intervals-mile-splits))
+      (unless mile-splits
+        (set! mile-splits (make-split-intervals data-frame "dst" 1600))
+        (send data-frame put-property 'intervals-mile-splits mile-splits))
+      (send interval-view set-intervals sport 'default mile-splits sid))
+
+    ;; Switch the interval view to display the climbs in the session
+    (define (on-climb-splits)
+      (define climb-splits (send data-frame get-property 'intervals-climb-splits))
+      (unless climb-splits
+        (set! climb-splits (make-climb-intervals data-frame #:min-height 5 #:filter-width 150))
+        (send data-frame put-property 'intervals-climb-splits climb-splits))
+      (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
+
+    ;; Switch the interval view to display the descents in the session
+    (define (on-descent-splits)
+      (define descent-splits (send data-frame get-property 'intervals-descent-splits))
+      (unless descent-splits
+        (set! descent-splits (make-climb-intervals data-frame #:min-height 5 #:filter-width 150 #:descents #t))
+        (send data-frame put-property 'intervals-descent-splits descent-splits))
+      (send interval-view set-intervals sport 'hill-descents descent-splits sid))
+
+    ;; Switch the interval view to display the "bests" in the session.  For a
+    ;; bike activity, sections with best power for various lengths of time are
+    ;; displayed, for other activities, the best speed over various distances
+    ;; is displayed.
+    (define (on-best-splits)
+      (define best-splits (send data-frame get-property 'intervals-best-splits))
+      (unless best-splits
+        (set! best-splits
+              (if (eq? (vector-ref sport 0) 2)
+                  (make-best-power-intervals data-frame)
+                  (make-best-pace-intervals data-frame)))
+        (send data-frame put-property 'intervals-best-splits best-splits))
+      (send interval-view set-intervals sport 'best-splits best-splits))
+
+    ;; Switch the interval view to display the splits as recorded by the
+    ;; device
+    (define (on-recorded-splits)
+      (send interval-view set-intervals sport 'default (session-laps session) sid))
+
+    ;; List the kind of splits we can display, together with the function that
+    ;; can switch to them.
+    (define split-kinds
+      (list
+       (split "As Recorded" 'as-recorded on-recorded-splits)
+       (split "Km Splits" 'km-splits on-km-splits)
+       (split "Mile Splits" 'mile-splits on-mile-splits)
+       (split "Hill Climbs" 'hill-climbs on-climb-splits)
+       (split "Hill Descents" 'hill-descents on-descent-splits)
+       (split "Best Efforts" 'best-splits on-best-splits)))
+             
+    (define choice
+      (new choice% [parent parent]
+           [label label]
+           [choices (map split-name split-kinds)]
+           [callback (lambda (c e) (on-select-split-kind (send c get-selection)))]))
+
+    (define (on-select-split-kind index)
+      ;; NOTE: we check here if the widgets are valid, so the "on-*" don't
+      ;; have to to any validity checking.
+      (when (and data-frame session interval-view)
+        (let ((split (list-ref split-kinds index)))
+          (hash-set! interval-type-by-sport sport (split-tag split))
+          ((split-fn split)))))
+
+    ;; Setup the interval kind that was used when a session for the same sport
+    ;; as the current one was last selected.
+    (define (setup-interval-type-by-sport)
+      (let ((tag (hash-ref interval-type-by-sport sport #f)))
+        (if tag
+            (for/first (((split index) (in-indexed split-kinds))
+                        #:when (eq? (split-tag split) tag))
+              (send choice set-selection index)
+              ((split-fn split)))
+            (begin
+              (send choice set-selection 0)
+              ((split-fn (car split-kinds)))))))
+
+    (define/public (save-visual-layout)
+      (al-put-pref tag (list 'gen1 interval-type-by-sport)))
+
+    (define/public (set-session s df)
+      (set! session s)
+      (set! data-frame df)
+      (set! sport (send data-frame get-property 'sport))
+      (set! sid (send data-frame get-property 'session-id))
+      (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
+      (send choice enable (not is-lap-swim?))
+      (when is-lap-swim? (send choice set-selection 0))
+      (setup-interval-type-by-sport))
+
+    ;; Set the interval view we are about to control.
+    (define/public (set-interval-view lv)
+      (set! interval-view lv))
+
+    ))
+
 ;; Implements laps-view% which displays the laps of an activity
 
 
@@ -320,6 +460,20 @@ values (?, ?)" session-id id))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Pace" lap-avg-speed pace->string)))
 
+(define *run-mini-ascend-fields*
+  (list
+   (mk-column-info "Lap" lap-num lap-num-fmt)
+   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Distance" lap-distance distance->string)
+   (mk-column-info "Ascent" lap-total-ascent n->string)))
+
+(define *run-mini-descend-fields*
+  (list
+   (mk-column-info "Lap" lap-num lap-num-fmt)
+   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Distance" lap-distance distance->string)
+   (mk-column-info "Descent" lap-total-descent n->string)))
+
 (define *bike-lap-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
@@ -375,6 +529,27 @@ values (?, ?)" session-id id))
    (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Speed" lap-avg-speed speed->string)))
+
+(define *bike-mini-ascend-fields*
+  (list
+   (mk-column-info "Lap" lap-num lap-num-fmt)
+   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Distance" lap-distance distance->string)
+   (mk-column-info "Ascent" lap-total-ascent n->string)))
+
+(define *bike-mini-descend-fields*
+  (list
+   (mk-column-info "Lap" lap-num lap-num-fmt)
+   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Distance" lap-distance distance->string)
+   (mk-column-info "Descent" lap-total-descent n->string)))
+
+(define *bike-mini-best-fields*
+  (list
+   (mk-column-info "Lap" lap-num lap-num-fmt)
+   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Distance" lap-distance distance->string)
+   (mk-column-info "Power" lap-avg-power n->string)))
 
 (define *swim-lap-fields*
   (list
@@ -434,28 +609,49 @@ values (?, ?)" session-id id))
    (cons 2 *bike-mini-lap-fields*)
    (cons 5 *swim-mini-lap-fields*)))
 
+(define *mini-lap-definitions*
+  (hash
+   (cons 1 'hill-climbs) *run-mini-ascend-fields*
+   (cons 1 'hill-descents) *run-mini-descend-fields*
+   1 *run-mini-lap-fields*
+   (cons 2 'hill-climbs) *bike-mini-ascend-fields*
+   (cons 2 'hill-descents) *bike-mini-descend-fields*
+   (cons 2 'best-splits) *bike-mini-best-fields*
+   2 *bike-mini-lap-fields*
+   ;; Generic sports
+   (cons 0 'hill-climbs) *bike-mini-ascend-fields*
+   (cons 0 'hill-descents) *bike-mini-descend-fields*
+   0 *bike-mini-lap-fields*
+   ;; Alpine Skiing
+   (cons 13 'hill-climbs) *bike-mini-ascend-fields*
+   (cons 13 'hill-descents) *bike-mini-descend-fields*
+   13 *bike-mini-lap-fields*
+   5 *swim-mini-lap-fields*))
+   
 (define *default-mini-lap-fields* *bike-mini-lap-fields*)
 
 (define (get-lap-field-definitions sport)
-  (cond ((assoc sport *sport-lap-definitions*) => cdr)
+  (cond ((assoc (vector-ref sport 0) *sport-lap-definitions*) => cdr)
 	(#t *default-lap-fields*)))
 
-(define (get-mini-lap-field-definitions sport)
-  (cond ((assoc sport *sport-mini-lap-definitions*) => cdr)
-	(#t *default-mini-lap-fields*)))
+(define (get-mini-lap-field-definitions sport (topic 'default))
+  (define (href key) (hash-ref *mini-lap-definitions* key #f))
+  (or (href (cons sport topic))
+      (href sport)
+      (and (vector? sport)
+           (or (href (cons (vector-ref sport 0) topic))
+               (href (vector-ref sport 0))))
+      *default-mini-lap-fields*))
 
 
-;............................................................ lap-view% ....
+;............................................................ interval-view% ....
 
 ;; Display the laps of a session in a list box.  Provides a call back for
 ;; notifications when a lap is selected.
-(define lap-view%
+(define interval-view%
   (class object%
-    (init parent tag callback)
+    (init-field parent tag callback)
     (super-new)
-
-    ;; The session for which we display the lap info
-    (define the-session #f)
 
     (define lb
       (new (class qresults-list% (init) (super-new)
@@ -465,15 +661,15 @@ values (?, ?)" session-id id))
            [tag tag]
            [parent parent]))
 
-    (define/public (lap-field-definitions sport)
+    (define/public (lap-field-definitions sport topic)
       (get-lap-field-definitions sport))
 
     ;; Add lap numbers to the laps, if a lap has 0 distance, label it as
     ;; "Rest"
-    (define (number-session-laps session)
+    (define (number-session-laps laps)
       (let ((lap-num 0)
             (lap-num-pretty 0))
-        (for/list ((lap (session-laps the-session)))
+        (for/list ([lap (in-list laps)])
           (cons 
            (cons 'lap-num
                  (begin (set! lap-num (+ lap-num 1)) lap-num))
@@ -486,31 +682,35 @@ values (?, ?)" session-id id))
                       "Rest"))
             lap)))))
 
-    (define/public (set-session session [df #f])
-      (set! the-session session)
+    (define/public (set-intervals sport topic intervals (database-id #f))
       (send lb set-default-export-file-name
-            (format "~a-laps.csv" (or (assq1 'database-id session) "session")))
-      (let ((sport (session-sport the-session)))
-        (send lb setup-column-defs (lap-field-definitions sport))
-        (send lb set-data (number-session-laps the-session))))
+            (format "~a-intervals.csv" (or database-id "session")))
+      ;; Make sure we use the correct tag for the column definitions
+      (let* ((stag (if (vector? sport)
+                       (if (vector-ref sport 1)
+                           (format "~a-~a" (vector-ref sport 0) (vector-ref sport 1))
+                           (format "~a" (vector-ref sport 0)))
+                       (format "~a" sport)))
+             (vtag (format "~a-~a-~a" tag stag topic)))
+        (send lb set-tag (string->symbol vtag)))
+      (send lb setup-column-defs (lap-field-definitions sport topic))
+      (send lb set-data (number-session-laps intervals)))
 
     (define/public (save-visual-layout)
       (send lb save-visual-layout))
 
-    (define/public (set-tag new-tag) (send lb set-tag new-tag))
-
     ))
 
 
-;;....................................................... mini-lap-view% ....
+;;....................................................... mini-interval-view% ....
 
-(define mini-lap-view%
-  (class lap-view%
+(define mini-interval-view%
+  (class interval-view%
     (init parent callback)
     (super-new [parent parent] [callback callback])
 
-    (define/override (lap-field-definitions sport)
-      (get-mini-lap-field-definitions sport))
+    (define/override (lap-field-definitions sport topic)
+      (get-mini-lap-field-definitions sport topic))
 
     ))
 

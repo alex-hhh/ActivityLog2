@@ -18,7 +18,9 @@
          racket/gui/base
          racket/match
          "activity-util.rkt"
-         "al-widgets.rkt")
+         "al-widgets.rkt"
+         "utilities.rkt"
+         "intervals.rkt")
 
 (provide laps-panel%)
 
@@ -29,25 +31,37 @@
     (define data-frame #f)
 
     (define panel (new vertical-panel%
-                       [parent parent]
-                       ;; [style '(border)]
-                       [border 0]
-                       [spacing 5]
-                       [alignment '(center top)]))
+		       [parent parent]
+		       ;; [style '(border)]
+                       [border 5] [spacing 5]
+		       [alignment '(center top)]))
+
+    ;; Holds the widgets that control the look of the plot
+    (define control-panel
+      (new horizontal-panel% 
+           [parent panel] [spacing 10] [border 0]
+           [alignment '(center center)]
+           [stretchable-height #f]))
+
+    (define interval-choice (new interval-choice% [tag 'interval-choice-laps] [parent control-panel]))
+
+    (define (is-lap-swim?)
+      (and data-frame (send data-frame get-property 'is-lap-swim?)))
 
     (define (on-lap-selected n lap)
-      (when (= (session-sport the-session) 5) ; swim sessions
+      (when (is-lap-swim?)
         (send swim-lengths-view set-lap lap)))
 
-    (define lap-view (new lap-view%
+    (define interval-view (new interval-view%
                           [parent panel]
                           [tag 'activity-log:lap-view]
                           [callback on-lap-selected]))
-
+    (send interval-choice set-interval-view interval-view)
     (define swim-lengths-view (new swim-lengths-view% [parent panel] [tag 'activity-log:lengths-view]))
 
     (define/public (save-visual-layout)
-      (send lap-view save-visual-layout)
+      (send interval-view save-visual-layout)
+      (send interval-choice save-visual-layout)
       (send swim-lengths-view save-visual-layout))
 
     (define/public (set-session session df)
@@ -55,14 +69,7 @@
       (set! the-session session)
       (set! data-frame df)
 
-      ;; Set column setup for the current sport
-      (match-let (((vector sport sub-sport) (send data-frame get-property 'sport)))
-        (send lap-view set-tag (string->symbol (format "activity-log:lap-view-~a-~a" sport (or sub-sport 0)))))
-
-      ;; Setup the session after we setup the columns
-      (send lap-view set-session session)
-
-      (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
-      (send swim-lengths-view show! is-lap-swim?))
-
+      (send swim-lengths-view show! (is-lap-swim?))
+      (send interval-choice set-session session df))
+    
     ))

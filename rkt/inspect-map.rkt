@@ -17,6 +17,7 @@
 (require racket/class
          racket/gui/base
          racket/list
+         racket/match
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
@@ -64,19 +65,28 @@
                        [spacing 1]
                        [alignment '(center top)]))
 
-    (define mini-lap-view
-      (let ((p (new vertical-pane%
-                    [parent panel]
-                    [border 0]
-                    [spacing 1]
-                    [min-width 220]
-                    [stretchable-width #f]
-                    [alignment '(left top)])))
-        (new message% [parent p] [label "Laps"] [font *header-font*])
-        (new mini-lap-view%
-             [parent p]
-             [tag 'activity-log:map-mini-lap-view]
-             [callback (lambda (n lap) (highlight-lap n lap))])))
+    (define interval-view-panel (new vertical-pane%
+                                [parent panel]
+                                [border 0]
+                                [spacing 1]
+                                [min-width 220]
+                                [stretchable-width #f]
+                                [alignment '(left top)]))
+    (define interval-coice #f)
+    (let ((p (new horizontal-pane%
+                  [parent interval-view-panel]
+                  [spacing 10]
+                  [stretchable-height #f]
+                  [alignment '(left center)])))
+      (new message% [parent p] [label "Laps"] [font *header-font*])
+      (set! interval-coice (new interval-choice% [tag 'interval-choice-map] [parent p] [label ""])))
+    
+    (define interval-view
+      (new mini-interval-view%
+           [parent interval-view-panel]
+           [tag 'activity-log:map-mini-lap-view]
+           [callback (lambda (n lap) (highlight-lap lap))]))
+    (send interval-coice set-interval-view interval-view)
 
     (define map-panel (new vertical-pane%
                            [parent panel]
@@ -142,27 +152,49 @@
     (define (resize-to-fit)
       (send map-view resize-to-fit))
 
-    (define (highlight-lap n lap)
-      (let ((lap-num (assq1 'lap-num lap)))
-        (when lap-num
-          (define selected-lap (- lap-num 1))
-          (send map-view set-track-group-pen #f
-                (send the-pen-list find-or-create-pen
-                      (make-object color% 226 34 62)
-                      3 'solid 'round 'round))
-          (send map-view set-track-group-zorder #f 0.5)
-          (send map-view set-track-group-pen selected-lap
-                (send the-pen-list find-or-create-pen
-                      (make-object color% 24 60 165)
-                      7
-                      'solid 'round 'round))
-          (send map-view set-track-group-zorder selected-lap 0.1) ; on top
-          (send elevation-graph highlight-lap selected-lap)
-          (when zoom-to-lap?
-            (send map-view resize-to-fit selected-lap)))))
+    (define (highlight-lap lap)
+      ;; Remove custom any lap and set all other tracks to default pen and
+      ;; z-order (effectively un-highlights any highlighted lap)
+      (send map-view delete-track-group 'custom)
+      (send map-view set-track-group-pen #f
+            (send the-pen-list find-or-create-pen
+                  (make-object color% 226 34 62)
+                  3 'solid 'round 'round))
+      (send map-view set-track-group-zorder #f 0.5)
+
+      (let ((lap-num (assq1 'lap-num lap))
+            (custom-lap? (assq1 'custom-lap lap))
+            (start (lap-start-time lap))
+            (elapsed (lap-elapsed-time lap)))
+
+        ;; Highlight corresponding lap on the elevation graph
+        (send elevation-graph highlight-interval start (+ start elapsed))
+
+        (set! selected-lap (if custom-lap? 'custom (- lap-num 1)))
+
+        (when custom-lap?
+          ;; Extract the track data for the current lap and add it to the map.
+          (match-let (((list start-idx end-idx)
+                       (send data-frame get-index* "timestamp" start (+ start elapsed))))
+            (let ((track (extract-track* data-frame start-idx (add1 end-idx))))
+              (send map-view add-track track selected-lap)))))
+      
+      ;; Highlight current lap by setting a thicker pen of a different color
+      ;; and putting the track on top.
+      (send map-view set-track-group-pen selected-lap
+            (send the-pen-list find-or-create-pen
+                  (make-object color% 24 60 165)
+                  7
+                  'solid 'round 'round))
+      (send map-view set-track-group-zorder selected-lap 0.1)
+
+      ;; Zoom canvas to current lap (if needed)
+      (when zoom-to-lap?
+        (send map-view resize-to-fit selected-lap)))
 
     (define/public (save-visual-layout)
-      (send mini-lap-view save-visual-layout))
+      (send interval-coice save-visual-layout)
+      (send interval-view save-visual-layout))
 
     (define data-frame #f)
     ;; The name of the file used by 'on-interactive-export-image'. This is
@@ -177,7 +209,7 @@
       (or export-file-name
           (let ((sid (send data-frame get-property 'session-id)))
             (if sid (format "map-~a.png" sid) "map.png"))))
-    
+
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
                             (get-default-export-file-name) "png" '()
@@ -190,7 +222,6 @@
       (set! the-session session)
       (set! data-frame df)
       (set! export-file-name #f)
-      (send mini-lap-view set-session session)
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
       (send map-view clear-items)
@@ -241,6 +272,7 @@
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)
-      (set! selected-lap #f))
+      (set! selected-lap #f)
+      (send interval-coice set-session session df))
 
     ))

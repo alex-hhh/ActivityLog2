@@ -45,7 +45,7 @@
                     ts-data/c))
  (ds-stats (-> ts-data/c statistics?))
  (add-verticals (-> ts-data/c ts-data/c))
- (get-lap-extents (-> ts-data/c (is-a?/c data-frame%) number? (cons/c number? number?)))
+ (get-lap-extents (-> (is-a?/c data-frame%) number? (cons/c number? (or/c number? #f))))
  (get-plot-y-range (-> statistics? (is-a?/c series-metadata%) y-range/c))
  (combine-y-range (-> y-range/c y-range/c y-range/c))
 
@@ -854,27 +854,17 @@
                              (vector x y t)))))])
     val))
 
-;; Return the X values in DATA-SERIES (as produced by `extract-data') that
-;; correspond to the start and end of the lap LAP-NUM.  The timestamp of the
-;; lap is matched against the third value in DATA-SERIES.
-(define (get-lap-extents data-series data-frame lap-num)
+;; Return the start and end timestamps for LAP-NUM in DATA-FRAME.  LAP-NUM is
+;; one of the recorded laps, 0 being the first one.  Returns (cons START END),
+;; where end can be #f for the last lap.
+(define (get-lap-extents data-frame lap-num)
   (let* ((laps (send data-frame get-property 'laps))
          (start (vector-ref laps lap-num))
          (end (if (< (+ lap-num 1) (vector-length laps))
                   (vector-ref laps (+ lap-num 1))
-                  #f))
-         (start-idx
-          (or
-           (bsearch data-series start #:key (lambda (v) (vector-ref v 2)))
-           0))
-         (end-idx
-          (if end
-              (or (bsearch data-series end #:key (lambda (v) (vector-ref v 2)))
-                  (- (vector-length data-series) 1))
-              (- (vector-length data-series) 1))))
-    (cons (vector-ref (vector-ref data-series start-idx) 0)
-          (vector-ref (vector-ref data-series end-idx) 0))))
-
+                  #f)))
+    (cons start end)))
+         
 ;; Determine the min/max y values for a plot based on STATS (as collected by
 ;; `ds-stats') and the Y-AXIS.
 (define (get-plot-y-range stats y-axis)

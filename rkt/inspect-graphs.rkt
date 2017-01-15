@@ -70,6 +70,19 @@
           (oy (- (/ ch 2) (/ h 2))))
       (send dc draw-text msg ox oy))))
 
+;; Return the X values in DATA-FRAME for START and END timestamps.  Returns
+;; two values, start-x and end-x
+(define (ivl-extents data-series start end)
+  (define (by-timestamp v) (vector-ref v 2))
+  (let ((start-idx (and start (bsearch data-series start #:key by-timestamp)))
+        (end-idx (and end (bsearch data-series end #:key by-timestamp))))
+    (unless start-idx (set! start-idx 0))
+    (unless (and end-idx (< end-idx (vector-length data-series)))
+      (set! end-idx (sub1 (vector-length data-series))))
+    (values
+     (vector-ref (vector-ref data-series start-idx) 0)
+     (vector-ref (vector-ref data-series end-idx) 0))))
+
 (define graph-view%
   (class object%
     (init parent)
@@ -101,8 +114,14 @@
     (define y-axis #f)
     (define y-axis2 #f)                 ; secondary Y axis
 
-    (define selected-lap #f)        ; lap# that should be highlighted
+    ;; Time-stamp for the start of highlighted interval.  If #f, there is no
+    ;; highlighted interval
+    (define ivl-start #f)
 
+    ;; Time-stamp for the end of the highlighted interval.  If #f, it means
+    ;; the interval extends to the end of the data range.
+    (define ivl-end #f)
+    
     ;; The render tree to be passed to plot.  This is produced by
     ;; `prepare-render-tree' once we have an session
     (define graph-render-tree #f)
@@ -216,20 +235,16 @@
           (reverse render-tree)))
 
       (define (get-x-transform)
-        (if (and selected-lap zoom-to-lap?)
-            (let ((range (get-lap-extents data-series data-frame selected-lap)))
-              (if range
-                  (stretch-transform (car range) (cdr range) 30)
-                  id-transform))
+        (if (and ivl-start zoom-to-lap?)
+            (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
+              (stretch-transform start end 30))
             id-transform))
 
       (define (get-x-axis-ticks)
         (let ((ticks (send x-axis plot-ticks)))
-          (if (and selected-lap zoom-to-lap?)
-              (let ((range (get-lap-extents data-series data-frame selected-lap)))
-                (if range
-                    (ticks-add ticks (list (car range) (cdr range)))
-                    ticks))
+          (if (and ivl-start zoom-to-lap?)
+              (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
+                (ticks-add ticks (list start end)))
               ticks)))
 
       (let* ((bmp (if (and cached-graph-bitmap
@@ -386,7 +401,7 @@
                   (set! factored-data fdata)
                   (set! graph-render-tree rt)
                   (set! cached-bitmap-dirty? #t)
-                  (highlight-lap selected-lap)
+                  (highlight-interval ivl-start ivl-end)
                   (send graph-canvas refresh))))))
           (set! graph-render-tree #f)))
 
@@ -429,7 +444,8 @@
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
           (send y-axis-choice set-selection y-axis-index)
           (on-y-axis-selected y-axis-index)))
-      (set! selected-lap #f)
+      (set! ivl-start #f)
+      (set! ivl-end #f)
       (prepare-render-tree)
       (resume-flush))
 
@@ -471,21 +487,21 @@
       (set! export-file-name #f)
       (prepare-render-tree))
 
-    (define/public (highlight-lap lap-num)
+    (define/public (highlight-interval start-timestamp end-timestamp)
 
       (define (get-color)
         (let ((c (send y-axis plot-color)))
           (if (eq? c 'smart) "gray" c)))
+
+      (set! ivl-start start-timestamp)
+      (set! ivl-end end-timestamp)
       
-      (if (and lap-num (>= lap-num 0) data-series data-frame data-y-range)
-          (let ((lap-extents (get-lap-extents data-series data-frame lap-num)))
+      (if (and ivl-start data-series data-frame data-y-range)
+          (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
             (set! lap-render-tree
-                  (make-box-renderer (car lap-extents) (cdr lap-extents)
-                                     (car data-y-range) (cdr data-y-range)
-                                     (get-color))))
+                  (make-box-renderer start end (car data-y-range) (cdr data-y-range) (get-color))))
           (begin
             (set! lap-render-tree #f)))
-      (set! selected-lap lap-num)
       (set! cached-bitmap-dirty? #t)
       (send graph-canvas refresh))
 
@@ -1371,6 +1387,7 @@
 
     ;; The session for which we display the graph
     (define the-session #f)
+    (define data-frame #f)
 
     ;; These are settings for all the graphs
     (define show-avg? #f)           ; display the average line
@@ -1403,8 +1420,10 @@
       (set! show-avg? show)
       (for-each (lambda (g) (send g show-average-line show)) graphs))
 
-    (define (highlight-lap n)
-      (for-each (lambda (g) (send g highlight-lap n)) graphs))
+    (define (highlight-lap n lap)
+      (let ((start (lap-start-time lap))
+            (elapsed (lap-elapsed-time lap)))
+        (for-each (lambda (g) (send g highlight-interval start (+ start elapsed))) graphs)))
 
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
@@ -1422,7 +1441,7 @@
                        [spacing 1]
                        [alignment '(center top)]))
 
-    (define lap-view-panel (new vertical-pane%
+    (define interval-view-panel (new vertical-pane%
                                 [parent panel]
                                 [border 0]
                                 [spacing 1]
@@ -1430,15 +1449,24 @@
                                 [stretchable-width #f]
                                 [alignment '(left top)]))
 
-    (new message% [parent lap-view-panel] [label "Laps"] [font *header-font*])
+    (define interval-choice #f)
+    (let ((p (new horizontal-pane%
+                  [parent interval-view-panel]
+                  [spacing 10]
+                  [stretchable-height #f]
+                  [alignment '(left center)])))
+      (new message% [parent p] [label "Laps"] [font *header-font*])
+      (set! interval-choice (new interval-choice% [tag 'interval-choice-graphs] [parent p] [label ""])))
 
-    (define lap-view (new mini-lap-view%
-                          [parent lap-view-panel]
+    (define interval-view (new mini-interval-view%
+                          [parent interval-view-panel]
                           [tag 'activity-log:charts-mini-lap-view]
                           [callback (lambda (n lap)
                                       (let ((lap-num (assq1 'lap-num lap)))
                                         (when lap-num
-                                          (highlight-lap (- lap-num 1)))))]))
+                                          (highlight-lap (- lap-num 1) lap))))]))
+
+    (send interval-choice set-interval-view interval-view)
 
     (define charts-panel (new vertical-pane%
                               [parent panel]
@@ -1534,7 +1562,8 @@
 
 
     (define/public (save-visual-layout)
-      (send lap-view save-visual-layout)
+      (send interval-view save-visual-layout)
+      (send interval-choice save-visual-layout)
       (for-each (lambda (g) (send g save-visual-layout)) default-graphs)
       (for-each (lambda (g) (send g save-visual-layout)) swim-graphs)
       (al-put-pref
@@ -1569,8 +1598,6 @@
       (send graphs-panel change-children
             (lambda (old) (map (lambda (g) (send g get-panel)) graphs))))
 
-    (define data-frame #f)
-
     (define/public (set-session session df)
       ;; Clear the sessions from all graphs, this will allow it to be garbage
       ;; collected (as we won't set the session on all graphs all the time,
@@ -1581,7 +1608,7 @@
 
       (set! the-session session)
       (set! data-frame df)
-      (send lap-view set-session session)
+
       (let ((lap-swimming? (is-lap-swimming? data-frame)))
 
         (set! x-axis-choices
@@ -1599,6 +1626,8 @@
           (if (>= sport-x-axis (length x-axis-choices))
               (send x-axis-choice set-selection 0)
               (send x-axis-choice set-selection sport-x-axis))
-          (setup-graphs-for-current-session))))
+          (setup-graphs-for-current-session)))
+
+      (send interval-choice set-session session df))
 
     ))
