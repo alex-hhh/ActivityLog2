@@ -22,46 +22,11 @@
          "al-prefs.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "utilities.rkt")
-
-(define *blue* '(0 148 255))
-(define *green* '(38 127 0))
-(define *red* '(127 0 0))
-(define *yellow* '(255 140 0))
-(define *purple* '(#x8b #x22 #x52))
-
-;; http://www.spycolor.com/w3c-colors
-(define *crimson* '(#xdc #x14 #x3c))
-(define *coral* '(#xff #x7f #x50))
-(define *cornflower-blue* '(#x64 #x95 #xed))
-(define *dark-magenta* '(#x8b #x00 #x8b))
-(define *sea-green* '(#x2e #x8b #x57))
+         "utilities.rkt"
+         (prefix-in ct: "color-theme.rkt"))
 
 
 ;;..................................................... axis definitions ....
-
-(define default-factor-colors
-  (list
-   (list 'red '(220 20 60))
-   (list 'orange '(255 127 80))
-   (list 'green '(34 139 34))
-   (list 'blue '(30 144 255))
-   (list 'purple '(139 0 139))))
-
-(define zone-factor-colors
-  (list
-   (list 'z0 '(#xad #xd8 #xe6)) ; z0, light blue
-   (list 'z1 '(#x00 #xbf #xff)) ; z1, deep sky blue
-   (list 'z2 '(#x22 #x8b #x22)) ; z2, forrest green
-   (list 'z3 '(#xff #x7f #x50)) ; z3, coral
-   (list 'z4 '(#xcd #x5c #x5c)) ; z4, indian red
-   (list 'z5 '(#xdc #x14 #x3c)) ; z5, crimson
-   (list 'z6 '(#x8b #x00 #x00)) ; z6, dark red
-   (list 'z7 '(#x99 #x32 #xcc)) ; z7, dark orchid
-   (list 'z8 '(#x00 #x00 #x8b)) ; z8, dark blue
-   (list 'z9 '(#xff #x8c #x00)) ; z9, dark orange
-   (list 'z10 '(#xda #xa5 #x20)) ; z10, golden rod
-   ))
 
 (define zone-labels '(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
 
@@ -126,8 +91,18 @@
     ;; Return a string to use as the legend value on a plot for this series
     (define/public (plot-label) #f)
 
-    ;; Return the color to use for plotting this series
-    (define/public (plot-color) #f)
+    (define color #f)
+    
+    ;; Return the color to use for plotting this series.  We look it up in the
+    ;; (series-colors) ALIST for a tag the same as (series-name)
+    (define/public (plot-color)
+      (unless color
+        (let* ((tag (string->symbol (series-name)))
+               (color-item (assq tag (ct:series-colors))))
+          (when color-item
+            (set! color (cdr color-item)))))
+      color)
+          
 
     ;; Return the Y range for ploting this series.  Returns a (cons LOW HIGH),
     ;; either of them can be #f, in which case the range is automatically
@@ -151,7 +126,7 @@
     (define/public (factor-fn sport (sid #f)) #f)
 
     ;; Return an alist mapping factor names to colors
-    (define/public (factor-colors) default-factor-colors)
+    (define/public (factor-colors) (ct:factor-colors))
 
     ))
 
@@ -212,7 +187,6 @@
                "Speed (km/h)" "Speed (mi/h)"))
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
-         (define/override (plot-color) *blue*)
          (define/override (series-name) "speed")
          (define/override (fractional-digits) 2)
 
@@ -232,7 +206,7 @@
                      #f))
                #f))
          
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
          
          )))
 (provide axis-speed)
@@ -245,7 +219,6 @@
                "Pace (min/km)" "Pace (min/mi)"))
          (define/override (should-filter?) #t)
          ;; (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *blue*)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "pace")
 
@@ -267,7 +240,7 @@
                      #f))
                #f))
          
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
 
 
          )))
@@ -278,13 +251,12 @@
          (define/override (axis-label) "Speed (zone)")
          (define/override (should-filter?) #t)
          ;; (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *blue*)
          (define/override (series-name) "speed-zone")
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
 
          )))
 (provide axis-speed-zone)
@@ -295,7 +267,6 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *green*)
          (define/override (series-name) "alt")
          (define/override (fractional-digits) 1)
          )))
@@ -307,7 +278,6 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *green*)
          (define/override (series-name) "calt")
          (define/override (fractional-digits) 1)
          )))
@@ -317,7 +287,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (should-filter?) #t)
          (define/override (axis-label) "Grade (%)")
-         (define/override (plot-color) *green*)
          (define/override (series-name) "grade")
          (define/override (histogram-bucket-slot) 0.01)
          (define/override (fractional-digits) 2)
@@ -330,7 +299,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (should-filter?) #f)
          (define/override (axis-label) "Descent (%)")
-         (define/override (plot-color) *green*)
          (define/override (series-name) "grade")
          (define/override (fractional-digits) 1)
          (define/override (inverted-best-avg?) #t))))
@@ -340,7 +308,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Heart Rate (bpm)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *crimson*)
          (define/override (series-name) "hr")
 
          (define/override (factor-fn sport (sid #f))
@@ -353,7 +320,7 @@
                      #f))
                #f))
          
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
 
          
          )))
@@ -363,7 +330,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Heart Rate (% of max)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *crimson*)
          (define/override (series-name) "hr-pct")
          (define/override (fractional-digits) 1)
          )))
@@ -373,13 +339,12 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Heart Rate (zone)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *crimson*)
          (define/override (series-name) "hr-zone")
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
          
          )))
 (provide axis-hr-zone)
@@ -388,7 +353,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Cadence (spm)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (series-name) "cad")
          (define/override (fractional-digits) 1)
          (define/override (histogram-bucket-slot) 0.1)
@@ -423,7 +387,6 @@
                "Stride (m)" "Stride (ft)"))
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.01)
-         (define/override (plot-color) *yellow*)
          (define/override (series-name) "stride")
          (define/override (fractional-digits) 2)
          )))
@@ -434,7 +397,6 @@
          (define/override (axis-label) "Vertical Ratio (%)")
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
-         (define/override (plot-color) *yellow*)
          (define/override (series-name) "vratio")
          (define/override (inverted-best-avg?) #t)
          (define/override (fractional-digits) 2)
@@ -458,7 +420,6 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Vertical Oscillation (mm)" "Vertical Oscillation (inch)"))
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *yellow*)
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "vosc")
@@ -481,7 +442,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Ground Contact Time (ms)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *yellow*)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "gct")
 
@@ -502,7 +462,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Ground Contact Time (%)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *yellow*)
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "pgct")
@@ -514,7 +473,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Power (watts)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *dark-magenta*)
          (define/override (series-name) "pwr")
 
          (define/override (factor-fn sport (sid #f))
@@ -527,7 +485,7 @@
                      #f))
                #f))
          
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
 
          )))
 (provide axis-power)
@@ -536,7 +494,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Torque (N m)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *dark-magenta*)
          (define/override (series-name) "torque")
          )))
 (provide axis-torque)
@@ -546,13 +503,12 @@
          (define/override (axis-label) "Power (zone)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *dark-magenta*)
          (define/override (series-name) "pwr-zone")
          (define/override (fractional-digits) 1)
 
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
-         (define/override (factor-colors) zone-factor-colors)
+         (define/override (factor-colors) (ct:zone-colors))
          
          )))
 (provide axis-power-zone)
@@ -561,7 +517,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Balance (%)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *purple*)
          (define/override (series-name) "lrbal")
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (fractional-digits) 1)
@@ -590,7 +545,6 @@
          (define/override (axis-label) "Torque Effectiveness (%)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 100))
-         (define/override (plot-color) *coral*)
          (define/override (headline) "Torque Effectiveness, Left Pedal (%)")
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lteff")
@@ -603,7 +557,6 @@
          (define/override (axis-label) "Torque Effectiveness (%)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 100))
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (headline) "Torque Effectiveness, Right Pedal (%)")
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rteff")
@@ -617,7 +570,6 @@
          (define/override (axis-label) "Pedal Smoothness (%)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 50))
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpsmth")
          (define/override (fractional-digits) 1)
@@ -630,7 +582,6 @@
          (define/override (axis-label) "Pedal Smoothness (%)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 50))
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpsmth")
          (define/override (fractional-digits) 1))))
@@ -641,7 +592,6 @@
          (define/override (headline) "Platform Centre Offset, Left Pedal (mm)")
          (define/override (axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpco"))))
 (provide axis-left-platform-centre-offset)
@@ -651,7 +601,6 @@
          (define/override (headline) "Platform Centre Offset, Right Pedal (mm)")
          (define/override (axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpco"))))
 (provide axis-right-platform-centre-offset)
@@ -661,7 +610,6 @@
          (define/override (headline) "Power Phase Start, Left Pedal")
          (define/override (axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpps")
          )))
@@ -672,7 +620,6 @@
          (define/override (headline) "Power Phase End, Left Pedal")
          (define/override (axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lppe"))))
 (provide axis-left-power-phase-end)
@@ -682,7 +629,6 @@
          (define/override (headline) "Power Phase Angle, Left Pedal")
          (define/override (axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lppa"))))
 (provide axis-left-power-phase-angle)
@@ -692,7 +638,6 @@
          (define/override (headline) "Power Phase Start, Right Pedal")
          (define/override (axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpps")
          )))
@@ -703,7 +648,6 @@
          (define/override (headline) "Power Phase End, Right Pedal")
          (define/override (axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rppe"))))
 (provide axis-right-power-phase-end)
@@ -713,7 +657,6 @@
          (define/override (headline) "Power Phase Angle, Right Pedal")
          (define/override (axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rppa"))))
 (provide axis-right-power-phase-angle)
@@ -723,7 +666,6 @@
          (define/override (headline) "Peak Power Phase Start, Left Pedal")
          (define/override (axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lppps")
          )))
@@ -734,7 +676,6 @@
          (define/override (headline) "Peak Power Phase End, Left Pedal")
          (define/override (axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpppe"))))
 (provide axis-left-peak-power-phase-end)
@@ -744,7 +685,6 @@
          (define/override (headline) "Peak Power Phase Angle, Left Pedal")
          (define/override (axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *coral*)
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpppa"))))
 (provide axis-left-peak-power-phase-angle)
@@ -754,7 +694,6 @@
          (define/override (headline) "Peak Power Phase Start, Right Pedal")
          (define/override (axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rppps"))))
 (provide axis-right-peak-power-phase-start)
@@ -764,7 +703,6 @@
          (define/override (headline) "Peak Power Phase End, Right Pedal")
          (define/override (axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpppe"))))
 (provide axis-right-peak-power-phase-end)
@@ -774,7 +712,6 @@
          (define/override (headline) "Peak Power Phase Angle, Right Pedal")
          (define/override (axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
-         (define/override (plot-color) *cornflower-blue*)
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpppa"))))
 (provide axis-right-peak-power-phase-angle)
@@ -795,7 +732,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "SWOLF")
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *green*)
          (define/override (series-name) "swolf")
          )))
 (provide axis-swim-swolf)
@@ -804,7 +740,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Strokes / Length")
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *red*)
          (define/override (series-name) "strokes")
          )))
 (provide axis-swim-stroke-count)
@@ -813,7 +748,6 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Stride")
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *red*)
          (define/override (series-name) "stride")
          (define/override (fractional-digits) 2)
          (define/override (histogram-bucket-slot) 0.01)
@@ -824,7 +758,19 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Strokes / Min")
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) *red*)
+
+         (define color #f)
+         (define/override (plot-color)
+           ;; The swim cadence series is named "cad", but the color for this
+           ;; series lives under the 'swim-cad tag, so we have to roll our own
+           ;; plot-color method.
+           (unless color
+             (let* ((tag 'swim-cad)
+                    (color-item (assq tag (ct:series-colors))))
+               (when color-item
+                 (set! color (cdr color-item)))))
+           color)
+
          (define/override (series-name) "cad")
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (fractional-digits) 1)

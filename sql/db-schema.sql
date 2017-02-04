@@ -22,7 +22,7 @@ insert into SCHEMA_VERSION(version) values(20);
 create table E_SPORT (
   id integer not null primary key autoincrement,
   name text unique not null,
-  color integer not null, -- an index into the aplication's list of predefined colors
+  color integer not null, -- not used by the application anymore
   icon string not null    -- a predefined icon name
   );
 
@@ -47,7 +47,7 @@ create table E_SUB_SPORT(
   id integer not null primary key autoincrement,
   sport_id integer not null,
   name text unique not null,
-  color integer not null,
+  color integer not null,               -- not used by the application anymore
   icon string not null,
   foreign key (sport_id) references E_SPORT(id));
 

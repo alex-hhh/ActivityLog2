@@ -806,7 +806,7 @@
     (define color (cdr (assq ftag factor-colors)))
     (begin0
         (make-histogram-renderer fdata
-                                 #:color (car color)
+                                 #:color color
                                  #:x-min x
                                  #:blank-some-labels #f ; we already blanked them
                                  )
@@ -1415,6 +1415,7 @@
 
 (define group-data/c (hash/c integer? xy-data/c))
 (define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
+(define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
 
 (provide ts-item/c ts-data/c factor-data/c)
 
@@ -1452,7 +1453,7 @@
                                     (treeof renderer2d?)))
  (make-histogram-renderer/factors (-> histogram/c
                                       (-> real? symbol?) ; factor function
-                                      (listof (list/c symbol? any/c)) ; color list
+                                      (listof (cons/c symbol? color/c))
                                       (treeof renderer2d?)))
  (df-best-avg (->* ((is-a?/c data-frame%) string?)
                    (#:inverted? boolean?

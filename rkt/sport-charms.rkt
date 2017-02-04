@@ -22,7 +22,8 @@
          racket/list
          racket/runtime-path
          "dbapp.rkt"
-         "dbutil.rkt")
+         "dbutil.rkt"
+         "color-theme.rkt")
 
 (define (color? c) (is-a? c color%))
 (define (bitmap? b) (is-a? b bitmap%))
@@ -111,55 +112,7 @@
 
 (define *default-bitmap* "timer")
 
-(define *colors*
-  (hash
-   1 (make-object color% 159 237 255)
-   2 (make-object color% 160 255 178)
-   3 (make-object color% 185 255 65)
-   4 (make-object color% 226 255 31)
-   5 (make-object color% 255 240 0)
-   6 (make-object color% 255 221 0)
-   7 (make-object color% 255 191 0)
-   8 (make-object color% 255 144 89)
-   9 (make-object color% 255 120 124)
-   10 (make-object color% 242 138 206)
-   11 (make-object color% 232 167 255)
-   12 (make-object color% 210 186 255)
-   13 (make-object color% 241 227 194)
-   14 (make-object color% 235 214 161)
-   15 (make-object color% 225 198 130)
-   16 (make-object color% 238 238 238)
-   17 (make-object color% 221 221 221)
-   18 (make-object color% 204 204 204)
-   19 (make-object color% 255 250 250)
-   ))
-
-(define *dark-colors*
-  (hash
-   1 (make-object color% 30 144 255)    ; run
-   2 (make-object color% 160 255 178)
-   3 (make-object color% 34 139 34)     ; hiking, sailing
-   4 (make-object color% 226 255 31)
-   5 (make-object color% 255 165 0)     ; swim
-   6 (make-object color% 255 221 0)
-   7 (make-object color% 255 191 0)
-   8 (make-object color% 255 144 89)
-   9 (make-object color% 255 120 124)
-   10 (make-object color% 242 138 206)
-   11 (make-object color% 199 21 133)   ; strength
-   12 (make-object color% 210 186 255)
-   13 (make-object color% 241 227 194)
-   14 (make-object color% 235 214 161)
-   15 (make-object color% 225 198 130)
-   16 (make-object color% 47 79 79)
-   17 (make-object color% 221 221 221)
-   18 (make-object color% 204 204 204)
-   19 (make-object color% 119 136 153)  ; skiing
-   ))
-
-(define *default-color* 16)
-
-(struct sport-info (id parent-id name color icon))
+(struct sport-info (id parent-id name icon))
 
 (define *sport-info* #f)
 (define *sub-sport-info* #f)
@@ -169,15 +122,15 @@
 (define (init-sport-charms db)
 
   (let ((h (make-hash)))
-    (for (((id name color icon) 
-           (in-query db "select id, name, color, icon from E_SPORT where id != 254")))
-      (hash-set! h id (sport-info id #f name color icon)))
+    (for (((id name icon) 
+           (in-query db "select id, name, icon from E_SPORT where id != 254")))
+      (hash-set! h id (sport-info id #f name icon)))
     (set! *sport-info* h))
 
   (let ((h (make-hash)))
-    (for (((id parent-id name color icon)
-           (in-query db "select id, sport_id, name, color, icon from E_SUB_SPORT where id != 254")))
-      (hash-set! h id (sport-info id parent-id name color icon)))
+    (for (((id parent-id name icon)
+           (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
+      (hash-set! h id (sport-info id parent-id name icon)))
     (set! *sub-sport-info* h))
   
   (let ((h (make-hash)))
@@ -217,12 +170,10 @@
         "Other")))
 
 (define (get-sport-color sport sub-sport [dark? #f])
-  (let ((info (get-sport-info sport sub-sport))
-        (color-map (if dark? *dark-colors* *colors*)))
-    (if info
-        (hash-ref color-map (sport-info-color info) 
-                  (hash-ref *colors* *default-color*))
-        (hash-ref color-map *default-color*))))
+  (let ((color-map (if dark? (sport-colors-dark) (sport-colors))))
+    (or (hash-ref color-map (vector sport sub-sport) #f)
+        (hash-ref color-map (vector sport #f) #f)
+        (hash-ref color-map (vector 0 #f) #f))))
 
 (define (get-sport-bitmap sport sub-sport)
   (let ((info (get-sport-info sport sub-sport)))
@@ -254,18 +205,8 @@
   (for/list (((k v) (in-hash *swim-stroke-names*)))
     (cons k v)))
 
-(define *swim-colors*
-  `((0 . ,(make-object color% 65 105 225)) ; freestyle
-    (1 . ,(make-object color% 159 237 255)) ; backstroke
-    (2 . ,(make-object color% 160 255 178)) ; breaststroke
-    (3 . ,(make-object color% #xff #xd7 #x00)) ; butterfly
-    (4 . ,(make-object color% 255 191 0))      ; drill
-    (5 . ,(make-object color% #x00 #xbf #xff)) ; mixed
-    (#f . ,(make-object color% #x80 #x80 #x80)) ; unknown
-    (6 . ,(make-object color% #xdc #x14 #x3c)))) ; IM
-
 (define (get-swim-stroke-color stroke)
-  (cond ((assq stroke *swim-colors*) => cdr)
+  (cond ((assq stroke (swim-stroke-colors)) => cdr)
         (#t "gray")))
 
 (define (get-sport-names)

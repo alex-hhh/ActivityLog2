@@ -24,6 +24,7 @@
          racket/vector
          racket/contract
          racket/list
+         racket/draw
          math/statistics
          plot/utils
          plot
@@ -35,7 +36,8 @@
          "map-util.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
-(define factor-colors/c (listof (list/c symbol? any/c)))
+(define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
+(define factor-colors/c (listof (cons/c symbol? color/c)))
 
 (provide/contract
  (extract-data (->* ((is-a?/c data-frame%)
@@ -947,7 +949,7 @@
 ;;
 (define (make-plot-renderer/factors data y-range factor-colors)
   (for/list ([elt factor-colors])
-    (match-define (list factor color) elt)
+    (match-define (cons factor color) elt)
     (let ((fdata (hash-ref data factor '())))
       (points fdata #:color color #:y-min (car y-range) #:y-max (cdr y-range)))))
 

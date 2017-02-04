@@ -30,7 +30,8 @@
  "al-widgets.rkt"
  "trends-chart.rkt"
  "sport-charms.rkt"
- "fmt-util.rkt")
+ "fmt-util.rkt"
+ "color-theme.rkt")
 
 (provide tiz-trends-chart%)
 
@@ -143,24 +144,6 @@
 (define (get-data db sql-query sport zone-metric start end)
   (query-rows db sql-query sport zone-metric start end))
 
-;; http://www.spycolor.com/w3c-colors
-(define tiz-colors
-  (list (make-object color% #xad #xd8 #xe6) ; z0, light blue
-        (make-object color% #x00 #xbf #xff) ; z1, deep sky blue
-        (make-object color% #x22 #x8b #x22) ; z2, forrest green
-        (make-object color% #xff #x7f #x50) ; z3, coral
-        (make-object color% #xcd #x5c #x5c) ; z4, indian red
-        (make-object color% #xdc #x14 #x3c) ; z5, crimson
-        (make-object color% #x8b #x00 #x00) ; z6, dark red
-        (make-object color% #x99 #x32 #xcc) ; z7, dark orchid
-        (make-object color% #x00 #x00 #x8b) ; z8, dark blue
-        (make-object color% #xff #x8c #x00) ; z9, dark orange
-        (make-object color% #xda #xa5 #x20) ; z10, golden rod
-        ))
-
-(define tiz-labels
-  (list "z0" "z1" "z2" "z3" "z4" "z5" "z6" "z7" "z8" "z9" "z10"))
-
 (define (tiz-trends-plot canvas data)
 
   (define (min-zone . zones)
@@ -186,11 +169,10 @@
         (set! zmin (min zmin (min-zone z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10)))
         (set! zmax (max zmax (max-zone z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))))))
 
-  (define plot-colors
-    (drop (take tiz-colors zmax) zmin))
-
-  (define plot-labels
-    (drop (take tiz-labels zmax) zmin))
+  (define zcolors (drop (take (zone-colors) zmax) zmin))
+  
+  (define plot-colors (map cdr zcolors))
+  (define plot-labels (map symbol->string (map car zcolors)))
 
   (define (select-zones . zones)
     (drop (take zones zmax) zmin))
@@ -222,8 +204,8 @@
      (list (y-tick-lines)
            (stacked-histogram
             pdata
-            #:colors tiz-colors
-            #:labels '("z0" "z1" "z2" "z3" "z4" "z5" "z6" "z7" "z8" "z9" "z10")
+            #:colors plot-colors
+            #:labels plot-labels
             #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
             #:gap 0.5)))))
 
