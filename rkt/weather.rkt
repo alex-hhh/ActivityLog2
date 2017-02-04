@@ -17,6 +17,7 @@
 (require db
          json
          net/url
+         net/url-connect
          racket/date
          racket/list
          racket/port
@@ -29,6 +30,7 @@
          "al-prefs.rkt"
          "dbutil.rkt"
          "map-util.rkt")
+(require (for-syntax racket/base))
 
 (provide (struct-out wstation)
          (struct-out wobs)
@@ -190,25 +192,27 @@
  (allow-weather-download (-> (or/c #t #f)))
  (set-allow-weather-download (-> (or/c #t #f) any/c)))
 
-(define wu-api-key-tag 'activity-log:wu-api-key)
-(define wu-api-key-val (al-get-pref wu-api-key-tag (lambda () #f)))
-(define (wu-api-key) wu-api-key-val)
-(define (set-wu-api-key new-val)
-  ;; Write the value back to the store
-  (let ((nval (string-trim new-val)))
-    (if (not (string=? nval ""))
-        (begin
-          (al-put-pref wu-api-key-tag new-val)
-          (set! wu-api-key-val new-val))
-        (begin
-          (al-put-pref wu-api-key-tag #f)
-          (set! wu-api-key-val #f)
-          (dbglog "no Wunderground API key defined.")))))
-(provide/contract
- (wu-api-key (-> (or/c string? #f)))
- (set-wu-api-key (-> (or/c string? #f) any/c)))
+;; This "magic" macro will embed the API key at compile time, allowing us to
+;; ship a built version of the application with the API key already inside it.
+(define-syntax (embedded-api-key stx)
+  (syntax-case stx ()
+    [_ #`(quote #,(getenv "AL2WUAPIKEY"))]))
+(define (builtin-api-key) (embedded-api-key))
 
-(define wu-api-url "http://api.wunderground.com/api")
+(define wu-api-key-tag 'activity-log:wu-api-key)
+;; the API key value comes either from the preferences file (needs to be
+;; manually stored there), from an environment variable, or a built in one (if
+;; available)
+(define wu-api-key-val
+  (or (al-get-pref wu-api-key-tag (lambda () #f))
+      (getenv "AL2WUAPIKEY")
+      (builtin-api-key)))
+(define (wu-api-key) wu-api-key-val)
+
+(provide/contract
+ (wu-api-key (-> (or/c string? #f))))
+
+(define wu-api-url "https://api.wunderground.com/api")
 
 ;; Limit requests to 8 every 60 seconds
 (define wu-request-limiter (make-request-limiter 8 60))
@@ -241,14 +245,15 @@
   (unless (wu-api-key) (raise-user-error "no Wunderground api key set"))
   (unless (allow-weather-download) (raise-user-error "weather download not permitted"))
   (wu-request-limiter)
-  (let* ((data (port->string (get-pure-port (string->url url))))
-         (json (call-with-input-string data read-json))
-         (response (hash-ref json 'response #f)))
-    (if response
-        (if (hash-ref response 'error #f)
-            (raise (make-exn:fail:wufetch "Error Wunderground reply" (current-continuation-marks) url json))
-            json)
-        (raise (make-exn:fail:wufetch "Bad Wunderground reply" (current-continuation-marks) url json)))))
+  (parameterize ((current-https-protocol 'secure))
+    (let* ((data (port->string (get-pure-port (string->url url))))
+           (json (call-with-input-string data read-json))
+           (response (hash-ref json 'response #f)))
+      (if response
+          (if (hash-ref response 'error #f)
+              (raise (make-exn:fail:wufetch "Error Wunderground reply" (current-continuation-marks) url json))
+              json)
+          (raise (make-exn:fail:wufetch "Bad Wunderground reply" (current-continuation-marks) url json))))))
 
 (define (wu-make-geolookup-url lat lon)
   (format-48 "~a/~a/geolookup/q/~a,~a.json" wu-api-url (wu-api-key) lat lon))

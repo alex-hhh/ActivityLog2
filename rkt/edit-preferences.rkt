@@ -64,9 +64,6 @@
                      [stretchable-height #f])))
         (set! allow-weather-download-check-box
               (new check-box% [label "Allow weather data download"]
-                   [parent p1]))
-        (set! wu-api-key-text-box
-              (new text-field% [label "Wunderground API key"]
                    [parent p1])))
 
       (let ((p1 (new group-box-panel% [parent p] [label "Maps"]
@@ -91,9 +88,7 @@
       (let ((allow? (allow-tile-download)))
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
       (let ((allow? (allow-weather-download)))
-        (send allow-weather-download-check-box set-value (if allow? #t #f)))
-      (let ((wukey (wu-api-key)))
-        (send wu-api-key-text-box set-value (or wukey ""))))
+        (send allow-weather-download-check-box set-value (if allow? #t #f))))
 
     (define (save-preferences)
       (let ((val (send measurement-system-choice get-selection)))
@@ -109,11 +104,7 @@
 
       (let ((val (send allow-weather-download-check-box get-value)))
         (unless (eq? val (allow-weather-download))
-          (set-allow-weather-download val)))
-
-      (let ((val (send wu-api-key-text-box get-value)))
-        (unless (equal? val (wu-api-key))
-          (set-wu-api-key val))))
+          (set-allow-weather-download val))))
 
     (define/public (run parent)
       (setup)

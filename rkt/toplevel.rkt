@@ -49,7 +49,8 @@
          "import.rkt"
          "metrics.rkt"
          "session-df.rkt"
-         "workers.rkt")
+         "workers.rkt"
+         "weather.rkt")
 
 (provide toplevel-window%)
 
@@ -848,8 +849,8 @@
       ;; problems.
       (unless (al-get-pref 'activity-log:allow-tile-download (lambda () #t))
         (dbglog "map tile download disabled"))
-      (unless (al-get-pref 'activity-log:wu-api-key (lambda () #f))
-        (dbglog "no weather API key set"))
+      (unless (wu-api-key)
+        (dbglog "No Wundergdound API key set"))
       (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
         (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
