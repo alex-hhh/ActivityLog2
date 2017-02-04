@@ -108,6 +108,7 @@
     (define show-graph? #t)         ; graph view can be toggled on/off
     (define show-avg? #f)           ; display the average line
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
+    (define color-by-zone? #f)      ; color data by zone (if zones are available)
     (define filter-amount 0)        ; amount of filtering to use
 
     (define x-axis #f)
@@ -323,6 +324,7 @@
                 (x-axis x-axis)
                 (y-axis y-axis)
                 (y-axis2 y-axis2)
+                (color-by-zone? color-by-zone?)
                 (filter-amount filter-amount))
             (set! graph-render-tree 'working)
             (queue-task
@@ -340,10 +342,12 @@
                                ds))
                          #f)))
                (define fdata
-                 (or factored-data
-                     (if (and factor-fn ds)
-                         (group-samples/factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
-                         #f)))
+                 (if color-by-zone?
+                     (or factored-data
+                         (if (and factor-fn ds)
+                             (group-samples/factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
+                             #f))
+                     #f))
                (define ds2
                  (or data-series2
                      ;; NOTE: a graph can be configured for multiple Y axis,
@@ -416,12 +420,6 @@
     ;; frame).  This needs to be overriden.
     (define/public (is-valid-for? data-frame) #f)
 
-    (define/public (set-factors ffn fcolors)
-      (set! factor-fn ffn)
-      (set! factor-colors fcolors)
-      (set! factored-data #f)
-      (send graph-canvas refresh))
-
     (define/public (save-visual-layout)
       (al-put-pref
        tag
@@ -435,8 +433,6 @@
       (set! data-series #f)
       (set! data-y-range #f)
       (set! factored-data #f)
-      (set! factor-fn #f)
-      (set! factor-colors #f)
       (set! data-series2 #f)
       (set! export-file-name #f)
       (when (and y-axis-choice data-frame)
@@ -444,6 +440,14 @@
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
           (send y-axis-choice set-selection y-axis-index)
           (on-y-axis-selected y-axis-index)))
+      (if (and data-frame y-axis)
+          (let ((sport (send data-frame get-property 'sport))
+                (sid (send data-frame get-property 'session-id)))
+            (set! factor-fn (send y-axis factor-fn sport sid))
+            (set! factor-colors (send y-axis factor-colors)))
+          (begin
+            (set! factor-fn #f)
+            (set! factor-colors #f)))
       (set! ivl-start #f)
       (set! ivl-end #f)
       (prepare-render-tree)
@@ -453,6 +457,11 @@
       (set! zoom-to-lap? zoom)
       (set! cached-bitmap-dirty? #t)
       (send graph-canvas refresh))
+
+    (define/public (color-by-zone flag)
+      (set! color-by-zone? flag)
+      (set! cached-bitmap-dirty? #t)
+      (prepare-render-tree))
 
     (define/public (set-filter-amount a)
       (set! filter-amount a)
@@ -480,11 +489,19 @@
       (set! y-axis2 new-y-axis2)
       (set! data-series #f)
       (set! data-y-range #f)
-      (set! factored-data #f)
-      (set! factor-fn #f)
-      (set! factor-colors #f)
       (set! data-series2 #f)
       (set! export-file-name #f)
+
+      (if data-frame
+          (let ((sport (send data-frame get-property 'sport))
+                (sid (send data-frame get-property 'session-id)))
+            (set! factor-fn (send y-axis factor-fn sport sid))
+            (set! factor-colors (send y-axis factor-colors)))
+          (begin
+            (set! factor-fn #f)
+            (set! factor-colors #f)))
+      
+      (set! factored-data #f)
       (prepare-render-tree))
 
     (define/public (highlight-interval start-timestamp end-timestamp)
@@ -705,36 +722,13 @@
 
 ;;....................................................... cadence-graph% ....
 
-(define (cadence-factor/run cad)
-  (define cad1 (* 2 cad))
-  (cond ((> cad1 185) 'purple)
-        ((> cad1 174) 'blue)
-        ((> cad1 163) 'green)
-        ((> cad1 151) 'orange)
-        (#t 'red)))
-
-(define (cadence-factor/bike cad)
-  (cond ((> cad 95) 'purple)
-        ((> cad 85) 'blue)
-        ((> cad 75) 'green)
-        ((> cad 65) 'orange)
-        (#t 'red)))
-
-(define cadence-colors
-  (list
-   (list 'red '(220 20 60))
-   (list 'orange '(255 127 80))
-   (list 'green '(34 139 34))
-   (list 'blue '(30 144 255))
-   (list 'purple '(139 0 139))))
-
 (define cadence-graph%
   (class graph-view%
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:cadence-graph]
                [text "Cadence"])
-    (inherit set-y-axis get-data-frame setup-y-axis-items set-factors)
+    (inherit set-y-axis get-data-frame setup-y-axis-items)
 
     (define sport #f)
     (define selected-y-axis 0)
@@ -770,13 +764,7 @@
     (define/override (on-y-axis-selected index)
       (unless (equal? selected-y-axis index)
         (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index))))
-      ;; NOTE: we have to do this always!
-      (when (equal? index 0)            ; cadence
-        (cond ((equal? sport 1)         ; running
-               (set-factors cadence-factor/run cadence-colors))
-              ((equal? sport 2)         ; cycling
-               (set-factors cadence-factor/bike cadence-colors)))))
+        (set-y-axis (second (list-ref y-axis-items index)))))
 
     (define/override (set-data-frame data-frame)
       (set! avg-cadence #f)
@@ -798,20 +786,6 @@
 
 ;;................................................... vosc-vratio-graph% ....
 
-(define (vosc-factor vosc)
-  (cond ((> vosc 118) 'red)
-        ((> vosc 111) 'orange)
-        ((> vosc 84) 'green)
-        ((> vosc 67) 'blue)
-        (#t 'purple)))
-
-(define (vratio-factor vratio)
-  (cond ((> vratio 10.1) 'red)
-        ((> vratio 8.7) 'orange)
-        ((> vratio 7.5) 'green)
-        ((> vratio 6.1) 'blue)
-        (#t 'purple)))
-
 (define vosc-vratio-graph%
   (class graph-view%
     (init parent)
@@ -820,7 +794,7 @@
                [tag 'activity-log:vosc-vratio-graph]
                [text "Vertical Oscillation"])
 
-    (inherit set-y-axis get-data-frame setup-y-axis-items set-factors)
+    (inherit set-y-axis get-data-frame setup-y-axis-items)
     (define sport #f)
     (define selected-y-axis 0)
     (define avg-vosc #f)
@@ -855,13 +829,7 @@
     (define/override (on-y-axis-selected index)
       (unless (equal? selected-y-axis index)
         (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index))))
-      ;; NOTE: we have to do this always
-      (when (equal? sport 1)            ; running
-        (cond ((equal? index 0)         ; VOSC
-               (set-factors vosc-factor cadence-colors))
-              ((equal? index 1)
-               (set-factors vratio-factor cadence-colors)))))
+        (set-y-axis (second (list-ref y-axis-items index)))))
 
     (define/override (set-data-frame data-frame)
       (set! avg-vosc #f)
@@ -884,13 +852,6 @@
 
 ;;........................................................... gct-graph% ....
 
-(define (gct-factor gct)
-  (cond ((> gct 305) 'red)
-        ((> gct 273) 'orange)
-        ((> gct 241) 'green)
-        ((> gct 208) 'blue)
-        (#t 'purple)))
-
 (define gct-graph%
   (class graph-view%
     (init parent)
@@ -898,7 +859,7 @@
                [tag 'activity-log:gct-graph]
                [text "Ground Contact Time"])
 
-    (inherit set-y-axis get-data-frame setup-y-axis-items set-factors)
+    (inherit set-y-axis get-data-frame setup-y-axis-items)
 
     (define sport #f)
     (define selected-y-axis 0)
@@ -934,11 +895,7 @@
     (define/override (on-y-axis-selected index)
       (unless (equal? selected-y-axis index)
         (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index))))
-      ;; NOTE: we have to do this always
-      (when (equal? sport 1)            ; running
-        (cond ((equal? index 0)         ; GCT
-               (set-factors gct-factor cadence-colors)))))
+        (set-y-axis (second (list-ref y-axis-items index)))))
 
     (define/override (set-data-frame data-frame)
       (set! avg-gct #f)
@@ -1019,13 +976,6 @@
 
 ;;..................................................... left-right-balance-graph% ....
 
-(define (lrbal-factors lrbal)
-  (cond ((> lrbal 52.2) 'red)
-        ((> lrbal 50.8) 'orange)
-        ((> lrbal 49.2) 'green)
-        ((> lrbal 47.8) 'orange)
-        (#t 'red)))
-
 (define lrbal-graph%
   (class graph-view%
     (init parent)
@@ -1034,7 +984,7 @@
                [tag 'activity-log:lrbal-graph]
                [text "Left-Right Balance"])
 
-    (inherit set-y-axis set-factors get-data-frame setup-y-axis-items)
+    (inherit set-y-axis get-data-frame setup-y-axis-items)
 
     (define avg-lrbal #f)
 
@@ -1055,9 +1005,7 @@
 
     (define/override (set-data-frame data-frame)
       (set! avg-lrbal #f)
-      (super set-data-frame data-frame)
-      ;; Needs to be after we set the data frame!
-      (set-factors lrbal-factors cadence-colors))
+      (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
       (send data-frame contains? "lrbal"))
@@ -1392,6 +1340,8 @@
     ;; These are settings for all the graphs
     (define show-avg? #f)           ; display the average line
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
+    (define color-by-zone? #f)      ; color series by zone (if there zones are
+                                    ; defined)
     (define filter-amount 0)        ; amount of filtering to use in graphs
 
     ;; Map the preferred x-axis (as an index) by sport, this is saved as a
@@ -1406,15 +1356,20 @@
 
     ;; Restore the preferences now.
     (let ((pref (al-get-pref the-pref-tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 5))
-        (set! show-avg? (first pref))
-        (set! zoom-to-lap? (third pref))
-        (set! filter-amount (fourth pref))
-        (set! x-axis-by-sport (hash-copy (fifth pref)))))
+      (when (and pref (hash? pref))
+        (set! show-avg? (hash-ref pref 'show-avg? #f))
+        (set! zoom-to-lap? (hash-ref pref 'zoom-to-lap? #f))
+        (set! color-by-zone? (hash-ref pref 'color-by-zone? #f))
+        (set! filter-amount (hash-ref pref 'filter-amount 0))
+        (set! x-axis-by-sport (hash-copy (hash-ref pref 'x-axis-by-sport (hash))))))
 
     (define (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
       (for-each (lambda (g) (send g zoom-to-lap zoom)) graphs))
+
+    (define (color-by-zone flag)
+      (set! color-by-zone? flag)
+      (for-each (lambda (g) (send g color-by-zone flag)) graphs))
 
     (define (show-average-line show)
       (set! show-avg? show)
@@ -1496,6 +1451,11 @@
          [label "Zoom to Lap"]
          [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
 
+    (new check-box% [parent control-panel]
+         [value color-by-zone?]
+         [label "Color by Zone"]
+         [callback (lambda (b e) (color-by-zone (send b get-value)))])
+
     (set! x-axis-choice
           (new choice% [parent control-panel]
                [label "X Axis Shows: "]
@@ -1568,8 +1528,12 @@
       (for-each (lambda (g) (send g save-visual-layout)) swim-graphs)
       (al-put-pref
        the-pref-tag
-       (list show-avg? #t zoom-to-lap? filter-amount x-axis-by-sport)))
-
+       (hash
+        'show-avg? show-avg?
+        'zoom-to-lap? zoom-to-lap?
+        'color-by-zone? color-by-zone?
+        'filter-amount filter-amount
+        'x-axis-by-sport x-axis-by-sport)))
 
     (define (setup-graphs-for-current-session)
 
@@ -1590,6 +1554,7 @@
                     (send g suspend-flush)
                     (send g set-x-axis x-axis)
                     (send g zoom-to-lap zoom-to-lap?)
+                    (send g color-by-zone color-by-zone?)
                     (send g show-average-line show-avg?)
                     (send g set-filter-amount filter-amount)
                     (send g set-data-frame data-frame)

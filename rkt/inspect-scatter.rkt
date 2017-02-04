@@ -20,6 +20,7 @@
          racket/list
          racket/match
          racket/math
+         racket/string
          math/statistics
          racket/format
          "activity-util.rkt"
@@ -56,8 +57,10 @@
   (for/first ([(axis index) (in-indexed axis-list)]
               #:when
               (let ((sn (if (list? axis)
-                            (car axis)
-                            (send axis axis-label))))
+                            (string-join
+                             (map (lambda (m) (send m series-name)) (cdr axis))
+                             "+")
+                            (send axis series-name))))
                 (equal? series-name sn)))
     index))
 
@@ -385,11 +388,13 @@
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
     (define (axis-label index)
-      (if (and (> index 0) (< index (length axis-choices)))
+      (if (and (>= index 0) (< index (length axis-choices)))
           (let ((axis (list-ref axis-choices index)))
             (if (list? axis)
-                (car axis)
-                (send axis axis-label)))
+                (string-join
+                 (map (lambda (m) (send m series-name)) (cdr axis))
+                 "+")
+                (send axis series-name)))
           #f))
 
     (define (invalidate-data)
@@ -594,7 +599,10 @@
               (x-name (axis-label x-axis-index))
               (y-name (axis-label y-axis-index)))
           (hash-set! params-by-axis (list sport x-name y-name)
-                     (list delay-amount outlier-percentile outlier-handling)))))
+                     (hash
+                      'delay-amount delay-amount
+                      'outlier-percentile outlier-percentile
+                      'outlier-handling outlier-handling)))))
 
     ;; Restore parameters for rhe current sport.  This assumes that a new
     ;; sport (data frame) was installed, it will set the axis selection and
@@ -621,18 +629,15 @@
                (x-name (axis-label x-axis-index))
                (y-name (axis-label y-axis-index))
                (sport-data (hash-ref params-by-axis (list sport x-name y-name) #f)))
-          (cond ((list? sport-data)
-                 (set! delay-amount (first sport-data))
-                 (set! outlier-percentile (second sport-data))
-                 (set! outlier-handling (if (> (length sport-data) 2) (third sport-data) 'mark)))
-                ((number? sport-data)   ; before we saved the outlier percentile
-                 (set! delay-amount sport-data)
-                 (set! outlier-percentile #f)
-                 (set! outlier-handling 'mark))
-                (#t
-                 (set! delay-amount #f)
-                 (set! outlier-percentile #f)
-                 (set! outlier-handling 'mark))))
+          (if (hash? sport-data)
+              (begin
+                (set! delay-amount (hash-ref sport-data 'delay-amount #f))
+                (set! outlier-percentile (hash-ref sport-data 'outlier-percentile #f))
+                (set! outlier-handling (hash-ref sport-data 'outlier-handling 'mark)))
+              (begin
+                (set! delay-amount #f)
+                (set! outlier-percentile #f)
+                (set! outlier-handling 'mark))))
         (if (number? delay-amount)
             (send delay-amount-field set-numeric-value delay-amount)
             (send delay-amount-field set-value ""))

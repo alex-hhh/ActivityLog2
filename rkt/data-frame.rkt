@@ -692,15 +692,15 @@
 ;; NUM-SAMPLES]), as received from `df-histogram` (which see). COLOR will be
 ;; the color of the plot.  #:skip and #:x-min are used to plot dual
 ;; histograms, #:label prints the label of the plot.  All these args are sent
-;; directly to the `discrete-histogram' call.
-;;
-;; The resulting plot renderer can be passed to `plot` or any related
-;; functions to be displayed.
+;; directly to the `discrete-histogram' call, except for #:blank-some-labels,
+;; which controls if some of the labels are blanked out (see
+;; `blank-some-labels`) if the plot contains too many values.
 (define (make-histogram-renderer data
                                  #:color [color #f]
                                  #:skip [skip (discrete-histogram-skip)]
                                  #:x-min [x-min 0]
-                                 #:label [label #f])
+                                 #:label [label #f]
+                                 #:blank-some-labels [blank? #t])
   (let ((kwd '())
         (val '()))
     (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
@@ -715,14 +715,17 @@
       (add-arg '#:y-max (* max-val 1.1)))
     (add-arg '#:x-min x-min)
     (add-arg '#:skip skip)
-    (add-arg '#:line-width 2)
+    (add-arg '#:line-width 1.5)
     (when color
       (add-arg '#:line-color color))
     (add-arg '#:label label)
+    (add-arg '#:gap 0.15)
     (when color
       (add-arg '#:color color)
       (add-arg '#:alpha 0.8))
-    (keyword-apply discrete-histogram kwd val (blank-some-labels data) '())))
+    (keyword-apply discrete-histogram kwd val
+                   (if blank? (blank-some-labels data) data)
+                   '())))
 
 ;; Return a list of the buckets in a histogram (as made by `df-histogram`).
 (define (get-histogram-buckets h)
@@ -763,6 +766,51 @@
           (h2 (make-histogram-renderer
                data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2)))
       (list h1 h2))))
+
+;; Split the histogram HIST into sub-histograms using FACTOR-FN (which maps
+;; the histogram value to a symbol).  Returns a list of (cons TAG SUB-HIST).
+;; The items in sub-histograms are kept in order with only adjacent values
+;; being collapsed together under the same tag, so the same tag can appear
+;; multiple times in the list (for an example of this, see splitting a
+;; left-right-balance histogram)
+;;
+;; WARNING: `blank-some-labels' will also be called on the HIST data
+(define (factor-histogram hist factor-fn)
+  (define result '())
+  (define tag #f)
+  (define batch '())
+  ;; We need to find out which labels are to be blanked out before we split
+  ;; them.  Also we cannot use the blanked data itself, as we would not be
+  ;; able to classify items that have been blanked out.
+  (define blanked (blank-some-labels hist))
+  (for ((item hist) (blanked-item blanked))
+    (match-define (vector val rank) item)
+    (let ((factor (factor-fn val)))
+      (unless (eq? tag factor)
+        (when tag
+          (set! result (cons (cons tag (list->vector (reverse batch))) result)))
+        (set! tag factor)
+        (set! batch '())))
+    (set! batch (cons blanked-item batch)))
+  (when tag                           ; last one
+    (set! result (cons (cons tag (list->vector (reverse batch))) result)))
+  (reverse result))
+
+;; Create a plot rendered where DATA (a histogram) is split into sections by
+;; FACTOR-FN and each section is colored according to FACTOR-COLORS
+(define (make-histogram-renderer/factors data factor-fn factor-colors)
+  (define factored-data (factor-histogram data factor-fn))
+  (define x 0)
+  (for/list ((factor (in-list factored-data)))
+    (match-define (cons ftag fdata) factor)
+    (define color (cdr (assq ftag factor-colors)))
+    (begin0
+        (make-histogram-renderer fdata
+                                 #:color (car color)
+                                 #:x-min x
+                                 #:blank-some-labels #f ; we already blanked them
+                                 )
+      (set! x (+ x (vector-length fdata))))))
 
 
 ;;........................................................... statistics ....
@@ -1346,7 +1394,7 @@
 
 (provide data-series% data-frame%)
 
-(define histogram/c (vectorof (vector/c real? real?)))
+(define histogram/c (vectorof (vector/c (or/c real? string?) real?)))
 (define best-avg-item/c (vector/c real? (or/c #f real?) (or/c #f real?)))
 (define best-avg/c (listof best-avg-item/c))
 
@@ -1395,12 +1443,17 @@
                                (#:color any/c
                                 #:skip real?
                                 #:x-min real?
-                                #:label string?)
+                                #:label string?
+                                #:blank-some-labels boolean?)
                                (treeof renderer2d?)))
  (make-histogram-renderer/dual (->* (histogram/c string? histogram/c string?)
                                     (#:color1 any/c
                                      #:color2 any/c)
                                     (treeof renderer2d?)))
+ (make-histogram-renderer/factors (-> histogram/c
+                                      (-> real? symbol?) ; factor function
+                                      (listof (list/c symbol? any/c)) ; color list
+                                      (treeof renderer2d?)))
  (df-best-avg (->* ((is-a?/c data-frame%) string?)
                    (#:inverted? boolean?
                     #:weight-column string?

@@ -19,6 +19,7 @@
          racket/gui/base
          racket/list
          racket/match
+         racket/string
          "activity-util.rkt"
          "al-prefs.rkt"
          "series-meta.rkt"
@@ -53,8 +54,10 @@
   (for/first ([(axis index) (in-indexed axis-list)]
               #:when
               (let ((sn (if (list? axis)
-                            (car axis)
-                            (send axis axis-label))))
+                            (string-join
+                             (map (lambda (m) (send m series-name)) (cdr axis))
+                             "+")
+                            (send axis series-name))))
                 (equal? series-name sn)))
     index))
 
@@ -106,6 +109,7 @@
     (define y-axis-index 0)
     (define show-as-percentage? #f)
     (define include-zeroes? #t)
+    (define color-by-zone? #f)
     (define bucket-width 1)
     (define outlier-trim 0)
 
@@ -162,6 +166,11 @@
       (new check-box% [parent control-panel]
            [value include-zeroes?] [label "Include Zeroes"]
            [callback (lambda (c e) (on-include-zeroes (send c get-value)))]))
+    
+    (define color-by-zone-check-box
+      (new check-box% [parent control-panel]
+           [value color-by-zone?] [label "Color by Zone"]
+           [callback (lambda (c e) (on-color-by-zone (send c get-value)))]))
 
     (define outlier-trim-field
       (new number-input-field% [parent control-panel] 
@@ -193,11 +202,13 @@
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
     (define (axis-label index)
-      (if (and (> index 0) (< index (length axis-choices)))
+      (if (and (>= index 0) (< index (length axis-choices)))
           (let ((axis (list-ref axis-choices index)))
             (if (list? axis)
-                (car axis)
-                (send axis axis-label)))
+                (string-join
+                 (map (lambda (m) (send m series-name)) (cdr axis))
+                 "+")
+                (send axis series-name)))
           #f))
 
     ;; Update the axis selection checkboxes with AXIS-LIST
@@ -207,17 +218,33 @@
         (let ((n (if (list? a) (car a) (send a axis-label))))
           (send y-axis-choice append n))))
 
+    ;; Enable the "color by zone" checkbox if the selected series has a factor
+    ;; function.
+    (define (maybe-enable-color-by-zone-checkbox)
+      (let ((y-axis (list-ref axis-choices y-axis-index))
+            (sport (and data-frame (send data-frame get-property 'sport)))
+            (sid (and data-frame (send data-frame get-property 'session-id))))
+        (when (list? y-axis) (set! y-axis (second y-axis)))
+        (send color-by-zone-check-box enable
+              (send y-axis factor-fn sport sid))))
+    
     (define (on-y-axis-changed new-index)
       (unless (equal? y-axis-index new-index)
         (save-params-for-axis)
         (set! y-axis-index new-index)
         (restore-params-for-axis)
         (set! export-file-name #f)
+        (maybe-enable-color-by-zone-checkbox)
         (refresh-plot)))
 
     (define (on-show-as-percentage flag)
       (unless (equal? show-as-percentage? flag)
         (set! show-as-percentage? flag)
+        (refresh-plot)))
+
+    (define (on-color-by-zone flag)
+      (unless (equal? color-by-zone? flag)
+        (set! color-by-zone? flag)
         (refresh-plot)))
 
     (define (on-bucket-width width)
@@ -262,6 +289,11 @@
               '(0 148 255)
               color)))
 
+      (define (get-factor-fn axis df)
+        (let ((sport (send df get-property 'sport))
+              (sid (send df get-property 'session-id)))
+          (send axis factor-fn sport sid)))
+
       (unless inhibit-refresh
         (set! plot-rt #f)
         (send plot-pb set-background-message "Working...")
@@ -272,6 +304,7 @@
               (df data-frame)
               (as-pct? show-as-percentage?)
               (zeroes? include-zeroes?)
+              (cbz? color-by-zone?)
               (trim outlier-trim)
               (bw bucket-width))
           (queue-task
@@ -279,6 +312,8 @@
            (lambda ()
              (let* ((axis1 (if (list? axis) (second axis) axis))
                     (axis2 (if (list? axis) (third axis) #f))
+                    (factor-fn (and cbz? (get-factor-fn axis1 df)))
+                    (factor-colors (send axis1 factor-colors))
                     (sname1 (send axis1 series-name))
                     (sname2 (if axis2 (send axis2 series-name) #f))
                     (bw (* bw (send axis1 histogram-bucket-slot)))
@@ -297,7 +332,9 @@
                                                          #:color1 (get-color axis1)
                                                          #:color2 (get-color axis2)))
                           (h1
-                           (list (make-histogram-renderer h1 #:color (get-color axis1))))
+                           (if factor-fn
+                               (make-histogram-renderer/factors h1 factor-fn factor-colors)
+                               (list (make-histogram-renderer h1 #:color (get-color axis1)))))
                           (#t #f))))
                (queue-callback
                 (lambda ()
@@ -314,22 +351,45 @@
                (axis-name (axis-label y-axis-index))
                (key (cons sport axis-name)))
           (hash-set! params-by-axis key
-                     (list bucket-width include-zeroes? outlier-trim)))))
+                     (hash
+                      'bucket-width bucket-width
+                      'include-zeroes? include-zeroes?
+                      'outlier-trim outlier-trim
+                      'color-by-zone? color-by-zone?)))))
 
+    ;; Set default parameters for an axis, used when no params for this axis
+    ;; have been set yet (and thus cannot be restored).
+    (define (set-default-params-for-axis)
+      (send bucket-width-field set-numeric-value 1)
+      (on-bucket-width 1)
+      (send include-zeroes-check-box set-value #f)
+      (set! include-zeroes? #f)
+      (send color-by-zone-check-box set-value #f)
+      (set! color-by-zone? #f)
+      (send outlier-trim-field set-numeric-value 0)
+      (on-outlier-trim 0))
+    
     ;; Restore the axis specific parameters for the current axis
     (define (restore-params-for-axis)
       (when (current-sport)
         (let* ((sport (current-sport))
                (axis-name (axis-label y-axis-index))
                (key (cons sport axis-name))
-               (val (hash-ref params-by-axis key (lambda () (list 1 #t 0)))))
-          (match-define (list bw incz trim) val)
-          (send bucket-width-field set-numeric-value bw)
-          (on-bucket-width bw)
-          (send include-zeroes-check-box set-value incz)
-          (set! include-zeroes? incz)
-          (send outlier-trim-field set-numeric-value (* trim 100))
-          (on-outlier-trim trim))))
+               (val (hash-ref params-by-axis key (lambda () #f))))
+          (if (hash? val)
+              (let ((bw (hash-ref val 'bucket-width 1))
+                    (incz (hash-ref val 'include-zeroes? #f))
+                    (trim (hash-ref val 'outlier-trim 0))
+                    (cbz (hash-ref val 'color-by-zone? #f)))
+                (send bucket-width-field set-numeric-value bw)
+                (on-bucket-width bw)
+                (send include-zeroes-check-box set-value incz)
+                (set! include-zeroes? incz)
+                (send color-by-zone-check-box set-value cbz)
+                (set! color-by-zone? cbz)
+                (send outlier-trim-field set-numeric-value (* trim 100))
+                (on-outlier-trim trim))
+              (set-default-params-for-axis)))))
 
     ;; Save all parameters (axis and their associated parameters) for the
     ;; current sport.
@@ -391,6 +451,7 @@
       (restore-params-for-sport)
       (set! inhibit-refresh #f)
       (set! export-file-name #f)
+      (maybe-enable-color-by-zone-checkbox)
       (refresh-plot))
 
     ))

@@ -40,6 +40,48 @@
 
 ;;..................................................... axis definitions ....
 
+(define default-factor-colors
+  (list
+   (list 'red '(220 20 60))
+   (list 'orange '(255 127 80))
+   (list 'green '(34 139 34))
+   (list 'blue '(30 144 255))
+   (list 'purple '(139 0 139))))
+
+(define zone-factor-colors
+  (list
+   (list 'z0 '(#xad #xd8 #xe6)) ; z0, light blue
+   (list 'z1 '(#x00 #xbf #xff)) ; z1, deep sky blue
+   (list 'z2 '(#x22 #x8b #x22)) ; z2, forrest green
+   (list 'z3 '(#xff #x7f #x50)) ; z3, coral
+   (list 'z4 '(#xcd #x5c #x5c)) ; z4, indian red
+   (list 'z5 '(#xdc #x14 #x3c)) ; z5, crimson
+   (list 'z6 '(#x8b #x00 #x00)) ; z6, dark red
+   (list 'z7 '(#x99 #x32 #xcc)) ; z7, dark orchid
+   (list 'z8 '(#x00 #x00 #x8b)) ; z8, dark blue
+   (list 'z9 '(#xff #x8c #x00)) ; z9, dark orange
+   (list 'z10 '(#xda #xa5 #x20)) ; z10, golden rod
+   ))
+
+(define zone-labels '(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
+
+(define (zone->label z)
+  (define index (max 0 (min (sub1 (length zone-labels)) (exact-truncate z))))
+  (list-ref zone-labels index))
+
+;; We use too many ways to represent sport ids :-(
+(define (sport-id sport)
+  (cond ((number? sport) sport)
+        ((vector? sport) (vector-ref sport 0))
+        ((cons? sport) (car sport))
+        (#t #f)))
+
+(define (is-runnig? sport)
+  (eqv? (sport-id sport) 1))
+
+(define (is-cycling? sport)
+  (eqv? (sport-id sport) 2))
+
 ;; Provides meta data information about a series in a data frame, mostly
 ;; related on how to plot values of this series.
 (define series-metadata%
@@ -104,6 +146,13 @@
     ;; Value to replace missing values in this series
     (define/public (missing-value) 0)
 
+    ;; Return a function that can classify values for this series into
+    ;; discrete elements (tags), returns #f if there is no such function
+    (define/public (factor-fn sport (sid #f)) #f)
+
+    ;; Return an alist mapping factor names to colors
+    (define/public (factor-colors) default-factor-colors)
+
     ))
 
 (provide series-metadata%)
@@ -165,7 +214,27 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (plot-color) *blue*)
          (define/override (series-name) "speed")
-         (define/override (fractional-digits) 2))))
+         (define/override (fractional-digits) 2)
+
+         (define/override (factor-fn sport (sid #f))
+           (if sid
+               (let ((zones (get-session-sport-zones sid 2))
+                     (metric? (eq? (al-pref-measurement-system) 'metric)))
+                 (if zones
+                     ;; NOTE: value passed in is in km/h or mi/h, we need to
+                     ;; convert it back to meters/sec before we can find the
+                     ;; zone.
+                     (lambda (val)
+                       (let* ((val-mps (if metric? (/ (* val 1000.0) 3600.0)
+                                           (/ (* val 1609.0) 3600.0)))
+                              (zone (val->zone val-mps zones)))
+                         (zone->label zone)))
+                     #f))
+               #f))
+         
+         (define/override (factor-colors) zone-factor-colors)
+         
+         )))
 (provide axis-speed)
 
 (define axis-pace
@@ -178,7 +247,30 @@
          ;; (define/override (y-range) (cons 0 #f))
          (define/override (plot-color) *blue*)
          (define/override (inverted-best-avg?) #t)
-         (define/override (series-name) "pace"))))
+         (define/override (series-name) "pace")
+
+         (define/override (factor-fn sport (sid #f))
+           (if sid
+               (let ((zones (get-session-sport-zones sid 2))
+                     (metric? (eq? (al-pref-measurement-system) 'metric)))
+                 (if zones
+                     ;; NOTE: value passed in is in sec/km or sec/mi (NOT
+                     ;; minutes), we need to convert it back to meters/sec
+                     ;; before we can find the zone.
+                     (lambda (val)
+                       (if (and (number? val) (> val 0))
+                           (let* ((val-mps (if metric? (/ 1000.0 val) (/ 1609.0 val)))
+                                  (zone (val->zone val-mps zones)))
+                             (zone->label zone))
+                           ;; Put invalid values in zone 0
+                           (zone->label 0)))
+                     #f))
+               #f))
+         
+         (define/override (factor-colors) zone-factor-colors)
+
+
+         )))
 (provide axis-pace)
 
 (define axis-speed-zone
@@ -189,6 +281,11 @@
          (define/override (plot-color) *blue*)
          (define/override (series-name) "speed-zone")
          (define/override (fractional-digits) 2)
+
+         (define/override (factor-fn sport (sid #f))
+           (lambda (val) (zone->label val)))
+         (define/override (factor-colors) zone-factor-colors)
+
          )))
 (provide axis-speed-zone)
 
@@ -245,6 +342,20 @@
          (define/override (should-filter?) #t)
          (define/override (plot-color) *crimson*)
          (define/override (series-name) "hr")
+
+         (define/override (factor-fn sport (sid #f))
+           (if sid
+               (let ((zones (get-session-sport-zones sid 1)))
+                 (if zones
+                     (lambda (val)
+                       (let ((zone (val->zone val zones)))
+                         (zone->label zone)))
+                     #f))
+               #f))
+         
+         (define/override (factor-colors) zone-factor-colors)
+
+         
          )))
 (provide axis-hr-bpm)
 
@@ -265,6 +376,11 @@
          (define/override (plot-color) *crimson*)
          (define/override (series-name) "hr-zone")
          (define/override (fractional-digits) 2)
+
+         (define/override (factor-fn sport (sid #f))
+           (lambda (val) (zone->label val)))
+         (define/override (factor-colors) zone-factor-colors)
+         
          )))
 (provide axis-hr-zone)
 
@@ -276,6 +392,27 @@
          (define/override (series-name) "cad")
          (define/override (fractional-digits) 1)
          (define/override (histogram-bucket-slot) 0.1)
+
+         (define (cadence-factor/run cad)
+           (define cad1 (* 2 cad))
+           (cond ((> cad1 185) 'purple)
+                 ((> cad1 174) 'blue)
+                 ((> cad1 163) 'green)
+                 ((> cad1 151) 'orange)
+                 (#t 'red)))
+
+         (define (cadence-factor/bike cad)
+           (cond ((> cad 95) 'purple)
+                 ((> cad 85) 'blue)
+                 ((> cad 75) 'green)
+                 ((> cad 65) 'orange)
+                 (#t 'red)))
+
+         (define/override (factor-fn sport (sid #f))
+           (cond ((is-runnig? sport) cadence-factor/run)
+                 ((is-cycling? sport) cadence-factor/bike)
+                 (#t #f)))
+
          )))
 (provide axis-cadence)
 
@@ -301,6 +438,17 @@
          (define/override (series-name) "vratio")
          (define/override (inverted-best-avg?) #t)
          (define/override (fractional-digits) 2)
+
+         (define (vratio-factor vratio)
+           (cond ((> vratio 10.1) 'red)
+                 ((> vratio 8.7) 'orange)
+                 ((> vratio 7.5) 'green)
+                 ((> vratio 6.1) 'blue)
+                 (#t 'purple)))
+
+         (define/override (factor-fn sport (sid #f))
+           (and (is-runnig? sport) vratio-factor))
+
          )))
 (provide axis-vratio)
 
@@ -315,6 +463,17 @@
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "vosc")
          (define/override (fractional-digits) 1)
+
+         (define (vosc-factor vosc)
+           (cond ((> vosc 118) 'red)
+                 ((> vosc 111) 'orange)
+                 ((> vosc 84) 'green)
+                 ((> vosc 67) 'blue)
+                 (#t 'purple)))
+
+         (define/override (factor-fn sport (sid #f))
+           (and (is-runnig? sport) vosc-factor))
+
          )))
 (provide axis-vertical-oscillation)
 
@@ -325,6 +484,17 @@
          (define/override (plot-color) *yellow*)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "gct")
+
+         (define (gct-factor gct)
+           (cond ((> gct 305) 'red)
+                 ((> gct 273) 'orange)
+                 ((> gct 241) 'green)
+                 ((> gct 208) 'blue)
+                 (#t 'purple)))
+
+         (define/override (factor-fn sport (sid #f))
+           (and (is-runnig? sport) gct-factor))
+
          )))
 (provide axis-stance-time)
 
@@ -346,6 +516,19 @@
          (define/override (should-filter?) #t)
          (define/override (plot-color) *dark-magenta*)
          (define/override (series-name) "pwr")
+
+         (define/override (factor-fn sport (sid #f))
+           (if sid
+               (let ((zones (get-session-sport-zones sid 3)))
+                 (if zones
+                     (lambda (val)
+                       (let ((zone (val->zone val zones)))
+                         (zone->label zone)))
+                     #f))
+               #f))
+         
+         (define/override (factor-colors) zone-factor-colors)
+
          )))
 (provide axis-power)
 
@@ -366,6 +549,11 @@
          (define/override (plot-color) *dark-magenta*)
          (define/override (series-name) "pwr-zone")
          (define/override (fractional-digits) 1)
+
+         (define/override (factor-fn sport (sid #f))
+           (lambda (val) (zone->label val)))
+         (define/override (factor-colors) zone-factor-colors)
+         
          )))
 (provide axis-power-zone)
 
@@ -381,6 +569,19 @@
          ;; 55%, if the value is out of that range it is waaay off anyway.
          ;; Keep the chart centered around 50%.
          (define/override (y-range) (cons 45 55))
+
+         (define (lrbal-factors lrbal)
+           (cond ((> lrbal 52.2) 'red)
+                 ((> lrbal 50.8) 'orange)
+                 ((> lrbal 49.2) 'green)
+                 ((> lrbal 47.8) 'orange)
+                 (#t 'red)))
+
+         (define/override (factor-fn sport (sid #f))
+           (if (or (is-runnig? sport) (is-cycling? sport))
+               lrbal-factors
+               #f))
+         
          )))
 (provide axis-left-right-balance)
 
