@@ -400,7 +400,7 @@
                        (set! cache data-cache)
                        (put-plot-snip))
                       (#t
-                       (send plot-pb set-background-message "No data for plot"))))))))))
+                       (send plot-pb set-background-message "No data to plot"))))))))))
 
     (define (refresh-bests-plot)
       (define debug-tag "inspect-best-avg%/refresh-bests-plot")

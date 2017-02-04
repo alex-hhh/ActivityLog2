@@ -110,7 +110,7 @@
     (define/public (set-background-message msg)
       (set! empty-message msg))
 
-    (define empty-message "No Data Available")
+    (define empty-message #f)
     (define empty-message-font
       (send the-font-list find-or-create-font 36 'default 'normal 'normal))
 
@@ -119,7 +119,8 @@
         ;; Draw a message when there is no snip in the pasteboard.
         (unless (send this find-first-snip)
           (send dc clear)
-          (draw-centered-message dc empty-message empty-message-font))))
+          (when empty-message
+            (draw-centered-message dc empty-message empty-message-font)))))
     
     (super-new)
     (send this hide-caret #t)))

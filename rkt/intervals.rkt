@@ -270,7 +270,7 @@
           <))
 
   ;; Return #t if GRADE is on a climb (or descent if descents is #t)
-  (define (on-climb grade) (if descents? (<= grade 0) (>= grade 0)))
+  (define (on-climb grade) (if descents? (< grade 0.5) (> grade 0.5)))
 
   ;; Update END-IDX and END-DST in the climb C and calculate the HDIFF field.
   ;; Also set the hard-end? field to the value of the HARD-END?

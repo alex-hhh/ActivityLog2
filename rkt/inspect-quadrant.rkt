@@ -438,7 +438,7 @@
                 (set! data-bounds bounds)
                 (set! quantile-bounds qbounds)
                 (unless plot-rt
-                  (send plot-pb set-background-message "No data to plot..."))
+                  (send plot-pb set-background-message "No data to plot"))
                 (put-plot-snip))))))))
 
     (define (save-params-for-sport)

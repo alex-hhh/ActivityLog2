@@ -266,7 +266,7 @@
                         #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
       (begin
         (send canvas set-snip #f)
-        (send canvas set-background-message "No data for plot."))))
+        (send canvas set-background-message "No data to plot"))))
 
 (provide bavg-trends-chart%)
 (define bavg-trends-chart%
@@ -341,6 +341,6 @@
                                       min-x max-x min-y max-y))))))
             (begin
               (send canvas set-snip #f)
-              (send canvas set-background-message "No params for plot.")))))
+              (send canvas set-background-message "No params for plot")))))
     
     ))

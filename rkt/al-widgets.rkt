@@ -433,7 +433,8 @@ values (?, ?)" session-id id))
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
    (mk-column-info "Time of day" lap-start-time time-of-day->string)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Pace" lap-avg-speed pace->string)
    (mk-column-info "Best Pace" lap-max-speed pace->string)
@@ -456,21 +457,21 @@ values (?, ?)" session-id id))
 (define *run-mini-lap-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Pace" lap-avg-speed pace->string)))
 
 (define *run-mini-ascend-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Ascent" lap-total-ascent n->string)))
 
 (define *run-mini-descend-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Descent" lap-total-descent n->string)))
 
@@ -478,7 +479,8 @@ values (?, ?)" session-id id))
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
    (mk-column-info "Time of day" lap-start-time time-of-day->string)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Speed" lap-avg-speed speed->string)
    (mk-column-info "Max Speed" lap-max-speed speed->string)
@@ -526,28 +528,28 @@ values (?, ?)" session-id id))
 (define *bike-mini-lap-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Speed" lap-avg-speed speed->string)))
 
 (define *bike-mini-ascend-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Ascent" lap-total-ascent n->string)))
 
 (define *bike-mini-descend-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Descent" lap-total-descent n->string)))
 
 (define *bike-mini-best-fields*
   (list
    (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance distance->string)
    (mk-column-info "Power" lap-avg-power n->string)))
 
@@ -557,7 +559,8 @@ values (?, ?)" session-id id))
    (column-info "Lap" lap-num-pretty lap-num)
    (mk-column-info "Swim Stroke" lap-swim-stroke get-swim-stroke-name)
    ;; (mk-column-info "Time of day" lap-start-time format-time-of-day)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Lengths" lap-num-lengths n->string)
    (mk-column-info "Distance" lap-distance n->string)
    (mk-column-info "Pace" lap-avg-speed swim-pace->string)
@@ -575,7 +578,7 @@ values (?, ?)" session-id id))
    ;; (mk-column-info "Lap #" lap-num lap-num-fmt)
    (column-info "Lap" lap-num-pretty lap-num)
    ;; (mk-column-info "Time of day" lap-start-time format-time-of-day)
-   (mk-column-info "Duration" lap-time (lambda (v) (duration->string v #t)))
+   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-column-info "Distance" lap-distance n->string)
    (mk-column-info "Pace" lap-avg-speed swim-pace->string)))
 
@@ -626,6 +629,11 @@ values (?, ?)" session-id id))
    (cons 13 'hill-climbs) *bike-mini-ascend-fields*
    (cons 13 'hill-descents) *bike-mini-descend-fields*
    13 *bike-mini-lap-fields*
+   ;; Hiking Skiing
+   (cons 256 'hill-climbs) *bike-mini-ascend-fields*
+   (cons 256 'hill-descents) *bike-mini-descend-fields*
+   256 *bike-mini-lap-fields*
+
    5 *swim-mini-lap-fields*))
    
 (define *default-mini-lap-fields* *bike-mini-lap-fields*)

@@ -180,22 +180,30 @@
                 (if (eq? tag (chart-info-tag (car chart-types)))
                     (car chart-types)
                     (loop (cdr chart-types))))))
+
+        (define (make-trends-chart chart-tag restore-data)
+          (define ci (find-chart-info chart-tag))
+          (when ci
+            (let ((pane (let ((tc (new (chart-info-class ci) [database database])))
+                          (send tc restore-from restore-data)
+                          (new trend-chart-pane%
+                               [parent trend-charts-panel]
+                               [info-tag (chart-info-tag ci)]
+                               [trend-chart tc]))))
+              (set! trend-charts (append trend-charts (list pane)))
+              (send trend-charts-panel append (send pane get-name)))))
       
-        (when data
-          (for ([datum data])
-            (match-define (list chart-tag restore-data) datum)
-            (define ci (find-chart-info chart-tag))
-            (when ci
-              (let ((pane (let ((tc (new (chart-info-class ci) [database database])))
-                            (send tc restore-from restore-data)
-                            (new trend-chart-pane%
-                                 [parent trend-charts-panel]
-                                 [info-tag (chart-info-tag ci)]
-                                 [trend-chart tc]))))
-                (set! trend-charts (append trend-charts (list pane)))
-                (send trend-charts-panel append (send pane get-name)))))
-          (when (> (length data) 0)
-            (switch-tabs 0)))))
+        (when (and data (> (length data) 0))
+          (let ((first-chart (car data)))
+            (match-define (list chart-tag restore-data) first-chart)
+            (make-trends-chart chart-tag restore-data))
+          (switch-tabs 0)
+          (for ([chart-data (cdr data)])
+            (match-define (list chart-tag restore-data) chart-data)
+            (queue-callback
+             (lambda ()
+               (make-trends-chart chart-tag restore-data))
+             #f)))))
           
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
@@ -269,7 +277,9 @@
       (let ((chart (list-ref trend-charts n)))
         (send trend-charts-panel change-children
               (lambda (old) (list chart)))
-        (send chart activate)
+        (queue-callback  ; activate it later, so that the canvas gets its size
+         (lambda () (send chart activate))
+         #f)
         (send title-field set-label (send chart get-title)))
       (send move-left-button enable (not (zero? n)))
       (send move-right-button enable (< n (sub1 (length trend-charts)))))
