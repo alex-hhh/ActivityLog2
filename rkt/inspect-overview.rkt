@@ -21,13 +21,15 @@
          (rename-in srfi/48 (format format-48))
          racket/list
          racket/math
+         math/statistics
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
          "map-util.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "weather.rkt")
+         "weather.rkt"
+         "data-frame.rkt")
 
 (provide inspect-overview-panel%)
 
@@ -90,6 +92,46 @@
    (badge-field-def "Aerobic Decoupling: "
                     session-aerobic-decoupling
                     (lambda (v) (if v (pct->string v) "")))))
+
+;; Calculate the min/max elevation for the data frame DF and store it as the
+;; 'min-elevation and 'max-elevation properties.
+;;
+;; The MIN/MAX elevation is not stored in the database (NOTE: perhaps it
+;; should be), so we have to calculate it from the session data frame.  The
+;; result is stored as properties on the data frame so they don't need to be
+;; recalculated while the data frame is in the cache.
+(define (setup-min-max-elevation df)
+  (define series
+    (cond ((send df contains? "alt") "alt")
+          ((send df contains? "calt") "calt")
+          (#t #f)))
+  (when series
+    (let ((stats (df-statistics df series)))
+      (send df put-property 'min-elevation (statistics-min stats))
+      (send df put-property 'max-elevation (statistics-max stats)))))
+
+;; Return the min-elevation for the session (as retrieved from the data frame
+;; DF).  SESSION is not used, and it is present just to satisfy the signature
+;; of the badge extractor functions.  The data frame might be #f, as it is
+;; loaded in the background and will be available before the first round of
+;; snips are displayed.
+(define (session-min-elevation session df)
+  (if df
+      (or (send df get-property 'min-elevation)
+          (begin
+            (setup-min-max-elevation df)
+            (send df get-property 'min-elevation)))
+      #f))
+
+;; Return the max-elevation for the session, see remarks for
+;; `session-min-elevation`
+(define (session-max-elevation session df)
+  (if df
+      (or (send df get-property 'max-elevation)
+          (begin
+            (setup-min-max-elevation df)
+            (send df get-property 'max-elevation)))
+      #f))
 
 (define *elevation-fields*
   (list
@@ -382,11 +424,16 @@
 
 ;; Make a badge pict according to BDEF (a badge-def structure), using data
 ;; from SESSION.
-(define (make-badge bdef session)
+(define (make-badge bdef session df)
   (let ((labels '())
 	(values '()))
     (for ((fdef (in-list (badge-def-fields bdef))))
-      (let ((data ((badge-field-def-extractor fdef) session)))
+      (let* ((extractor-fn (badge-field-def-extractor fdef))
+             ;; extractor functions have one argument, which is the session,
+             ;; or two arguments which are the session and the data frame.
+             (data (if (eq? (procedure-arity extractor-fn) 2)
+                       (extractor-fn session df)
+                       (extractor-fn session))))
         (when data
           (set! labels (cons (text (badge-field-def-name fdef)) labels))
           (set! values (cons (text ((badge-field-def-formatter fdef) data)) values)))))
@@ -408,7 +455,7 @@
 
 (define badge-snip%
   (class snip%
-    (init badge-definition session)
+    (init badge-definition session data-frame)
     (super-new)
     (inherit get-admin set-flags get-flags set-snipclass set-count)
 
@@ -419,7 +466,7 @@
     ;; BADGE-DEFINITION.
     (define bdef badge-definition)
     (define priority (badge-def-priority bdef))
-    (define bpict (make-badge badge-definition session))
+    (define bpict (make-badge badge-definition session data-frame))
     (define target-width (if bpict (pict-width bpict) 0))
 
     (define decorated-bpict #f)
@@ -583,12 +630,12 @@
     (define/augment (on-display-size)
       (arrange-badges))
 
-    (define/public (set-session session)
+    (define/public (set-session session df)
       (with-edit-sequence
        (lambda ()
          (remove-all-snips)
          (for ((bdef (in-list (get-badge-definitions (session-sport session)))))
-           (let ((snip (new badge-snip% [badge-definition bdef] [session session])))
+           (let ((snip (new badge-snip% [badge-definition bdef] [session session] [data-frame df])))
              (when (send snip good?)
                (insert snip))))
          (arrange-badges))))
@@ -756,7 +803,7 @@
 
     (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
-      (send badge-pb set-session session)
+      (send badge-pb set-session session df)
       (let ((session-id (assq1 'database-id session)))
         (when session-id
           (send labels-field setup-for-session the-database session-id)

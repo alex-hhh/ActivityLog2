@@ -290,8 +290,6 @@
 
  session-total-ascent
  session-total-descent
- session-min-elevation
- session-max-elevation
 
  session-pool-length
  session-avg-swolf
@@ -417,34 +415,6 @@
   (or
    (assq1 'total-corrected-descent session)
    (assq1 'total-descent session)))
-
-(define (session-min-elevation session)
-  (let ((min-elevation #f))
-    (for-each-session-trackpoint
-     session
-     (lambda (prev trackpoint)
-       (let ((altitude (or
-                        (assq1 'corrected-altitude trackpoint)
-                        (assq1 'altitude trackpoint))))
-         (if (eq? min-elevation #f)
-             (set! min-elevation altitude)
-             (unless (eq? altitude #f)
-               (set! min-elevation (min min-elevation altitude)))))))
-    min-elevation))
-
-(define (session-max-elevation session)
-  (let ((max-elevation #f))
-    (for-each-session-trackpoint
-     session
-     (lambda (prev trackpoint)
-       (let ((altitude (or
-                        (assq1 'corrected-altitude trackpoint)
-                        (assq1 'altitude trackpoint))))
-         (if (eq? max-elevation #f)
-             (set! max-elevation altitude)
-             (unless (eq? altitude #f)
-               (set! max-elevation (max max-elevation altitude)))))))
-    max-elevation))
 
 (define (session-pool-length session)
   (assq1 'pool-length session))

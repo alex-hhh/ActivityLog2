@@ -322,6 +322,10 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (set! data-frame sdf)
       (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
 
+      ;; The overview panel also uses the data frame, so tell it that it is
+      ;; available now.
+      (send (tdata-contents overview) set-session session sdf)
+
       ;; Determine which tabs are needed, and only show those.  The Overview
       ;; panel always exists.
       (let ((tabs (list overview)))
