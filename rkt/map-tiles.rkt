@@ -22,6 +22,7 @@
  racket/async-channel
  racket/port
  net/url
+ net/url-connect
  racket/match
  racket/draw
  racket/list
@@ -30,6 +31,7 @@
  "dbutil.rkt"
  "dbglog.rkt"
  "map-util.rkt")
+(require (for-syntax racket/base))
 
 (provide
  get-tile-bitmap
@@ -37,7 +39,11 @@
  get-download-backlog
  allow-tile-download
  set-allow-tile-download
- shutdown-map-tile-workers)
+ shutdown-map-tile-workers
+ tile-copyright-string
+ get-tile-provider-names
+ current-tile-provider-name
+ set-current-tile-provider)
 
 
 ;........................................................ debug helpers ....
@@ -51,14 +57,9 @@
 
 ;.................................................... global parameters ....
 
-;; Name of the tile cache database file.
-(define tcache-file-name 
-  (al-get-pref 'activity-log:tile-cache-file
-               (lambda () (build-path (al-get-pref-dir) "OsmTileCache.db"))))
-
 ;; Tiles older than this will be refreshed. Value is in seconds, but the value
 ;; stored in the preference file is in days.
-(define tile-refresh-interval 
+(define tile-refresh-interval
   (* 60 60 24
      (al-get-pref 'activity-log:tile-refresh-interval (lambda () 60))))
 
@@ -72,21 +73,6 @@
   (if new-val
       (dbglog "map tile download enabled")
       (dbglog "map tile download disabled")))
-
-
-
-;..................................................... helper functions ....
-
-;; Read requests from CHANNEL and add them to BACKLOG.  We read without
-;; blocking until there are no more requests, however if the backlog is empty,
-;; we wait indefinitely.  Requests are added to the backlog in reverse order
-;; (the last request added to the channel will end up being the first in the
-;; backlog) Returns an updated backlog.
-(define (fill-backlog backlog channel)
-  (let ([tile ((if (null? backlog) async-channel-get async-channel-try-get) channel)])
-    (if tile
-        (fill-backlog (cons tile backlog) channel)
-        backlog)))
 
 
 ;.................................................. tile cache database ....
@@ -102,10 +88,10 @@
 (define fetch-tile-sql
   (virtual-statement
    (lambda (dbsys) "
-select data, timestamp 
+select data, timestamp
   from TILE_CACHE
  where zoom_level = ? and x_coord = ? and y_coord = ?")))
-     
+
 ;; Fetch a tile from the database. Return a (vector data timestamp) for the
 ;; TILE, or #f if the tile is not found
 (define (db-fetch-tile tile db)
@@ -145,8 +131,8 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
            (y (map-tile-y tile))
            (timestamp (current-seconds)))
        (if (query-maybe-value db tile-exists-sql zoom x y)
-           (query-exec db update-tile-sql url timestamp data zoom x y)
-           (query-exec db insert-tile-sql url timestamp data zoom x y))))))
+           (query-exec db update-tile-sql "" timestamp data zoom x y)
+           (query-exec db insert-tile-sql "" timestamp data zoom x y))))))
 
 ;; Store the size of the tile download backlog here, so the map view can show
 ;; it.
@@ -181,7 +167,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
              ;; tile download threads will start discarding requests.
              (set! requested-tiles '())))
        (set! download-backlog (length requested-tiles)))
-     
+
      (let loop ((work-item (async-channel-get request)))
        (when work-item
          (match-define (cons operation data) work-item)
@@ -219,35 +205,160 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 
 ;.................................... downlading tiles from the network ....
 
-(define (random-select l)
-  (let ((n (random (length l))))
-    (list-ref l n)))
+;; This "magic" macro will embed the Thunderforest API key at compile time,
+;; allowing us to ship a built version of the application with the API key
+;; already inside it.
+(define-syntax (embedded-api-key stx)
+  (syntax-case stx ()
+    [_ #`(quote #,(getenv "AL2TFAPIKEY"))]))
+(define (builtin-api-key) (embedded-api-key))
 
+(define tf-api-key-tag 'activity-log:tf-api-key)
+;; the API key value comes either from the preferences file (needs to be
+;; manually stored there), from an environment variable, or a built in one (if
+;; available)
+(define tf-api-key-val
+  (or (al-get-pref tf-api-key-tag (lambda () #f))
+      (getenv "AL2TFAPIKEY")
+      (builtin-api-key)))
+(define (tf-api-key) tf-api-key-val)
+
+(define user-agent "User-Agent: ActivityLog2 http://alex-hhh.github.io/ActivityLog2/")
+
+;; Return the URL string for fetching the bitmap for TILE from OpenStreetMap
 (define (tile->osm-url tile)
-  (let ((top (random-select '("a" "b" "c")))
-        (zoom (map-tile-zoom tile))
+  (let ((zoom (map-tile-zoom tile))
         (x (map-tile-x tile))
         (y (map-tile-y tile)))
-    (format "http://tile.thunderforest.com/outdoors/~a/~a/~a.png" zoom x y)))
+    (format "https://tile.openstreetmap.org/~a/~a/~a.png" zoom x y)))
+
+;; Return the URL string from fetching the bitmap for TILE from Thunderforest.
+;; KIND determines the type of the map used (e.g. cycle, outdoors, etc)
+(define (tile->tf-url kind tile)
+  (let ((zoom (map-tile-zoom tile))
+        (x (map-tile-x tile))
+        (y (map-tile-y tile)))
+    (format "https://tile.thunderforest.com/~a/~a/~a/~a.png?apikey=~a"
+            kind zoom x y (tf-api-key))))
+
+;; Hold information about a map tile bitmap provider
+(struct tile-provider (name tag cache-file url-fn copyright))
+
+(define tf-outdoors-provider
+  (tile-provider
+   "Tunderforrest Outdoors"
+   'tf-outdoors
+   "TfOutdoorsTiles.db"
+   (lambda (tile) (tile->tf-url "outdoors" tile))
+   "Maps © Thunderforest, Data © OpenStreetMap contributors"))
+
+(define tf-opencycle-provider
+  (tile-provider
+   "Tunderforrest Cycle"
+   'tf-opencycle
+   "TfCycleTiles.db"
+   (lambda (tile) (tile->tf-url "cycle" tile))
+   "Maps © Thunderforest, Data © OpenStreetMap contributors"))
+
+(define tf-landscape-provider
+  (tile-provider
+   "Tunderforrest Landscape"
+   'tf-opencycle
+   "TfLandscapeTiles.db"
+   (lambda (tile) (tile->tf-url "landscape" tile))
+   "Maps © Thunderforest, Data © OpenStreetMap contributors"))
+
+(define tf-neighbourhood-provider
+  (tile-provider
+   "Tunderforrest Neighbourhood"
+   'tf-opencycle
+   "TfNeighbourhoodTiles.db"
+   (lambda (tile) (tile->tf-url "neighbourhood" tile))
+   "Maps © Thunderforest, Data © OpenStreetMap contributors"))
+
+(define osm-provider
+  (tile-provider
+   "Open Street Map"
+   'osm
+   "OsmTiles.db"
+   tile->osm-url
+   "Copyright © OpenStreetMap contributors"))
+
+;; List all available tile providers.
+(define all-provivers
+  (let ((providers (list osm-provider)))
+    (when (tf-api-key)
+      (set! providers (append providers (list tf-outdoors-provider
+                                              tf-opencycle-provider
+                                              tf-landscape-provider
+                                              tf-neighbourhood-provider))))
+    (sort providers string<? #:key tile-provider-name)))
+
+;; This is the current tile provider used to paint maps
+(define current-provider
+  (let ((tag (al-get-pref 'activity-log:tile-provider (lambda () 'osm))))
+    (or (for/first ([tp all-provivers] #:when (equal? tag (tile-provider-tag tp))) tp)
+        osm-provider)))
+
+;; Return a list of names for all the tile providers
+(define (get-tile-provider-names)
+  (map tile-provider-name all-provivers))
+
+;; Return the URL string for TILE.  The CURRENT-PROVIDER is used to obtain the
+;; URL.
+(define (tile->url tile)
+  (let* ((url-fn (tile-provider-url-fn current-provider))
+         (url (url-fn tile)))
+    (string->url url)))
+
+;; Return the copyright string to be displayed on the map for the current tile
+;; provider.
+(define (tile-copyright-string)
+  (tile-provider-copyright current-provider))
+
+;; Return the name of the cache file for storing tiles for this tile provider
+(define (tile-cache-file)
+  (build-path (al-get-pref-dir) (tile-provider-cache-file current-provider)))
+
+;; Return the name of the current tile provider
+(define (current-tile-provider-name)
+  (tile-provider-name current-provider))
+
+;; Set a new tile provider from NAME.  The tile provider is also stored as a
+;; preference.
+(define (set-current-tile-provider name)
+  (unless (equal? name (tile-provider-name current-provider))
+    (define tp
+      (or (for/first ([tp all-provivers]
+                      #:when (equal? (tile-provider-name tp) name))
+            tp)
+          osm-provider))
+    (al-put-pref 'activity-log:tile-provider (tile-provider-tag tp))
+    (set! current-provider tp)
+    ;; Will recreate the workers for the new provider next time a tile will be
+    ;; requested.
+    (shutdown-map-tile-workers)))
 
 ;; Fetch TILE from the network.  Return a list of the tile, the url it was
 ;; fetched from and the actual PNG image as a byte-array.  Return #f if
 ;; there's a problem.  Will not download any tiles if
 ;; AL-PREF-ALLOW-TILE-DOWNLOAD is #f.
-(define (net-fetch-tile tile)
+(define (net-fetch-tile tile connection)
   (with-handlers
    (((lambda (e) #t)
      (lambda (e)
-       (dbglog "Failed to download tile ~a~%" e)
+       (dbglog-exception "net-fetch-tile" e)
        (dbg-printf "Failed to download tile ~a~%" e)
        #f)))
    (if (allow-tile-download)
-       (let* ((url (tile->osm-url tile))
-              (data (port->bytes (get-pure-port
-                                  (string->url url)
-                                  (list "User-Agent: ActivityLog2 http://alex-hhh.github.io/ActivityLog2/")
-                                  ))))
-         (list tile url data))
+       (parameterize ((current-https-protocol 'secure))
+         (let ((url (tile->url tile)))
+           (let-values (((port headers)
+                         (get-pure-port/headers url
+                                                (list user-agent)
+                                                #:connection connection)))
+             (let ((data (port->bytes port)))
+               (list tile url data)))))
        #f)))
 
 ;; Create a thread to download tiles from the network.  Requests are received
@@ -258,16 +369,19 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (thread/dbglog
    #:name "tile net fetch thread"
    (lambda ()
-     (let loop ((work-item (async-channel-get request)))
-       (when work-item
-         (let* ([tile work-item]
-                [data (net-fetch-tile tile)])
-           (when data
-             (match-define (list tile url blob) data)
-             (dbg-printf "NET Downloaded tile ~a~%" tile)
-             (store-tile tile url blob db-request-channel)
-             (async-channel-put reply (list tile blob)))
-           (loop (async-channel-get request))))))))
+     (let ((connection (make-http-connection)))
+       (let loop ((work-item (async-channel-get request)))
+         (if work-item
+             (let* ([tile work-item]
+                    [data (net-fetch-tile tile connection)])
+               (when data
+                 (match-define (list tile url blob) data)
+                 (dbg-printf "NET Downloaded tile ~a~%" tile)
+                 (store-tile tile url blob db-request-channel)
+                 (async-channel-put reply (list tile blob)))
+               (loop (async-channel-get request)))
+             ;; Finished thread, close the HTTP connection
+             (http-connection-close connection)))))))
 
 
 ;......................................................... main section ....
@@ -284,14 +398,14 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 (define cache-threshold 100)
 
 ;; Database requests are sent on this channel
-(define db-request-channel (make-async-channel #f))
+(define db-request-channel #f)
 
 ;; Network requests are sent on this channel
-(define net-request-channel (make-async-channel #f))
+(define net-request-channel #f)
 
 ;; Replies (from both the database and network threads) are received on this
 ;; channel.
-(define reply-channel (make-async-channel #f))
+(define reply-channel #f)
 
 ;; List of worker threads.  There is currently no mechanism to stop these
 ;; threads.
@@ -306,8 +420,25 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
     ;; values so that each thread gets one and shuts down.
     (async-channel-put db-request-channel #f)
     (async-channel-put net-request-channel #f))
+
   (for ((worker worker-threads))
-    (sync/timeout 0.1 (thread-dead-evt worker))))
+    (sync/timeout 0.1 (thread-dead-evt worker)))
+
+  (for ((worker worker-threads))
+    (kill-thread worker))
+
+  ;; Close the database, communication channels and the rest.  If we just
+  ;; switched tile providers, a new one will be set up by MAYBE-SETUP.
+  (when tcache-db
+    (disconnect tcache-db)
+    (set! tcache-db #f)
+    (set! bitmap-cache (make-hash))
+    (set! secondary-bitmap-cache (make-hash))
+    (set! db-request-channel #f)
+    (set! net-request-channel #f)
+    (set! reply-channel #f)
+    (set! worker-threads '())))
+
 
 ;; Proces some replies from CHANNEL as sent by the database service or the
 ;; tile download threads.  Replies are tiles and theis corresponding PNG
@@ -327,7 +458,12 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; Open the database and create the worker thread (if not already done so).
 (define (maybe-setup)
   (unless tcache-db
-    (set! tcache-db (open-tcache-database tcache-file-name))
+    (set! tcache-db (open-tcache-database (tile-cache-file)))
+    (set! db-request-channel (make-async-channel #f))
+    (set! net-request-channel (make-async-channel #f))
+    (set! reply-channel (make-async-channel #f))
+    (set! bitmap-cache (make-hash))
+    (set! secondary-bitmap-cache (make-hash))
     (set! worker-threads
           (list
            (make-tile-fetch-store-thread

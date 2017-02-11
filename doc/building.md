@@ -22,6 +22,28 @@ application will run even on machines that don't have Racket installed.
 A windows installer can be created using Inno Setup
 (http://www.jrsoftware.org/isinfo.php) by compiling the "setup.iss" file.
 
+### Weather and Map Tile API Keys
+
+The application uses web services for some of the functionality.  Currently
+two services are used: [Wunderground](https://www.wunderground.com/) is used
+to retrieve weather data for an activity
+and [Thunderforest](http://thunderforest.com/) is used for map tiles.  These
+services require API keys to access them.  The built version of the
+applications has these API keys embedded, however the keys are kept separately
+from the code base.  If you want to build the application, you will need to
+obtain your own API keys.  To use them, you need to set two environment
+variables:
+
+* AL2TFAPIKEY -- contains the API key for Thunderforest maps
+* AL2WUAPIKEY -- contains the API key for the Wunderground service
+
+These will be used while the app is running and will be embedded in any built
+executable.
+
+If these keys are not set, weather data will not be downloaded and
+only [OpenStreetMap](http://www.openstreetmap.org/) map tiles will be
+available.
+
 # Developer Notes
 
 The application can be run from the command line using the following command:

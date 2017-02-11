@@ -39,8 +39,8 @@
     (define measurement-system-choice #f)
     (define tablet-friendly-checkbox #f)
     (define allow-weather-download-check-box #f)
-    (define wu-api-key-text-box #f)
     (define allow-map-tile-download-check-box #f)
+    (define map-provider-choice #f)
 
     (let ((p (send this get-client-pane)))
 
@@ -74,9 +74,10 @@
                      [stretchable-height #f])))
         (set! allow-map-tile-download-check-box
               (new check-box% [label "Allow map tile download"]
-                   [parent p1])))
-
-
+                   [parent p1]))
+        (set! map-provider-choice
+              (new choice% [label "Map tiles "] [parent p1]
+                   [choices (get-tile-provider-names)])))
       #f)
 
     (define (setup)
@@ -88,7 +89,12 @@
       (let ((allow? (allow-tile-download)))
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
       (let ((allow? (allow-weather-download)))
-        (send allow-weather-download-check-box set-value (if allow? #t #f))))
+        (send allow-weather-download-check-box set-value (if allow? #t #f)))
+      (let ((index (for/first ([(p idx) (in-indexed (get-tile-provider-names))]
+                                 #:when (equal? p (current-tile-provider-name)))
+                       idx)))
+          (when index
+            (send map-provider-choice set-selection index))))
 
     (define (save-preferences)
       (let ((val (send measurement-system-choice get-selection)))
@@ -101,6 +107,9 @@
       (let ((val (send allow-map-tile-download-check-box get-value)))
         (unless (eq? val (allow-tile-download))
           (set-allow-tile-download val)))
+
+      (let ((index (send map-provider-choice get-selection)))
+        (set-current-tile-provider (list-ref (get-tile-provider-names) index)))
 
       (let ((val (send allow-weather-download-check-box get-value)))
         (unless (eq? val (allow-weather-download))

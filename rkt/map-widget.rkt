@@ -284,8 +284,6 @@
   (send the-pen-list find-or-create-pen legend-color 2 'solid))
 (define legend-font
   (send the-font-list find-or-create-font 8 'default 'normal 'normal))
-;; (define legend-copyright "Copyright(c) OpenStreetMap contributors")
-(define legend-copyright "Maps © Thunderforest, Data © OpenStreetMap contributors")
 
 (define legend-distance-metric
   (list
@@ -351,9 +349,9 @@
         (send dc set-font legend-font)
         (send dc set-text-foreground legend-color)
 
-        (let-values (((w h x y) (send dc get-text-extent legend-copyright legend-font #t)))
+        (let-values (((w h x y) (send dc get-text-extent (tile-copyright-string) legend-font #t)))
           (send dc draw-rectangle (- cw ox 5 w) (- ch oy 5 h) (+ w 5 5) (+ h 5 5))
-          (send dc draw-text legend-copyright (- cw ox w) (- ch oy h)))
+          (send dc draw-text (tile-copyright-string) (- cw ox w) (- ch oy h)))
 
         (send dc draw-rectangle (- ox 5) (- ch oy 20) (+ km-dist 5 5) 25)
         (send dc set-pen legend-pen)
@@ -507,7 +505,7 @@
                             (- (* y tile-size) yofs)))))))
 
         (when (or request-redraw? (> (get-download-backlog) 0))
-          (send redraw-timer start 500))))
+          (send redraw-timer start 100))))
 
     (define canvas
       (new (class canvas% (init) (super-new)

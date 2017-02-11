@@ -241,9 +241,9 @@
        [shortcut #\;]
        [callback
         (lambda (m e)
-          (send (get-preferences-dialog) run
-                (send toplevel get-frame))
-          (send toplevel refresh-current-view))])
+          (when (send (get-preferences-dialog) run
+                      (send toplevel get-frame))
+            (send toplevel refresh-current-view)))])
 
   edit-menu)
 
