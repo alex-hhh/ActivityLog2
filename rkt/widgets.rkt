@@ -901,6 +901,14 @@
 
     (define (sort-by-column n)
 
+      ;; Save the first visible position and the selection, after sorting we
+      ;; will select the same item again and position it in the same visual
+      ;; place on the list control.
+      (define first-visible (send the-list-box get-first-visible-item))
+      (define selection (send the-list-box get-selection))
+      (define selected-item
+        (and selection (list-ref the-data selection)))
+
       (if (eqv? sort-column n)
           ;; If we are sorting the same column, toggle the sort order.
           (set! sort-descending? (not sort-descending?))
@@ -932,8 +940,22 @@
         (set! the-data (sort the-data cmp #:key key)))
 
       ;; Update the list-box in place (no rows are added/deleted)
-      (refresh-contents))
+      (refresh-contents)
 
+      ;; Select the original item (it has changed position during the sort)
+      ;; and scroll the list box so it appears on screen in the same place.
+      (when selected-item
+        ;; New position of the selected item
+        (define pos (for/first ([(item index)
+                                 (in-indexed (in-list the-data))]
+                                #:when (eq? selected-item item))
+                      index))
+        (send the-list-box set-selection pos)
+        (when first-visible
+          (define nfv (max 0 (- pos (- selection first-visible))))
+          (send the-list-box set-first-visible-item nfv))))
+
+    
     (define/public (set-default-export-file-name name)
       (set! default-export-file-name name))
 
