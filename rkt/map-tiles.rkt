@@ -263,7 +263,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 (define tf-landscape-provider
   (tile-provider
    "Tunderforrest Landscape"
-   'tf-opencycle
+   'tf-landscape
    "TfLandscapeTiles.db"
    (lambda (tile) (tile->tf-url "landscape" tile))
    "Maps © Thunderforest, Data © OpenStreetMap contributors"))
@@ -271,7 +271,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 (define tf-neighbourhood-provider
   (tile-provider
    "Tunderforrest Neighbourhood"
-   'tf-opencycle
+   'tf-neighbourhood
    "TfNeighbourhoodTiles.db"
    (lambda (tile) (tile->tf-url "neighbourhood" tile))
    "Maps © Thunderforest, Data © OpenStreetMap contributors"))
