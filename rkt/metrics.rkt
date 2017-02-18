@@ -25,20 +25,12 @@
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "spline-interpolation.rkt"
          "data-frame.rkt"
+         "series-meta.rkt"
          "session-df.rkt")
 
-;; WARNING: a best-avg set in this file has a different structure than the one
-;; produced by df-best-avg from data-frame.rkt.
-
-;; Compute the BEST-AVG data for a series, and convert the result to a JSEXPR
-;; (this is a scheme form that can be encoded as JSON, we can only use lists
-;; and hashes).
-(define (best-avg/jsexpr df series (inverted? #f))
-  (let ((bavg (df-best-avg df series #:inverted? inverted?))
-        (sid (send df get-property 'session-id)))
-    (for/list ((item bavg) #:when (vector-ref item 1))
-      (match-define (vector duration value timestamp) item)
-      (list sid timestamp duration (/ (exact-round (* value 100.0)) 100.0)))))
+;; WARNING: a best-avg set and a histogram in this file has a different
+;; structure than the one produced by df-best-avg and df-histogram from
+;; data-frame.rkt.
 
 ;; Take a JSEXPR and return a compressed string from it.  It is intended to be
 ;; stored in the database.
@@ -57,52 +49,60 @@
     (let ((str (bytes->string/utf-8 (get-output-bytes out))))
       (string->jsexpr str))))
 
-(define db-insert-stmt
+
+;;................................................................. bavg ....
+
+;; Compute the BEST-AVG data for SERIES, and convert the result to a JSEXPR
+;; (this is a scheme form that can be encoded as JSON, we can only use lists
+;; and hashes).
+(define (best-avg/jsexpr df series (inverted? #f))
+  (let ((bavg (df-best-avg df series #:inverted? inverted?))
+        (sid (send df get-property 'session-id)))
+    (for/list ((item bavg) #:when (vector-ref item 1))
+      (match-define (vector duration value timestamp) item)
+      (list sid timestamp duration (/ (exact-round (* value 100.0)) 100.0)))))
+
+(define db-bavg-insert-stmt
   (virtual-statement
    (lambda (dbsys)
      "insert into BAVG_CACHE (session_id, series, data) values (?, ?, ?)")))
 
-(define db-update-stmt
+(define db-bavg-update-stmt
   (virtual-statement
    (lambda (dbsys)
      "update BAVG_CACHE set data = ? where id = ?")))
 
-(define db-lookup-stmt
+(define db-bavg-lookup-stmt
   (virtual-statement
    (lambda (dbsys)
      "select id from BAVG_CACHE where session_id = ? and series = ?")))
 
 ;; PUT the BAVG data into the database (BAVG_CACHE table) for the sid/series
 ;; key.  If an entry already exists, it is updated.
-(define (db-put db sid series bavg)
+(define (db-put-bavg db sid series bavg)
   (let ((data (jsexpr->compressed-string bavg)))
     (call-with-transaction
      db
      (lambda ()
-       (let ((id (query-maybe-value db db-lookup-stmt sid series)))
+       (let ((id (query-maybe-value db db-bavg-lookup-stmt sid series)))
          (if id
-             (query-exec db db-update-stmt data id)
-             (query-exec db db-insert-stmt sid series data)))))))
+             (query-exec db db-bavg-update-stmt data id)
+             (query-exec db db-bavg-insert-stmt sid series data)))))))
 
-(define db-fetch-stmt
+(define db-bavg-fetch-stmt
   (virtual-statement
    (lambda (dbsys)
      "select data from BAVG_CACHE where session_id = ? and series = ?")))
 
 ;; Fetch cached BAVG data from the database.  Return #f if the data does not
 ;; exist.
-(define (db-fetch db sid series)
-  (let ((data (query-maybe-value db db-fetch-stmt sid series)))
+(define (db-fetch-bavg db sid series)
+  (let ((data (query-maybe-value db db-bavg-fetch-stmt sid series)))
     (and data (compressed-string->jsexpr data))))
 
 ;; A cache mapping a sid/series key to the bavg data.  Avoid
 ;; re-calculating/retrieving the data for subsequent calls.
 (define bavg-cache (make-hash))
-
-;; Clear all internal caches.  This is needed whenever the database is closed
-;; and a new one is opened.
-(define (clear-metrics-cache)
-  (set! bavg-cache (make-hash)))
 
 ;; Return the BEST-AVG data for SID + SERIES.  It is retrieved from one of the
 ;; caches (db or in memory) if possible, otherwise it is computed and also
@@ -110,7 +110,7 @@
 (define (get-best-avg sid series (inverted? #f))
   (or (hash-ref bavg-cache (cons sid series) #f)
       ;; Try the database cache
-      (let ((bavg (db-fetch (current-database) sid series)))
+      (let ((bavg (db-fetch-bavg (current-database) sid series)))
         (if bavg
             (begin
               (hash-set! bavg-cache (cons sid series) bavg)
@@ -121,7 +121,7 @@
         (let ((bavg (if (send df contains? series)
                         (best-avg/jsexpr df series inverted?)
                         '())))
-          (db-put (current-database) sid series bavg)
+          (db-put-bavg (current-database) sid series bavg)
           (hash-set! bavg-cache (cons sid series) bavg)
           bavg))))
 
@@ -234,6 +234,168 @@
         (match-define (list sid ts duration value) item)
         (vector duration (hash-ref! heat-map duration 0)))))
 
+
+;;................................................................. hist ....
+
+;; Compute the histogram data for SERIES and convert the result to a JSEXPR.
+;; We also remove keys with 0 rank to keep the data smaller (as it will be
+;; stored in the database.
+(define (histogram/jsexpr df series)
+  (let* ((meta (find-meta-for-series series))
+         (bw (if meta (send meta histogram-bucket-slot) 1))
+         (hist (df-histogram df series #:bucket-width bw)))
+    (for/list ((item hist) #:when (> (vector-ref item 1) 0))
+      (match-define (vector value rank) item)
+      (list value rank))))
+
+(define db-hist-insert-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into HIST_CACHE (session_id, series, data) values (?, ?, ?)")))
+
+(define db-hist-update-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update HIST_CACHE set data = ? where id = ?")))
+
+(define db-hist-lookup-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select id from HIST_CACHE where session_id = ? and series = ?")))
+
+;; PUT the HIST data into the database (HIST_CACHE table) for the sid/series
+;; key.  If an entry already exists, it is updated.
+(define (db-put-hist db sid series hist)
+  (let ((data (jsexpr->compressed-string hist)))
+    (call-with-transaction
+     db
+     (lambda ()
+       (let ((id (query-maybe-value db db-hist-lookup-stmt sid series)))
+         (if id
+             (query-exec db db-hist-update-stmt data id)
+             (query-exec db db-hist-insert-stmt sid series data)))))))
+
+(define db-hist-fetch-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select data from HIST_CACHE where session_id = ? and series = ?")))
+
+;; Fetch cached HIST data from the database.  Return #f if the data does not
+;; exist.
+(define (db-fetch-hist db sid series)
+  (let ((data (query-maybe-value db db-hist-fetch-stmt sid series)))
+    (and data (compressed-string->jsexpr data))))
+
+;; A cache mapping a sid/series key to the hist data.  Avoid
+;; re-calculating/retrieving the data for subsequent calls.
+(define hist-cache (make-hash))
+
+;; Return the histogram data for SID, a session id, adn SERIES, a series name.
+;; It is retrieved from one of the caches (db or in memory) if possible,
+;; otherwise it is computed and also stored in the cache.
+(define (get-histogram sid series)
+  (or (hash-ref hist-cache (cons sid series) #f)
+      ;; Try the database cache
+      (let ((hist (db-fetch-hist (current-database) sid series)))
+        (if hist
+            (begin
+              (hash-set! hist-cache (cons sid series) hist)
+              hist)
+            #f))
+      ;; Get the session data frame
+      (let ((df (session-df (current-database) sid)))
+        (let ((hist (if (send df contains? series)
+                        (histogram/jsexpr df series)
+                        '())))
+          (db-put-hist (current-database) sid series hist)
+          (hash-set! hist-cache (cons sid series) hist)
+          hist))))
+
+;; Merge two histograms by adding the ranks of identical keys and merging the
+;; rest of the keys.
+(define (merge-histograms h1 h2)
+  ;; NOTE: we assume that the keys in h1 and h2 are sorted (as df-histogram
+  ;; produces them)
+  (let loop ((h1 h1)
+             (h2 h2)
+             (result '()))
+    (cond
+      ((null? h1)
+       (append (reverse result) h2))
+      ((null? h2)
+       (append (reverse result) h1))
+      (#t
+       (match-let (((list k1 v1) (car h1))
+                   ((list k2 v2) (car h2)))
+         (let ((diff (abs (- k1 k2))))
+           (cond
+             ((< diff 0.000001)         ; practically equal
+              (loop (cdr h1) (cdr h2) (cons (list k1 (+ v1 v2)) result)))
+             ((< k1 k2)
+              (loop (cdr h1) h2 (cons (car h1) result)))
+             (#t
+              (loop h1 (cdr h2) (cons (car h2) result))))))))))
+
+;; Convert histogram H, as produced by AGGREGATE-HIST into a histogram as used
+;; by the histogram plots from data-frame.rkt.  Histogram objects as used in
+;; this file are lists of values (see the AGGREGATE-HIST/C definition) and
+;; don't have any entries where the rank is 0 (to save space when storing it
+;; into the database cache.  Also these histograms are always stored as "time"
+;; and the bucket width is the minimum bucket width for the data
+;; series. Histograms used by data-frame.rkt functions are vectors and contain
+;; all buckets and have the 0 ranks (see the HISTOGRAM/C contract).
+;;
+;; Parameters below have similar functionality as the equivalent ones in
+;; DF-HISTOGRAM
+;;
+;; ZEROES?, if #t will include the bucket with a value of 0
+;; BWIDTH, represents the bucket width multiplier
+;; ASPCT?, if #t will convert the ranks into percentages
+;;
+(define (expand-histogram h
+                          #:include-zeroes? (zeroes? #t)
+                          #:bucket-width (bwidth 1)
+                          #:as-percentage? (aspct? #f))
+  (define (key->bucket k) (exact-truncate (/ k bwidth)))
+  (define buckets (make-hash))
+  (define total 0)
+
+  (for ([item h])
+    (match-define (list key rank) item)
+    (let ((bucket (key->bucket key)))
+      (when (or zeroes? (not (zero? bucket)))
+        (hash-update! buckets (key->bucket key)
+                      (lambda (old) (+ old rank))
+                      0)
+        (set! total (+ total rank)))))
+
+  (unless (> total 0) (set! total 1))   ; avoid division by 0
+
+  (define keys (sort (hash-keys buckets) <))
+  (for/vector #:length (length keys)
+              ((k keys))
+    (define rank (hash-ref buckets k))
+    (vector (* k bwidth) (if aspct? (* 100 (/ rank total)) rank))))
+
+;; Return a histogram set resulting from merging all sets from SIDS (a list of
+;; session ids) for SERIES.  PROGRESS, if specified, is a callback that is
+;; called periodically with the percent of completed sessions (a value between
+;; 0 and 1).
+;;
+;; NOTE that the returned histogram is not compatible with histogram plotting
+;; functions from data-frame.rkt.  See EXPAND-HISTOGRAM, on how to convert the
+;; returned histogram into one that can be used for this purpose.
+(define (aggregate-hist sids series #:progress-callback (progress #f))
+  (let ((nitems (length sids)))
+    (for/fold ((final '()))
+              (((sid index) (in-indexed (reorder-sids sids))))
+      (let ((hist (get-histogram sid series)))
+        (when progress (progress (exact->inexact (/ index nitems))))
+        (merge-histograms final hist)))))
+
+
+;;................................................................. rest ....
+
 ;; Fetch session IDs filtering by sport/sub-sport and within a date range.
 ;; The session IDs are also filtered by the 'equipment-failure' label, so we
 ;; don't compute best avg data off bad data.  This is a bit of a hack, but bad
@@ -264,6 +426,12 @@ where ~a
   (define result (query-list db q))
   result)
 
+;; Clear all internal caches.  This is needed whenever the database is closed
+;; and a new one is opened.
+(define (clear-metrics-cache)
+  (set! bavg-cache (make-hash))
+  (set! hist-cache (make-hash)))
+
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt
 (define aggregate-bavg-item/c (list/c exact-nonnegative-integer? ; session-id
@@ -271,6 +439,9 @@ where ~a
                                       (and/c real? positive?)    ; duration
                                       real?))                    ; value
 (define aggregate-bavg/c (listof aggregate-bavg-item/c))
+
+(define aggregate-hist-item/c (list/c real? real?)) ; key, rank
+(define aggregate-hist/c (listof aggregate-hist-item/c))
 
 (provide/contract
  (fetch-candidate-sessions (-> connection?
@@ -294,4 +465,13 @@ where ~a
                                 string?)
                                (#:inverted? boolean? #:as-percentage? boolean?)
                                (listof (vector/c (and/c real? positive?) (and/c real? positive?)))))
+ (aggregate-hist (->* ((listof exact-nonnegative-integer?) string?)
+                      (#:progress-callback (or/c #f (-> real? any/c)))
+                      aggregate-hist/c))
+ (expand-histogram (->* (aggregate-hist/c)
+                        (#:include-zeroes? boolean?
+                         #:bucket-width (and/c real? positive?)
+                         #:as-percentage? boolean?)
+                        histogram/c))
  )
+

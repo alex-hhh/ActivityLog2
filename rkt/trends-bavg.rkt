@@ -1,6 +1,6 @@
 #lang racket/base
 
-;; trends-tt.rkt -- "Training Time chart, a punch card style chart
+;; trends-bavg.rkt -- aggregate best-average chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)

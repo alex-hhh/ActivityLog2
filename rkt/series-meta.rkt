@@ -41,11 +41,28 @@
         ((cons? sport) (car sport))
         (#t #f)))
 
+(define (sub-sport-id sport)
+  (cond ((number? sport) #f)
+        ((vector? sport) (vector-ref sport 1))
+        ((cons? sport) (cdr sport))
+        (#t #f)))
+
+(define (sport-zones sport sid metric)
+  (if sid
+      (get-session-sport-zones sid metric)
+      (get-sport-zones (sport-id sport) (sub-sport-id sport) metric)))
+
 (define (is-runnig? sport)
   (eqv? (sport-id sport) 1))
 
 (define (is-cycling? sport)
   (eqv? (sport-id sport) 2))
+
+(define (is-lap-swimming? sport)
+  (and (eqv? (sport-id sport) 5)
+       (eqv? (sub-sport-id sport) 17)))
+
+(provide is-runnig? is-cycling? is-lap-swimming?)
 
 ;; Provides meta data information about a series in a data frame, mostly
 ;; related on how to plot values of this series.
@@ -92,7 +109,7 @@
     (define/public (plot-label) #f)
 
     (define color #f)
-    
+
     ;; Return the color to use for plotting this series.  We look it up in the
     ;; (series-colors) ALIST for a tag the same as (series-name)
     (define/public (plot-color)
@@ -102,7 +119,7 @@
           (when color-item
             (set! color (cdr color-item)))))
       color)
-          
+
 
     ;; Return the Y range for ploting this series.  Returns a (cons LOW HIGH),
     ;; either of them can be #f, in which case the range is automatically
@@ -153,24 +170,6 @@
          (define/override (series-name) "elapsed"))))
 (provide axis-elapsed-time)
 
-(define axis-elapsed-time-no-stop-detection
-  (new (class series-metadata% (init) (super-new)
-         (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
-         (define/override (has-stop-detection?) #f)
-         (define/override (filter-width) 5.0) ; seconds
-         (define/override (axis-label) "Elapsed Time (hour:min)")
-         (define/override (series-name) "elapsed"))))
-(provide axis-elapsed-time-no-stop-detection)
-
-(define axis-wall-clock-time
-  (new (class series-metadata% (init) (super-new)
-         (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
-         (define/override (has-stop-detection?) #f)
-         (define/override (filter-width) 5.0)
-         (define/override (axis-label) "Wall clock (hour:min)")
-         (define/override (series-name) "timestamp"))))
-(provide axis-wall-clock-time)
-
 (define axis-timer-time
   (new (class series-metadata% (init) (super-new)
          (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
@@ -191,23 +190,20 @@
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
-           (if sid
-               (let ((zones (get-session-sport-zones sid 2))
-                     (metric? (eq? (al-pref-measurement-system) 'metric)))
-                 (if zones
-                     ;; NOTE: value passed in is in km/h or mi/h, we need to
-                     ;; convert it back to meters/sec before we can find the
-                     ;; zone.
-                     (lambda (val)
-                       (let* ((val-mps (if metric? (/ (* val 1000.0) 3600.0)
-                                           (/ (* val 1609.0) 3600.0)))
-                              (zone (val->zone val-mps zones)))
-                         (zone->label zone)))
-                     #f))
-               #f))
-         
+           (let ((zones (sport-zones sport sid 2))
+                 (metric? (eq? (al-pref-measurement-system) 'metric)))
+             (if zones
+                 ;; NOTE: value passed in is in km/h or mi/h, we need to
+                 ;; convert it back to meters/sec before we can find the zone.
+                 (lambda (val)
+                   (let* ((val-mps (if metric? (/ (* val 1000.0) 3600.0)
+                                       (/ (* val 1609.0) 3600.0)))
+                          (zone (val->zone val-mps zones)))
+                     (zone->label zone)))
+                 #f)))
+
          (define/override (factor-colors) (ct:zone-colors))
-         
+
          )))
 (provide axis-speed)
 
@@ -223,23 +219,21 @@
          (define/override (series-name) "pace")
 
          (define/override (factor-fn sport (sid #f))
-           (if sid
-               (let ((zones (get-session-sport-zones sid 2))
-                     (metric? (eq? (al-pref-measurement-system) 'metric)))
-                 (if zones
-                     ;; NOTE: value passed in is in sec/km or sec/mi (NOT
-                     ;; minutes), we need to convert it back to meters/sec
-                     ;; before we can find the zone.
-                     (lambda (val)
-                       (if (and (number? val) (> val 0))
-                           (let* ((val-mps (if metric? (/ 1000.0 val) (/ 1609.0 val)))
-                                  (zone (val->zone val-mps zones)))
-                             (zone->label zone))
-                           ;; Put invalid values in zone 0
-                           (zone->label 0)))
-                     #f))
-               #f))
-         
+           (let ((zones (sport-zones sport sid 2))
+                 (metric? (eq? (al-pref-measurement-system) 'metric)))
+             (if zones
+                 ;; NOTE: value passed in is in sec/km or sec/mi (NOT
+                 ;; minutes), we need to convert it back to meters/sec before
+                 ;; we can find the zone.
+                 (lambda (val)
+                   (if (and (number? val) (> val 0))
+                       (let* ((val-mps (if metric? (/ 1000.0 val) (/ 1609.0 val)))
+                              (zone (val->zone val-mps zones)))
+                         (zone->label zone))
+                       ;; Put invalid values in zone 0
+                       (zone->label 0)))
+                 #f)))
+
          (define/override (factor-colors) (ct:zone-colors))
 
 
@@ -311,18 +305,16 @@
          (define/override (series-name) "hr")
 
          (define/override (factor-fn sport (sid #f))
-           (if sid
-               (let ((zones (get-session-sport-zones sid 1)))
-                 (if zones
-                     (lambda (val)
-                       (let ((zone (val->zone val zones)))
-                         (zone->label zone)))
-                     #f))
-               #f))
-         
+           (let ((zones (sport-zones sport sid 1)))
+             (if zones
+                 (lambda (val)
+                   (let ((zone (val->zone val zones)))
+                     (zone->label zone)))
+                 #f)))
+
          (define/override (factor-colors) (ct:zone-colors))
 
-         
+
          )))
 (provide axis-hr-bpm)
 
@@ -345,7 +337,7 @@
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
-         
+
          )))
 (provide axis-hr-zone)
 
@@ -476,15 +468,13 @@
          (define/override (series-name) "pwr")
 
          (define/override (factor-fn sport (sid #f))
-           (if sid
-               (let ((zones (get-session-sport-zones sid 3)))
-                 (if zones
-                     (lambda (val)
-                       (let ((zone (val->zone val zones)))
-                         (zone->label zone)))
-                     #f))
-               #f))
-         
+           (let ((zones (sport-zones sport sid 3)))
+             (if zones
+                 (lambda (val)
+                   (let ((zone (val->zone val zones)))
+                     (zone->label zone)))
+                 #f)))
+
          (define/override (factor-colors) (ct:zone-colors))
 
          )))
@@ -509,7 +499,7 @@
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
-         
+
          )))
 (provide axis-power-zone)
 
@@ -536,7 +526,7 @@
            (if (or (is-runnig? sport) (is-cycling? sport))
                lrbal-factors
                #f))
-         
+
          )))
 (provide axis-left-right-balance)
 
@@ -791,3 +781,59 @@
          (define/override (axis-label) "Time (hour:min)")
          (define/override (series-name) "elapsed"))))
 (provide axis-swim-time)
+
+(define all-series-meta
+  (list
+   axis-distance
+   axis-elapsed-time
+   axis-timer-time
+   axis-speed
+   axis-pace
+   axis-speed-zone
+   axis-elevation
+   axis-corrected-elevation
+   axis-grade
+   axis-grade-inverted
+   axis-hr-bpm
+   axis-hr-pct
+   axis-hr-zone
+   axis-cadence
+   axis-stride
+   axis-vratio
+   axis-vertical-oscillation
+   axis-stance-time
+   axis-stance-time-percent
+   axis-power
+   axis-torque
+   axis-power-zone
+   axis-left-right-balance
+   axis-left-torque-effectiveness
+   axis-right-torque-effectiveness
+   axis-left-pedal-smoothness
+   axis-right-pedal-smoothness
+   axis-left-platform-centre-offset
+   axis-right-platform-centre-offset
+   axis-left-power-phase-start
+   axis-left-power-phase-end
+   axis-left-power-phase-angle
+   axis-right-power-phase-start
+   axis-right-power-phase-end
+   axis-right-power-phase-angle
+   axis-left-peak-power-phase-start
+   axis-left-peak-power-phase-end
+   axis-left-peak-power-phase-angle
+   axis-right-peak-power-phase-start
+   axis-right-peak-power-phase-end
+   axis-right-peak-power-phase-angle
+   axis-swim-pace
+   axis-swim-swolf
+   axis-swim-stroke-count
+   axis-swim-stroke-length
+   axis-swim-avg-cadence
+   axis-swim-distance
+   axis-swim-time))
+
+(define (find-meta-for-series name)
+  (findf (lambda (meta) (equal? (send meta series-name) name))
+         all-series-meta))
+(provide find-meta-for-series)

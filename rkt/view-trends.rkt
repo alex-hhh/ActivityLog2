@@ -31,7 +31,8 @@
  "trends-tiz.rkt"
  "trends-pmc.rkt"
  "trends-tt.rkt"
- "trends-bavg.rkt")
+ "trends-bavg.rkt"
+ "trends-hist.rkt")
 
 (provide view-trends%)
 
@@ -48,7 +49,8 @@
    (chart-info "Time in Zone" 'tiz tiz-trends-chart%)
    (chart-info "Performance" 'pmc pmc-trends-chart%)
    (chart-info "Training Times" 'tt tt-trends-chart%)
-   (chart-info "Best Avg" 'bavg bavg-trends-chart%)))
+   (chart-info "Best Avg" 'bavg bavg-trends-chart%)
+   (chart-info "Histogram" 'hist hist-trends-chart%)))
 
 (define new-trend-chart-dialog%
   (class al-edit-dialog%

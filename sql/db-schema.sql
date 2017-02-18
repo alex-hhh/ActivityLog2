@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(20);
+insert into SCHEMA_VERSION(version) values(21);
 
 
 --........................................................ Enumerations ....
@@ -724,6 +724,18 @@ create table BAVG_CACHE (
   );
 
 create unique index IX0_BAVG_CACHE on BAVG_CACHE(session_id, series);
+
+-- Store Histogram data for sessions and series.  See notes for BAVG_CACHE
+create table HIST_CACHE (
+  id integer not null primary key autoincrement,
+  session_id integer not null,
+  series text not null,
+  data blob not null,
+  foreign key(session_id) references A_SESSION(id)
+  );
+
+create unique index IX0_HIST_CACHE on HIST_CACHE(session_id, series);
+
 
 
 --......................................................... Other views ....

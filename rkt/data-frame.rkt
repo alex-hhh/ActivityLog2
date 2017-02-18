@@ -1417,7 +1417,7 @@
 (define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
 
-(provide ts-item/c ts-data/c factor-data/c)
+(provide ts-item/c ts-data/c factor-data/c histogram/c)
 
 (provide/contract
  (make-data-frame-from-query (->* (connection? (or/c string? virtual-statement?))
@@ -1440,6 +1440,7 @@
                      #:include-zeroes? boolean?
                      #:as-percentage? boolean?)
                     (or/c #f histogram/c)))
+ (trim-histogram-outliers (->* (histogram/c) (real?) histogram/c))
  (make-histogram-renderer (->* (histogram/c)
                                (#:color any/c
                                 #:skip real?
