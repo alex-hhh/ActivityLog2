@@ -24,6 +24,7 @@
 (require "../rkt/activity-util.rkt")
 (require "../rkt/utilities.rkt")
 (require "../rkt/import.rkt")
+(require "../rkt/session-df.rkt")
 
 
 ;;............................................................ test data ....
@@ -50,9 +51,27 @@
 (define (with-database thunk)
   (let ((db (open-activity-log 'memory)))
     (set-current-database db)
+    (clear-session-df-cache)
     ;; NOTE: cannot really catch errors as error trace will loose context
     (thunk db)
     (disconnect db)))
+
+(define (aid->sid aid db)
+  ;; NOTE: there might be multiple session ID's for each activity ID
+  ;; (multisport sessions)
+  (query-list db "select id from A_SESSION where activity_id = ?" aid))
+
+;; Do some basic checks on the session data frame
+(define (check-session-df df)
+  (check > (send df get-row-count) 0)   ; must have some data
+  (define sn (send df get-series-names))
+  ;; Remove the common series
+  (set! sn (remove "timestamp" sn))
+  (set! sn (remove "timer" sn))
+  (set! sn (remove "elapsed" sn))
+  (set! sn (remove "dst" sn))
+  ;; Check that we still got some actual data series left
+  (check > (length sn) 0))
 
 (define (db-import-activity-from-file/check file db)
   (check-not-exn
@@ -61,7 +80,11 @@
        (do-post-import-tasks db)
        ;; (lambda (msg) (printf "post import: ~a~%" msg)))
        (check-pred cons? result "Bad import result format")
-       (check-eq? (car result) 'ok (format "~a" (cdr result)))))))
+       (check-eq? (car result) 'ok (format "~a" (cdr result)))
+       ;; Read back the session in a session data frame
+       (for ((sid (aid->sid (cdr result) db)))
+         (let ((df (session-df db sid)))
+           (check-session-df df)))))))
 
 (define (db-check-tile-code db)
   (let ((cnt (query-value db "
