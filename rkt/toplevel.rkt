@@ -536,7 +536,13 @@
       (((lambda (e) #t)
         (lambda (e)
           (let ((msg (cond ((db-exn-bad-version? e)
-                            (db-exn-bad-version-message e))
+                            (format (string-append
+                                     "This version of ActivityLog2 requires database version ~a, "
+                                     "and the database file ~a is at version ~a. "
+                                     "Don't know how to upgrade the database.")
+                                    (db-exn-bad-version-expected e)
+                                    database-path
+                                    (db-exn-bad-version-actual e)))
                            (#t
                             (format "~a : ~a" database-path e)))))
             (dbglog "interactive-open-database: ~a" msg)

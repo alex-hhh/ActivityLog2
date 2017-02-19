@@ -13,8 +13,6 @@
 -- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 -- more details.
 
-.bail on
-
 drop view V_TRIATHLON_SESSIONS;
 
 create view V_TRIATHLON_SESSIONS as

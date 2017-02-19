@@ -13,7 +13,8 @@
 -- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 -- more details.
 
-.bail on
+drop index if exists IX0_BAVG_CACHE;
+drop table if exists BAVG_CACHE;
 
 create table BAVG_CACHE (
   id integer not null primary key autoincrement,

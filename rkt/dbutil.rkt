@@ -16,9 +16,10 @@
 
 (require db
          "al-prefs.rkt"
-         (rename-in srfi/48 (format format-48))
+         "dbglog.rkt"
          racket/file
          racket/string
+         racket/format
          racket/contract)
 
 (provide (struct-out db-exn-bad-version)
@@ -32,10 +33,14 @@
  [db-open (->*
            ((or/c 'memory path-string?))
            (#:schema-file (or/c #f path-string?)
-            #:expected-version exact-positive-integer?
+            #:allow-higher-version boolean?
+            #:expected-version (or/c #f exact-positive-integer?)
             #:progress-callback (or/c #f progress-callback/c))
            connection?)]
- [maybe-backup-database (-> path-string? any/c)]
+ [db-upgrade (->* (connection? (listof path-string?))
+                  (#:progress-callback (or/c #f progress-callback/c))
+                  connection?)]
+ [maybe-backup-database (->* (path-string?) (boolean?) any/c)]
  [db-get-last-pk (-> string? connection? number?)])
  
 ;; Read the next SQL statement from INPUT-PORT.  The statement is assumed to
@@ -135,6 +140,20 @@
            (when progress-callback
              (progress-callback "Executing SQL statement..." (+ n 1) statement-count))))))))
 
+;; Upgrade a database by executing statements from PATCHES, a list of file
+;; names containing SQL statements.
+(define (db-upgrade db patches #:progress-callback [progress-callback #f])
+  (define statements
+    (apply append
+           (for/list ([patch patches])
+             (call-with-input-file patch collect-statements))))
+  (define statement-count (length statements))
+  (for (((stmt n) (in-indexed statements)))
+    (query-exec db stmt)
+    (when progress-callback
+      (progress-callback "Executing SQL upgrade statement..." (+ n 1) statement-count)))
+  db)
+
 ;; An exception used to indicate that the database was a incorrect schema
 ;; version
 (struct db-exn-bad-version (file expected actual) #:transparent)
@@ -146,16 +165,20 @@
 
 (define (db-open database-file
                  #:schema-file [schema-file #f]
-                 #:expected-version [expected-version 1]
+                 #:allow-higher-version [allow-higher-version #f]
+                 #:expected-version [expected-version #f]
                  #:progress-callback [progress-callback #f])
   (let ((db (sqlite3-connect #:database database-file #:mode 'create)))
     (when schema-file
       (maybe-create-schema database-file schema-file db progress-callback))
     (query-exec db "pragma foreign_keys = on")
-    (let ((actual-version (query-value db "select version from SCHEMA_VERSION")))
-      (unless (and (number? actual-version) (= actual-version expected-version))
-        (disconnect db)
-        (raise (db-exn-bad-version database-file expected-version actual-version))))
+    (when expected-version
+      (let ((actual-version (query-value db "select version from SCHEMA_VERSION")))
+        (unless (and (number? actual-version)
+                     (or (and allow-higher-version (>= actual-version expected-version))
+                         (= actual-version expected-version)))
+          (disconnect db)
+          (raise (db-exn-bad-version database-file expected-version actual-version)))))
     db))
 
 (define db-get-last-pk
@@ -193,18 +216,47 @@
         (- seconds (* 6 day-as-seconds))
         (- seconds (* (- (date-week-day d) 1) day-as-seconds)))))
 
+(define (make-tag year month day (index #f))
+  (if index
+      (string-append
+       "-"
+       (~a year #:width 4 #:align 'right #:pad-string "0")
+       "-"
+       (~a month #:width 2 #:align 'right #:pad-string "0")
+       "-"
+       (~a day #:width 2 #:align 'right #:pad-string "0")
+       "-"
+       (~a index))
+      (string-append
+       "-"
+       (~a year #:width 4 #:align 'right #:pad-string "0")
+       "-"
+       (~a month #:width 2 #:align 'right #:pad-string "0")
+       "-"
+       (~a day #:width 2 #:align 'right #:pad-string "0"))))
+  
 ;; Return a backup file name for DB-FILE.  This is done by adding the week
 ;; start timestamp to the file name and making DB-BACKUP-DIR as the directory.
-(define (get-backup-file-name db-file)
+;; If UNIQUE-NAME is #t a unique database backup name will be generated.
+(define (get-backup-file-name db-file unique-name)
   (let-values (((_1 file _2) (split-path db-file)))
     (let* ((week-start (seconds->date (week-start (current-seconds))))
-           (tag (string-replace
-                 (format-48  "-~4F-~2F-~2F" (date-year week-start)
-                             (date-month week-start)
-                             (date-day week-start))
-                 " " "0"))
-           (backup-file (regexp-replace #rx"\\..*$" (path->string file) (string-append tag "\\0"))))
-      (build-path db-backup-dir backup-file))))
+           (year (date-year week-start))
+           (month (date-month week-start))
+           (day (date-day week-start))
+           (fname (path->string file)))
+      (if unique-name
+          (let loop ((index 0))
+            (let* ((tag (make-tag year month day index))
+                   (bfile (regexp-replace #rx"\\..*$" fname (string-append tag "\\0")))
+                   (path (build-path db-backup-dir bfile)))
+              (if (file-exists? path)
+                  (loop (add1 index))
+                  path)))
+          (let* ((tag (make-tag year month day))
+                 (bfile (regexp-replace #rx"\\..*$" fname (string-append tag "\\0")))
+                 (path (build-path db-backup-dir bfile)))
+            path)))))
 
 ;; Copy a file from ORIGINAL to BACKUP.  To reduce the chance of failure, we
 ;; first copy the ORIGINAL into a temporary file in the same target folder
@@ -216,14 +268,19 @@
       (copy-file original tmp)
       (rename-file-or-directory tmp backup))))
 
-;; Make a backup of DB-FILE, if needed (we only make one backup a week, if it
-;; was already done for this week, we won't do it again).  Also, we won't make
-;; a backup if the file is located in the backup dir already.
-(define (maybe-backup-database db-file)
+;; Make a backup of DB-FILE, if needed unless the FORCE-BACKUP is #t in which
+;; case we always create a backup. When FORCE-BACKUP is #f, we only make one
+;; backup a week, if it was already done for this week, we won't do it again.
+;;
+;; Also, we won't make a backup if the file is located in the backup dir
+;; already.
+(define (maybe-backup-database db-file [force-backup #f])
   (when (string? db-file) (set! db-file (string->path db-file)))
   (let-values (((dir _1 _2) (split-path db-file)))
-    (let ((backup (get-backup-file-name db-file)))
+    (let ((backup (get-backup-file-name db-file force-backup)))
       (when (and (file-exists? db-file)
                  (not (file-exists? backup))
                  (not (equal? dir db-backup-dir)))
-        (backup-database db-file backup)))))
+        (dbglog "database backup into ~a..." backup)
+        (backup-database db-file backup)
+        (dbglog "database backup completed")))))

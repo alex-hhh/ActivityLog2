@@ -15,6 +15,7 @@
 ;; more details.
 
 (require "dbutil.rkt"
+         "dbglog.rkt"
          db
          racket/contract
          racket/runtime-path)
@@ -36,8 +37,19 @@
 
 (define-runtime-path schema-file "../sql/db-schema.sql")
 
+(define-runtime-path p19-file "../sql/p19-metrics.sql")
+(define-runtime-path p20-file "../sql/p20-vtriact.sql")
+(define-runtime-path p21-file "../sql/p21-hmetrics.sql")
+
 ;; The schema version we expect in all databases we open.
 (define (schema-version) 21)
+
+;; Map a schema version to an upgrade file to the next version.
+(define upgrade-patches
+  (hash
+   18 p19-file
+   19 p20-file
+   20 p21-file))
 
 ;; List of function to call after a new database was sucesfully opened.
 (define db-open-callbacks '())
@@ -62,11 +74,32 @@
 (define (current-database) the-current-database)
 
 ;; Open the database in DATABASE-FILE, checking that it has the required
-;; version.  A database schema will be created if this is a new
-;; database.  Does not set `current-database'.
+;; version or later.  A database schema will be created if this is a new
+;; database.  If the database is not the expected version, it will be backed
+;; up, than upgraded. Does not set `current-database'.
 (define (open-activity-log database-file [progress-callback #f])
-  (db-open
-   database-file
-   #:schema-file schema-file
-   #:expected-version (schema-version)
-   #:progress-callback progress-callback))
+  (with-handlers
+    ((db-exn-bad-version?
+      (lambda (e)
+        (let* ((expected (db-exn-bad-version-expected e))
+               (actual (db-exn-bad-version-actual e))
+               (patches (for/list ((v (in-range actual expected)))
+                          ;; NOTE: we re-raise exception if we don't have the
+                          ;; required patches.
+                          (hash-ref upgrade-patches v (lambda () (raise e)))))
+               (db (db-open database-file)))
+          (maybe-backup-database database-file #t)
+          (dbglog "upgrading database from version ~a to ~a" actual expected)
+          (db-upgrade db patches #:progress-callback progress-callback)))))
+    (define db
+      (db-open
+       database-file
+       #:schema-file schema-file
+       #:allow-higher-version #t
+       #:expected-version (schema-version)
+       #:progress-callback progress-callback))
+    (define actual-version (query-value db "select version from SCHEMA_VERSION"))
+    (unless (= actual-version (schema-version))
+      (dbglog "Database has newer schema version, expected ~a, actual ~a"
+              (schema-version) actual-version))
+    db))
