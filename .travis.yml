@@ -43,8 +43,13 @@ before_install:
 
 install:
 
+# https://docs.travis-ci.com/user/gui-and-headless-browsers/
+# Unit tests need the GUI to be present (they don't actually use it)
 before_script:
-
+  - "export DISPLAY=:99.0"
+  - "sh -e /etc/init.d/xvfb start"
+  - sleep 3 # give xvfb some time to start
+  
 # Here supply steps such as raco make, raco test, etc.
 #
 # Tip: Use `raco pkg install --deps search-auto <pkg>` to install any
