@@ -31,6 +31,7 @@
          bbox-merge
          (struct-out map-bbox)
          (struct-out map-tile)
+         map-tile-equal?
          degrees->wind-rose)
 
 
@@ -201,3 +202,8 @@
         (error (format "~a - bad y: ~a (valid range 0..~a)" name y max-val))))
     (values zoom x y)))
 
+(: map-tile-equal? (-> map-tile map-tile Boolean))
+(define (map-tile-equal? tile1 tile2)
+  (and (equal? (map-tile-zoom tile1) (map-tile-zoom tile2))
+       (equal? (map-tile-x tile1) (map-tile-x tile2))
+       (equal? (map-tile-y tile1) (map-tile-y tile2))))
