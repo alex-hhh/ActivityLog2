@@ -1,5 +1,7 @@
 # ActivityLog2 - analyze data from swim, bike and run activities
 
+[![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)
+
 Import swim, bike and run and other activities from .FIT files.  Display
 plots, scatter plots, histograms, maps and other views for activities.  Show
 reports and trends from activity data and track equipment usage.
