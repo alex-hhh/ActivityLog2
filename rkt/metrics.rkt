@@ -22,6 +22,7 @@
          racket/match
          racket/math
          racket/contract
+         racket/list
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "spline-interpolation.rkt"
          "data-frame.rkt"
@@ -372,10 +373,16 @@
   (unless (> total 0) (set! total 1))   ; avoid division by 0
 
   (define keys (sort (hash-keys buckets) <))
-  (for/vector #:length (length keys)
-              ((k keys))
-    (define rank (hash-ref buckets k))
-    (vector (* k bwidth) (if aspct? (* 100 (/ rank total)) rank))))
+
+  (if (> (length keys) 0)
+      (let ([min (first keys)]
+            [max (last keys)])
+        (for/vector #:length (+ 1 (- max min))
+                    ([bucket (in-range min (add1 max))])
+          (vector (* bucket bwidth)
+                  (let ((val (hash-ref buckets bucket 0)))
+                    (if aspct? (* 100.0 (/ val total)) val)))))
+      #f))
 
 ;; Return a histogram set resulting from merging all sets from SIDS (a list of
 ;; session ids) for SERIES.  PROGRESS, if specified, is a callback that is

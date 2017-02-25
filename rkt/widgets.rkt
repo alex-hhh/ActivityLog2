@@ -55,12 +55,22 @@
 ;; different types.  For example, can be used to read numbers or dates.
 (define validating-input-field%
   (class text-field%
-    (init validate-fn convert-fn [valid-value-cb #f] [cue-text ""] [label ""])
+    (init validate-fn convert-fn [valid-value-cb #f] [cue-text ""] [label ""]
+          ;; allow-empty? means an empty field is valid.
+          [allow-empty? #t])
     (super-new [label label])
 
     (inherit get-value get-field-background set-field-background get-editor)
 
-    (define vfn validate-fn)
+    (define (vfn data)
+      (let ((t (string-trim data)))
+        (cond ((and (not allow-empty?)
+                    (= (string-length t) 0))
+               ;; Not valid
+               #f)
+              (#t
+               (validate-fn t)))))
+
     (define cvfn convert-fn)
     (define cb valid-value-cb)
     (define old-value #f)
@@ -171,6 +181,7 @@
       (set! cue text)
       (maybe-insert-cue-text))
 
+    (validate #f)
     (maybe-insert-cue-text)))
 
 

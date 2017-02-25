@@ -207,8 +207,11 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (and data-valid?
-           (vol-trends-plot canvas chart-data y-label)))
+      (if data-valid?
+          (vol-trends-plot canvas chart-data y-label)
+          (begin
+            (send canvas set-snip #f)
+            (send canvas set-background-message "No data to plot"))))
 
     (define (maybe-fetch-data)
       (unless data-valid?

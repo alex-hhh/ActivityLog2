@@ -51,11 +51,11 @@
  [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
  [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
  [put-athlete-swim-tpace (->* (positive-number?) (connection?) any/c)]
- [get-athlete-gender (->* (connection?) () (or/c 0 1))]
+ [get-athlete-gender (->* (connection?) () (or/c #f 0 1))]
  [put-athlete-gender (->* ((or/c 0 1)) (connection?) any/c)]
- [get-athlete-dob (->* (connection?) () positive-number?)]
+ [get-athlete-dob (->* (connection?) () (or/c #f positive-number?))]
  [put-athlete-dob (->* (positive-number?) (connection?) any/c)]
- [get-athlete-height (->* (connection?) () positive-number?)]
+ [get-athlete-height (->* (connection?) () (or/c #f positive-number?))]
  [put-athlete-height (->* (positive-number?) (connection?) any/c)]
 
  ;; NOTE: we might not want these to be contracts, as they are called too many

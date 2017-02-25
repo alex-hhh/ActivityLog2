@@ -861,6 +861,9 @@
         (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
         (send (tl-section-content equipment) log-due-items))
+      (let ((nsessions (query-value database "select count(*) from A_SESSION")))
+        (when (or (sql-null? nsessions) (zero? nsessions))
+          (log-al-info "There are no activities in the database.  Import some using the \"File\" menu.")))
       (collect-garbage 'major))
     
     (define (open-another-activity-log file)

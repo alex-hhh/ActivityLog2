@@ -261,7 +261,11 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (and data-valid? (tiz-trends-plot canvas chart-data)))
+      (if data-valid?
+          (tiz-trends-plot canvas chart-data)
+          (begin
+            (send canvas set-snip #f)
+            (send canvas set-background-message "No data to plot"))))
 
     (define (maybe-fetch-data)
       (unless data-valid?

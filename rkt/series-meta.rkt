@@ -217,7 +217,13 @@
          ;; (define/override (y-range) (cons 0 #f))
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "pace")
-
+         ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
+         ;; to an integer).  When converting to pace, the minimum delta
+         ;; between two representable pace values is 0.09 (do the maths!) and
+         ;; this assumes that the device writes the speed values with 1 mm
+         ;; precision!  Realistically, precision for the pace values is at
+         ;; best 1 second / km
+         (define/override (histogram-bucket-slot) 1)
          (define/override (factor-fn sport (sid #f))
            (let ((zones (sport-zones sport sid 2))
                  (metric? (eq? (al-pref-measurement-system) 'metric)))
@@ -378,7 +384,9 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Stride (m)" "Stride (ft)"))
          (define/override (should-filter?) #t)
-         (define/override (histogram-bucket-slot) 0.01)
+         ;; NOTE: cadence is measured with a 0.5 step precision, so the
+         ;; precision of the stride calculation is 0.5 / 60 = 0.00833 meters
+         (define/override (histogram-bucket-slot) 0.001)
          (define/override (series-name) "stride")
          (define/override (fractional-digits) 2)
          )))

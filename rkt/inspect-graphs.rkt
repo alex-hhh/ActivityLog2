@@ -335,7 +335,9 @@
                      ;; NOTE: a graph can be configured for multiple Y axis,
                      ;; and some of them might not exist. We need to check
                      ;; that the series exists.
-                     (if (send data-frame contains? (send y-axis series-name))
+                     (if (send data-frame contains?
+                               (send y-axis series-name)
+                               (send x-axis series-name))
                          (let ([ds (extract-data data-frame x-axis y-axis filter-amount)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
@@ -353,7 +355,9 @@
                      ;; NOTE: a graph can be configured for multiple Y axis,
                      ;; and some of them might not exist. We need to check
                      ;; that the series exists.
-                     (if (and y-axis2 (send data-frame contains? (send y-axis2 series-name)))
+                     (if (and y-axis2 (send data-frame contains?
+                                            (send x-axis series-name)
+                                            (send y-axis2 series-name)))
                          (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)

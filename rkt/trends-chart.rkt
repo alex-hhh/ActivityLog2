@@ -28,13 +28,13 @@
  trends-chart%)
 
 (provide/contract
- (get-true-min-start-date (-> connection? (or/c #f exact-nonnegative-integer?)))
+ (get-true-min-start-date (-> connection? exact-integer?))
  (make-low-pass-filter (-> positive? boolean? (-> vector? vector?)))
  (pmc-date-ticks (-> ticks?))
- (generate-timestamps (-> exact-nonnegative-integer? exact-nonnegative-integer? (or/c 0 1 2)
-                          (listof exact-nonnegative-integer?)))
- (start-of-day (-> exact-nonnegative-integer? exact-nonnegative-integer?))
- (str->date (-> string? (or/c #f exact-nonnegative-integer?)))
+ (generate-timestamps (-> exact-integer? exact-integer? (or/c 0 1 2)
+                          (listof exact-integer?)))
+ (start-of-day (-> exact-integer? exact-integer?))
+ (str->date (-> string? (or/c #f exact-integer?)))
  )
 
 (provide
@@ -267,7 +267,9 @@
 ;; 0..TODAY for the "All Days" selection, but that creates useless charts.
 ;; Instead we look for the first activity in the database.
 (define (get-true-min-start-date db)
-  (query-maybe-value db "select min(start_time) from A_SESSION"))
+  (let ((val (query-maybe-value db "select min(start_time) from A_SESSION")))
+    ;; Can happen if the database is empty
+    (if (sql-null? val) 0 val)))
 
 
 ;;; Date ticks

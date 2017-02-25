@@ -371,7 +371,7 @@
             ;; NOTE: we extend the range so ATL CTL at the start of the range
             ;; is correctly computed (w/ exponential averaging, all past TSS
             ;; values have a contribution to the present)
-            (let ((start (- (pmc-params-start-date params) (* 4 ctl-range 24 3600)))
+            (let ((start (max 0 (- (pmc-params-start-date params) (* 4 ctl-range 24 3600))))
                   (end (pmc-params-end-date params)))
               (set! pmc-data (produce-pmc-data/method-2 start end database)))
             (set! data-valid? #t)))))

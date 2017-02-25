@@ -236,11 +236,14 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (and data-valid?
-           (let* ((metric (trivol-params-metric (send this get-params)))
-                  (y-label (case metric
+      (if data-valid?
+          (let* ((metric (trivol-params-metric (send this get-params)))
+                 (y-label (case metric
                              ((0) "Time") ((1) "Distance") ((2) "Session Count") ((3) "Effort"))))
-             (trivol-trends-plot canvas chart-data y-label))))
+            (trivol-trends-plot canvas chart-data y-label))
+          (begin
+            (send canvas set-snip #f)
+            (send canvas set-background-message "No data to plot"))))
 
     (define/override (export-data-to-file file formatted?)
       (when chart-data

@@ -151,13 +151,28 @@ select body_weight
 ;; ZONE-METRIC.  zones will be reloaded each time the canvas is refreshed.
 (define (make-zone-display-canvas parent sport sub-sport zone-metric)
 
+  (define message-font
+    (send the-font-list find-or-create-font 14 'default 'normal 'normal))
+
+  (define (draw-centered-message dc msg font)
+    (let-values (([cw ch] (send dc get-size))
+                 ([w h x y] (send dc get-text-extent msg font #t)))
+      (send dc set-font font)
+      (send dc set-text-foreground "gray")
+      (let ((ox (- (/ cw 2) (/ w 2)))
+            (oy (- (/ ch 2) (/ h 2))))
+        (send dc draw-text msg ox oy))))
+
   (define (on-paint canvas dc)
     (send dc clear)
     (let ((zones (get-sport-zones sport sub-sport zone-metric)))
-      (when zones
-        (let-values ([(w h) (send canvas get-size)])
-          (let ((pict (zones-pp zones w h)))
-            (draw-pict pict dc 0 0))))))
+      (if zones
+          (let-values ([(w h) (send canvas get-size)])
+            (let ((pict (zones-pp zones w h)))
+              (draw-pict pict dc 0 0)))
+          (begin
+            (send dc set-text-foreground "gray")
+            (draw-centered-message dc "No Zones Defined" message-font)))))
   
   (new canvas%
        [parent parent]
@@ -287,10 +302,18 @@ select body_weight
             (when ac
               (send ac-field set-selection ac))))))
 
-    (define (on-edit-sport-zones sport sub-sport zone-metric canvas)
-      (let ((toplevel (send this get-toplevel-window)))
-        (when (send (get-sport-zone-editor) show-dialog toplevel sport sub-sport zone-metric)
-          (send canvas refresh))))
+    (define (on-edit-sport-zones sport sub-sport zone-metric canvas checkbox)
+      (let* ((tl (send this get-toplevel-window))
+             (zedit (get-sport-zone-editor))
+             (updated (send zedit show-dialog tl sport sub-sport zone-metric)))
+        (when updated
+          (send canvas refresh))
+        (let ((zones (get-sport-zones sport sub-sport zone-metric)))
+          ;; The checkbox will be disabled if there are no sport zones
+          ;; defined.
+          (unless zones
+            (send checkbox set-value #f))
+          (send checkbox enable (not (eq? zones #f))))))
 
     (define (save-preferences)
       (let ((autoset-bw (send bw-auto-set-chkbox get-value))
@@ -337,6 +360,9 @@ select body_weight
             (send bike-pwrz-chkbox set-value export-bike-pwrz)
             (send export-dir-field set-value export-directory))))
 
+      ;; DOB, gender, height and FTP are stored in the database, fetch them
+      ;; from there.
+      
       (let ((dob (get-athlete-dob db)))
         (when dob
           (send dob-field set-date-value dob)))
@@ -351,24 +377,45 @@ select body_weight
       
       (let ((ftp (get-athlete-ftp db)))
         (when ftp
-          (send bike-ftp-field set-numeric-value ftp))))
+          (send bike-ftp-field set-numeric-value ftp)))
+
+      ;; Disable zone export check-boxes if there are no corresponding zones
+      ;; defined.
+
+      (let ((z (get-sport-zones 1 #f 1)))
+        (unless z
+          (send run-hrz-chkbox set-value #f))
+        (send run-hrz-chkbox enable (not (eq? z #f))))
+      
+      (let ((z (get-sport-zones 2 #f 1)))
+        (unless z
+          (send bike-hrz-chkbox set-value #f))
+        (send bike-hrz-chkbox enable (not (eq? z #f))))
+      
+      (let ((z (get-sport-zones 2 #f 3)))
+        (unless z
+          (send bike-pwrz-chkbox set-value #f))
+        (send bike-pwrz-chkbox enable (not (eq? z #f)))))
     
     (let ([p (send this get-client-pane)])
       (let ([p1 (make-group-box-panel p "Athlete Info")])
 
         (let ([p (make-horizontal-pane p1)])
           (set! dob-field
-                (new date-input-field% [parent p] [label "Birth date: "] [stretchable-width #f]))
+                (new date-input-field% [parent p] [label "Birth date: "]
+                     [stretchable-width #f] [allow-empty? #f]))
           (set! gender-field
                 (new choice% [parent p] [label "Gender: "] [choices '("Female" "Male")]))
           (set! height-field
                 (new number-input-field% [parent p] [label "Height: "]
-                     [cue-text "meters"] [stretchable-width #f])))
+                     [cue-text "meters"] [stretchable-width #f]
+                     [allow-empty? #f])))
           
         (let ([p (make-horizontal-pane p1)])
           (set! bw-field
                 (new number-input-field% [parent p] [label "Body weight: "]
-                     [cue-text "kg"] [stretchable-width #f]))
+                     [cue-text "kg"] [stretchable-width #f]
+                     [allow-empty? #f]))
           (set! bw-auto-set-chkbox
                 (new check-box% [parent p] [label "Autoset from recent data"]
                      [callback on-autoset-bodyweight])))
@@ -390,7 +437,7 @@ select body_weight
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t])
           (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 1 #f 1 run-hrz-canvas))]))
+               [callback (lambda (b e) (on-edit-sport-zones 1 #f 1 run-hrz-canvas run-hrz-chkbox))]))
 
         (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 1)))
         
@@ -400,7 +447,7 @@ select body_weight
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t])
           (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 2 #f 1 bike-hrz-canvas))]))
+               [callback (lambda (b e) (on-edit-sport-zones 2 #f 1 bike-hrz-canvas bike-hrz-chkbox))]))
         (set! bike-hrz-canvas (make-zone-display-canvas p3 2 #f 1))
         (let ([p (make-horizontal-pane p3)])
           (set! bike-pwrz-chkbox
@@ -411,7 +458,7 @@ select body_weight
                      [min-width 100] [stretchable-width #f]))
           (new message% [parent p] [label ""] [stretchable-width #t])
           (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 2 #f 3 bike-pwrz-canvas))]))
+               [callback (lambda (b e) (on-edit-sport-zones 2 #f 3 bike-pwrz-canvas bike-pwrz-chkbox))]))
         (set! bike-pwrz-canvas (make-zone-display-canvas p3 2 #f 3)))
 
       (let ([p (make-horizontal-pane p)])
@@ -426,7 +473,11 @@ select body_weight
       )
 
     (define/override (has-valid-data?)
-      (send export-dir-field has-valid-value?))
+      (and (send dob-field has-valid-value?)
+           (send height-field has-valid-value?)
+           (send bike-ftp-field has-valid-value?)
+           (send bw-field has-valid-value?)
+           (send export-dir-field has-valid-value?)))
 
     (define (export-fit-settings)
       (let ((dob (send dob-field get-converted-value))

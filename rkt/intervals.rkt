@@ -223,10 +223,12 @@
 ;; (make-split-intervals df "timer" 300) ; lap every 5 minutes
 ;;
 (define (make-split-intervals df series amount)
-  (define positions (split-by df series amount))
-  (for/list ([start positions]
-             [end (cdr positions)])
-    (make-interval-summary df start end)))
+  (if (send df contains? series)
+      (let ((positions (split-by df series amount)))
+        (for/list ([start positions]
+                   [end (cdr positions)])
+          (make-interval-summary df start end)))
+      '()))
 
 
 ;;................................................. make-climb-intervals ....
@@ -346,9 +348,11 @@
                               #:descents (descents? #f)
                               #:min-height (mh 20)
                               #:filter-width (fw 20))
-  (let ((climbs (find-climbs df #:min-height mh #:filter-width fw #:descents descents?)))
-    (for/list ((c (in-list climbs)))
-      (make-interval-summary df (climb-start-idx c) (climb-end-idx c)))))
+  (if (send df contains? "timestamp" "dst" "grade")
+      (let ((climbs (find-climbs df #:min-height mh #:filter-width fw #:descents descents?)))
+        (for/list ((c (in-list climbs)))
+          (make-interval-summary df (climb-start-idx c) (climb-end-idx c))))
+      '()))
 
 
 ;;............................................. make-best-pace-intervals ....

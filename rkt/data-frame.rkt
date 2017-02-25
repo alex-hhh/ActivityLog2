@@ -99,9 +99,10 @@
 ;; applying MESSAGE and ARGS to format, an embedding the stack
 ;; (current-continuation-marks)
 (define (df-raise message . args)
-  (make-exn:fail:data-frame
-   (apply format message args)
-   (current-continuation-marks)))
+  (raise
+   (make-exn:fail:data-frame
+    (apply format message args)
+    (current-continuation-marks))))
 
 
 ;;.......................................................... data-series% ....
@@ -166,13 +167,13 @@
     (define (check-consistency)
       (when sorted?
         (when (has-invalid-values)
-          (df-raise "sorted series ~a contains #f values" name))
+          (df-raise "data-series%/check-consistency: sorted series ~a contains #f values" name))
         ;; NOTE: we might want to remove this test later, as it is slow for
         ;; larger datasets
         (for ([idx (in-range 1 (get-count))])
           (unless (cmp-fn (vector-ref data (- idx 1))
                           (vector-ref data idx))
-            (df-raise "series ~a not really sorted @~a (~a vs ~a)"
+            (df-raise "data-series%/check-consistency: series ~a not really sorted @~a (~a vs ~a)"
                       name idx
                       (vector-ref data (- idx 1))
                       (vector-ref data idx))))))
@@ -229,7 +230,7 @@
     (define/public (get-series name)
       (define series (hash-ref data-series name (lambda () #f)))
       (unless series
-        (df-raise "series ~a not found" name))
+        (df-raise "data-frame%/get-series (\"~a\"): not found" name))
       series)
 
     (define/public (put-property key value)
@@ -338,7 +339,7 @@
       (let ((row-count (get-row-count))
             (srow-count (send series get-count)))
         (unless (or (not row-count) (equal? row-count srow-count))
-          (df-raise "cannot add series ~a: bad length ~a, expecting ~a"
+          (df-raise "data-frame%/add-series (\"~a\"): bad length ~a, expecting ~a"
                     (send series get-name) srow-count row-count)))
       (let ([name (send series get-name)])
         (hash-set! data-series name series)))
@@ -752,6 +753,8 @@
                     #:when (eqv? b (vector-ref h 0)))
           h)
         (vector b 0))))
+
+(provide merge-lists get-histogram-buckets normalize-histogram)
 
 ;; Create a plot renderer with two histograms.
 (define (make-histogram-renderer/dual data1 label1

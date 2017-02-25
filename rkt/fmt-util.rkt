@@ -100,16 +100,16 @@
 (define (m/s->mi/h speed) (/ (* speed 3600.0) 1609.0))
 
 (: m/s->sec/km (-> Positive-Real Real))
-(define (m/s->sec/km speed) (/ 1 (/ speed 1000.0)))
+(define (m/s->sec/km speed) (/ 1000.0 speed))
 
 (: m/s->sec/mi (-> Positive-Real Real))
-(define (m/s->sec/mi speed) (/ 1 (/ speed 1609.0)))
+(define (m/s->sec/mi speed) (/ 1609.0 speed))
 
 (: m/s->sec/100m (-> Positive-Real Real))
-(define (m/s->sec/100m speed) (/ 1 (/ speed 100.0)))
+(define (m/s->sec/100m speed) (/ 100.0 speed))
 
 (: m/s->sec/100yd (-> Positive-Real Real))
-(define (m/s->sec/100yd speed) (/ 1 (/ speed 91.44)))
+(define (m/s->sec/100yd speed) (/ 91.44 speed))
 
 (: m->km (-> Real Real))
 (define (m->km m) (/ m 1000))

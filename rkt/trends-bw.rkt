@@ -142,13 +142,16 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
-      (when data-valid?
-        (parameterize ([plot-x-ticks (pmc-date-ticks)]
-                       [plot-x-label #f]
-                       [plot-y-label "Bodyweight"])
-          (plot-snip/hack
-           canvas
-           (list (tick-grid) (lines bw-data #:color *sea-green* #:width 3.0))))))
+      (if data-valid?
+          (parameterize ([plot-x-ticks (pmc-date-ticks)]
+                         [plot-x-label #f]
+                         [plot-y-label "Bodyweight"])
+            (plot-snip/hack
+             canvas
+             (list (tick-grid) (lines bw-data #:color *sea-green* #:width 3.0))))
+          (begin
+            (send canvas set-snip #f)
+            (send canvas set-background-message "No data to plot"))))
 
     (define (maybe-fetch-data)
       (unless data-valid?
