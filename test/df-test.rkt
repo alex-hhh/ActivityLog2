@@ -16,7 +16,7 @@
 
 
 (require rackunit)
-(require rackunit/gui)
+;;(require rackunit/gui)
 (require rackunit/text-ui)
 
 (require "../rkt/data-frame.rkt")

@@ -14,7 +14,7 @@
 
 
 (require rackunit)
-(require rackunit/gui)
+;;(require rackunit/gui)
 (require rackunit/text-ui)
 (require db)
 (require "../rkt/dbapp.rkt")
