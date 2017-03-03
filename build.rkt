@@ -121,4 +121,18 @@
   (define version (string-trim (file->string "./version.txt" #:mode 'text)))
   (system (format "\"~a\" /DMyAppVersion=~a install.iss" issc-program version)))
 
-(provide compile-app build-app mkdist mkinstaller)
+(module+ main
+  ;; If this file is invoked from the command line, the application will be
+  ;; built automatically (including the installer)
+  (printf "Compiling .zo files...")(flush-output (current-output-port))
+  (compile-app)
+  (printf " done.")(newline)(flush-output (current-output-port))
+  (printf "Building application executable...")(flush-output (current-output-port))
+  (build-app)
+  (printf " done.")(newline)(flush-output (current-output-port))
+  (printf "Assembling distribution...")(flush-output (current-output-port))
+  (mkdist)
+  (printf " done.")(newline)(flush-output (current-output-port))
+  (printf "Creating installer...")(flush-output (current-output-port))
+  (mkinstaller)
+  (printf " done.")(newline)(flush-output (current-output-port)))

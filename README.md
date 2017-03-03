@@ -15,6 +15,12 @@ pre-built releases from the
 [releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or see
 [doc/building.md](doc/building.md) for how to build your own.
 
+<p align="center">
+<img align="center" width="720" 
+     alt="session view" 
+     src="https://drive.google.com/uc?export=download&id=0B5h4XOdkim72aS1PdERyNVhlbEU" />
+</p>
+
 ## License
 
 This program is free software: you can redistribute it and/or modify it under
