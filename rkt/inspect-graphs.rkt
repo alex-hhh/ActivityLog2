@@ -574,7 +574,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:speed-graph]
-               [text "Speed"])
+               [text "Speed "])
     (inherit setup-y-axis-items set-y-axis get-data-frame)
 
     (define zones #f)
@@ -634,7 +634,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:elevation-graph]
-               [text "Elevation"])
+               [text "Elevation "])
     (inherit setup-y-axis-items set-y-axis)
 
     (define selected-y-axis 0)
@@ -671,7 +671,7 @@
 
     (super-new [parent parent]
                [tag 'activity-log:hr-graph]
-               [text "Heart Rate"])
+               [text "Heart Rate "])
 
     (inherit setup-y-axis-items set-y-axis get-data-frame)
 
@@ -734,7 +734,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:cadence-graph]
-               [text "Cadence"])
+               [text "Cadence "])
     (inherit set-y-axis get-data-frame setup-y-axis-items)
 
     (define sport #f)
@@ -799,7 +799,7 @@
 
     (super-new [parent parent]
                [tag 'activity-log:vosc-vratio-graph]
-               [text "Vertical Oscillation"])
+               [text "Vertical Oscillation "])
 
     (inherit set-y-axis get-data-frame setup-y-axis-items)
     (define sport #f)
@@ -864,7 +864,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:gct-graph]
-               [text "Ground Contact Time"])
+               [text "Ground Contact Time "])
 
     (inherit set-y-axis get-data-frame setup-y-axis-items)
 
@@ -930,7 +930,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:power-graph]
-               [text "Power"])
+               [text "Power "])
     (inherit set-y-axis get-data-frame setup-y-axis-items)
 
     (define selected-y-axis 0)
@@ -989,7 +989,7 @@
 
     (super-new [parent parent]
                [tag 'activity-log:lrbal-graph]
-               [text "Left-Right Balance"])
+               [text "Left-Right Balance "])
 
     (inherit set-y-axis get-data-frame setup-y-axis-items)
 
@@ -1027,7 +1027,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:teff-graph]
-               [text "Torque Effectiveness"])
+               [text "Torque Effectiveness "])
 
     (send this set-y-axis
           axis-left-torque-effectiveness
@@ -1046,7 +1046,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:psmth-graph]
-               [text "Pedal Smoothness"])
+               [text "Pedal Smoothness "])
 
     (send this set-y-axis
           axis-left-pedal-smoothness
@@ -1065,7 +1065,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:pco-graph]
-               [text "Platform Centre Offset"])
+               [text "Platform Centre Offset "])
 
     (send this set-y-axis
           axis-left-platform-centre-offset
@@ -1084,7 +1084,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:power-phase-graph]
-               [text "Power Phase"])
+               [text "Power Phase "])
 
     (inherit set-y-axis get-data-frame  setup-y-axis-items)
 
@@ -1141,7 +1141,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:swim-pace-graph]
-               [text "Swim Pace"])
+               [text "Swim Pace "])
 
     (inherit set-y-axis get-data-frame)
     (set-y-axis axis-swim-pace)
@@ -1176,7 +1176,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:swim-swolf-graph]
-               [text "SWOLF"])
+               [text "SWOLF "])
 
     (inherit set-y-axis get-data-frame)
 
@@ -1214,7 +1214,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:swim-stroke-count-graph]
-               [text "Stroke Count"])
+               [text "Stroke Count "])
 
     (inherit set-y-axis get-data-frame)
     (set-y-axis axis-swim-stroke-count)
@@ -1251,7 +1251,7 @@
     (init parent)
     (super-new [parent parent]
                [tag 'activity-log:swim-cadence-graph]
-               [text "Swim Cadence"])
+               [text "Swim Cadence "])
 
     (inherit set-y-axis get-data-frame)
     (set-y-axis axis-swim-avg-cadence)
