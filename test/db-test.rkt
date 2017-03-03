@@ -25,6 +25,7 @@
 (require "../rkt/utilities.rkt")
 (require "../rkt/import.rkt")
 (require "../rkt/session-df.rkt")
+(require "../rkt/intervals.rkt")
 
 
 ;;............................................................ test data ....
@@ -40,7 +41,7 @@
 (define a9 "test-data/cydynamics-bike.fit")
 
 
-;;.................................................... common utilitites ....
+;;.................................................... common utilities ....
 
 (define (fresh-database? db)
   (= (query-value db "select count(*) from ACTIVITY") 0))
@@ -71,20 +72,48 @@
   (set! sn (remove "elapsed" sn))
   (set! sn (remove "dst" sn))
   ;; Check that we still got some actual data series left
-  (check > (length sn) 0))
+  (check > (length sn) 0 "no meaningful series in session data frame"))
 
-(define (db-import-activity-from-file/check file db)
+;; Check that TIME-IN-ZONE data has been stored in the database for this
+;; session.
+(define (check-time-in-zone df db file)
+  ;; Only check TIZ data if sport zones have been added to the database
+  (when (> (query-value db "select count(*) from SPORT_ZONE") 0)
+    (let ((sport (send df get-property 'sport))
+          (sid (send df get-property 'session-id)))
+      (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
+        ;; Check that we have some time-in-zone data from the session
+        (let ((nitems (query-value db "select count(*) from TIME_IN_ZONE where session_id = ?" sid)))
+          (check > nitems 0
+                 (format "TIZ not present for ~a ~a" sport file)))))))
+
+;; Check that we can obtain intervals from a data frame.  For now, we only
+;; check if the code runs without throwing any exceptions.
+(define (check-intervals df)
+  (let ((sport (send df get-property 'sport)))
+    (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
+      (make-split-intervals df "elapsed" (* 5 60)) ; 5 min splits
+      (make-split-intervals df "dst" 1600)         ; 1 mile splits
+      (make-climb-intervals df)
+      (if (eq? (vector-ref sport 0) 1)
+          (make-best-pace-intervals df)
+          (make-best-power-intervals df)))))
+  
+(define (db-import-activity-from-file/check file db (basic-checks-only #f))
   (check-not-exn
    (lambda ()
      (let ((result (db-import-activity-from-file file db)))
-       (do-post-import-tasks db)
        ;; (lambda (msg) (printf "post import: ~a~%" msg)))
        (check-pred cons? result "Bad import result format")
        (check-eq? (car result) 'ok (format "~a" (cdr result)))
-       ;; Read back the session in a session data frame
-       (for ((sid (aid->sid (cdr result) db)))
-         (let ((df (session-df db sid)))
-           (check-session-df df)))))))
+       (unless basic-checks-only
+         ;; Do some extra checks on this imported file
+         (do-post-import-tasks db)
+         (for ((sid (aid->sid (cdr result) db)))
+           (let ((df (session-df db sid)))
+             (check-session-df df)
+             (check-intervals df)
+             (check-time-in-zone df db file))))))))
 
 (define (db-check-tile-code db)
   (let ((cnt (query-value db "
@@ -95,10 +124,13 @@ select count(*)
         or position_long is not null)")))
     (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
 
-(define (fill-sport-zones)
+(define (fill-sport-zones db)
   (put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220))
   (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220))
-  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)))
+  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600))
+  ;; put-sport-zones will setup sport zones to be valid from the time or their
+  ;; call.  Make all sport zones valid from the "beginning of time"
+  (query-exec db "update sport_zone set valid_from = 0"))
 
 
 
@@ -205,7 +237,7 @@ select count(T.id),
    (test-case "Cycling dynamics import / export"
      (with-database
        (lambda (db)
-         (db-import-activity-from-file/check a9 db)
+         (db-import-activity-from-file/check a9 db #t) ; only basic checks here
          (check = 1 (activity-count db))
          (define session-id 1)
          (cyd-check-session-values session-id db)
@@ -231,7 +263,7 @@ select count(T.id),
      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
        (with-database
          (lambda (db)
-           (fill-sport-zones)
+           (fill-sport-zones db)
            (printf "About to import ~a~%" file)
            (db-import-activity-from-file/check file db)
            (check = 1 (activity-count db))
@@ -240,7 +272,7 @@ select count(T.id),
    (test-case "Subsequent imports"
      (with-database
        (lambda (db)
-         (fill-sport-zones)
+         (fill-sport-zones db)
          (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
            (printf "About to import ~a~%" file)
            (db-import-activity-from-file/check file db))
