@@ -49,12 +49,16 @@
          (limit (vector-length laps)))
     (for/list ([idx (in-range 0 (vector-length laps))])
       (define start
-        (send df get-index "timestamp" (vector-ref laps idx)))
+        (or (send df get-index "timestamp" (vector-ref laps idx))
+            (send df get-row-count)))
       (define end
-        (if (< idx (- limit 1))
+        (if (< idx (sub1 limit))
             (send df get-index "timestamp" (vector-ref laps (+ idx 1)))
             (send df get-row-count)))
-      (decoupling df s1 s2 #:start start #:end end))))
+      ;; don't compute decoupling for small intervals
+      (if (and start end (> (- end start) 60))
+          (decoupling df s1 s2 #:start start #:end end)
+          0))))
 
 ;; Compute the time spend in each zone for SESSION (as returned by
 ;; db-fetch-session).  The zones are defined by the AXIS-DEF (can be

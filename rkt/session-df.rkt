@@ -160,11 +160,15 @@
   (send df put-property 'sport sport)
   (send df put-property 'session-id session-id)
 
-  (let ([laps (query-list db fetch-lap-timestamps session-id)])
-    (send df put-property 'laps (list->vector laps)))
-
   (when (send df contains? "timestamp")
     (send (send df get-series "timestamp") set-sorted #t))
+
+  ;; NOTE: the session might contain lap timestamps that have no track points,
+  ;; don't put these laps in the data frame
+  (let* ([laps (query-list db fetch-lap-timestamps session-id)]
+         [maxts (send df ref (sub1 (send df get-row-count)) "timestamp")]
+         [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
+    (send df put-property 'laps xlaps))
 
   ;; If we have a "dst" series, mark it as sorted, but first make sure it does
   ;; not contain invalid values and it is monotonically growing (a lot of code
