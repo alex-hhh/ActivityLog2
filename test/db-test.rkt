@@ -323,7 +323,7 @@ select count(T.id),
        (lambda (db)
          (check-not-exn
           (lambda ()
-            (printf "Checking session-df for manual activity"
+            (printf "Checking session-df for manual activity~%")
             (let* ((sid (db-import-manual-session db))
                    (df (session-df db sid)))
               ;; We don't expect much in a session df for a manual session, but
