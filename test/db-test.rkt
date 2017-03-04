@@ -19,6 +19,7 @@
 (require db)
 (require "../rkt/dbapp.rkt")
 (require "../rkt/database.rkt")
+(require "../rkt/dbutil.rkt")
 (require "../rkt/sport-charms.rkt")
 (require "../rkt/fit-file.rkt")
 (require "../rkt/activity-util.rkt")
@@ -114,6 +115,45 @@
              (check-session-df df)
              (check-intervals df)
              (check-time-in-zone df db file))))))))
+
+(define (db-import-manual-session db)
+  (let* ((duration 3600)
+         (distance 1000)
+         (avg-speed (if (and duration distance (> duration 0))
+                        (/ distance duration) #f))
+         (sport (cons 1 #f))
+         (name "Manual session")
+         (desc "Manual session description")
+         (start-time (current-seconds))
+         (rpe-scale 2))
+    (call-with-transaction
+     db
+     (lambda ()
+       (query-exec
+        db
+        "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
+             values(?, ?, ?, ?)"
+        (or duration sql-null)
+        (or duration sql-null)
+        (or distance sql-null)
+        (or avg-speed sql-null))
+       (let ((ssid (db-get-last-pk "SECTION_SUMMARY" db)))
+         (query-exec db "insert into ACTIVITY(start_time) values (?)" start-time)
+         (let ((aid (db-get-last-pk "ACTIVITY" db)))
+           (query-exec
+            db
+            "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
+                 values(?, ?, ?, ?, ?, ?, ?, ?)"
+            (or name sql-null)
+            (or desc sql-null)
+            aid
+            start-time
+            (or (car sport) sql-null)
+            (or (cdr sport) sql-null)
+            (if (eqv? rpe-scale 0) sql-null rpe-scale)
+            ssid)))
+       (let ((sid (db-get-last-pk "A_SESSION" db)))
+         sid)))))
 
 (define (db-check-tile-code db)
   (let ((cnt (query-value db "
@@ -277,6 +317,18 @@ select count(T.id),
            (printf "About to import ~a~%" file)
            (db-import-activity-from-file/check file db))
          (check = 8 (activity-count db)))))
+
+   (test-case "Import manual activity"
+     (with-database
+       (lambda (db)
+         (check-not-exn
+          (lambda ()
+            (printf "Checking session-df for manual activity"
+            (let* ((sid (db-import-manual-session db))
+                   (df (session-df db sid)))
+              ;; We don't expect much in a session df for a manual session, but
+              ;; we should at least be able to read it.
+              (check-eq? (send df get-row-count) #f)))))))
 
    (test-case "Get Sport Zones"
      (with-database

@@ -165,10 +165,13 @@
 
   ;; NOTE: the session might contain lap timestamps that have no track points,
   ;; don't put these laps in the data frame
-  (let* ([laps (query-list db fetch-lap-timestamps session-id)]
-         [maxts (send df ref (sub1 (send df get-row-count)) "timestamp")]
-         [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
-    (send df put-property 'laps xlaps))
+  (let ((row-count (send df get-row-count)))
+    (if (and row-count (> row-count 0))
+        (let* ([laps (query-list db fetch-lap-timestamps session-id)]
+               [maxts (send df ref (sub1 row-count) "timestamp")]
+               [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
+          (send df put-property 'laps xlaps))
+        (send df put-property 'laps '())))
 
   ;; If we have a "dst" series, mark it as sorted, but first make sure it does
   ;; not contain invalid values and it is monotonically growing (a lot of code

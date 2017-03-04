@@ -1,4 +1,4 @@
-language: c
+language: c                             # -*- mode: conf -*-
 
 # To use Travis CI's newer container infrastructure, use the following
 # line. (Also be sure RACKET_DIR is set to somewhere like ~/racket
@@ -48,7 +48,10 @@ install:
 before_script:
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
-  - sleep 3 # give xvfb some time to start
+  # Don't need to sleep here, as we only need xvfb for the tests, and it takes
+  # more than 3 seconds to run the build anyway
+  
+  # - sleep 3 # give xvfb some time to start
   
 # Here supply steps such as raco make, raco test, etc.
 #
