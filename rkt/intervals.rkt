@@ -18,13 +18,29 @@
          racket/match
          math/statistics
          "data-frame.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "utilities.rkt")
 
 (provide
  make-split-intervals
  make-climb-intervals
  make-best-pace-intervals
  make-best-power-intervals)
+
+;;; AMBIGUITIES in segment distances and times
+;;
+;; Data samples are recorded at 1 second intervals (or less) so they don't
+;; have sufficient precision to create exact distance splits, or sub-second
+;; precision for the time splits.  Even a modest running speed will make the
+;; distance between samples 2 - 3 meters, faster speed will cause the distance
+;; to be greater.
+;;
+;; For example, when finding the best 1000 meter split in a session, there
+;; might not be an exact sample to compute the exact 1000 meter distance.  The
+;; code will consider samples such that there are *approximately* 1000 meter
+;; in the segment.  So, a best 1000 meter, might find a best 1003.17 meter
+;; segment instead.
+
 
 ;; Split the data frame DF into pieces of equal AMOUNT for SERIES.  Return a
 ;; list of positions (indexes) where the splits start.  SERIES needs to be one
@@ -35,14 +51,14 @@
 ;;
 ;; (split-by df "dst" 1000) ; km splits
 ;; (split-by df "timer" 300) ; 5 minute splits
+;;
+;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (split-by df series amount)
-  (define positions '())
-  (let loop ((val 0))
-    (let ((pos (send df get-index series val)))
+  (let loop ((split 0)
+             (positions '()))
+    (let ((pos (send df get-index series (* split amount))))
       (if pos
-          (begin
-            (set! positions (cons pos positions))
-            (loop (+ val amount)))
+          (loop (add1 split) (cons pos positions))
           (if (or (null? positions)
                   (equal? (car positions) (send df get-row-count)))
               (reverse positions)
@@ -55,7 +71,7 @@
     (total-distance "dst" total)
     (total-timer-time "timer" total)
     (total-elapsed-time "elapsed" total)
-    (avg-speed "spd" avg)
+    ;; (avg-speed "spd" avg)
     (max-speed "spd" max)
     (avg-heart-rate "hr" avg)
     (max-heart-rate "hr" max)
@@ -210,6 +226,14 @@
     (set! base (append base (make-ascent-descent df start-index end-index))))
   (when (send df contains? "timer" "cad")
     (set! base (append base (make-total-cycles df start-index end-index))))
+
+  ;; Calculate the average speed from total time and distance, averaging the
+  ;; "spd" series does not produce nice results.
+  (let ((total-distance (assq1 'total-distance base))
+        (total-elapsed-time (assq1 'total-elapsed-time base)))
+    (when (and total-distance total-elapsed-time (> total-elapsed-time 0))
+      (set! base (cons (cons 'avg-speed (/ total-distance total-elapsed-time)) base))))
+      
   ;; Mark this lap as custom
   (set! base (append (list '(custom-lap . #t)) base))
   base)
@@ -222,6 +246,7 @@
 ;; (make-split-intervals df "dst" 1000) ; lap every km
 ;; (make-split-intervals df "timer" 300) ; lap every 5 minutes
 ;;
+;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (make-split-intervals df series amount)
   (if (send df contains? series)
       (let ((positions (split-by df series amount)))
@@ -369,7 +394,9 @@
         ))
 
 ;; Return intervals based on the best pace for a set of predefined distances
-;; (e.g. the fastest 1km in a 5 km run)
+;; (e.g. the fastest 1km in a 5 km run).
+;;
+;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (make-best-pace-intervals df)
   (if (send df contains? "spd" "dst")
       (let ((bavg (df-best-avg df "spd" #:weight-column "dst" #:durations best-pace-distances)))

@@ -102,8 +102,8 @@
 ;; recalculated while the data frame is in the cache.
 (define (setup-min-max-elevation df)
   (define series
-    (cond ((send df contains? "alt") "alt")
-          ((send df contains? "calt") "calt")
+    (cond ((send df contains? "calt") "calt")
+          ((send df contains? "alt") "alt")
           (#t #f)))
   (when series
     (let ((stats (df-statistics df series)))

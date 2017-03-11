@@ -429,7 +429,7 @@ where id = (select summary_id from A_LENGTH L where L.id = ?)")))
                 (set! ascent (+ ascent diff))
                 (set! descent (+ descent (- diff))))))
         (query-exec db q-update-ss1
-                    (exact-truncate ascent) (exact-truncate descent) length-id)))))
+                    (exact->inexact ascent) (exact->inexact descent) length-id)))))
 
 (define q-get-altitude2
   (virtual-statement

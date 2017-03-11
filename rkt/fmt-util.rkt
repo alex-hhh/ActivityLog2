@@ -268,7 +268,7 @@
   (if (> speed/mps 0)
       (let* ((sec/km (m/s->pace speed/mps))
              (min (exact-truncate (/ sec/km 60.0)))
-             (sec (exact-truncate (- sec/km (* min 60.0)))))
+             (sec (exact-round (- sec/km (* min 60.0)))))
         (string-append
          (string-replace (format-48 "~2F:~2F" min sec) " " "0")
          (if unit-label (string-append " " pace-label) "")))
