@@ -938,6 +938,9 @@
         (del-bavg-cache
          (virtual-statement
           (lambda (dbsys) "delete from BAVG_CACHE where session_id = ?")))
+        (del-hist-cache
+         (virtual-statement
+          (lambda (dbsys) "delete from HIST_CACHE where session_id = ?")))
         (del-section-summary
          (virtual-statement
           (lambda (dbsys) "delete from SECTION_SUMMARY where id in (
@@ -969,6 +972,7 @@
             (query-exec db del-equipment-use session-id)
             (query-exec db del-time-in-zone session-id)
             (query-exec db del-bavg-cache session-id)
+            (query-exec db del-hist-cache session-id)
             (query-exec db del-section-summary session-id)
             (query-exec db del-trackpoints session-id)
             (query-exec db del-lengths session-id)
