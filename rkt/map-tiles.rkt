@@ -232,7 +232,9 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
       (call-with-semaphore
        sem-acces
        (lambda ()
-         (if backlog (length backlog) 0))))
+         (+ 
+          (if backlog (length backlog) 0)
+          (length downloading)))))
 
     ))
 
