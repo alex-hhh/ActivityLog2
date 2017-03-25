@@ -312,7 +312,7 @@ values (?, ?)" session-id id))
     (define (on-climb-splits)
       (define climb-splits (send data-frame get-property 'intervals-climb-splits))
       (unless climb-splits
-        (set! climb-splits (make-climb-intervals data-frame #:min-height 5 #:filter-width 150))
+        (set! climb-splits (make-climb-intervals data-frame))
         (send data-frame put-property 'intervals-climb-splits climb-splits))
       (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
 
@@ -320,7 +320,7 @@ values (?, ?)" session-id id))
     (define (on-descent-splits)
       (define descent-splits (send data-frame get-property 'intervals-descent-splits))
       (unless descent-splits
-        (set! descent-splits (make-climb-intervals data-frame #:min-height 5 #:filter-width 150 #:descents #t))
+        (set! descent-splits (make-climb-intervals data-frame #:descents #t))
         (send data-frame put-property 'intervals-descent-splits descent-splits))
       (send interval-view set-intervals sport 'hill-descents descent-splits sid))
 

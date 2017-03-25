@@ -274,17 +274,54 @@
 (struct climb (start-idx end-idx start-dst end-dst hdiff hard-end?)
   #:transparent)
 
+(define (climb-grade c)
+  (* 100.0 (/ (climb-hdiff c) (- (climb-end-dst c) (climb-start-dst c)))))
+
+;; Join adjacent CLIMBS if they are closer than MJD.  Discard resulting climbs
+;; with a grade less than MG or a length less than ML
+(define (merge-adjacent-climbs climbs
+                               #:max-join-distance [mjd 50]
+                               #:min-grade [mg 1.0]
+                               #:min-length [ml 50])
+  (define (merge c1 c2)
+    (climb
+     (climb-start-idx c1)
+     (climb-end-idx c2)
+     (climb-start-dst c1)
+     (climb-end-dst c2)
+     (+ (climb-hdiff c1) (climb-hdiff c2))
+     (climb-hard-end? c2)))
+
+  (define (good? c)
+    (and (>= (climb-grade c) mg)
+         (>= (- (climb-end-dst c) (climb-start-dst c)) ml)))
+
+  (define (kons c l) (if (good? c) (cons c l) l))
+  
+  (if (null? climbs)
+      '()
+      (let loop ((candidate (car climbs))
+                 (remaining (cdr climbs))
+                 (result '()))
+        (cond ((null? remaining)
+               (reverse (kons candidate result)))
+              ((climb-hard-end? candidate)
+               (loop (car remaining) (cdr remaining) (kons candidate result)))
+              (#t
+               (let* ((next (car remaining))
+                      (delta (- (climb-start-dst next) (climb-end-dst candidate))))
+                 (if (> delta mjd)
+                     (loop (car remaining) (cdr remaining) (kons candidate result))
+                     (loop (merge candidate next) (cdr remaining) result))))))))
+
 ;; Find climb sections (or descents if the DESCENTS? arg is #t) in the data
-;; frame DF.  MH determines the minimum height change for a section to be
-;; considered a climb or descent (e.g. a value of 20 indicates that only
-;; climbs at least 20 meters in height are found).  FW is the width, in
-;; meters, of the low-pass filter for grades, this allows finding longer
-;; climbs where there are small downhill sections.  Return a list of CLIMB
-;; structures, one for each climb.
+;; frame DF.  Return a list of CLIMB structures, one for each climb.  MJD, MG
+;; and ML are passed on to MERGE-ADJACENT-CLIMBS
 (define (find-climbs df
                      #:descents (descents? #f)
-                     #:min-height (mh 20)
-                     #:filter-width (fw 50))
+                     #:max-join-distance [mjd 50]
+                     #:min-grade [mg 1.0]
+                     #:min-length (ml 50))
 
   ;; teleports are the timestamps where the recording was stopped, than the
   ;; user traveled a significant distance and re-started the recording.  They
@@ -297,7 +334,7 @@
           <))
 
   ;; Return #t if GRADE is on a climb (or descent if descents is #t)
-  (define (on-climb grade) (if descents? (< grade 0.5) (> grade 0.5)))
+  (define (on-climb grade) (if descents? (< grade 0) (> grade 0)))
 
   ;; Update END-IDX and END-DST in the climb C and calculate the HDIFF field.
   ;; Also set the hard-end? field to the value of the HARD-END?
@@ -314,37 +351,17 @@
                  (hdiff (if descents? descent ascent))
                  (hard-end? hard-end?)))
 
-  ;; Implement a simple low-pass filtering for grade values, to allow passing
-  ;; over small downhill portions of a climb.
-  (define filter-width fw)
-  (define filtered-grade #f)
-  (define previous-distance #f)
-  (define (filter-grade grade distance)
-    (if filtered-grade
-        (let* ((dt (- distance previous-distance))
-               (alpha (/ dt (+ dt filter-width)))
-               (nstate (+ (* alpha grade) (* (- 1 alpha) filtered-grade))))
-          (set! filtered-grade nstate)
-          (set! previous-distance distance)
-          nstate)
-        (begin
-          (set! filtered-grade grade)
-          (set! previous-distance distance)
-          grade)))
-
   (define climbs '())
   (define current-climb #f)
   (define last-climb-idx 0)
 
   ;; Call finalize on the current climb, add it to the list of climbs and
-  ;; reset the filter and the search.
+  ;; reset the search.
   (define (complete-current-climb (hard-end? #f))
     (when current-climb
       ;; include last-climb-idx in the range our ranges are open at the end
       (let ((uclimb (finalize current-climb (add1 last-climb-idx) hard-end?)))
-        (when (> (climb-hdiff uclimb) mh)
-          (set! climbs (cons uclimb climbs)))))
-    (set! filtered-grade #f)          ; reset filter
+        (set! climbs (cons uclimb climbs))))
     (set! current-climb #f))
 
   (for (((val index) (in-indexed (send df select* "timestamp" "grade" "dst")))
@@ -353,28 +370,30 @@
     (unless (or (null? teleports) (< t (car teleports)))
       (complete-current-climb #t)  ; reached a teleport point, climbs end here
       (set! teleports (cdr teleports)))
-    (when (on-climb g)
-      ;; This is an actual (unfiltered) climb point.  Climbs can only start
-      ;; and end at unfiltered climb grades, but are extended past small
-      ;; downhill portions by filtering the grade.
-      (unless current-climb
-        (set! current-climb (climb index index d d #f #f))
-        (set! filtered-grade #f))
-      (set! last-climb-idx index))
-    (unless (on-climb (filter-grade g d))
-      (complete-current-climb)))
-  (complete-current-climb)              ; don't forget the last one
+    
+    (if current-climb
+        ;; Current climb in progress, keep it on until the filtered grade is 0
+        (if (on-climb g)
+            (set! last-climb-idx index)
+            (complete-current-climb))
+        ;; Start a climb, but only if the grade is positive
+        (when (on-climb g)
+          (set! current-climb (climb index index d d #f #f)))))
 
-  (reverse climbs))
+    (complete-current-climb)              ; don't forget the last one
+
+  (merge-adjacent-climbs (reverse climbs) #:min-grade mg #:min-length ml #:max-join-distance mjd))
 
 ;; Return intervals based on the climb (or descent sections in the data frame
-;; DF.  See FIND-CLIMBS for the meaning of the DESCENTS?, MH and FW arguments.
+;; DF.  See FIND-CLIMBS and MERGE-ADJACENT-CLIMBS for the meaning of the
+;; DESCENTS?, MJD, MH and FW arguments.
 (define (make-climb-intervals df
                               #:descents (descents? #f)
-                              #:min-height (mh 20)
-                              #:filter-width (fw 20))
+                              #:max-join-distance (mjd 75)
+                              #:min-grade (mg 0.5)
+                              #:min-length (ml 100))
   (if (send df contains? "timestamp" "dst" "grade")
-      (let ((climbs (find-climbs df #:min-height mh #:filter-width fw #:descents descents?)))
+      (let ((climbs (find-climbs df #:min-grade mg #:min-length ml #:max-join-distance mjd #:descents descents?)))
         (for/list ((c (in-list climbs)))
           (make-interval-summary df (climb-start-idx c) (climb-end-idx c))))
       '()))

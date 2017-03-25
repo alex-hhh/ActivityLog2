@@ -275,7 +275,7 @@ order by T.timestamp")))
 
   ;; Minimum distance between which we can smooth the altitude.  For distances
   ;; less than this, we interpolate between the start and end point.
-  (define minimum-distance 10.0)
+  (define minimum-distance 50.0)
 
   ;; Minimum altidute difference in a range for which we split the range.  If
   ;; the altidute difference in a range is less than this, we consider the
