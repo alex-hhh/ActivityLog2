@@ -18,6 +18,9 @@
 ;; more details.
 
 (require db
+         plot
+         math/statistics
+         racket/match
          racket/class
          racket/contract
          "../rkt/al-prefs.rkt"
@@ -25,7 +28,8 @@
          "../rkt/session-df.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/hrv.rkt"
-         "../rkt/fmt-util.rkt")
+         "../rkt/fmt-util.rkt"
+         "../rkt/database.rkt")
 
 (provide/contract
  (sid->df (-> number? (is-a?/c data-frame%)))
@@ -80,3 +84,23 @@
            (ts1 (send df ref index "timestamp"))
            (ts2 (send df ref (add1 index) "timestamp")))
       (printf "timestamp ~a, index ~a: ~a~%" sp index (duration->string (- ts2 ts1))))))
+
+;; Export the list of activities to OUT-DIR.  NOTE that ACTIVITY-IDs are
+;; specified, *not* SESSION-IDs
+(define (bulk-export activity-id-list out-dir)
+  (for ([id activity-id-list])
+    (let ([fname (build-path out-dir (format "activity-~a.fit" id))])
+      (printf "Exporting ~a...~%" fname)
+      (db-export-raw-data id (current-database) fname))))
+
+;; A density renderer plotting quantile lines as well.  Needs to be integrated somewhere
+(define (df-density-renderer df series)
+  (match-define (list q01 q25 q50 q75 q99) (df-quantile df series 0 0.25 0.5 0.75 0.99))
+  (define stats (df-statistics df series))
+  (list
+   (density (send df select series) #:x-min q01 #:x-max q99 #:width 2 #:color "red")
+   (tick-grid)
+   (vrule q25 #:label "25%" #:color "blue" #:style 'long-dash)
+   (vrule q50 #:label "50%" #:color "green" #:style 'long-dash)
+   (vrule (statistics-mean stats) #:label "mean" #:color "black" #:style 'long-dash)
+   (vrule q75 #:label "75%" #:color "blue" #:style 'long-dash)))
