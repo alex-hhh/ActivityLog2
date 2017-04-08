@@ -19,6 +19,7 @@
  racket/gui/base
  racket/match
  racket/list
+ racket/runtime-path
  "al-prefs.rkt"
  "widgets.rkt"
  "dbglog.rkt"
@@ -39,18 +40,79 @@
 
 ;;......................................................... view-trends% ....
 
-(struct chart-info (name tag class))
+(define-runtime-path trends-bw-file "../img/trends/trends-bw.png")
+(define-runtime-path trends-trivol-file "../img/trends/trends-trivol.png")
+(define-runtime-path trends-pmc-file "../img/trends/trends-pmc.png")
+(define-runtime-path trends-vol-file "../img/trends/trends-vol.png")
+(define-runtime-path trends-tiz-file "../img/trends/trends-tiz.png")
+(define-runtime-path trends-tt-file "../img/trends/trends-tt.png")
+(define-runtime-path trends-bavg-file "../img/trends/trends-bavg.png")
+(define-runtime-path trends-hist-file "../img/trends/trends-hist.png")
+
+;; A trends chart declaration.  Contains some description and a sample image,
+;; plus the class to be instantiated for the actual trends chart.
+(struct tdecl
+  (name
+   tag
+   class
+   sample-image
+   description))
 
 (define chart-types
   (list
-   (chart-info "Body Weight" 'bw bw-trends-chart%)
-   (chart-info "Traning Volume (multisport)" 'trivol trivol-trends-chart%)
-   (chart-info "Traning Volume" 'vol vol-trends-chart%)
-   (chart-info "Time in Zone" 'tiz tiz-trends-chart%)
-   (chart-info "Performance" 'pmc pmc-trends-chart%)
-   (chart-info "Training Times" 'tt tt-trends-chart%)
-   (chart-info "Best Avg" 'bavg bavg-trends-chart%)
-   (chart-info "Histogram" 'hist hist-trends-chart%)))
+   (tdecl
+    "Body Weight" 'bw bw-trends-chart%
+    trends-bw-file
+    "Plot body weight over time")
+   
+   (tdecl
+    "Traning Volume (multisport)" 'trivol trivol-trends-chart%
+    trends-trivol-file
+    "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength)")
+   
+   (tdecl
+    "Traning Volume" 'vol vol-trends-chart%
+    trends-vol-file
+    "Show training volume (time, distance, or number of activities) over time for an activity type"
+    )
+   
+   (tdecl
+    "Time in Zone" 'tiz tiz-trends-chart%
+    trends-tiz-file
+    "Show time spent in each heart rate zone for a selected activity type over time")
+   
+   (tdecl
+    "Performance" 'pmc pmc-trends-chart%
+    trends-pmc-file
+    "Plot form, fitness and fatigue over time.")
+   
+   (tdecl
+    "Training Times" 'tt tt-trends-chart%
+    trends-tt-file
+    "Plot the time of day over weekday when each activity occured.")
+   
+   (tdecl
+    "Best Avg" 'bavg bavg-trends-chart%
+    trends-bavg-file
+    "Plot the best-average (mean maximal) for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
+   
+   (tdecl
+    "Histogram" 'hist hist-trends-chart%
+    trends-hist-file
+    "Plot a histogram for the data series from selected activities."
+    )))
+
+;; Keep the loaded preview images for the chart types in a cache, we don't
+;; load them at start up, since they might never be needed, but once loaded we
+;; want to keep them around.
+(define icon-cache (make-hash))
+
+(define (get-bitmap file)
+      (define icon (hash-ref icon-cache file #f))
+      (unless icon
+        (set! icon (read-bitmap file))
+        (hash-set! icon-cache file icon))
+      icon)
 
 (define new-trend-chart-dialog%
   (class al-edit-dialog%
@@ -60,13 +122,53 @@
                [min-height 10])
 
     (define chart-choice #f)
+    (define sample-image (get-bitmap (tdecl-sample-image (first chart-types))))
+    (define description #f)
 
     (let ((p (send this get-client-pane)))
       (let ((p0 (make-horizontal-pane p #f)))
-        (send p0 spacing 10)
-        (set! chart-choice (new choice%
-                                [parent p0] [label "Chart Type "]
-                                [choices (map chart-info-name chart-types)]))))
+        (send p0 spacing 20)
+        (let ((p1 (make-vertical-pane p0 #t)))
+          (send p1 spacing 20)
+          (set! chart-choice
+                (new choice%
+                     [parent p1] [label "Chart Type "]
+                     [choices (map tdecl-name chart-types)]
+                     [callback (lambda (c e) (on-chart-selected (send c get-selection)))]))
+          (define c (new editor-canvas% [parent p1] [style '(no-hscroll)]))
+          (set! description (new text%))
+          (send c set-editor description)
+          (send description set-tabs '(8) 8 #f)
+          (send description auto-wrap #t))
+        (set! sample-image (new message%
+                              [label sample-image]
+                              [parent p0]
+                              [min-width 400] [min-height 214]
+                              [stretchable-width #f] [stretchable-height #f]))))
+
+    ;; Setup the description for the selected chart type.
+    (define (setup-chart-description n)
+      (define ci (list-ref chart-types n))
+      (define text (tdecl-description ci))
+      (send description lock #f)
+      (send description begin-edit-sequence)
+      (send description select-all)
+      (send description clear)
+      (send description insert (make-object string-snip% text))
+      (send description set-modified #f)
+      (send description end-edit-sequence)
+      (send description lock #t))
+
+    ;; Set the sample image and description text for the selected chart type.
+    (define (on-chart-selected n)
+      (define ci (list-ref chart-types n))
+      (define image (get-bitmap (tdecl-sample-image ci)))
+      (send sample-image set-label image)
+      (setup-chart-description n))
+
+    ;; Setup the first one, as `on-chart-selected` will not be invoked the
+    ;; first time the dialog is shown.
+    (setup-chart-description 0)
 
     (define/public (show-dialog parent)
       (if (send this do-edit parent)
@@ -97,8 +199,11 @@
       (set! first-activation? #f))
 
     (define/public (interactive-setup parent)
-      (when (send trend-chart interactive-setup parent)
-        (refresh-chart)))
+      (if (send trend-chart interactive-setup parent)
+          (begin
+            (refresh-chart)
+            #t)
+          #f))
 
     (define/public (get-restore-data)
       (list info-tag (send trend-chart get-restore-data)))
@@ -175,22 +280,22 @@
     (define (restore-previous-charts)
       (let ((data (al-get-pref tag (lambda () #f))))
 
-        (define (find-chart-info tag)
+        (define (find-tdecl tag)
           (let loop ((chart-types chart-types))
             (if (null? chart-types)
                 #f
-                (if (eq? tag (chart-info-tag (car chart-types)))
+                (if (eq? tag (tdecl-tag (car chart-types)))
                     (car chart-types)
                     (loop (cdr chart-types))))))
 
         (define (make-trends-chart chart-tag restore-data)
-          (define ci (find-chart-info chart-tag))
+          (define ci (find-tdecl chart-tag))
           (when ci
-            (let ((pane (let ((tc (new (chart-info-class ci) [database database])))
+            (let ((pane (let ((tc (new (tdecl-class ci) [database database])))
                           (send tc restore-from restore-data)
                           (new trend-chart-pane%
                                [parent trend-charts-panel]
-                               [info-tag (chart-info-tag ci)]
+                               [info-tag (tdecl-tag ci)]
                                [trend-chart tc]))))
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name)))))
@@ -210,10 +315,10 @@
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
         (when ct
-          (let ((pane (let ((tc (new (chart-info-class ct) [database database])))
+          (let ((pane (let ((tc (new (tdecl-class ct) [database database])))
                         (new trend-chart-pane%
                              [parent trend-charts-panel]
-                             [info-tag (chart-info-tag ct)]
+                             [info-tag (tdecl-tag ct)]
                              [trend-chart tc]))))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))

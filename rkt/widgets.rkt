@@ -41,6 +41,7 @@
 (provide column-info)
 (provide with-busy-cursor)
 (provide make-horizontal-pane)
+(provide make-vertical-pane)
 (provide make-group-box-panel)
 (provide make-spacer)
 (provide al-edit-dialog%)
@@ -1591,10 +1592,15 @@
 
 ;;...................................................... al-edit-dialog% ....
 
-;; Convenience function to make a horizontal-pane as required by the
-;; various dialog boxes
+;; Convenience function to make a horizontal-pane as required by the various
+;; dialog boxes
 (define (make-horizontal-pane parent (stretchable-height? #t))
   (new horizontal-pane% [parent parent]
+       [border 0] [spacing 5]
+       [stretchable-height stretchable-height?]))
+
+(define (make-vertical-pane parent (stretchable-height? #t))
+  (new vertical-pane% [parent parent]
        [border 0] [spacing 5]
        [stretchable-height stretchable-height?]))
 
