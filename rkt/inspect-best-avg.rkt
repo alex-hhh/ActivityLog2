@@ -442,7 +442,7 @@
                (queue-callback
                 (lambda ()
                   ;; Discard changes if there was a new request since ours was
-                  ;; sumbitted.
+                  ;; submitted.
                   (let ((current-generation (get-best-rt-generation)))
                     (when (= generation current-generation)
                       (set! best-rt brt)

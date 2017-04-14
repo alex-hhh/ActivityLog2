@@ -144,6 +144,10 @@
     ;; changes.
     (define export-file-name #f)
 
+    (define generation 0)
+
+    (define (get-generation) generation)
+
     (let ((pref (al-get-pref tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 3))
         (set! active? (first pref))
@@ -320,6 +324,7 @@
     (define/public (resume-flush) (send graph-canvas resume-flush))
 
     (define (prepare-render-tree)
+      (set! generation (add1 generation))
       (if (and data-frame x-axis y-axis)
           ;; Capture all variables, we are about to do work in another thread
           ;; and these could change underneath us.
@@ -328,7 +333,8 @@
                 (y-axis y-axis)
                 (y-axis2 y-axis2)
                 (color-by-zone? color-by-zone?)
-                (filter-amount filter-amount))
+                (filter-amount filter-amount)
+                (saved-generation generation))
             (set! graph-render-tree 'working)
             (queue-task
              "graph-view%/prepare-render-tree"
@@ -341,7 +347,7 @@
                      (if (send data-frame contains?
                                (send y-axis series-name)
                                (send x-axis series-name))
-                         (let ([ds (extract-data data-frame x-axis y-axis filter-amount)])
+                         (let ([ds (extract-data data-frame x-axis y-axis filter-amount #t)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
                                ds))
@@ -361,7 +367,7 @@
                      (if (and y-axis2 (send data-frame contains?
                                             (send x-axis series-name)
                                             (send y-axis2 series-name)))
-                         (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount)])
+                         (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount #t)])
                            (if (is-lap-swimming? data-frame)
                                (add-verticals ds)
                                ds))
@@ -406,14 +412,16 @@
                    (#t #f)))
                (queue-callback
                 (lambda ()
-                  (set! data-series ds)
-                  (set! data-y-range yr)
-                  (set! data-series2 ds2)
-                  (set! factored-data fdata)
-                  (set! graph-render-tree rt)
-                  (set! cached-bitmap-dirty? #t)
-                  (highlight-interval ivl-start ivl-end)
-                  (send graph-canvas refresh))))))
+                  (let ((current-generation (get-generation)))
+                    (when (= saved-generation current-generation)
+                      (set! data-series ds)
+                      (set! data-y-range yr)
+                      (set! data-series2 ds2)
+                      (set! factored-data fdata)
+                      (set! graph-render-tree rt)
+                      (set! cached-bitmap-dirty? #t)
+                      (highlight-interval ivl-start ivl-end)
+                      (send graph-canvas refresh))))))))
           (set! graph-render-tree #f)))
 
     (define/public (get-average-renderer)

@@ -43,7 +43,7 @@
  (extract-data (->* ((is-a?/c data-frame%)
                      (is-a?/c series-metadata%)
                      (is-a?/c series-metadata%))
-                    ((or/c zero? positive?))
+                    ((or/c zero? positive?) boolean?)
                     ts-data/c))
  (ds-stats (-> ts-data/c statistics?))
  (add-verticals (-> ts-data/c ts-data/c))
@@ -161,17 +161,17 @@
   (send df put-property 'session-id session-id)
 
   (when (send df contains? "timestamp")
-    (send (send df get-series "timestamp") set-sorted #t))
-
-  ;; NOTE: the session might contain lap timestamps that have no track points,
-  ;; don't put these laps in the data frame
-  (let ((row-count (send df get-row-count)))
-    (if (and row-count (> row-count 0))
-        (let* ([laps (query-list db fetch-lap-timestamps session-id)]
-               [maxts (send df ref (sub1 row-count) "timestamp")]
-               [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
-          (send df put-property 'laps xlaps))
-        (send df put-property 'laps '())))
+    (send (send df get-series "timestamp") set-sorted #t)
+  
+    ;; NOTE: the session might contain lap timestamps that have no track
+    ;; points, don't put these laps in the data frame
+    (let ((row-count (send df get-row-count)))
+      (if (and row-count (> row-count 0))
+          (let* ([laps (query-list db fetch-lap-timestamps session-id)]
+                 [maxts (send df ref (sub1 row-count) "timestamp")]
+                 [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
+            (send df put-property 'laps xlaps))
+          (send df put-property 'laps '()))))
 
   ;; If we have a "dst" series, mark it as sorted, but first make sure it does
   ;; not contain invalid values and it is monotonically growing (a lot of code
@@ -240,7 +240,7 @@
                 (match-define (vector timestamp dst) val)
                 (define dt (- timestamp ptimestamp))
                 (define dd (if (and dst pdst) (- dst pdst) 0))
-                (if (and (> dt 10) (< dd 0.5))
+                (if (and (> dt 10) (< dd  5.0))
                     ;; Stop point
                     (set! stop-points (cons ptimestamp stop-points))
                     (set! timer (+ timer dt))))
@@ -335,7 +335,7 @@
     (match-define (vector spd) val)
     (if spd (m/s->mi/h spd) #f))
   (when (send df contains? "spd")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "speed"
           '("spd")
           (if (eq? (al-pref-measurement-system) 'metric)
@@ -416,7 +416,7 @@
   (when (send df contains? "spd" "elapsed")
 
     (if (send df get-property 'is-lap-swim?)
-        (send df add-derived-series
+        (send df add-derived-series/lazy
               "pace" '("spd")
               (if (eq? (al-pref-measurement-system) 'metric)
                   pace-sec/100m pace-sec/100yd))
@@ -426,7 +426,7 @@
                             pace-sec/km pace-sec/mi))
                (index (send df get-index "elapsed" limit))
                (pace-limit (if index (pace-fn (send df ref index "spd")) #f)))
-          (send df add-derived-series
+          (send df add-derived-series/lazy
                 "pace"
                 '("spd" "elapsed")
                 (lambda (val)
@@ -437,7 +437,7 @@
   (define sid (send df get-property 'session-id))
   (define zones (get-session-sport-zones sid 2))
   (when (and zones (send df contains? "spd"))
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "speed-zone"
           '("spd")
           (lambda (val)
@@ -582,7 +582,7 @@
   (define sid (send df get-property 'session-id))
   (define zones (get-session-sport-zones sid 1))
   (when (and zones (send df contains? "hr"))
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "hr-pct"
           '("hr")
           (lambda (val)
@@ -593,7 +593,7 @@
   (define sid (send df get-property 'session-id))
   (define zones (get-session-sport-zones sid 1))
   (when (and zones (send df contains? "hr"))
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "hr-zone"
           '("hr")
           (lambda (val)
@@ -615,7 +615,7 @@
           #f)))
 
   (when (send df contains? "spd" "cad")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "stride"
           '("spd" "cad")
           (if (eq? (al-pref-measurement-system) 'metric)
@@ -630,7 +630,7 @@
         #f))
 
   (when (send df contains? "spd" "cad" "vosc")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "vratio"
           '("spd" "cad" "vosc")
           (lambda (val)
@@ -647,7 +647,7 @@
   (define sid (send df get-property 'session-id))
   (define zones (get-session-sport-zones sid 3))
   (when (and zones (send df contains? "pwr"))
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "pwr-zone"
           '("pwr")
           (lambda (val)
@@ -656,7 +656,7 @@
 
 (define (add-lppa-series df)
   (when (send df contains? "lpps" "lppe")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "lppa"
           '("lpps" "lppe")
           (lambda (val)
@@ -668,10 +668,10 @@
 
 ;; Change the angle range form 0-360 to -180 .. 180.  This makes it look nicer
 ;; when angles are arround 0, as they will transition, for example, between
-;; -20 and 20 degrees instead of jumping betwrrn 20 and 340
+;; -20 and 20 degrees instead of jumping between 20 and 340
 (define (fixup-pp-series df series-name)
   (when (send df contains? series-name)
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           series-name
           (list series-name)
           (lambda (val)
@@ -680,7 +680,7 @@
 
 (define (add-lpppa-series df)
   (when (send df contains? "lppps" "lpppe")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "lpppa"
           '("lppps" "lpppe")
           (lambda (val)
@@ -692,7 +692,7 @@
 
 (define (add-rppa-series df)
   (when (send df contains? "rpps" "rppe")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "rppa"
           '("rpps" "rppe")
           (lambda (val)
@@ -704,7 +704,7 @@
 
 (define (add-rpppa-series df)
   (when (send df contains? "rppps" "rpppe")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "rpppa"
           '("rppps" "rpppe")
           (lambda (val)
@@ -716,7 +716,7 @@
 
 (define (add-swolf-series df)
   (when (send df contains? "duration" "strokes")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "swolf"
           '("duration" "strokes")
           (lambda (val)
@@ -732,7 +732,7 @@
       (/ power angular-velocity)))
 
   (when (send df contains? "pwr" "cad")
-    (send df add-derived-series
+    (send df add-derived-series/lazy
           "torque"
           '("pwr" "cad")
           (lambda (val)
@@ -778,13 +778,18 @@
 ;; * missing Y values are replaced with the Y-AXIS default missing value, or
 ;;   dropped if no such value is specified.
 ;;
-;; * data is filtered if Y-AXIS specifies it (filter-width will be used in
+;; * data is filtered if Y-AXIS specifies it (FILTER-WIDTH will be used in
 ;; that case.
 ;;
 ;; * Y values will drop to 0 at stop points if the X-AXIS requests it (this
 ;; produces nicer graphs).
 ;;
-(define (extract-data data-frame x-axis y-axis (filter-width 0))
+;; * number of points in the data series will be reduced if SIMPLIFY-DATA is
+;; #t and adjacent values are almost identical.  This is useful for long runs
+;; and rides which would otherwise generate 8000+ data points in a plot,
+;; slowing down the drawing but not adding much to the visuals.
+;;
+(define (extract-data data-frame x-axis y-axis (filter-width 0) (simplify-data #f))
   (let ((xseries (send x-axis series-name))
         (yseries (send y-axis series-name))
         (missing-value (send y-axis missing-value))
@@ -832,6 +837,32 @@
               (vector-set! (vector-ref data idx) 1 0)
               (when (< (+ idx 1) (vector-length data))
                 (vector-set! (vector-ref data (+ idx 1)) 1 0)))))))
+
+    ;; Reduce the number of points in the data to make it more manageable for
+    ;; the plots.
+    (when (and simplify-data (> (vector-length data) 0))
+      (define before-length (vector-length data))
+      ;; Max number of seconds between two adjacent values in the simplified
+      ;; data.
+      (define max-time-delta 15.0)
+      ;; Y values that differ by less than this amount will be dropped.
+      (define max-y-delta (expt 10 (- (send x-axis fractional-digits))))
+      ;; We update the data vector in place, than create a copy at the end to
+      ;; truncate it.
+      (define oidx 0)
+      (define oval (vector-ref (vector-ref data 0) 1))
+      (define ots (vector-ref (vector-ref data 0) 2))
+      (for ([idx (in-range 1 (vector-length data))])
+        (define item (vector-ref data idx))
+        (define val (vector-ref item 0))
+        (define ts (vector-ref item 2))
+        (when (or (> (- ts ots) max-time-delta)
+                  (> (abs (- val oval)) max-y-delta))
+          (set! oidx (add1 oidx))
+          (vector-set! data oidx item)
+          (set! oval val)
+          (set! ots ts)))
+      (set! data (vector-copy data 0 (add1 oidx))))
 
     data))
 
@@ -958,7 +989,7 @@
   (for/list ([elt factor-colors])
     (match-define (cons factor color) elt)
     (let ((fdata (hash-ref data factor '())))
-      (points fdata #:color color #:y-min (car y-range) #:y-max (cdr y-range)))))
+      (points fdata #:sym 'fullcircle #:color color #:y-min (car y-range) #:y-max (cdr y-range)))))
 
 ;; Given `series', a sequence of values, return return a list of start, end
 ;; indexes for consecutive values in series.  For example, given '(1 1 1 2 2 3
