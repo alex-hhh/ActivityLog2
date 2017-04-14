@@ -40,7 +40,8 @@
          "workers.rkt"
          "session-df.rkt"
          "al-prefs.rkt"
-         "fmt-util.rkt")
+         "fmt-util.rkt"
+         "color-theme.rkt")
 
 (provide quadrant-plot-panel%)
 
@@ -140,19 +141,7 @@
        (good-or-false ymin)
        (good-or-false ymax)))))
 
-(define zone-colors
-  (vector (make-object color% #xad #xd8 #xe6) ; z0, light blue
-          (make-object color% #x00 #xbf #xff) ; z1, deep sky blue
-          (make-object color% #x22 #x8b #x22) ; z2, forrest green
-          (make-object color% #xff #x7f #x50) ; z3, coral
-          (make-object color% #xcd #x5c #x5c) ; z4, indian red
-          (make-object color% #xdc #x14 #x3c) ; z5, crimson
-          (make-object color% #x8b #x00 #x00) ; z6, dark red
-          (make-object color% #x99 #x32 #xcc) ; z7, dark orchid
-          (make-object color% #x00 #x00 #x8b) ; z8, dark blue
-          (make-object color% #xff #x8c #x00) ; z9, dark orange
-          (make-object color% #xda #xa5 #x20) ; z10, golden rod
-          ))
+(define zcolors (map cdr (zone-colors)))
 
 (define (make-sport-zone-renderers zones yval-fn)
   (define zone-fns (for/list ([z zones] #:when (>= z 0))
@@ -161,7 +150,7 @@
              [high (cdr zone-fns)]
              [idx (in-range (length zone-fns))])
     (function-interval low high
-                       #:color (vector-ref zone-colors idx)
+                       #:color (list-ref zcolors idx)
                        #:alpha 0.1)))
 
 (define quadrant-plot-panel%
