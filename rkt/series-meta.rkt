@@ -18,12 +18,61 @@
          racket/class
          racket/list
          racket/math
+         racket/draw
+         racket/format
+         pict
          "activity-util.rkt"
          "al-prefs.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
+         "pdmodel.rkt"
          (prefix-in ct: "color-theme.rkt"))
+
+;; Fonts and colors for the Power-Duration information pane
+
+(define pd-background (make-object color% #xff #xf8 #xdc 0.75))
+(define pd-item-color (make-object color% #x2f #x4f #x4f))
+(define pd-label-color (make-object color% #x77 #x88 #x99))
+(define pd-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+(define pd-title-face (cons pd-item-color pd-title-font))
+(define pd-item-face (cons pd-item-color pd-item-font))
+(define pd-label-face (cons pd-label-color pd-label-font))
+
+;; Return the max speed (in meters/second) at which DISTANCE can be covered
+;; according to the Pace-Duration function PD.
+;;
+;; PD is a function returning the max speed that can be maintained for a
+;; duration.  This can be either a Best AVG function or a PD model function.
+;;
+;; DISTANCE is the distance to be covered in meters
+;;
+;; TMIN, TMAX are the min and max search times, #f is returned if the distance
+;; cannot be covered in this time range.
+;;
+;; NOTE: this function needs to be in a different file.
+(define (estimate-distance pd distance tmin tmax)
+  (define (dst t) (* t (pd t)))
+  (define dmin (dst tmin))
+  (define dmax (dst tmax))
+  (if (or (< distance dmin) (> distance dmax))
+      #f
+      (let loop ((dlow dmin)
+                 (tlow tmin)
+                 (dhigh dmax)
+                 (thigh tmax))
+        (if (< (abs (- thigh tlow)) 1.0)
+            (pd thigh)
+            (let* ((tmid (/ (+ tlow thigh) 2.0))
+                   (dmid (dst tmid)))
+              (cond ((< (abs (- dmid distance)) 0.01)
+                     (pd tmid))         ; good enough
+                    ((< dmid distance)
+                     (loop dmid tmid dhigh thigh))
+                    (#t
+                     (loop dlow tlow dmid tmid))))))))
 
 
 ;;..................................................... axis definitions ....
@@ -120,7 +169,6 @@
             (set! color (cdr color-item)))))
       color)
 
-
     ;; Return the Y range for ploting this series.  Returns a (cons LOW HIGH),
     ;; either of them can be #f, in which case the range is automatically
     ;; detected.  This can be used to force Y ranges for certain series (for
@@ -144,6 +192,19 @@
 
     ;; Return an alist mapping factor names to colors
     (define/public (factor-colors) (ct:factor-colors))
+
+    ;; Return #t if we can estimate Critical Power for this data series.
+    (define/public (have-cp-estimate) #f)
+    ;; Estimate CP for this data series given a best-avg function (as returned
+    ;; by `aggregate-bavg') and search parameters (a CP2PARAMS instance).
+    ;; Returns a CP2 structure.
+    (define/public (cp-estimate bavg-fn params) #f)
+    ;; Return a PD function for the supplied critical power parameters (a CP2
+    ;; instance)
+    (define/public (pd-function cp-params) #f)
+    ;; Return a pict displaying information about the supplied critical power
+    ;; parameters (a CP2 instance).
+    (define/public (pd-data-as-pict cp-params) #f)
 
     ))
 
@@ -240,6 +301,77 @@
 
          (define/override (factor-colors) (ct:zone-colors))
 
+         (define/override (have-cp-estimate) #t)
+
+         (define/override (cp-estimate bavg-fn params)
+           (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
+           (search-best-cp/exhausive
+            afn params
+            #:cp-precision 3 #:wprime-precision 1))
+
+         (define/override (pd-function cp-params)
+           (define fn (cp2-fn cp-params))
+           (lambda (t) (convert-m/s->pace (fn t))))
+
+         (define/override (pd-data-as-pict cp-params bavgfn)
+           (define metric? (eq? (al-pref-measurement-system) 'metric))
+           (define fn (cp2-fn cp-params))
+           (define dfn
+             (lambda (t) (convert-m/s->pace (bavgfn t))))
+           
+           (define title (text "Model" pd-title-face))
+           (define dprime (short-distance->string (round (cp2-wprime cp-params))))
+           (define cv (pace->string (cp2-cp cp-params)))
+           (define picts
+             (list (text "CV" pd-label-face)
+                   (text cv pd-item-face)
+                   (text (if metric? "min/km" "min/mile") pd-label-face)
+                   (text "D'" pd-label-face)
+                   (text dprime pd-item-face)
+                   (text (if metric? "meters" "yards") pd-label-face)))
+           (define p1
+             (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
+
+           (define interval-estimates-time
+             (flatten
+              (for/list ([t '(("5 min" . 300)
+                              ("10 min" . 600)
+                              ("15 min" . 900)
+                              ("20 min" . 1200))])
+                (list (text (car t) pd-label-face)
+                      (text (pace->string (fn (cdr t))) pd-item-face)
+                      (text (pace->string (dfn (cdr t))) pd-item-face)))))
+
+           (define interval-estimates-distance
+             (flatten
+              (for/list ([t '(("1 km" . 1000.0)
+                              ("1 mile" . 1610.0)
+                              ("5k" . 5000.0)
+                              ("10k" . 10000.0))])
+                (define model-pace (estimate-distance fn (cdr t) 10 7200))
+                (define data-pace (estimate-distance dfn (cdr t) 10 7200))
+                (list (text (car t) pd-label-face)
+                      (text (if model-pace (pace->string model-pace) "N/A") pd-item-face)
+                      (text (if data-pace (pace->string data-pace) "N/A") pd-item-face)))))
+
+           (define interval-estimates
+             (append
+              (list (text "" pd-label-face)
+                    (text "model" pd-label-face)
+                    (text "data" pd-label-face))
+              interval-estimates-time
+              interval-estimates-distance))
+           
+           (define title2 (text "Estimates" pd-title-face))
+           (define p2
+             (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
+
+           (define p (vc-append 10 p1 p2))
+              
+           (cc-superimpose
+            (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
+                                      #:draw-border? #f #:color pd-background)
+            p))
 
          )))
 (provide axis-pace)
@@ -482,6 +614,59 @@
                  #f)))
 
          (define/override (factor-colors) (ct:zone-colors))
+
+         (define/override (have-cp-estimate) #t)
+         
+         (define/override (cp-estimate bavg-fn params)
+           (search-best-cp/exhausive
+            bavg-fn params
+            #:cp-precision 1 #:wprime-precision -2))
+
+         (define/override (pd-function cp-params)
+           (cp2-fn cp-params))
+
+         (define/override (pd-data-as-pict cp-params bavgfn)
+           (define title (text "Model" pd-title-face))
+           (define wprime (~r (round (cp2-wprime cp-params)) #:precision 0))
+           (define cp (~r (round (cp2-cp cp-params)) #:precision 0))
+           (define fn (cp2-fn cp-params))
+           (define picts
+             (list (text "CP" pd-label-face)
+                   (text cp pd-item-face)
+                   (text "watts" pd-label-face)
+                   (text "W'" pd-label-face)
+                   (text wprime pd-item-face)
+                   (text "joules" pd-label-face)))
+           (define p1
+             (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
+
+           (define interval-estimates-time
+             (flatten
+              (for/list ([t '(("5 min" . 300)
+                              ("10 min" . 600)
+                              ("15 min" . 900)
+                              ("20 min" . 1200))])
+                (list (text (car t) pd-label-face)
+                      (text (~r (fn (cdr t)) #:precision 0) pd-item-face)
+                      (text (~r (bavgfn (cdr t)) #:precision 0) pd-item-face)))))
+
+           (define interval-estimates
+             (append
+              (list (text "" pd-label-face)
+                    (text "model" pd-label-face)
+                    (text "data" pd-label-face))
+              interval-estimates-time))
+           
+           (define title2 (text "Estimates" pd-title-face))
+           (define p2
+             (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
+
+           (define p (vc-append 10 p1 p2))
+
+           (cc-superimpose
+            (filled-rounded-rectangle (+ (pict-width p) 15) (+ (pict-height p) 15) -0.1
+                                      #:draw-border? #f #:color pd-background)
+            p))
 
          )))
 (provide axis-power)
