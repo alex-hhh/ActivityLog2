@@ -96,14 +96,26 @@
 (: m/s->km/h (-> Real Real))
 (define (m/s->km/h speed) (/ (* speed 3600.0) 1000.0))
 
+(: km/h->m/s (-> Real Real))
+(define (km/h->m/s speed) (/ (* speed 1000.0) 3600.0))
+
 (: m/s->mi/h (-> Real Real))
 (define (m/s->mi/h speed) (/ (* speed 3600.0) 1609.0))
+
+(: mi/h->m/s (-> Real Real))
+(define (mi/h->m/s speed) (/ (* speed 1609.0) 3600.0))
 
 (: m/s->sec/km (-> Positive-Real Real))
 (define (m/s->sec/km speed) (/ 1000.0 speed))
 
+(: sec/km->m/s (-> Positive-Real Real))
+(define (sec/km->m/s pace) (/ 1000.0 pace))
+
 (: m/s->sec/mi (-> Positive-Real Real))
 (define (m/s->sec/mi speed) (/ 1609.0 speed))
+
+(: sec/mi->m/s (-> Positive-Real Real))
+(define (sec/mi->m/s pace) (/ 1609.0 pace))
 
 (: m/s->sec/100m (-> Positive-Real Real))
 (define (m/s->sec/100m speed) (/ 100.0 speed))
@@ -136,10 +148,10 @@
 ;; `setup-measurement-system' based on the value of `measurement-system'
 
 (define m/s->speed m/s->km/h)
-(provide m/s->speed)
+(define speed->m/s km/h->m/s)
 (define speed-label "km/h")
 (define m/s->pace m/s->sec/km)
-(provide m/s->pace)
+(define pace->m/s sec/km->m/s)
 (define pace-label "min/km")
 (define m/s->swim-pace m/s->sec/100m)
 (define swim-pace-label "min/100m")
@@ -156,13 +168,26 @@
 (define m->weight kg->lb)
 (define weight-label "kg")
 
+;; Export converters as functions, we cannot export the defines above
+;; directly, because any code that uses them will not pick up any changes.
+(define (convert-m/s->speed val) (m/s->speed val))
+(define (convert-speed->m/s val) (speed->m/s val))
+(define (convert-m/s->pace val) (m/s->pace val))
+(define (convert-pace->m/s val) (pace->m/s val))
+(provide convert-m/s->speed
+         convert-speed->m/s
+         convert-m/s->pace
+         convert-pace->m/s)
+
 (: setup-measurement-system (-> Symbol Void))
 (define (setup-measurement-system mu)
   (if (eq? mu 'statute)
       (begin
         (set! m/s->speed m/s->mi/h)
+        (set! speed->m/s mi/h->m/s)
         (set! speed-label "mi/h")
         (set! m/s->pace m/s->sec/mi)
+        (set! pace->m/s sec/mi->m/s)
         (set! pace-label "min/mi")
         (set! m/s->swim-pace m/s->sec/100yd)
         (set! swim-pace-label "min/100yd")
@@ -181,8 +206,10 @@
       
       (begin
         (set! m/s->speed m/s->km/h)
+        (set! speed->m/s km/h->m/s)
         (set! speed-label "km/h")
         (set! m/s->pace m/s->sec/km)
+        (set! pace->m/s sec/km->m/s)
         (set! pace-label "min/km")
         (set! m/s->swim-pace m/s->sec/100m)
         (set! swim-pace-label "min/100m")
@@ -200,21 +227,38 @@
         (set! weight-label "kg")
         )))
 
-(: al-pref-measurement-system (Parameterof Symbol))
-(define al-pref-measurement-system
-  (let* ((tag 'activity-log:measurement-system)
-         (val (al-get-pref tag (lambda () 'metric))))
-    (make-parameter
-     (if (symbol? val) val 'metric)
-     (lambda ([new-val : Symbol])
-       ;; Write the value back to the store
-       (al-put-pref tag new-val)
-       ;; Update the value
-       (setup-measurement-system new-val)
-       new-val))))
-(provide al-pref-measurement-system)
 
-(setup-measurement-system (al-pref-measurement-system))
+
+(define ms-tag 'activity-log:measurement-system)
+
+(: ms-val (U 'metric 'statute))
+(define ms-val
+  (let ((v (al-get-pref ms-tag (lambda () 'metric))))
+    (if (or (eq? v 'metric) (eq? v 'statute))
+        v
+        'metric)))
+
+(: ms-val-listeners (Listof (-> Symbol Any)))
+(define ms-val-listeners '())
+
+(: register-measurement-system-change-listener (-> (-> Symbol Any) Any))
+(define (register-measurement-system-change-listener fn)
+  (set! ms-val-listeners (cons fn ms-val-listeners)))
+(provide register-measurement-system-change-listener)
+
+(: al-pref-measurement-system (-> (U 'metric 'statute)))
+(define (al-pref-measurement-system)
+  ms-val)
+(: set-al-pref-measurement-system (-> (U 'metric 'statute) Any))
+(define (set-al-pref-measurement-system val)
+  (unless (eq? val ms-val)
+    (al-put-pref ms-tag val)
+    (set! ms-val val)
+    (setup-measurement-system ms-val)
+    (for-each (lambda ([fn : (-> Symbol Any)]) (fn ms-val)) ms-val-listeners)))
+(provide al-pref-measurement-system set-al-pref-measurement-system)
+  
+(setup-measurement-system ms-val)
 
 
 

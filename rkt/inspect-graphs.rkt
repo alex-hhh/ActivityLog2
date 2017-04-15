@@ -596,8 +596,8 @@
       avg-speed)
 
     (define y-axis-items
-      `(("Speed" ,axis-speed ,m/s->speed ,speed->string)
-	("Pace" ,axis-pace ,m/s->pace ,pace->string)
+      `(("Speed" ,axis-speed ,convert-m/s->speed ,speed->string)
+	("Pace" ,axis-pace ,convert-m/s->pace ,pace->string)
         ("Zone" ,axis-speed-zone ,(lambda (x) (val->zone x zones)) ,(lambda (x y) (format-48 "~1,1F" x)))))
 
     (define/override (get-average-renderer)

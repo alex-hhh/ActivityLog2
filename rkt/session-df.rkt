@@ -1171,3 +1171,8 @@
       (begin
         (hash-clear! df-cache)
         (hash-clear! df-cache2))))
+
+;; When the measurement system changes, we need to clear the cache so we can
+;; rebuild data frames with the new pace and speed units.
+(register-measurement-system-change-listener
+ (lambda (m) (clear-session-df-cache)))

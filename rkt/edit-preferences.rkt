@@ -98,7 +98,7 @@
 
     (define (save-preferences)
       (let ((val (send measurement-system-choice get-selection)))
-        (al-pref-measurement-system (if (eqv? val 0) 'metric 'statute)))
+        (set-al-pref-measurement-system (if (eqv? val 0) 'metric 'statute)))
 
       (let ((val (send tablet-friendly-checkbox get-value)))
         (unless (eq? val (al-pref-tablet-friendly?))

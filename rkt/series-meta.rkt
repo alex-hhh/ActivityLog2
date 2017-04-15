@@ -190,14 +190,12 @@
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 2))
-                 (metric? (eq? (al-pref-measurement-system) 'metric)))
+           (let ((zones (sport-zones sport sid 2)))
              (if zones
                  ;; NOTE: value passed in is in km/h or mi/h, we need to
                  ;; convert it back to meters/sec before we can find the zone.
                  (lambda (val)
-                   (let* ((val-mps (if metric? (/ (* val 1000.0) 3600.0)
-                                       (/ (* val 1609.0) 3600.0)))
+                   (let* ((val-mps (convert-speed->m/s val))
                           (zone (val->zone val-mps zones)))
                      (zone->label zone)))
                  #f)))
@@ -225,16 +223,16 @@
          ;; best 1 second / km
          (define/override (histogram-bucket-slot) 1)
          (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 2))
-                 (metric? (eq? (al-pref-measurement-system) 'metric)))
+           (let ((zones (sport-zones sport sid 2)))
              (if zones
                  ;; NOTE: value passed in is in sec/km or sec/mi (NOT
                  ;; minutes), we need to convert it back to meters/sec before
                  ;; we can find the zone.
                  (lambda (val)
                    (if (and (number? val) (> val 0))
-                       (let* ((val-mps (if metric? (/ 1000.0 val) (/ 1609.0 val)))
-                              (zone (val->zone val-mps zones)))
+                       (let* ((val-mps (convert-pace->m/s val))
+                              (zone
+                               (val->zone val-mps zones)))
                          (zone->label zone))
                        ;; Put invalid values in zone 0
                        (zone->label 0)))
