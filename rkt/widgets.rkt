@@ -919,7 +919,9 @@
       (define first-visible (send the-list-box get-first-visible-item))
       (define selection (send the-list-box get-selection))
       (define selected-item
-        (and selection (list-ref the-data selection)))
+        (and selection
+             (< selection (length the-data))
+             (list-ref the-data selection)))
 
       (if (eqv? sort-column n)
           ;; If we are sorting the same column, toggle the sort order.
