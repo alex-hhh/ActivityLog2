@@ -30,7 +30,8 @@
          racket/draw
          "al-profiler.rkt"
          "fmt-util.rkt"
-         "spline-interpolation.rkt")
+         "spline-interpolation.rkt"
+         "color-util.rkt")
 
 ;; NOTE: provides are at the end of the file
 
@@ -1418,29 +1419,22 @@
 ;; color value.
 (define (make-key-colors keys base-color)
   ;; NOTE: keys are sorted and should not contain duplicates
-  (match-define (list red green blue) (->pen-color base-color))
+
   (define range                         ; make sure range is never 0
     (if (< (length keys) 2)
         1
         (- (last keys) (first keys))))
-  (match-define (list base-red base-green base-blue)
-    (list (* red 0.5) (* green 0.5) (* blue 0.5)))
-  (match-define (list top-red top-green top-blue)
-    (list (+ red (* 0.2 (- 255 red)))
-          (+ green (* 0.2 (- 255 green)))
-          (+ blue (* 0.2 (- 255 blue)))))
-  (match-define (list delta-red delta-green delta-blue)
-    (list (- top-red base-red)
-          (- top-green base-green)
-          (- top-blue base-blue)))
+  (match-define (list h s l) (apply rgb->hsl/255 (->pen-color base-color)))
+  (define min-l 0.3)
+  (define max-l 0.8)
+  (define l-range (- max-l min-l))
   (for/hash ((key (in-list keys)))
-    (let ((pct (/ (- key (first keys)) range)))
+    (let* ((pct (/ (- key (first keys)) range))
+           (new-l (+ min-l (* (- 1 pct) l-range))))
+      (match-define (list r g b) (hsl->rgb/255 h s new-l))
       (values
        key
-       (make-object color%
-                    (exact-round (+ base-red (* (- 1 pct) delta-red)))
-                    (exact-round (+ base-green (* (- 1 pct) delta-green)))
-                    (exact-round (+ base-blue (* (- 1 pct) delta-blue))))))))
+       (make-object color% r g b)))))
 
 (define (make-scatter-group-renderer group #:color color #:label [label #f] #:size [size 1.5])
   (define keys (sort (hash-keys group) <))
