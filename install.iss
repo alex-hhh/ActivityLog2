@@ -18,7 +18,7 @@
 #define MyAppVersion "0.0"
 #endif
 #define MyAppPublisher "Alex Harsanyi"
-#define MyAppURL "http://alex-hhh.github.io/ActivityLog2/"
+#define MyAppURL "https://github.com/alex-hhh/ActivityLog2"
 #define MyAppExeName "ActivityLog2.exe"
 
 [Setup]
@@ -33,7 +33,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-AppCopyright=Copyright (C) 2016 Alex Harsanyi.
+AppCopyright=Copyright (C) 2017 Alex Harsanyi.
 AppComments=Fitness activity tracker
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
