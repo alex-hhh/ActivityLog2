@@ -120,8 +120,14 @@
 (: m/s->sec/100m (-> Positive-Real Real))
 (define (m/s->sec/100m speed) (/ 100.0 speed))
 
+(: sec/100m->m/s (-> Positive-Real Real))
+(define (sec/100m->m/s pace) (/ 100.0 pace))
+
 (: m/s->sec/100yd (-> Positive-Real Real))
 (define (m/s->sec/100yd speed) (/ 91.44 speed))
+
+(: sec/100yd->m/s (-> Positive-Real Real))
+(define (sec/100yd->m/s pace) (/ 91.44 pace))
 
 (: m->km (-> Real Real))
 (define (m->km m) (/ m 1000))
@@ -154,6 +160,7 @@
 (define pace->m/s sec/km->m/s)
 (define pace-label "min/km")
 (define m/s->swim-pace m/s->sec/100m)
+(define swim-pace->m/s sec/100m->m/s)
 (define swim-pace-label "min/100m")
 (define celsius->temperature celsius->fahrenheit) ; !!! 
 (define temperature-label "℃")
@@ -174,10 +181,12 @@
 (define (convert-speed->m/s val) (speed->m/s val))
 (define (convert-m/s->pace val) (m/s->pace val))
 (define (convert-pace->m/s val) (pace->m/s val))
+(define (convert-swim-pace->m/s val) (swim-pace->m/s val))
 (provide convert-m/s->speed
          convert-speed->m/s
          convert-m/s->pace
-         convert-pace->m/s)
+         convert-pace->m/s
+         convert-swim-pace->m/s)
 
 (: setup-measurement-system (-> Symbol Void))
 (define (setup-measurement-system mu)
@@ -190,9 +199,10 @@
         (set! pace->m/s sec/mi->m/s)
         (set! pace-label "min/mi")
         (set! m/s->swim-pace m/s->sec/100yd)
+        (set! swim-pace->m/s sec/100m->m/s)
         (set! swim-pace-label "min/100yd")
         (set! celsius->temperature celsius->fahrenheit)
-        (set! temperature-label "℉")
+        (set! temperature-label "°F")
         (set! m->distance m->mi)
         (set! distance-label "mi")
         (set! m->short-distance m->yd)
@@ -212,9 +222,10 @@
         (set! pace->m/s sec/km->m/s)
         (set! pace-label "min/km")
         (set! m/s->swim-pace m/s->sec/100m)
+        (set! swim-pace->m/s sec/100yd->m/s)
         (set! swim-pace-label "min/100m")
         (set! celsius->temperature identity)
-        (set! temperature-label "℃")
+        (set! temperature-label "°C")
         (set! m->distance m->km)
         (set! distance-label "km")
         (set! m->short-distance identity)

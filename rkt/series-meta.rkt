@@ -206,6 +206,9 @@
     ;; parameters (a CP2 instance).
     (define/public (pd-data-as-pict cp-params) #f)
 
+    ;; Return a function (-> number? string?) which formats a value of this
+    ;; series into a string.
+    (define/public (value-formatter) #f)
     ))
 
 (provide series-metadata%)
@@ -372,6 +375,10 @@
             (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
                                       #:draw-border? #f #:color pd-background)
             p))
+
+         (define/override (value-formatter)
+           (lambda (p) (pace->string (convert-pace->m/s p))))
+           
 
          )))
 (provide axis-pace)
@@ -906,6 +913,8 @@
          (define/override (y-range) (cons 0 #f))
          (define/override (plot-color) 'smart)
          (define/override (series-name) "pace")
+         (define/override (value-formatter)
+           (lambda (p) (swim-pace->string (convert-swim-pace->m/s p))))
          )))
 (provide axis-swim-pace)
 

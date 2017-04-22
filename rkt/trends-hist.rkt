@@ -355,12 +355,18 @@
                   (make-histogram-renderer/dual
                    h1 (send axis1 plot-label)
                    h2 (send axis2 plot-label)
+                   #:x-value-formatter (send axis1 value-formatter)
                    #:color1 (get-color axis1)
                    #:color2 (get-color axis2))))
              (factor-fn
-              (make-histogram-renderer/factors h1 factor-fn factor-colors))
+              (make-histogram-renderer/factors
+               h1 factor-fn factor-colors
+               #:x-value-formatter (send axis1 value-formatter)))
              (#t
-              (make-histogram-renderer h1 #:color (get-color axis1)))))))
+              (make-histogram-renderer
+               h1
+               #:x-value-formatter (send axis1 value-formatter)
+               #:color (get-color axis1)))))))
 
 (define (insert-plot-snip canvas axis params rt)
   (if rt

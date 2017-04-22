@@ -327,14 +327,21 @@
                             #f))
                     (rt (cond
                           ((and axis2 h1 h2)
-                           (make-histogram-renderer/dual h1 (send axis1 plot-label)
-                                                         h2 (send axis2 plot-label)
-                                                         #:color1 (get-color axis1)
-                                                         #:color2 (get-color axis2)))
+                           (make-histogram-renderer/dual
+                            h1 (send axis1 plot-label)
+                            h2 (send axis2 plot-label)
+                            #:x-value-formatter (send axis1 value-formatter)
+                            #:color1 (get-color axis1)
+                            #:color2 (get-color axis2)))
                           (h1
                            (if factor-fn
-                               (make-histogram-renderer/factors h1 factor-fn factor-colors)
-                               (list (make-histogram-renderer h1 #:color (get-color axis1)))))
+                               (make-histogram-renderer/factors
+                                h1 factor-fn factor-colors
+                                #:x-value-formatter (send axis1 value-formatter))
+                               (list (make-histogram-renderer
+                                      h1
+                                      #:x-value-formatter (send axis1 value-formatter)
+                                      #:color (get-color axis1)))))
                           (#t #f))))
                (queue-callback
                 (lambda ()

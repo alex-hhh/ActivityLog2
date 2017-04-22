@@ -730,18 +730,37 @@
         ((< nitems 800) (blank-nth data 50))
         (#t (blank-nth data 100))))
 
+;; Format the bucket values by calling FMT function on them.  This is used for
+;; example to convert a pace value like 300 sec/min into 5:00 (min/km)
+(define (format-values fmt data)
+  (for/vector #:length (vector-length data)
+              ((item (in-vector data)))
+    (match-define (vector label value) item)
+    (vector (if (number? label) (fmt label) label) value)))
+
 ;; Create a historgam plot renderer from DATA (a sequence of [BUCKET
-;; NUM-SAMPLES]), as received from `df-histogram` (which see). COLOR will be
-;; the color of the plot.  #:skip and #:x-min are used to plot dual
-;; histograms, #:label prints the label of the plot.  All these args are sent
-;; directly to the `discrete-histogram' call, except for #:blank-some-labels,
-;; which controls if some of the labels are blanked out (see
-;; `blank-some-labels`) if the plot contains too many values.
+;; NUM-SAMPLES]), as received from `df-histogram` (which see).
+;;
+;; #:color determines the color of the plot.
+;;
+;; #:skip and #:x-min are used to plot dual histograms,
+;;
+;; #:label prints the label of the plot.
+;;
+;; All the above arguments are sent directly to the `discrete-histogram' call,
+;; which see
+;;
+;; #:blank-some-labels, controls if some of the labels are blanked out if the
+;; plot contains too many values (see `blank-some-labels`)
+;;
+;; #:x-value-formatter which controls how the histogram values are displayed
+;; (see `format-values`)
 (define (make-histogram-renderer data
                                  #:color [color #f]
                                  #:skip [skip (discrete-histogram-skip)]
                                  #:x-min [x-min 0]
                                  #:label [label #f]
+                                 #:x-value-formatter [xfmt #f]
                                  #:blank-some-labels [blank? #t])
   (let ((kwd '())
         (val '()))
@@ -765,9 +784,10 @@
     (when color
       (add-arg '#:color color)
       (add-arg '#:alpha 0.8))
-    (keyword-apply discrete-histogram kwd val
-                   (if blank? (blank-some-labels data) data)
-                   '())))
+    ;; Blank some of the labels, and format the remaining ones.
+    (define bdata (if blank? (blank-some-labels data) data))
+    (define fdata (if xfmt (format-values xfmt bdata) bdata))
+    (keyword-apply discrete-histogram kwd val fdata '())))
 
 ;; Return a list of the buckets in a histogram (as made by `df-histogram`).
 (define (get-histogram-buckets h)
@@ -800,15 +820,16 @@
 ;; Create a plot renderer with two histograms.
 (define (make-histogram-renderer/dual data1 label1
                                       data2 label2
+                                      #:x-value-formatter [xfmt #f]
                                       #:color1 [color1 #f]
                                       #:color2 [color2 #f])
   (let ((nbuckets (merge-lists (get-histogram-buckets data1) (get-histogram-buckets data2))))
     (set! data1 (normalize-histogram data1 nbuckets))
     (set! data2 (normalize-histogram data2 nbuckets))
     (let ((h1 (make-histogram-renderer
-               data1 #:color color1 #:skip 2.5 #:x-min 0 #:label label1))
+               data1 #:color color1 #:skip 2.5 #:x-min 0 #:label label1 #:x-value-formatter xfmt))
           (h2 (make-histogram-renderer
-               data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2)))
+               data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2 #:x-value-formatter xfmt)))
       (list h1 h2))))
 
 ;; Split the histogram HIST into sub-histograms using FACTOR-FN (which maps
@@ -842,7 +863,8 @@
 
 ;; Create a plot rendered where DATA (a histogram) is split into sections by
 ;; FACTOR-FN and each section is colored according to FACTOR-COLORS
-(define (make-histogram-renderer/factors data factor-fn factor-colors)
+(define (make-histogram-renderer/factors data factor-fn factor-colors
+                                         #:x-value-formatter [xfmt #f])
   (define factored-data (factor-histogram data factor-fn))
   (define x 0)
   (for/list ((factor (in-list factored-data)))
@@ -852,6 +874,7 @@
         (make-histogram-renderer fdata
                                  #:color color
                                  #:x-min x
+                                 #:x-value-formatter xfmt
                                  #:blank-some-labels #f ; we already blanked them
                                  )
       (set! x (+ x (vector-length fdata))))))
@@ -1490,15 +1513,18 @@
                                 #:skip real?
                                 #:x-min real?
                                 #:label string?
-                                #:blank-some-labels boolean?)
+                                #:blank-some-labels boolean?
+                                #:x-value-formatter (or/c #f (-> number? string?)))
                                (treeof renderer2d?)))
  (make-histogram-renderer/dual (->* (histogram/c string? histogram/c string?)
                                     (#:color1 any/c
-                                     #:color2 any/c)
+                                     #:color2 any/c
+                                     #:x-value-formatter (or/c #f (-> number? string?)))
                                     (treeof renderer2d?)))
- (make-histogram-renderer/factors (-> histogram/c
-                                      (-> real? symbol?) ; factor function
-                                      (listof (cons/c symbol? color/c))
+ (make-histogram-renderer/factors (->* (histogram/c
+                                        (-> real? symbol?) ; factor function
+                                        (listof (cons/c symbol? color/c)))
+                                       (#:x-value-formatter (or/c #f (-> number? string?)))
                                       (treeof renderer2d?)))
  (df-best-avg (->* ((is-a?/c data-frame%) string?)
                    (#:inverted? boolean?
