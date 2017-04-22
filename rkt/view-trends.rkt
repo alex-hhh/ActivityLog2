@@ -430,7 +430,8 @@
                                      (format "~a.csv" (send c get-name))
                                      "csv" '()
                                      '(("CSV Files" "*.csv") ("Any" "*.*")))))
-                (send c export-data-to-file file formatted?)))))))
+                (when file
+                  (send c export-data-to-file file formatted?))))))))
         
     (define first-activation #t)
 
