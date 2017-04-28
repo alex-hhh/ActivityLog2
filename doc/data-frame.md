@@ -151,6 +151,9 @@ For example:
 
 ## Accessing the data using `select` and `select*`
 
+    (send df select #:filter (filter-fn #f) #:start (start #f) #:end (end #f) name)
+    (send df select* #:filter (filter-fn #f) #:start (start #f) #:end (end #f) . names)
+
 The `select` and `select*` methods can be used to retrieve data from a data
 frame.  The simplest method, is to just ask for the entire series. The
 following retrieves the entire set of heart rate values:
@@ -193,6 +196,9 @@ series:
 
 ## Find positions using `get-index` and `get-index*`
 
+    (send df get-index series value)
+    (send df get-index* series . values)
+
 The `get-index` and `get-index*` methods can be used to find the position
 where a value is stored in a data series (the data series will have to make
 sorted for this to work).  `get-index` retrieves a single position, while
@@ -234,9 +240,12 @@ activity.
 
 ## Retrieving individual values using  `ref` and `ref*`
 
-The `ref` and `ref*` methods can be used to retrieve a single value from a
-series or multiple series (`ref*`).  Using the examples above, to retrieve the
-heart rate at the start of the second lap:
+    (send df ref index series)
+    (send df ref* index . series)
+
+The `ref` and `ref*` methods can be used to retrieve a single value from an
+index in a series or in multiple series (`ref*`).  Using the examples above,
+to retrieve the heart rate at the start of the second lap:
 
     scratch.rkt> (send df ref 392 "hr")
     157.0
@@ -250,6 +259,10 @@ And to retrieve the GPS location where the second lap starts:
 methods have the index specified before the series names.
 
 ## Iterating over values using `map`, `for-each` and `fold`
+
+    (send df map base-series fn #:start (start 0) #:end (end (get-row-count)))
+    (send df for-each base-series fn #:start (start 0) #:end (end (get-row-count)))
+    (send df fold base-series init-val fn #:start (start 0) #:end (end (get-row-count)))
 
 The `map`, `for-each` and `fold` methods are similar to the corresponding
 Racket built-in variants, but operate on the values of series.  They take the
@@ -290,7 +303,10 @@ to the accumulated value:
     scratch.rkt> (send df fold '("timer" "pwr") 0 accum-work)
     796091.0
 
-## Adding new series using `add-derived-series`
+## Adding new series using `add-derived-series` and `add-derived-series/lazy`
+
+    (send df add-derived-series name base-series value-fn)
+    (send df add-derived-series/lazy name base-series value-fn)
 
 The `add-derived-series` can be used to add new series to the data frame, as
 computations from other series.  It is used in session-df for example to
@@ -321,7 +337,13 @@ The example below, adds the accumulated work at each point in the bike ride:
     scratch.rkt> (send df add-derived-series "work" '("timer" "pwr") add-work)
     scratch.rkt> (send df select "work")
     '#(0 0.0 0.0 0.0 50.0 241.5 553.0 891.5 1208.0 1439.0 ... 796091.0)
-    
+
+The `add-derived-series/lazy` is the "lazy" version of the function: it adds a
+closure to the data frame and the data series will be created the first time
+it is referenced.  Special care needs to be used with this function,
+especially if it captures local variables, as the environment in which the
+function runs might not be the same as the non-lazy version.
+
 ## Other useful functions
 
     (df-write/csv outp df . series)

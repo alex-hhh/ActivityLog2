@@ -671,7 +671,9 @@
 ;; -20 and 20 degrees instead of jumping between 20 and 340
 (define (fixup-pp-series df series-name)
   (when (send df contains? series-name)
-    (send df add-derived-series/lazy
+    ;; Don't use add-derived-series/lazy here as we enter in a recursive loop
+    ;; because we ask for the same series.
+    (send df add-derived-series
           series-name
           (list series-name)
           (lambda (val)

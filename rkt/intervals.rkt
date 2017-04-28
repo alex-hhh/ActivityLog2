@@ -54,16 +54,21 @@
 ;;
 ;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (split-by df series amount)
-  (let loop ((split 0)
-             (positions '()))
-    (let ((pos (send df get-index series (* split amount))))
-      (if pos
-          (loop (add1 split) (cons pos positions))
-          (if (or (null? positions)
-                  (equal? (car positions) (send df get-row-count)))
-              (reverse positions)
-              (reverse (cons (send df get-row-count) positions)))))))
-
+  ;; NOTE: the values in SERIES need not start at 0.  For example, in
+  ;; multi-sport activities, the distance series in a session starts where the
+  ;; previous session left off.  For example, in a HIM race, the distance
+  ;; series for the bike split starts at approx 1.8 km.
+  (let ((base (send df ref 0 series)))
+    (let loop ((split 0)
+               (positions '()))
+      (let ((pos (send df get-index series (+ base (* split amount)))))
+        (if pos
+            (loop (add1 split) (cons pos positions))
+            (if (or (null? positions)
+                    (equal? (car positions) (send df get-row-count)))
+                (reverse positions)
+                (reverse (cons (send df get-row-count) positions))))))))
+  
 ;; Describe summary information that should appear in an interval summary
 ;; constructed by `make-interval-summary'.
 (define summary-def

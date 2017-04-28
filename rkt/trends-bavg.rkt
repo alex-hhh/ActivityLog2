@@ -182,7 +182,7 @@
     ;; Default ranges for the search intervals
     (send an-range-start-input set-numeric-value 120)
     (send an-range-end-input set-numeric-value 300)
-    (send ae-range-start-input set-numeric-value 420)
+    (send ae-range-start-input set-numeric-value 720)
     (send ae-range-end-input set-numeric-value 1200)
 
     (define (on-series-selected series-index)
@@ -312,7 +312,7 @@
         (if (number? anend)
             (send an-range-end-input set-numeric-value anend)
             (send an-range-end-input set-value "")))
-      (let ((aestart (hash-ref hdata 'ae-start 420)))
+      (let ((aestart (hash-ref hdata 'ae-start 720)))
         (if (number? aestart)
             (send ae-range-start-input set-numeric-value aestart)
             (send ae-range-start-input set-value "")))
