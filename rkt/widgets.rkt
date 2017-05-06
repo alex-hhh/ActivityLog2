@@ -48,6 +48,7 @@
 (provide al-progress-dialog%)
 (provide tab-selector%)
 (provide notification-banner%)
+(provide grid-pane%)
 
 
 ;;.............................................. validating-input-field% ....
@@ -2344,5 +2345,117 @@
       (let ((empty? (null? queued-messages)))
         (set! queued-messages (reverse (cons message (reverse queued-messages))))
         (when empty? (on-timer))))
+
+    ))
+
+;;........................................................... grid-pane% ....
+
+;; A pane% object that places its children in a grid.  The number of columns
+;; is specified as the COLUMNS init argument and the number of rows is
+;; determined by the number of children added to the grid pane.  Children will
+;; be placed left to right top to bottom in the pane.
+(define grid-pane%
+  (class pane%
+    (init-field columns)
+    (super-new)
+    (inherit border spacing get-alignment)
+
+    ;; Calculate the dimensions of a cell in the grid based on the total
+    ;; widget dimensions and the border and spacing requirements.  Returns two
+    ;; values, the cell width and cell height.
+    (define (cell-dimensions width height rows)
+      (let ((client-width (- width (* 2 (border)) (* (sub1 columns) (spacing))))
+            (client-height (- height (* 2 (border)) (* (sub1 rows) (spacing)))))
+        (values
+         (exact-truncate (/ client-width columns))
+         (exact-truncate (/ client-height rows)))))
+
+    ;; Return the position of cell at ROW/COL given the cell dimensions
+    ;; CELL-WIDTH and CELL-HEIGHT.  Returns two values (x, y)
+    (define (cell-position row col cell-width cell-height)
+      (values
+       (+ (border)
+          (* col cell-width)
+          (if (> col 0) (* (sub1 col) (spacing)) 0))
+       (+ (border)
+          (* row cell-height)
+          (if (> row 0) (* (sub1 row) (spacing)) 0))))
+
+    ;; Return placement information for the child item given INFO containing
+    ;; the minimum dimensions of the child and its horizontal/vertical stretch
+    ;; options.  The child is in position INDEX (used to determine the
+    ;; row/column) and CELL-WIDTH CELL-HEIGHT are the dimensions of a cell.
+    ;;
+    ;; Returns a list giving the position of the child and its dimensions.
+    (define (child-placement info index cell-width cell-height)
+      (match-define (list min-width min-height hstretch? vstretch?) info)
+      (define-values (row col) (quotient/remainder index columns))
+      (define-values (halign valign) (get-alignment))
+      (define-values (x y) (cell-position row col cell-width cell-height))
+
+      (define-values (cx cw)
+        (cond (hstretch? (values x cell-width))
+              ((eq? halign 'left) (values x min-width))
+              ((eq? halign 'right)
+               (let ((pad (- cell-width min-width)))
+                 (if (>= pad 0)
+                     (values (+ x pad) min-width)
+                     (values x min-width))))
+              (#t
+               (let ((pad (exact-truncate (/ (- cell-width min-width) 2.0))))
+                 (if (>= pad 0)
+                     (values (+ x pad) min-width)
+                     (values x min-width))))))
+
+      (define-values (cy ch)
+        (cond (vstretch? (values y cell-height))
+              ((eq? halign 'top) (values y min-height))
+              ((eq? halign 'bottom)
+               (let ((pad (- cell-height min-height)))
+                 (if (>= pad 0)
+                     (values (+ y pad) min-height)
+                     (values y min-height))))
+              (#t
+               (let ((pad (exact-truncate (/ (- cell-height min-height) 2.0))))
+                 (if (>= pad 0)
+                     (values (+ y pad) min-height)
+                     (values y min-height))))))
+
+      (list cx cy cw ch))
+
+    ;; Calculate the minimum size of the container given the minimum size
+    ;; requirements of its children.
+    (define/override (container-size info)
+      (define rows (exact-ceiling (/ (length info) columns)))
+      (define column-widths (make-vector columns 0))
+      (define row-heights (make-vector rows 0))
+
+      (for (((item index) (in-indexed info)))
+        (match-define (list min-width min-height hstretch? vstretch?) item)
+        (define-values (row column) (quotient/remainder index columns))
+        (vector-set! column-widths column (max (vector-ref column-widths column) min-width))
+        (vector-set! row-heights row (max (vector-ref row-heights row) min-height)))
+
+      (values
+       (+ (border) (border) (* (sub1 columns) (spacing))
+          (for/fold ((min-width 0))
+                    ((w (in-vector column-widths)))
+            (+ min-width w)))
+       (+ (border) (border) (* (sub1 rows) (spacing))
+          (for/fold ((min-height 0))
+                    ((h (in-vector row-heights)))
+            (+ min-height h)))))
+
+    ;; Calculate placement information for all children, given their minimum
+    ;; size requirements in INFO and the dimensions of the container (WIDTH,
+    ;; HEIGHT).
+    ;;
+    ;; Returns a list of positions and sizes for each child (in the same order
+    ;; as the items in INFO).
+    (define/override (place-children info width height)
+      (define rows (exact-ceiling (/ (length info) columns)))
+      (define-values (cell-width cell-height) (cell-dimensions width height rows))
+      (for/list (((item index) (in-indexed info)))
+        (child-placement item index cell-width cell-height)))
 
     ))

@@ -149,11 +149,13 @@
              [value #f]
              [callback (lambda (c e) (on-estimate-cp (send c get-value)))])))
 
-    (let ((p (make-horizontal-pane cp-gb #f)))
-      (send p spacing al-dlg-item-spacing)
+    (let ((p (new grid-pane% [parent cp-gb]
+                  [spacing al-dlg-item-spacing] [columns 3]
+                  [alignment '(left center)])))
+      (new message% [parent p] [label "Anaerobic search range"])
       (set! an-range-start-input
             (new number-input-field% [parent p]
-                 [label "Anaerobic search range "] [cue-text "seconds"]
+                 [label ""] [cue-text "seconds"]
                  [min-value 0] [allow-empty? #f]
                  [stretchable-width #f]
                  [valid-value-cb (lambda (v) (on-an-range-start v))]))
@@ -162,13 +164,11 @@
                  [label ""] [cue-text "seconds"]
                  [min-value 0] [allow-empty? #f]
                  [stretchable-width #f]
-                 [valid-value-cb (lambda (v) (on-an-range-end v))])))
-
-    (let ((p (make-horizontal-pane cp-gb #f)))
-      (send p spacing al-dlg-item-spacing)
+                 [valid-value-cb (lambda (v) (on-an-range-end v))]))
+      (new message% [parent p] [label "Aerobic search range"])
       (set! ae-range-start-input
             (new number-input-field% [parent p]
-                 [label "Aerobic search range "] [cue-text "seconds"]
+                 [label ""] [cue-text "seconds"]
                  [min-value 0] [allow-empty? #f]
                  [stretchable-width #f]
                  [valid-value-cb (lambda (v) (on-ae-range-start v))]))
