@@ -66,29 +66,6 @@
   ;; achieve this torque.
   (and cad torq (> cad 0) (< torq 150)))
 
-;; Convert a string in the format "mm:ss" into a number of seconds
-(define (str->seconds data)
-  (let ((t (string-trim data)))
-    (cond ((= (string-length t) 0) 'empty)
-          ((regexp-match "^([0-9]+):([0-9]+)$" t) =>
-           (lambda (m)
-             (let ((minutes (string->number (list-ref m 1)))
-                   (seconds (string->number (list-ref m 2))))
-               (if (and (< minutes 60) (< seconds 60))
-                   (+ (* minutes 60) seconds)
-                   #f))))
-          (#t #f))))
-
-;; Convert a pace value (mm:ss/km) into meters per second
-(define (run-pace-string->mps str)
-  (let ((seconds (str->seconds str)))
-    (if seconds (/ 1000.0 seconds) #f)))
-
-;; Convert a pace value (mm:ss/100m) into meters per second
-(define (swim-pace-string->mps str)
-  (let ((seconds (str->seconds str)))
-    (if seconds (/ 100.0 seconds) #f)))
-
 ;; NOTE: duplicated from inspect-scatter!
 (define (find-bounds data-series)
   (define (good-or-false num)

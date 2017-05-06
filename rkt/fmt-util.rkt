@@ -37,6 +37,7 @@
          racket/list
          racket/math
          racket/string
+         racket/format
          "map-util.rkt")
 
 (: identity (All (a) (-> a a)))
@@ -71,10 +72,12 @@
          heart-rate->string/full
          calories->string
          power->string
+         work->string
          weight->string
          pco->string
-         power-phase->string)
-
+         power-phase->string
+         run-pace-string->mps
+         swim-pace-string->mps)
 
 
 ;;........................................ converters to different units ....
@@ -500,6 +503,12 @@
       (format-48 "~F~a" (exact-round p) (if unit-label " watts" ""))
       ""))
 
+(: work->string (->* (Real) (Boolean) String))
+(define (work->string w [unit-label #f])
+  (if (> w 0)
+      (format "~a~a" (~r (/ w 1000.0) #:precision 1) (if unit-label " kJ" ""))
+      ""))
+
 (: weight->string (->* (Real) (Boolean) String))
 (define (weight->string w [unit-label #f])
   (if (> w 0)
@@ -528,3 +537,40 @@
 (: pct->string (-> Real String))
 (define (pct->string val)
   (format-48 "~1,1F %" val))
+
+
+;.............................................................. readers ....
+
+;; Convert a string in the format "mm:ss" into a number of seconds
+(: str->seconds (-> String (U 'empty #f Real)))
+(define (str->seconds data)
+  (let ((t (string-trim data)))
+    (cond ((= (string-length t) 0) 'empty)
+          ((regexp-match "^([0-9]+):([0-9]+)$" t) =>
+           (lambda (m)
+             (let* ((mstr (list-ref (cdr m) 0))
+                    (sstr (list-ref (cdr m) 1))
+                    (minutes (if (string? mstr) (string->number mstr) #f))
+                    (seconds (if (string? sstr) (string->number sstr) #f)))
+               (if (and minutes seconds (< (real-part minutes) 60) (< (real-part seconds) 60))
+                   (exact->inexact (+ (* (real-part minutes) 60) (real-part seconds)))
+                   #f))))
+          (#t #f))))
+
+;; Convert a pace value (mm:ss/km or mm:ss/mile) into meters per second
+(: run-pace-string->mps (-> String (U #f Real)))
+(define (run-pace-string->mps str)
+  (let ((seconds (str->seconds str)))
+    (if (and (real? seconds) (positive? seconds))
+        (pace->m/s seconds)
+        #f)))
+
+;; Convert a swim pace value (mm:ss/100m or mm:ss/100yd) into meters per
+;; second
+(: swim-pace-string->mps (-> String (U #f Real)))
+(define (swim-pace-string->mps str)
+  (let ((seconds (str->seconds str)))
+    (if (and (real? seconds) (positive? seconds))
+        (swim-pace->m/s seconds)
+        #f)))
+

@@ -34,36 +34,12 @@
 ;; function to convert a number into the value displayed.
 (struct zdef (cue-text str->val val->str))
 
-;; Convert a string in the format "mm:ss" into a number of seconds
-(define (str->seconds data)
-  (let ((t (string-trim data)))
-    (cond ((= (string-length t) 0) 'empty)
-          ((regexp-match "^([0-9]+):([0-9]+)$" t) =>
-           (lambda (m)
-             (let ((minutes (string->number (list-ref m 1)))
-                   (seconds (string->number (list-ref m 2))))
-               (if (and (< minutes 60) (< seconds 60))
-                   (+ (* minutes 60) seconds)
-                   #f))))
-          (#t #f))))
-
-;; Convert a pace value (mm:ss/km) into meters per second
-(define (run-pace-string->mps str)
-  (let ((seconds (str->seconds str)))
-    (if seconds (/ 1000.0 seconds) #f)))
-
-;; Convert pace value (mm:ss/100m) into meters per second
-(define (swim-pace-string->mps str)
-  (let ((seconds (str->seconds str)))
-    (if seconds (/ 100.0 seconds) #f)))
-
 ;; Zone field definitions for different zones
 (define heart-rate-zdef (zdef "bpm" string->number number->string))
 (define speed-zdef (zdef "speed" string->number number->string))
 (define power-zdef (zdef "power" string->number number->string))
 (define run-pace-zdef (zdef "mm:ss / km" run-pace-string->mps pace->string))
 (define swim-pace-zdef (zdef "mm:ss / 100m" swim-pace-string->mps swim-pace->string))
-
 
 ;; The types of zones we can edit for each sport and zone definitions for each
 ;; (see zdef).  NOTE: we only support editing zone data for a specific set of
