@@ -15,14 +15,15 @@
 ;; more details.
 
 (require browser/external
-         images/icons/stickman
-         images/icons/style
          racket/class
          racket/gui/base
          racket/string
          racket/file
+         racket/runtime-path
          "dbapp.rkt"
          "version.rkt")
+
+(define-runtime-path logo-file "../img/logo/ActivityLog2.png")
 
 (define hyperlink-style
   (let ([delta (new style-delta%)])
@@ -75,21 +76,15 @@
   (let ((s (make-object string-snip% text)))
     (send editor insert s)))
 
-(define logo 
-  (let ((bmp (running-stickman-icon 
-              0.9 #:height 128
-              #:body-color "green"
-              #:arm-color "white"
-              #:head-color "white"
-              #:material rubber-icon-material)))
-    (make-object image-snip% bmp)))
-
 (define (setup-about-text editor)
 
   (send editor set-tabs '(8) 8 #f)
   (send editor auto-wrap #t)
 
-  (send editor insert logo)
+  (define logo-snip
+    (make-object image-snip% (read-bitmap logo-file)))
+  (send editor insert logo-snip)
+  
   (insert-newline editor)
   (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
   (insert-text editor "Copyright (C) 2015 - 2017, Alex Harsanyi")

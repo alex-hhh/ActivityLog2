@@ -1,3 +1,5 @@
+![Logo](img/logo/ActivityLog2.png)
+
 # ActivityLog2 - analyze data from swim, bike and run activities
 
 [![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)

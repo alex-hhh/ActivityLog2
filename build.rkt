@@ -23,6 +23,7 @@
          compiler/cm
          file/ico
          images/icons/stickman
+         images/icons/style
          launcher/launcher
          pict
          racket/draw)
@@ -43,10 +44,12 @@
         (send nbmp get-argb-pixels 0 0 h h nbuf)
         (argb->ico h h nbuf #:depth d)))))
 
+(define base-color (make-object color% 68 114 196))
+
 ;; Create an application icon of SIZE height
 (define (make-app-icon size)
   (let ((bmp (running-stickman-icon 0.9 #:height size
-                                    #:body-color "green"
+                                    #:body-color base-color
                                     #:arm-color "white"
                                     #:head-color "white")))
     (bitmap->ico bmp)))
@@ -61,6 +64,17 @@
 (define icon-sizes '(16 20 24 32 40 48 64 96 128 256))
 (define app-icon-file "ActivityLog2.ico")
 (define app-exe-file "ActivityLog2.exe")
+
+;; Write the application logo to file-name.  This function needs to be
+;; manually invoked.
+(define (write-logo file-name)
+  (let ((bmp (running-stickman-icon 
+              0.9 #:height 128
+              #:body-color base-color
+              #:arm-color "white"
+              #:head-color "white"
+              )))
+    (send bmp save-file file-name 'png)))
 
 (define (app-revision)
   (parameterize ((current-error-port (open-output-bytes)))
