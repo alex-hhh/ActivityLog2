@@ -23,7 +23,7 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
+         "dbutil.rkt"
          "widgets.rkt")
 
 (provide get-season-editor)
@@ -134,7 +134,7 @@
 (define edit-seasons-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit seasons"] [icon edit-icon] [min-width 600] [min-height 400])
+    (super-new [title "Edit seasons"] [icon (edit-icon)] [min-width 600] [min-height 400])
 
     (define season-lb #f)
     

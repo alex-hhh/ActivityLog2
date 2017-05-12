@@ -22,7 +22,7 @@
          "edit-athlete-metrics.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
-         "utilities.rkt"
+         "dbutil.rkt"
          "widgets.rkt")
 
 (provide athlete-metrics-operations<%>)
@@ -264,7 +264,7 @@
                          [stretchable-width #t]
                          [alignment '(left center)])))
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label wscale-icon])
+      (new message% [parent sel-pane] [label (wscale-icon)])
       (let ((p (new horizontal-pane% [parent sel-pane]
                     [stretchable-width #f] [border 20]
                     [alignment '(left center)])))

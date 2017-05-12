@@ -858,7 +858,7 @@
                          [alignment '(left center)])))
 
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label planner-icon])
+      (new message% [parent sel-pane] [label (planner-icon)])
 
       (let ((p (new horizontal-pane%
                     [parent sel-pane]

@@ -29,9 +29,9 @@
   [val->pct-of-max (-> Real (Listof Real) Real)]
   [val->zone (-> Real (Listof Real) Real)])
 (require/typed
-    "al-prefs.rkt"
-  [al-get-pref (-> Symbol (-> Any) Any)]
-  [al-put-pref (-> Symbol Any Void)])
+    "utilities.rkt"
+  [get-pref (-> Symbol (-> Any) Any)]
+  [put-pref (-> Symbol Any Void)])
 
 (require racket/date
          racket/list
@@ -247,7 +247,7 @@
 
 (: ms-val (U 'metric 'statute))
 (define ms-val
-  (let ((v (al-get-pref ms-tag (lambda () 'metric))))
+  (let ((v (get-pref ms-tag (lambda () 'metric))))
     (if (or (eq? v 'metric) (eq? v 'statute))
         v
         'metric)))
@@ -266,7 +266,7 @@
 (: set-al-pref-measurement-system (-> (U 'metric 'statute) Any))
 (define (set-al-pref-measurement-system val)
   (unless (eq? val ms-val)
-    (al-put-pref ms-tag val)
+    (put-pref ms-tag val)
     (set! ms-val val)
     (setup-measurement-system ms-val)
     (for-each (lambda ([fn : (-> Symbol Any)]) (fn ms-val)) ms-val-listeners)))

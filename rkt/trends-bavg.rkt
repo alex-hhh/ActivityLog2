@@ -36,7 +36,6 @@
  "series-meta.rkt"
  "metrics.rkt"
  "spline-interpolation.rkt"
- "workers.rkt"
  "snip-canvas.rkt"
  "utilities.rkt"
  "pdmodel.rkt")
@@ -94,7 +93,7 @@
                 [default-title "Best Avg Chart"])
 
     (super-new [title "Chart Settings"]
-               [icon edit-icon]
+               [icon (edit-icon)]
                [min-height 10])
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))

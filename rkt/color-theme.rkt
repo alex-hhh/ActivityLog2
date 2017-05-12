@@ -18,7 +18,7 @@
          racket/runtime-path
          racket/class
          racket/match
-         "dbglog.rkt")
+         "utilities.rkt")
 
 (define-runtime-path the-theme-file "./default-theme.rktd")
 (define the-theme-data #f)

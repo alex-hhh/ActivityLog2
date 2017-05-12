@@ -17,12 +17,10 @@
 (require racket/gui/base
          racket/class
          framework/splash
-         "al-prefs.rkt"
-         "dbglog.rkt"
+         "utilities.rkt"
          "dbutil.rkt"
          "first-run.rkt"
-         "toplevel.rkt"
-         "version.rkt")
+         "toplevel.rkt")
 
 (provide main)
 
@@ -37,11 +35,11 @@
         (dbglog "caught exception in main: ~a" e)
         ;; Reset the default database on exception, next restard, this will
         ;; prompt the user to open another database...
-        (al-put-pref dbfile-key #f)
+        (put-pref dbfile-key #f)
         ;; Don't attempt to shut down workers here, as we might make a bad
         ;; problem worse...
         (exit 1))))
-    (define database-file (al-get-pref dbfile-key (lambda () #f)))
+    (define database-file (get-pref dbfile-key (lambda () #f)))
     (cond ((not database-file)
            (dbglog "no database file stored in preferences"))
           ((and database-file (not (file-exists? database-file)))
@@ -61,7 +59,7 @@
           (let ((tl (new toplevel-window% [database-path database-file])))
             ;; Toplevel window was successfully created, save the database
             ;; file as the new default to open next time.
-            (al-put-pref dbfile-key
+            (put-pref dbfile-key
                          (if (path? database-file)
                              (path->string database-file)
                              database-file))

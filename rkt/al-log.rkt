@@ -21,7 +21,7 @@
          racket/math
          racket/gui
          "widgets.rkt"
-         "dbglog.rkt")
+         "utilities.rkt")
 
 (provide log-al-fatal
          log-al-error

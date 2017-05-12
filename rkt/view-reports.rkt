@@ -32,7 +32,7 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
+         "dbutil.rkt"
          "widgets.rkt")
 
 (provide view-reports%)
@@ -1222,7 +1222,7 @@
       (make-spacer sel-pane)
       (new message%
            [parent sel-pane]
-           [label reports-icon])
+           [label (reports-icon)])
 
       (let ((filter-pane (new horizontal-pane% [parent sel-pane]
                               [spacing 20]

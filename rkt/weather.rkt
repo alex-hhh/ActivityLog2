@@ -26,8 +26,7 @@
          racket/contract
          racket/exn
          (rename-in srfi/48 (format format-48))
-         "dbglog.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "dbutil.rkt"
          "map-util.rkt")
 (require (for-syntax racket/base))
@@ -179,11 +178,11 @@
 ;; proxy or there is no internet connnection.  This will prevent the
 ;; downloader from even trying.
 (define allow-weather-download-tag 'activity-log:allow-weather-download)
-(define allow-weather-download-val (al-get-pref allow-weather-download-tag (lambda () #t)))
+(define allow-weather-download-val (get-pref allow-weather-download-tag (lambda () #t)))
 (define (allow-weather-download) allow-weather-download-val)
 (define (set-allow-weather-download new-val)
   ;; Write the value back to the store
-  (al-put-pref allow-weather-download-tag new-val)
+  (put-pref allow-weather-download-tag new-val)
   (set! allow-weather-download-val new-val)
   (if new-val
       (dbglog "weaher data download enabled")
@@ -204,7 +203,7 @@
 ;; manually stored there), from an environment variable, or a built in one (if
 ;; available)
 (define wu-api-key-val
-  (or (al-get-pref wu-api-key-tag (lambda () #f))
+  (or (get-pref wu-api-key-tag (lambda () #f))
       (getenv "AL2WUAPIKEY")
       (builtin-api-key)))
 (define (wu-api-key) wu-api-key-val)
@@ -286,10 +285,10 @@
 ;;............................................................. WU cache ....
 
 (define (get-default-db-file-name)
-  (build-path (al-get-pref-dir) "WuCache.db"))
+  (build-path (data-directory) "WuCache.db"))
 
 (define wucache-file-name
-  (al-get-pref 'activity-log:wu-cache-file
+  (get-pref 'activity-log:wu-cache-file
                (lambda () (get-default-db-file-name))))
 
 (define-runtime-path wucache-schema-file "../sql/wucache-schema.sql")

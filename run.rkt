@@ -18,7 +18,7 @@
          racket/class
          racket/draw
          racket/lazy-require
-         "rkt/version.rkt")
+         "rkt/utilities.rkt")
 
 ;; Start up a splash screen, rest of the application will be lazy-required
 ;; below.  This will make the splash screen show up while the rest of the app

@@ -20,7 +20,7 @@
          racket/math
          math/statistics
          "database.rkt"
-         "dbglog.rkt"
+         "utilities.rkt"
          "icon-resources.rkt"
          "data-frame.rkt"
          "session-df.rkt"
@@ -191,7 +191,7 @@ select P.id
   (define progress-dialog
     (new al-progress-dialog%
          [title "Update metrics"]
-         [icon sql-export-icon]))
+         [icon (sql-export-icon)]))
 
   (define (task progress-dialog)
     (send progress-dialog set-message "Fetching list of sessions...")

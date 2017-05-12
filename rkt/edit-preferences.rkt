@@ -32,7 +32,7 @@
   (class al-edit-dialog%
     (init)
     (super-new [title "Edit Preferences"]
-               [icon edit-icon]
+               [icon (edit-icon)]
                [min-width 600]
                [min-height 300])
 

@@ -15,7 +15,7 @@
 ;; more details.
 
 (require "dbutil.rkt"
-         "dbglog.rkt"
+         "utilities.rkt"
          db
          racket/contract
          racket/runtime-path)

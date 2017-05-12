@@ -20,9 +20,8 @@
  racket/match
  racket/list
  racket/runtime-path
- "al-prefs.rkt"
+ "utilities.rkt"
  "widgets.rkt"
- "dbglog.rkt"
  "snip-canvas.rkt"
  "icon-resources.rkt"
  "trends-chart.rkt"
@@ -117,7 +116,7 @@
 (define new-trend-chart-dialog%
   (class al-edit-dialog%
     (super-new [title "New Chart"]
-               [icon reports-icon]
+               [icon (reports-icon)]
                [save-button-name "Select"]
                [min-height 10])
 
@@ -246,7 +245,7 @@
                          [alignment '(left center)])))
 
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label reports-icon])
+      (new message% [parent sel-pane] [label (reports-icon)])
 
       (let ([font (send the-font-list find-or-create-font 14 'default 'normal 'normal)])
         (set! title-field (new message% [parent sel-pane] [font font]
@@ -278,7 +277,7 @@
            [parent pane]))
 
     (define (restore-previous-charts)
-      (let ((data (al-get-pref tag (lambda () #f))))
+      (let ((data (get-pref tag (lambda () #f))))
 
         (define (find-tdecl tag)
           (let loop ((chart-types chart-types))
@@ -452,6 +451,6 @@
       ;; erase all our charts.
       (unless first-activation
         (let ((data (for/list ([tc trend-charts]) (send tc get-restore-data))))
-          (al-put-pref tag data))))
+          (put-pref tag data))))
     
     ))

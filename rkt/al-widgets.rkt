@@ -25,10 +25,8 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
-         "al-prefs.rkt"
          "al-log.rkt"
-         "intervals.rkt"
-         "dbglog.rkt")
+         "intervals.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -45,12 +43,12 @@
 
 (define al-pref-tablet-friendly?
   (let* ((tag 'activity-log:tablet-friendly?)
-         (val (al-get-pref tag (lambda () #f))))
+         (val (get-pref tag (lambda () #f))))
     (make-parameter
      val
      (lambda (new-val)
        ;; Write the value back to the store
-       (al-put-pref tag new-val)
+       (put-pref tag new-val)
        (log-al-info "restart application for tablet friendly setting to take effect")
        new-val))))
 (provide al-pref-tablet-friendly?)
@@ -287,7 +285,7 @@ values (?, ?)" session-id id))
     (define interval-type-by-sport (make-hash))
 
     ;; Restore preferences
-    (let ((pref (al-get-pref tag (lambda () #f))))
+    (let ((pref (get-pref tag (lambda () #f))))
       (when (and pref (eq? (car pref) 'gen1))
         (match-define (list 'gen1 ltbs) pref)
         (set! interval-type-by-sport (hash-copy ltbs))))
@@ -382,7 +380,7 @@ values (?, ?)" session-id id))
               ((split-fn (car split-kinds)))))))
 
     (define/public (save-visual-layout)
-      (al-put-pref tag (list 'gen1 interval-type-by-sport)))
+      (put-pref tag (list 'gen1 interval-type-by-sport)))
 
     (define/public (set-session s df)
       (set! session s)
@@ -817,7 +815,7 @@ values (?, ?)" session-id id))
                     [alignment '(left top)])))
         (let ((p0 (make-horizontal-pane p #f)))
           (new message% [parent p0]
-               [label sql-export-icon]
+               [label (sql-export-icon)]
                [stretchable-width #f]
                [stretchable-height #f]))
 

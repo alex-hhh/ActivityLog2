@@ -19,7 +19,7 @@
          racket/match
          racket/math
          "database.rkt"
-         "dbglog.rkt"
+         "utilities.rkt"
          "elevation-correction.rkt"
          "time-in-zone.rkt"
          "weather.rkt")

@@ -36,8 +36,8 @@
  "al-widgets.rkt"
  "series-meta.rkt"
  "metrics.rkt"
- "spline-interpolation.rkt"
- "workers.rkt")
+ "utilities.rkt"
+ "spline-interpolation.rkt")
 
 
 ;;....................................................... axis selection ....
@@ -107,7 +107,7 @@
                 [default-title "Histogram Chart"])
 
     (super-new [title "Chart Settings"]
-               [icon edit-icon]
+               [icon (edit-icon)]
                [min-height 10])
 
     (define series-selector #f)

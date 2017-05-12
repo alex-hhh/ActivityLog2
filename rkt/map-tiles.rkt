@@ -28,9 +28,8 @@
  racket/list
  racket/class
  db
- "al-prefs.rkt"
+ "utilities.rkt"
  "dbutil.rkt"
- "dbglog.rkt"
  "map-util.rkt")
 (require (for-syntax racket/base))
 
@@ -62,14 +61,14 @@
 ;; stored in the preference file is in days.
 (define tile-refresh-interval
   (* 60 60 24
-     (al-get-pref 'activity-log:tile-refresh-interval (lambda () 60))))
+     (get-pref 'activity-log:tile-refresh-interval (lambda () 60))))
 
 ;; Tiles will not be downloaded if this parameter is #f.
 (define allow-tile-download-tag 'activity-log:allow-tile-download)
-(define allow-tile-download-val (al-get-pref allow-tile-download-tag (lambda () #t)))
+(define allow-tile-download-val (get-pref allow-tile-download-tag (lambda () #t)))
 (define (allow-tile-download) allow-tile-download-val)
 (define (set-allow-tile-download new-val)
-  (al-put-pref allow-tile-download-tag new-val)
+  (put-pref allow-tile-download-tag new-val)
   (set! allow-tile-download-val new-val)
   (if new-val
       (dbglog "map tile download enabled")
@@ -299,7 +298,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; manually stored there), from an environment variable, or a built in one (if
 ;; available)
 (define tf-api-key-val
-  (or (al-get-pref tf-api-key-tag (lambda () #f))
+  (or (get-pref tf-api-key-tag (lambda () #f))
       (getenv "AL2TFAPIKEY")
       (builtin-api-key)))
 (define (tf-api-key) tf-api-key-val)
@@ -377,7 +376,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 
 ;; This is the current tile provider used to paint maps
 (define current-provider
-  (let ((tag (al-get-pref 'activity-log:tile-provider (lambda () 'osm))))
+  (let ((tag (get-pref 'activity-log:tile-provider (lambda () 'osm))))
     (or (for/first ([tp all-provivers] #:when (equal? tag (tile-provider-tag tp))) tp)
         osm-provider)))
 
@@ -399,7 +398,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 
 ;; Return the name of the cache file for storing tiles for this tile provider
 (define (tile-cache-file)
-  (build-path (al-get-pref-dir) (tile-provider-cache-file current-provider)))
+  (build-path (data-directory) (tile-provider-cache-file current-provider)))
 
 ;; Return the name of the current tile provider
 (define (current-tile-provider-name)
@@ -414,7 +413,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
                       #:when (equal? (tile-provider-name tp) name))
             tp)
           osm-provider))
-    (al-put-pref 'activity-log:tile-provider (tile-provider-tag tp))
+    (put-pref 'activity-log:tile-provider (tile-provider-tag tp))
     (set! current-provider tp)
     ;; Will recreate the workers for the new provider next time a tile will be
     ;; requested.

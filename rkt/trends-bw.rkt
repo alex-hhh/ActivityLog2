@@ -38,7 +38,7 @@
                 [default-title "Trends Chart"])
 
     (super-new [title "Chart Settings"]
-               [icon edit-icon]
+               [icon (edit-icon)]
                [min-height 10])
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))

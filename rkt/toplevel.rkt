@@ -22,11 +22,10 @@
          "about-frame.rkt"
          "activity-edit.rkt"
          "al-log.rkt"
-         "al-prefs.rkt"
          "database.rkt"
          "dbapp.rkt"
-         "dbglog.rkt"
          "dbutil.rkt"
+         "utilities.rkt"
          "edit-labels.rkt"
          "edit-preferences.rkt"
          "edit-seasons.rkt"
@@ -49,7 +48,6 @@
          "import.rkt"
          "metrics.rkt"
          "session-df.rkt"
-         "workers.rkt"
          "weather.rkt")
 
 (provide toplevel-window%)
@@ -509,7 +507,7 @@
                                 "Opening database"
                                 "Creating database")]))
     (let ((pane (new horizontal-pane% [parent frame] [border 20] [spacing 20])))
-      (new message% [parent pane] [label sql-export-icon]
+      (new message% [parent pane] [label (sql-export-icon)]
            [stretchable-height #f] [stretchable-width #f])
       (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
         (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
@@ -578,7 +576,7 @@
     ;;; Construct the toplevel frame and initial panels
     (define tl-frame
       (let-values (((dir file _1) (split-path database-path)))
-        (let ((dims (al-get-pref 'activity-log:frame-dimensions (lambda () (cons 1200 750)))))
+        (let ((dims (get-pref 'activity-log:frame-dimensions (lambda () (cons 1200 750)))))
           (new
            (class frame% (init) (super-new)
              ;; Note: the default implementation of on-exit is to call
@@ -590,7 +588,7 @@
            [style '(fullscreen-button)]
            [label (format "~a (~a) - ActivityLog2" file dir)]))))
     ;; Restore the maximization state of the frame (if any)
-    (let ((maximized? (al-get-pref 'activity-log:frame-maximized (lambda () #f))))
+    (let ((maximized? (get-pref 'activity-log:frame-maximized (lambda () #f))))
       (send tl-frame maximize maximized?))
     (send tl-frame create-status-line)
     (make-log-output-window tl-frame)   ; notification banner
@@ -736,8 +734,8 @@
       ;; dimensions
       (unless (or (send tl-frame is-maximized?) (send tl-frame is-fullscreened?))
         (let-values (([w h] (send tl-frame get-size)))
-          (al-put-pref 'activity-log:frame-dimensions (cons w h))))
-      (al-put-pref 'activity-log:frame-maximized (send tl-frame is-maximized?))
+          (put-pref 'activity-log:frame-dimensions (cons w h))))
+      (put-pref 'activity-log:frame-maximized (send tl-frame is-maximized?))
 
       (when database
 
@@ -819,7 +817,7 @@
         (new al-progress-dialog%
              [title "Optimize database (vacuum and analyze)"]
              [can-cancel? #f]
-             [icon sql-export-icon]))
+             [icon (sql-export-icon)]))
 
       (define (task progress-dialog)
         (dbglog "vacuum-database started (main database)")
@@ -853,11 +851,11 @@
 
       ;; Check for some basic things and log them, might be useful to diagnose
       ;; problems.
-      (unless (al-get-pref 'activity-log:allow-tile-download (lambda () #t))
+      (unless (get-pref 'activity-log:allow-tile-download (lambda () #t))
         (dbglog "map tile download disabled"))
       (unless (wu-api-key)
         (dbglog "No Wundergdound API key set"))
-      (unless (al-get-pref 'activity-log:allow-weather-download (lambda () #t))
+      (unless (get-pref 'activity-log:allow-weather-download (lambda () #t))
         (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
         (send (tl-section-content equipment) log-due-items))
@@ -875,7 +873,7 @@
         (let ((new-tl (new toplevel-window% [database-path file])))
           ;; Toplevel window was successfully created, save the database file
           ;; as the new default to open next time.
-          (al-put-pref 'activity-log:database-file
+          (put-pref 'activity-log:database-file
                        (if (path? file) (path->string file) file))
           ;; close this window than open the other one.  note that at this
           ;; moment we cannot have multiple databases open beacuse of
@@ -951,7 +949,7 @@
           (refresh-current-view))))
 
     (define/public (on-import-from-directory)
-      (let* ((last-import-dir (al-get-pref 'activity-log:last-import-dir (lambda () #f)))
+      (let* ((last-import-dir (get-pref 'activity-log:last-import-dir (lambda () #f)))
              ;; NOTE: we use the platform independent directory selection
              ;; dialog, because on Windows, the OS one does not accept our
              ;; `last-import-dir' value.
@@ -960,7 +958,7 @@
         (when dir
           (if (directory-exists? dir)
               (begin
-                (al-put-pref 'activity-log:last-import-dir (path->string dir))
+                (put-pref 'activity-log:last-import-dir (path->string dir))
                 (send (new import-dialog%) run tl-frame database dir)
                 (refresh-current-view)
                 (let ((equipment (get-section-by-tag 'equipment)))

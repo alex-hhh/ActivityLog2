@@ -21,7 +21,7 @@
          racket/list
          racket/string
          "activity-edit.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"
@@ -164,7 +164,7 @@
                          [stretchable-width #t]
                          [alignment '(left center)])))
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label stopwatch-icon])
+      (new message% [parent sel-pane] [label (stopwatch-icon)])
 
       (let ((q (new vertical-pane% [spacing 5] [parent sel-pane] [alignment '(left center)])))
 
@@ -231,7 +231,7 @@
     (send lb set-default-export-file-name "activities.csv")
 
     ;; Restore visual layout
-    (let ((vdata (al-get-pref tag (lambda () #f))))
+    (let ((vdata (get-pref tag (lambda () #f))))
       (when (and vdata (= (length vdata) 1))
         (send date-range-field restore-from (first vdata))))
 
@@ -589,7 +589,7 @@
 
     (define/public (save-visual-layout)
       (let ((data (list (send date-range-field get-restore-data))))
-        (al-put-pref tag data))
+        (put-pref tag data))
       (send lb save-visual-layout))
 
     (define/public (on-interactive-export-sql-query)

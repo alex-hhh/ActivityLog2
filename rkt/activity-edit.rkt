@@ -27,8 +27,7 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "session-df.rkt"
-         "data-frame.rkt"
-         "workers.rkt")
+         "data-frame.rkt")
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)

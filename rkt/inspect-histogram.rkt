@@ -21,13 +21,12 @@
          racket/match
          racket/string
          "activity-util.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
-         "widgets.rkt"
-         "workers.rkt")
+         "widgets.rkt")
 
 (provide histogram-plot-panel%)
 
@@ -122,7 +121,7 @@
     (define params-by-axis (make-hash))
 
     ;; Restore the preferences now. 
-    (let ((pref (al-get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-pref pref-tag (lambda () #f))))
       (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
         (match-define (list tag abs pba as-pct?) pref)
         (set! axis-by-sport (hash-copy abs))
@@ -419,7 +418,7 @@
     (define/public (save-visual-layout)
       (save-params-for-sport)
       (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
-        (al-put-pref pref-tag data)))
+        (put-pref pref-tag data)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

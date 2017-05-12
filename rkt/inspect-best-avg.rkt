@@ -23,15 +23,14 @@
          racket/list
          racket/match
          "activity-util.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "series-meta.rkt"
          "data-frame.rkt"
          "dbapp.rkt"
          "metrics.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
-         "spline-interpolation.rkt"
-         "workers.rkt")
+         "spline-interpolation.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -200,7 +199,7 @@
     (define params-by-series (make-hash))
 
     ;; Restore the saved preferences now.
-    (let ((pref (al-get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-pref pref-tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 1))
         (set! params-by-sport (hash-copy (first pref)))))
 
@@ -515,7 +514,7 @@
 
     (define/public (save-visual-layout)
       (save-params-for-sport)
-      (al-put-pref pref-tag (list params-by-sport)))
+      (put-pref pref-tag (list params-by-sport)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

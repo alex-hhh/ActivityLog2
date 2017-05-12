@@ -20,7 +20,7 @@
          racket/gui/base
          racket/math
          racket/runtime-path
-         "al-prefs.rkt"
+         "utilities.rkt"
          "dbapp.rkt")
 
 (provide first-run-dialog%)
@@ -80,7 +80,7 @@
            [callback (lambda (b e) (on-cancel))]))
 
     (define (get-default-dir)
-      (al-get-pref-dir))
+      (data-directory))
 
     (define (on-create-new-database)
       (set! can-exit? #f)

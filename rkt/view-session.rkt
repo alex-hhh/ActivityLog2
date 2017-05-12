@@ -34,7 +34,6 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
-         "workers.rkt"
          "session-df.rkt")
 
 (provide view-session%)

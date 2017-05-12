@@ -34,7 +34,7 @@
          racket/match
          racket/list
          math/statistics
-         "dbglog.rkt"
+         "utilities.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
@@ -541,7 +541,7 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
   (define progress-dialog
     (new al-progress-dialog%
          [title "Update elevation data"]
-         [icon sql-export-icon]))
+         [icon (sql-export-icon)]))
 
   (define progress-monitor
     (class object% (init-field progress-dialog) (super-new)

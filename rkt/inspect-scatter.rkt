@@ -24,13 +24,12 @@
          math/statistics
          racket/format
          "activity-util.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "data-frame.rkt"
-         "widgets.rkt"
-         "workers.rkt")
+         "widgets.rkt")
 
 (provide scatter-plot-panel%)
 
@@ -302,7 +301,7 @@
 
     ;; Restore the preferences now, we do it so the controls can be
     ;; initialized with the correct values.
-    (let ((pref (al-get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-pref pref-tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 2))
         (match-define (list abs dba) pref)
         (set! axis-by-sport (hash-copy abs))
@@ -649,7 +648,7 @@
     (define/public (save-visual-layout)
       (save-params-for-sport)
       (let ((data (list axis-by-sport params-by-axis)))
-        (al-put-pref pref-tag data)))
+        (put-pref pref-tag data)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

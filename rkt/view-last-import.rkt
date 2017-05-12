@@ -19,13 +19,13 @@
          racket/gui/base
          racket/port
          "activity-edit.rkt"
-         "dbglog.rkt"
+         "utilities.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "import.rkt"
          "sport-charms.rkt"
          "widgets.rkt"
-         "utilities.rkt")
+         "dbutil.rkt")
 
 (provide import-view%)
 (provide import-dialog%)
@@ -66,7 +66,7 @@
                     [alignment '(left top)])))
         (let ((p0 (make-horizontal-pane p #f)))
           (new message% [parent p0]
-               [label import-icon]
+               [label (import-icon)]
                [stretchable-width #f]
                [stretchable-height #f])
           
@@ -272,7 +272,7 @@
                          [stretchable-width #t]
                          [alignment '(left center)])))
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label import-icon])
+      (new message% [parent sel-pane] [label (import-icon)])
 
       (let ((p (new horizontal-pane% [parent sel-pane]
                     [stretchable-width #t] [border 20]

@@ -23,7 +23,7 @@
          racket/match
          racket/math
          racket/string
-         "al-prefs.rkt"
+         "utilities.rkt"
          "edit-sport-zones.rkt"
          "fit-file.rkt"
          "icon-resources.rkt"
@@ -240,7 +240,7 @@ select body_weight
   (class al-edit-dialog%
     (init)
     (super-new [title "Export FIT Settings"]
-               [icon edit-icon]
+               [icon (edit-icon)]
                [save-button-name "Export"]
                [min-width 600]
                [min-height 300])
@@ -323,7 +323,7 @@ select body_weight
             (export-bike-hrz (send bike-hrz-chkbox get-value))
             (export-bike-pwrz (send bike-pwrz-chkbox get-value))
             (export-directory (send export-dir-field get-value)))
-        (al-put-pref tag
+        (put-pref tag
                      (list 'gen1 autoset-bw autoset-ac collect-hrv export-run-hrz
                            export-bike-hrz export-bike-pwrz export-directory)))
       (call-with-transaction
@@ -345,7 +345,7 @@ select body_weight
              (put-athlete-height height db))))))
 
     (define (restore-preferences)
-      (let ((prefs (al-get-pref tag (lambda () #f))))
+      (let ((prefs (get-pref tag (lambda () #f))))
         (when prefs
           (match-define (list ptag autoset-bw autoset-ac collect-hrv export-run-hrz
                               export-bike-hrz export-bike-pwrz export-directory) prefs)

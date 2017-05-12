@@ -1,5 +1,6 @@
 #lang racket/base
-;; dbutil.rkt -- utilities to create, open and back-up databases
+;; dbutil.rkt -- utilities to create, open and back-up databases,
+;;               and other small helpers
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
@@ -14,20 +15,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
-         "al-prefs.rkt"
-         "dbglog.rkt"
-         racket/file
-         racket/string
-         racket/format
-         racket/contract)
-
-(provide (struct-out db-exn-bad-version)
-         db-exn-bad-version-message)
+(require racket/contract)
 
 ;; Contract for the progress callback passed to db-open
 (define progress-callback/c
   (-> string? exact-positive-integer? exact-positive-integer? any/c))
+
+(provide (struct-out db-exn-bad-version)
+         db-exn-bad-version-message)
 
 (provide/contract
  [db-open (->*
@@ -41,8 +36,15 @@
                   (#:progress-callback (or/c #f progress-callback/c))
                   connection?)]
  [maybe-backup-database (->* (path-string?) (boolean?) any/c)]
- [db-get-last-pk (-> string? connection? number?)])
- 
+ [db-get-last-pk (-> string? connection? number?)]
+ [sql-column-ref (->* (vector? exact-nonnegative-integer?) (any/c) any/c)])
+
+(require db
+         "utilities.rkt"
+         racket/file
+         racket/string
+         racket/format)
+
 ;; Read the next SQL statement from INPUT-PORT.  The statement is assumed to
 ;; be terminated by the #\; character.
 (define (read-next-statement input-port)
@@ -199,7 +201,7 @@
 
 ;; Place where we store backups.
 (define db-backup-dir
-  (build-path (al-get-pref-dir) "db-backup"))
+  (build-path (data-directory) "db-backup"))
 
 ;; ensure the backup directory exists, will never fail
 (make-directory* db-backup-dir)
@@ -284,3 +286,12 @@
         (dbglog "database backup into ~a..." backup)
         (backup-database db-file backup)
         (dbglog "database backup completed")))))
+
+;; Reference a column in the SQL result set ROW.  If the referenced value is
+;; sql-null?, replace it with the value of IF-NULL (which defaults to #f).
+;;
+;; The ideea is that callers of SQL-COLUMN-REF don't have to worry about
+;; sql-null objects as they will be replaced with #f
+(define (sql-column-ref row col [if-null #f])
+  (let ((v (vector-ref row col)))
+    (if (sql-null? v) if-null v)))

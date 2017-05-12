@@ -19,40 +19,76 @@
          racket/runtime-path)
 
 (define-runtime-path weather-icon-file "../img/partly_cloudy_day-64.png")
-(define weather-icon (read-bitmap weather-icon-file))
+(define the-weather-icon #f)
+(define (weather-icon)
+  (unless the-weather-icon
+    (set! the-weather-icon (read-bitmap weather-icon-file)))
+  the-weather-icon)
 (provide weather-icon)
 
 (define-runtime-path sql-export-icon-file "../img/data_configuration-64.png")
-(define sql-export-icon (read-bitmap sql-export-icon-file))
+(define the-sql-export-icon #f)
+(define (sql-export-icon)
+  (unless the-sql-export-icon
+    (set! the-sql-export-icon (read-bitmap sql-export-icon-file)))
+  the-sql-export-icon)
 (provide sql-export-icon)
 
 (define-runtime-path wscale-icon-file "../img/scale-64.png")
-(define wscale-icon (read-bitmap wscale-icon-file))
+(define the-wscale-icon #f)
+(define (wscale-icon)
+  (unless the-wscale-icon
+    (set! the-wscale-icon (read-bitmap wscale-icon-file)))
+  the-wscale-icon)
 (provide wscale-icon)
 
 (define-runtime-path edit-icon-file "../img/edit-64.png")
-(define edit-icon (read-bitmap edit-icon-file))
+(define the-edit-icon #f)
+(define (edit-icon)
+  (unless the-edit-icon
+    (set! the-edit-icon (read-bitmap edit-icon-file)))
+  the-edit-icon)
 (provide edit-icon)
 
 (define-runtime-path import-icon-file "../img/import-64.png")
-(define import-icon (read-bitmap import-icon-file))
+(define the-import-icon #f)
+(define (import-icon)
+  (unless the-import-icon
+    (set! the-import-icon (read-bitmap import-icon-file)))
+  the-import-icon)
 (provide import-icon)
 
 (define-runtime-path stopwatch-icon-file "../img/stopwatch-64.png")
-(define stopwatch-icon (read-bitmap stopwatch-icon-file))
+(define the-stopwatch-icon #f)
+(define (stopwatch-icon)
+  (unless the-stopwatch-icon
+    (set! the-stopwatch-icon (read-bitmap stopwatch-icon-file)))
+  the-stopwatch-icon)
 (provide stopwatch-icon)
 
 (define-runtime-path planner-icon-file "../img/planner-64.png")
-(define planner-icon (read-bitmap planner-icon-file))
+(define the-planner-icon #f)
+(define (planner-icon)
+  (unless the-planner-icon
+    (set! the-planner-icon (read-bitmap planner-icon-file)))
+  the-planner-icon)
 (provide planner-icon)
 
 (define-runtime-path equipment-icon-file "../img/robot-64.png")
-(define equipment-icon (read-bitmap equipment-icon-file))
+(define the-equipment-icon #f)
+(define (equipment-icon)
+  (unless the-equipment-icon
+    (set! the-equipment-icon (read-bitmap equipment-icon-file)))
+  the-equipment-icon)
 (provide equipment-icon)
 
 (define-runtime-path pmc-icon-file "../img/statistics-64.png")
-(define pmc-icon (read-bitmap pmc-icon-file))
+(define the-pmc-icon #f)
+(define (pmc-icon)
+  (unless the-pmc-icon
+    (set! the-pmc-icon (read-bitmap pmc-icon-file)))
+  the-pmc-icon)
 (provide pmc-icon)
 
-(define reports-icon pmc-icon)
+(define (reports-icon) (pmc-icon))
 (provide reports-icon)

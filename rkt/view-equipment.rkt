@@ -21,10 +21,10 @@
          racket/string
          racket/match
          "al-log.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
-         "utilities.rkt"
+         "dbutil.rkt"
          "widgets.rkt")
 
 (provide view-equipment%)
@@ -35,7 +35,7 @@
 (define edit-equipment%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit equipment"] [icon equipment-icon])
+    (super-new [title "Edit equipment"] [icon (equipment-icon)])
 
     (define name-text-field #f)
     (define type-text-field #f)
@@ -154,7 +154,7 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
 (define edit-service-log%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Service reminder"] [icon equipment-icon])
+    (super-new [title "Service reminder"] [icon (equipment-icon)])
 
     (define name-text-field #f)
     (define equipment-choice #f)
@@ -802,7 +802,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
     (define show-retired-equipment? #f)
     (define show-service-reminders 'active)
 
-    (let ((prefs (al-get-pref tag (lambda () (list #f 'active)))))
+    (let ((prefs (get-pref tag (lambda () (list #f 'active)))))
       (set! show-retired-equipment? (list-ref prefs 0))
       (when (> (length prefs) 1)
         (set! show-service-reminders (list-ref prefs 1))))
@@ -883,7 +883,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
                          [stretchable-width #t]
                          [alignment '(left center)])))
       (make-spacer sel-pane)
-      (new message% [parent sel-pane] [label equipment-icon]))
+      (new message% [parent sel-pane] [label (equipment-icon)]))
 
     (let ((p (new horizontal-pane% [parent pane] 
                   [border 0] [spacing 20] 
@@ -962,7 +962,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
     (define/public (save-visual-layout)
       (send lb save-visual-layout)
       (send service-log-lb save-visual-layout)
-      (al-put-pref tag (list show-retired-equipment? show-service-reminders)))
+      (put-pref tag (list show-retired-equipment? show-service-reminders)))
 
     (define/public (log-due-items)
       (let ((items (get-service-log-list the-database 'due)))

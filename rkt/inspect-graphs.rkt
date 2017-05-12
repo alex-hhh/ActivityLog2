@@ -25,7 +25,6 @@
          racket/sequence
          racket/vector
          "activity-util.rkt"
-         "al-prefs.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
          "series-meta.rkt"
@@ -33,10 +32,8 @@
          "utilities.rkt"
          "data-frame.rkt"
          "widgets.rkt"
-         "dbglog.rkt"
          "al-profiler.rkt"
          "session-df.rkt"
-         "workers.rkt"
          "icon-resources.rkt")
 
 (provide graph-panel%)
@@ -145,7 +142,7 @@
 
     (define (get-generation) generation)
 
-    (let ((pref (al-get-pref tag (lambda () #f))))
+    (let ((pref (get-pref tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 3))
         (set! show-graph? (second pref))
         (set! y-axis-by-sport (hash-copy (third pref)))))
@@ -432,7 +429,7 @@
     (define/public (is-valid-for? data-frame) #f)
 
     (define/public (save-visual-layout)
-      (al-put-pref
+      (put-pref
        tag
        (list #t show-graph? y-axis-by-sport)))
 
@@ -1291,7 +1288,7 @@
 (define select-data-series-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Select data series"] [icon edit-icon]
+    (super-new [title "Select data series"] [icon (edit-icon)]
                [min-width 600] [min-height 450])
 
     ;; List of graphs that are visible (their order determines how they are
@@ -1526,7 +1523,7 @@
     (define graphs '())      ; the list of graphs we are currently  displaying
 
     ;; Restore the preferences now.
-    (let ((pref (al-get-pref the-pref-tag (lambda () #f))))
+    (let ((pref (get-pref the-pref-tag (lambda () #f))))
       (when (and pref (hash? pref))
         (set! show-avg? (hash-ref pref 'show-avg? #f))
         (set! zoom-to-lap? (hash-ref pref 'zoom-to-lap? #f))
@@ -1705,7 +1702,7 @@
       (send interval-choice save-visual-layout)
       (for-each (lambda (g) (send g save-visual-layout)) default-graphs)
       (for-each (lambda (g) (send g save-visual-layout)) swim-graphs)
-      (al-put-pref
+      (put-pref
        the-pref-tag
        (hash
         'show-avg? show-avg?

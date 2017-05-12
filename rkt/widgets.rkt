@@ -25,8 +25,7 @@
          (rename-in srfi/48 (format format-48))
          racket/list
          racket/string
-         "dbglog.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "fmt-util.rkt")
 
 (provide validating-input-field%)
@@ -1070,7 +1069,7 @@
       ;; `setup-column-defs'.
       ;; (printf "put-pref ~a -- ~a~%" pref-key (get-visual-layout the-list-box))
       (when pref-key
-        (al-put-pref pref-key
+        (put-pref pref-key
                      (cons visible-columns
                            (lb-get-visual-layout the-list-box)))))
 
@@ -1079,7 +1078,7 @@
       (set! column-defs fd)
       (set! pref-key (make-pref-key the-tag column-defs))
       (set! sort-column #f)
-      (let ((visual-layout (al-get-pref pref-key (lambda () #f))))
+      (let ((visual-layout (get-pref pref-key (lambda () #f))))
         (let ((visible-fields (if visual-layout
                                   (car visual-layout)
                                   (map column-info-name column-defs)))
@@ -1900,7 +1899,7 @@
     (define collapse-label #f)  ; created below
 
     ;; Restore preferences here
-    (let ((visual-layout (al-get-pref tag (lambda () '(gen1 #t)))))
+    (let ((visual-layout (get-pref tag (lambda () '(gen1 #t)))))
       (when (and visual-layout (list? visual-layout) (> (length visual-layout) 1))
         ;; Visual layout is valid, check version
         (when (eq? (car visual-layout) 'gen1)
@@ -2153,7 +2152,7 @@
             (set-selection index))))
 
     (define/public (save-visual-layout)
-      (al-put-pref tag (list 'gen1 vertical?)))
+      (put-pref tag (list 'gen1 vertical?)))
 
     ))
 

@@ -37,9 +37,8 @@
          "series-meta.rkt"
          "sport-charms.rkt"
          "widgets.rkt"
-         "workers.rkt"
          "session-df.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "fmt-util.rkt"
          "color-theme.rkt")
 
@@ -142,7 +141,7 @@
     (define params-by-sport (make-hash))
 
     ;; Restore the preferences now.
-    (let ((pref (al-get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-pref pref-tag (lambda () #f))))
       (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
         (match-define (list tag pbs sz?) pref)
         (set! params-by-sport (hash-copy pbs))
@@ -454,7 +453,7 @@
     (define/public (save-visual-layout)
       (save-params-for-sport)
       (let ((data (list 'gen2 params-by-sport show-zones?)))
-        (al-put-pref pref-tag data)))
+        (put-pref pref-tag data)))
 
     ;; Return #t if the quadrant plot can be displayed for a data-frame% (DF).
     ;; It can display if the data frame contains the required series

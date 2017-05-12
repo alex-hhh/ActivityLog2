@@ -26,7 +26,7 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
+         "dbutil.rkt"
          "widgets.rkt"
          "data-frame.rkt"
          "session-df.rkt")
@@ -148,7 +148,7 @@
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Session Stress"] [icon edit-icon])
+    (super-new [title "Edit Session Stress"] [icon (edit-icon)])
 
     (define database #f)
     (define session-id #f)
