@@ -36,7 +36,8 @@
          "dbglog.rkt"
          "al-profiler.rkt"
          "session-df.rkt"
-         "workers.rkt")
+         "workers.rkt"
+         "icon-resources.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph%)
@@ -104,10 +105,6 @@
 
     (define data-series2 #f)            ; secondary data series
 
-    ;; whether this graph is active or not.  Inactive graphs will not be
-    ;; displayed at all.
-    (define active? #t)
-
     (define show-graph? #t)         ; graph view can be toggled on/off
     (define show-avg? #f)           ; display the average line
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
@@ -125,7 +122,7 @@
     ;; Time-stamp for the end of the highlighted interval.  If #f, it means
     ;; the interval extends to the end of the data range.
     (define ivl-end #f)
-    
+
     ;; The render tree to be passed to plot.  This is produced by
     ;; `prepare-render-tree' once we have an session
     (define graph-render-tree #f)
@@ -150,7 +147,6 @@
 
     (let ((pref (al-get-pref tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 3))
-        (set! active? (first pref))
         (set! show-graph? (second pref))
         (set! y-axis-by-sport (hash-copy (third pref)))))
 
@@ -438,7 +434,7 @@
     (define/public (save-visual-layout)
       (al-put-pref
        tag
-       (list active? show-graph? y-axis-by-sport)))
+       (list #t show-graph? y-axis-by-sport)))
 
     (define/public (set-data-frame df)
       (suspend-flush)
@@ -515,7 +511,7 @@
           (begin
             (set! factor-fn #f)
             (set! factor-colors #f)))
-      
+
       (set! factored-data #f)
       (prepare-render-tree))
 
@@ -527,7 +523,7 @@
 
       (set! ivl-start start-timestamp)
       (set! ivl-end end-timestamp)
-      
+
       (if (and ivl-start data-series data-frame data-y-range)
           (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
             (set! lap-render-tree
@@ -559,7 +555,7 @@
                    (format "graph-~a-~a.png" sid s1))
                   (#t
                    "graph.png")))))
-    
+
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
                             (get-default-export-file-name) "png" '()
@@ -569,8 +565,7 @@
           (export-image-to-file file))))
 
     (define/public (get-name) text)
-    (define/public (is-active?) active?)
-    (define/public (set-active flag) (set! active? flag))
+    (define/public (get-tag) tag)
 
     ))
 
@@ -631,7 +626,7 @@
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
     (set! selected-y-axis 0)
-    
+
     ))
 
 
@@ -731,7 +726,7 @@
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
     (set! selected-y-axis 0)
-    
+
     ))
 
 
@@ -1289,43 +1284,199 @@
     ))
 
 
-;;................................................. visible-graphs-edit% ....
+;;............................................ select-data-series-dialog% ....
 
-;; A dialog box used to edit the visible graphs in the graph panel
-(define visible-graphs-edit%
+;; A dialog box used to select the data series that are displayed in the
+;; charts window.
+(define select-data-series-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit graphs to display"] [icon 'app])
+    (super-new [title "Select data series"] [icon edit-icon]
+               [min-width 600] [min-height 450])
 
-    (define (setup graphs)
+    ;; List of graphs that are visible (their order determines how they are
+    ;; shown
+    (define visible #f)
+    ;; List of graphs that are available, but not visible
+    (define available #f)
 
-      (define parent-pane (send this get-client-pane))
+    (define available-lb #f)
+    (define visible-lb #f)
+    (define show-hide-button #f)
+    (define move-up-button #f)
+    (define move-down-button #f)
 
-      (define (make-check-box graph)
-        (new check-box%
-             [parent parent-pane]
-             [label (send graph get-name)]
-             [value (send graph is-active?)]
-             [style '(deleted)]))
+    (let ((p (send this get-client-pane)))
+      (let ((p1 (make-horizontal-pane p)))
+        (send p1 set-alignment 'center 'center)
+        (let ((lp (make-vertical-pane p1)))
+          (send lp set-alignment 'center 'center)
+          (new message% [parent lp] [label "Available Series"])
+          (set! available-lb
+                (new list-box% [parent lp] [label #f] [choices '()]
+                     [style '(single)]
+                     [callback (lambda (s e)
+                                 (on-available-selected (send s get-selection)))])))
+        (let ((lp (make-vertical-pane p1)))
+          (send lp set-alignment 'center 'center)
+          (set! show-hide-button
+                (new button% [parent lp] [label "Show"]
+                     [callback (lambda (b e) (on-show-hide))]))
+          (set! move-up-button
+                (new button% [parent lp] [label "Move Up"]
+                     [callback (lambda (b e) (on-move -1))]))
+          (set! move-down-button
+                (new button% [parent lp] [label "Move Down"]
+                     [callback (lambda (b e) (on-move 1))])))
+        (let ((lp (make-vertical-pane  p1)))
+          (send lp set-alignment 'center 'center)
+          (new message% [parent lp] [label "Visible Series"])
+          (set! visible-lb
+                (new list-box% [parent lp] [label #f] [choices '()]
+                     [style '(single)]
+                     [callback (lambda (s e)
+                                 (on-visible-selected (send s get-selection)))]))))
+      #f)
 
-      (send parent-pane change-children
-            (lambda (old) (map make-check-box graphs))))
+    (define (enable-disable-buttons)
+      (cond ((send visible-lb get-selection)
+             => (lambda (index)
+                  (send show-hide-button set-label "Hide")
+                  (send show-hide-button enable #t)
+                  (send move-up-button enable (> index 0))
+                  (send move-down-button enable (< index (sub1 (length visible))))))
+            ((send available-lb get-selection)
+             => (lambda (index)
+                  (send show-hide-button set-label "Show")
+                  (send show-hide-button enable #t)
+                  (send move-up-button enable #f)
+                  (send move-down-button enable #f)))
+            (#t
+             (send show-hide-button set-label "Show")
+             (send show-hide-button enable #f)
+             (send move-up-button enable #f)
+             (send move-down-button enable #f))))
 
-    (define/public (run-dialog parent graphs)
-      (setup graphs)
+    ;; Un-select any selected item in LB (a list-box%).  Also update the
+    ;; states based on the new selection state.
+    (define (unselect lb)
+      (define index (send lb get-selection))
+      (when index
+        (send lb select index #f))
+      (enable-disable-buttons))
+
+    ;; Called when an item in the available list-box% is selected.  It will
+    ;; de-select the item in the visible list box and update buttons for the
+    ;; new selection.  This ensures that only one item is selected in either
+    ;; list boxes.
+    (define (on-available-selected index) (unselect visible-lb))
+
+    ;; Called when an item in the visible list-box% is selected.  It will
+    ;; de-select the item in the available list box and update buttons for the
+    ;; new selection.  This ensures that only one item is selected in either
+    ;; list boxes.
+    (define (on-visible-selected index) (unselect available-lb))
+
+    ;; Called when the user clicks on the "Move Up" or "Move Down" buttons.
+    ;; It will move the selected item in the VISIBLE-LB list-box% up (if
+    ;; DIRECTION is -1) or down (if DIRECTION is 1).  The corresponding
+    ;; VISIBLE list is also updated.
+    (define (on-move direction)
+      (define index (send visible-lb get-selection))
+      ;; An item is selected and he list has at least 2 elements
+      (when (and index (>= (length visible) 2))
+        (define nindex (+ index direction))
+        (define i1 (min index nindex))
+        (define i2 (max index nindex))
+        (when (and (>= i1 0) (< i2 (length visible)))
+          (define h (take visible i1))
+          (define t (drop visible i1))
+          (set! visible
+                (append h (cons (car (cdr t)) (cons (car t) (cdr (cdr t))))))
+          (send visible-lb clear)
+          (for ([item visible])
+            (send visible-lb append (send item get-name)))
+          (send visible-lb set-selection nindex)
+          (enable-disable-buttons))))
+
+    ;; Populate the VISIBLE-LB and AVAILABLE-LB list-box% objects with data
+    ;; from the VISIBLE and AVAILABLE lists.
+    (define (refill)
+      (send visible-lb clear)
+      (for ([item visible])
+        (send visible-lb append (send item get-name)))
+      (send available-lb clear)
+      (for ([item available])
+        (send available-lb append (send item get-name))))
+
+    ;; Called when the user clicks on the "Show/Hide" button.  If an item is
+    ;; selected in the VISIBLE-LB it will be moved into the AVAILABLE-LB and
+    ;; vice-versa.  The VISIBLE and AVAILABLE lists are also updated
+    ;; accordingly.
+    (define (on-show-hide)
+      (cond ((send visible-lb get-selection)
+             => (lambda (index)
+                  (set! available
+                        (cons (list-ref visible index) available))
+                  (set! visible
+                        (append (take visible index)
+                                (drop visible (add1 index))))
+                  (refill)
+                  ;; Select the next visible item, this way, if the user
+                  ;; repeats the click, he can remove another item
+                  (when (> (length visible) 0)
+                    (send visible-lb set-selection 0))
+                  (enable-disable-buttons)))
+            ((send available-lb get-selection)
+             => (lambda (index)
+                  (set! visible
+                        (cons (list-ref available index) visible))
+                  (set! available
+                        (append (take available index)
+                                (drop available (add1 index))))
+                  (refill)
+                  ;; Select the next available item, this way, if the user
+                  ;; repeats the click, he can add another item.
+                  (when (> (length available) 0)
+                    (send available-lb set-selection 0))
+                  (enable-disable-buttons)))))
+
+    ;; Show the dialog to allow the user to select which graphs should be
+    ;; visible and what the presentation order is.
+    ;;
+    ;; PARENT is the parent window for the dialog.
+    ;;
+    ;; VISIBLE-TAGS is a list of graph tags that are visible (and the order in
+    ;; which they should be displayed.  As a special value, #f means that all
+    ;; graphs are visible, and '() means that no graphs are visible.
+    ;;
+    ;; ALL-GRAPHS is a list of all possible graphs objects
+    ;;
+    ;; Dialog returns an updated list of VISIBLE-TAGS (or #f if the user
+    ;; canceled the dialog)
+    (define/public (show-dialog parent visible-tags all-graphs)
+
+      ;; split ALL-GRAPHS into visible and available based on VISIBLE-TAGS
+      (cond ((eq? visible-tags #f)
+             (set! visible all-graphs)
+             (set! available '()))
+            ((null? visible-tags)
+             (set! visible '())
+             (set! available all-graphs))
+            (#t
+             (set! visible
+                   (for*/list ([tag visible-tags]
+                               [g (in-value (findf (lambda (g) (eq? tag (send g get-tag))) all-graphs))]
+                               #:when g)
+                     g))
+             (set! available
+                   (for/list ([g all-graphs] #:unless (member g visible)) g))))
+      (refill)
+      (enable-disable-buttons)
       (if (send this do-edit parent)
-          (let ((selection '()))
-            (for ((c (in-list (send (send this get-client-pane) get-children))))
-              (when (is-a? c check-box%)
-                (set! selection (cons (send c get-value) selection))))
-            (for ((sel (in-list (reverse selection)))
-                  (graph (in-list graphs)))
-              (send graph set-active sel))
-            #t)
+          (for/list ([item visible]) (send item get-tag))
           #f))
-
     ))
-
 
 
 ;......................................................... graph-panel% ....
@@ -1363,6 +1514,11 @@
     ;; user preference
     (define x-axis-by-sport (make-hash))
 
+    ;; Map the visible graphs by sport, this is saved as a user preference.
+    ;; Each sport allows a different list of graphs to be shown and in a
+    ;; different order.
+    (define graphs-by-sport (make-hash))
+
     ;; The axis-choices for the graphs, either default-x-axis-choices or
     ;; swim-x-axis-choices, depending on the session's sport
     (define x-axis-choices '())
@@ -1376,7 +1532,8 @@
         (set! zoom-to-lap? (hash-ref pref 'zoom-to-lap? #f))
         (set! color-by-zone? (hash-ref pref 'color-by-zone? #f))
         (set! filter-amount (hash-ref pref 'filter-amount 0))
-        (set! x-axis-by-sport (hash-copy (hash-ref pref 'x-axis-by-sport (hash))))))
+        (set! x-axis-by-sport (hash-copy (hash-ref pref 'x-axis-by-sport (hash))))
+        (set! graphs-by-sport (hash-copy (hash-ref pref 'graphs-by-sport (hash))))))
 
     (define (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
@@ -1490,8 +1647,8 @@
 
     (define setup-button
       (new button% [parent control-panel]
-           [label "Setup..."]
-           [callback (lambda (b e) (on-setup))]))
+           [label "Select Data Series..."]
+           [callback (lambda (b e) (on-select-data-series))]))
 
     (send filter-amount-choice set-selection filter-amount)
 
@@ -1526,15 +1683,22 @@
        (new swim-cadence-graph% [parent graphs-panel])
        ))
 
-    (define (on-setup)
-      (when the-session
-        (let ((e (new visible-graphs-edit%)))
-          (when (send e run-dialog
-                      (send panel get-top-level-window)
-                      (if (is-lap-swimming? data-frame)
-                          swim-graphs default-graphs))
-            (setup-graphs-for-current-session)))))
+    (define sds-dialog #f)
 
+    (define (on-select-data-series)
+      (when the-session
+        (unless sds-dialog
+          (set! sds-dialog (new select-data-series-dialog%)))
+        (let ((toplevel (send panel get-top-level-window))
+              (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
+              (all-graphs (if (is-lap-swimming? data-frame)
+                              swim-graphs default-graphs)))
+          (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
+                 => (lambda (ngraps)
+                      (hash-set! graphs-by-sport
+                                 (session-sport the-session)
+                                 ngraps)
+                      (setup-graphs-for-current-session)))))))
 
     (define/public (save-visual-layout)
       (send interval-view save-visual-layout)
@@ -1548,19 +1712,30 @@
         'zoom-to-lap? zoom-to-lap?
         'color-by-zone? color-by-zone?
         'filter-amount filter-amount
-        'x-axis-by-sport x-axis-by-sport)))
+        'x-axis-by-sport x-axis-by-sport
+        'graphs-by-sport graphs-by-sport)))
 
     (define (setup-graphs-for-current-session)
 
       ;; Return the available graphs for SESSION.  For non-lap swimming
       ;; activities, we only use the graphs for which we have data.
       (define (get-graphs-for-session session)
-        (if (is-lap-swimming? data-frame)
-            (filter (lambda (g) (send g is-active?)) swim-graphs)
-            (filter (lambda (g)
-                      (and (send g is-active?)
-                           (send g is-valid-for? data-frame)))
-                    default-graphs)))
+        (define visible (hash-ref graphs-by-sport (session-sport session) #f))
+
+        (define candidates
+          (if (is-lap-swimming? data-frame)
+              swim-graphs
+              (for/list ([g default-graphs] #:when (send g is-valid-for? data-frame))
+                g)))
+
+        ;; NOTE: a #f value for VISIBLE means all graphs are visible.  The '()
+        ;; value means that no graphs are visible.
+        (if visible
+            (for*/list ([tag visible]
+                        [g (in-value (findf (lambda (g) (eq? tag (send g get-tag))) candidates))]
+                        #:when g)
+              g)
+            candidates))
 
       (set! graphs (get-graphs-for-session the-session))
       (let* ((sel (send x-axis-choice get-selection))
