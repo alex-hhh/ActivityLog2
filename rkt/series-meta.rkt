@@ -22,7 +22,6 @@
          racket/format
          pict
          "activity-util.rkt"
-         "al-prefs.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
          "utilities.rkt"

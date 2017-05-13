@@ -21,7 +21,6 @@
          racket/string
          racket/match
          "activity-util.rkt"
-         "al-prefs.rkt"
          "database.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
@@ -29,7 +28,8 @@
          "dbutil.rkt"
          "widgets.rkt"
          "data-frame.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "utilities.rkt")
 
 (provide get-edit-session-tss-dialog)
 (provide maybe-update-session-tss)

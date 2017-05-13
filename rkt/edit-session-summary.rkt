@@ -17,7 +17,6 @@
 (require db
          racket/class
          racket/gui/base
-         "al-prefs.rkt"
          "al-widgets.rkt"
          "dbutil.rkt"
          "edit-session-tss.rkt"

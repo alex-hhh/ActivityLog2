@@ -26,7 +26,7 @@
          racket/sequence
          racket/stream
          "al-log.rkt"
-         "al-prefs.rkt"
+         "utilities.rkt"
          "fmt-util.rkt"
          "map-util.rkt"
          "map-tiles.rkt")
@@ -49,7 +49,7 @@
 
 ;; Maximum zoom level we allow for the map widget.
 (define max-zoom-level
-  (al-get-pref 'activity-log:max-map-zoom-level (lambda () 16)))
+  (get-pref 'activity-log:max-map-zoom-level (lambda () 16)))
 (define min-zoom-level 1)
 
 (define (get-max-zoom-level) max-zoom-level)
@@ -233,7 +233,7 @@
     (define brush
       (send the-brush-list find-or-create-brush "black" 'transparent))
     (define debug?
-      (al-get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
     (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
     (define paths-by-zoom-level (make-hash))
