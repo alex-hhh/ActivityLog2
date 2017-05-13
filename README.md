@@ -37,6 +37,7 @@ see [doc/building.md](doc/building.md) for how to build your own.
 * Shows firmware version and battery voltage for all sensors (e.g HRM or Bike
   Cadence sensor), displays a warning on low battery.
 * Track body weight, and other metrics
+* Estimate [Critical Power](./doc/critical-power.md)
 * Generate workout files for downloading to the Garmin device (requires Racket
   experience)
 
