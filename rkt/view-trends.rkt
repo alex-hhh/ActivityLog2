@@ -32,7 +32,8 @@
  "trends-pmc.rkt"
  "trends-tt.rkt"
  "trends-bavg.rkt"
- "trends-hist.rkt")
+ "trends-hist.rkt"
+ "trends-scatter.rkt")
 
 (provide view-trends%)
 
@@ -47,6 +48,7 @@
 (define-runtime-path trends-tt-file "../img/trends/trends-tt.png")
 (define-runtime-path trends-bavg-file "../img/trends/trends-bavg.png")
 (define-runtime-path trends-hist-file "../img/trends/trends-hist.png")
+(define-runtime-path trends-scatter-file "../img/trends/trends-scatter.png")
 
 ;; A trends chart declaration.  Contains some description and a sample image,
 ;; plus the class to be instantiated for the actual trends chart.
@@ -99,7 +101,14 @@
     "Histogram" 'hist hist-trends-chart%
     trends-hist-file
     "Plot a histogram for the data series from selected activities."
-    )))
+    )
+
+   (tdecl
+    "Scatter Plot" 'scatter scatter-trends-chart%
+    trends-scatter-file
+    "Scatter Plot for two data series from selected activities."
+    )
+   ))
 
 ;; Keep the loaded preview images for the chart types in a cache, we don't
 ;; load them at start up, since they might never be needed, but once loaded we

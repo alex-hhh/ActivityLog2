@@ -36,8 +36,8 @@
  "al-widgets.rkt"
  "series-meta.rkt"
  "metrics.rkt"
- "utilities.rkt"
- "spline-interpolation.rkt")
+ "utilities.rkt")
+
 
 
 ;;....................................................... axis selection ....

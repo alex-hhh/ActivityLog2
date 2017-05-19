@@ -1451,6 +1451,33 @@
       (set! first-time? #f))))
 
 
+;;............................................. Simple Linear Regression ....
+
+;; Simple linear regression parameters Y = alpha + beta * X.  r is the
+;; correlation coefficient.
+(struct slr (alpha beta r))
+
+;; Compute linear regression parameters for the list of samples XS, YS,
+;; optionally weighted by WS.
+;;
+;; https://en.wikipedia.org/wiki/Simple_linear_regression
+(define (make-slr xs ys (ws #f))
+  (let ((x-stats (update-statistics* empty-statistics xs ws))
+        (y-stats (update-statistics* empty-statistics ys ws))
+        (r (correlation xs ys)))
+    (let* ((beta (* r (/ (statistics-stddev y-stats) (statistics-stddev x-stats))))
+           (alpha (- (statistics-mean y-stats) (* beta (statistics-mean x-stats)))))
+      (slr alpha beta r))))
+
+;; Return a function renderer for the linear regression defined by SLR
+(define (make-slr-renderer slr)
+  (function
+   (lambda (x) (+ (slr-alpha slr) (* (slr-beta slr) x)))
+   #:color '(#x2f #x4f #x4f)
+   #:width 2
+   #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
+
+
 ;;............................................................. provides ....
 
 (provide data-series% data-frame%)
@@ -1478,7 +1505,7 @@
 (define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
 
-(provide ts-item/c ts-data/c factor-data/c histogram/c)
+(provide ts-item/c ts-data/c factor-data/c histogram/c (struct-out slr))
 
 (provide/contract
  (make-data-frame-from-query (->* (connection? (or/c string? virtual-statement?))
@@ -1568,5 +1595,7 @@
  (make-scatter-group-renderer (->* (group-data/c #:color any/c)
                                    (#:label (or/c #f string?) #:size positive?)
                                    (treeof renderer2d?)))
- 
- )
+ (make-slr (->* ((listof number?) (listof number?))
+                ((listof number?))
+                slr?))
+ (make-slr-renderer (-> slr? (treeof renderer2d?))))

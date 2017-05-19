@@ -132,10 +132,10 @@
 
     ;; Round the min and max to the actual digits, so we don't cut them out in
     ;; case we have values along the boundary
-    (set! xmin (round xmin x-digits))
-    (set! xmax (round xmax x-digits))
-    (set! ymin (round ymin y-digits))
-    (set! ymax (round ymax y-digits))
+    (set! xmin (and xmin (round xmin x-digits)))
+    (set! xmax (and xmax (round xmax x-digits)))
+    (set! ymin (and ymin (round ymin y-digits)))
+    (set! ymax (and ymax (round ymax y-digits)))
 
     (define xrange (if (and xmin xmax) (- xmax xmin) #f))
     (define yrange (if (and ymin ymax) (- ymax ymin) #f))
@@ -182,34 +182,6 @@
             xnam ynam "elapsed"
             #:filter valid-only))))
 
-;; Simple linear regression parameters Y = alpha + beta * X.  r is the
-;; correlation coefficient.
-(struct slr (alpha beta r))
-
-;; Compute linear regression parameters for DATA (a list of samples).  Note
-;; that we compute this on the time delayed series.
-(define (slr-params data)
-  ;; https://en.wikipedia.org/wiki/Simple_linear_regression
-  (define xs '())
-  (define ys '())
-  (for ([d data])
-    (set! xs (cons (vector-ref d 0) xs))
-    (set! ys (cons (vector-ref d 1) ys)))
-  (let ((x-stats (foldl (lambda (x s) (update-statistics s x)) empty-statistics xs))
-        (y-stats (foldl (lambda (y s) (update-statistics s y)) empty-statistics ys))
-        (r (correlation xs ys)))
-    (let* ((beta (* r (/ (statistics-stddev y-stats) (statistics-stddev x-stats))))
-           (alpha (- (statistics-mean y-stats) (* beta (statistics-mean x-stats)))))
-      (slr alpha beta r))))
-
-;; Return a function renderer for the linear regression defined by SLR
-(define (make-slr-renderer slr)
-  (function
-   (lambda (x) (+ (slr-alpha slr) (* (slr-beta slr) x)))
-   #:color '(#x2f #x4f #x4f)
-   #:width 2
-   #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
-
 ;; HACK: some plot-color methods return 'smart, we should fix this
 (define (get-color axis)
   (let ((color (send axis plot-color)))
@@ -241,6 +213,16 @@
    (u-max b1-right b2-right)
    (u-min b1-low b2-low)
    (u-max b1-high b2-high)))
+
+;; Compute linear regression parameters for DATA (a list of samples).  Note
+;; that we compute this on the time delayed series.
+(define (slr-params data)
+  (define xs '())
+  (define ys '())
+  (for ([d data])
+    (set! xs (cons (vector-ref d 0) xs))
+    (set! ys (cons (vector-ref d 1) ys)))
+  (make-slr xs ys))
 
 ;; Update a scatter plot state and return a new one. STATE is the old state,
 ;; if the data member is valid, data will not be extracted again). DF is the

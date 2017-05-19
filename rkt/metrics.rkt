@@ -23,6 +23,7 @@
          racket/math
          racket/contract
          racket/list
+         math/statistics
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "spline-interpolation.rkt"
          "data-frame.rkt"
@@ -222,7 +223,7 @@
                 (#t
                  (if inverted?
                      (when (<= value2 (* value1 (- 2 pct)))
-                       (hash-update! heat-map duration1 add1 0))    
+                       (hash-update! heat-map duration1 add1 0))
                      (when (>= value2 (* value1 pct))
                        (hash-update! heat-map duration1 add1 0)))
                  (loop (cdr b1) (cdr b2))))))))
@@ -401,6 +402,272 @@
         (merge-histograms final hist)))))
 
 
+;.............................................................. scatter ....
+
+;; Compute the scatter data for SERIES1 and SERIES2 and convert the result to
+;; a JSEXPR (an expression that can be serialized to JSON).  The result is a
+;; list of (x y rank) where rank is the number of points at the X, Y location.
+(define (scatter/jsexpr df series1 series2)
+
+  (define (extract)
+    (if (send df contains? series1 series2)
+        (send df select* series1 series2 #:filter valid-only)
+        #f))
+
+  (define (group data)
+    (let ((meta1 (find-meta-for-series series1))
+          (meta2 (find-meta-for-series series2)))
+      (let ((gdata (group-samples data
+                                  (send meta1 fractional-digits)
+                                  (send meta2 fractional-digits))))
+        gdata)))
+
+  (define (flatten data)
+    (for*/list ((rank (in-hash-keys data))
+                (item (in-list (hash-ref data rank #f))))
+      (match-define (vector x y) item)
+      (list (exact->inexact x) (exact->inexact y) rank)))
+
+  (let ((data (extract)))
+    (if data
+        (let ((groupped (group data)))
+          (let ((flat (flatten groupped)))
+            flat))
+        '())))
+
+(define db-scatter-insert-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into SCATTER_CACHE (session_id, series1, series2, data) values (?, ?, ?, ?)")))
+
+(define db-scatter-update-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update SCATTER_CACHE set data = ? where id = ?")))
+
+(define db-scatter-lookup-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select id from SCATTER_CACHE where session_id = ? and series1 = ? and series2 = ?")))
+
+;; PUT the SCATTER data into the database (SCATTER_CACHE table) for the
+;; sid/series1/series2 key.  If an entry already exists, it is updated.
+(define (db-put-scatter db sid series1 series2 scatter)
+  (let ((data (jsexpr->compressed-string scatter)))
+    (call-with-transaction
+     db
+     (lambda ()
+       (let ((id (query-maybe-value db db-scatter-lookup-stmt sid series1 series2)))
+         (if id
+             (query-exec db db-scatter-update-stmt data id)
+             (query-exec db db-scatter-insert-stmt sid series1 series2 data)))))))
+
+(define db-scatter-fetch-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "select data from SCATTER_CACHE where session_id = ? and series1 = ? and series2 = ?")))
+
+;; Fetch cached SCATTER data from the database.  Return #f if the data does
+;; not exist.
+(define (db-fetch-scatter db sid series1 series2)
+  (let ((data (query-maybe-value db db-scatter-fetch-stmt sid series1 series2)))
+    (and data (compressed-string->jsexpr data))))
+
+;; A cache mapping a sid/series key to the scatter data.  Avoid
+;; re-calculating/retrieving the data for subsequent calls.
+(define scatter-cache (make-hash))
+
+;; Return the histogram data for SID, a session id, adn SERIES, a series name.
+;; It is retrieved from one of the caches (db or in memory) if possible,
+;; otherwise it is computed and also stored in the cache.
+(define (get-scatter sid series1 series2)
+  (or (hash-ref scatter-cache (vector sid series1 series2) #f)
+      ;; Try the database cache
+      (let ((scatter (db-fetch-scatter (current-database) sid series1 series2)))
+        (if scatter
+            (begin
+              (hash-set! scatter-cache (vector sid series1 series2) scatter)
+              scatter)
+            #f))
+      ;; Get the session data frame
+      (let ((df (session-df (current-database) sid)))
+        (let ((scatter (if (send df contains? series1 series2)
+                           (scatter/jsexpr df series1 series2)
+                           '())))
+          (db-put-scatter (current-database) sid series1 series2 scatter)
+          (hash-set! scatter-cache (vector sid series1 series2) scatter)
+          scatter))))
+
+;; Helper function to aggregate scatter plots for different sessions.
+;; SCATTER-HIST contains the already aggregated data and the function will add
+;; the data in SCATTER-JSEXPR to it.  Use `scatter-data->scatter-group' to
+;; obtain the final histogram data.
+;;
+;; FRAC-DIGITS1, FRAC-DIGITS2 represent the relevant fractional digits to keep
+;; for the values in each series.  Values are truncated to their respective
+;; fractional digits, so that they can be grouped together, reducing the
+;; number of actual points.
+(define (add-scatter-data scatter-hist scatter-jsexpr frac-digits1 frac-digits2)
+
+  (define mult1 (expt 10 frac-digits1))
+  (define mult2 (expt 10 frac-digits2))
+
+  (for ([item scatter-jsexpr])
+    (match-define (list x y rank) item)
+    (define key (cons
+                 (exact-round (* x mult1))
+                 (exact-round (* y mult2))))
+    (hash-set! scatter-hist
+               key
+               (+ rank (hash-ref scatter-hist key 0))))
+
+  scatter-hist)
+
+
+;; Convert SCATTER-HIST, which was used to aggregate histograms into a grouped
+;; histogram for general consumption.
+(define (scatter-data->scatter-group scatter-hist frac-digits1 frac-digits2)
+  (define inv1 (expt 10 (- frac-digits1)))
+  (define inv2 (expt 10 (- frac-digits2)))
+
+  (define result (make-hash))
+
+  (for ([key+value (in-hash-pairs scatter-hist)])
+    (match-define (cons s1 s2) (car key+value))
+    (define rank (cdr key+value))
+    (hash-set! result
+               rank
+               (cons (vector (* s1 inv1) (* s2 inv2))
+                     (hash-ref result rank '()))))
+
+  result)
+
+;; Return an aggregate scatter plot for all sessions in SIDS, plotting SERIES1
+;; vs SERIES2.  The plot groups identical pairs in ranks (the number of
+;; identical pairs) and returns a hash mapping the rank to a list of items
+;; with that rank.  The result can be used directly by the plotting function
+;; `make-scatter-group-renderer'
+(define (aggregate-scatter sids series1 series2 #:progress-callback (progress #f))
+  (let* ((nitems (length sids))
+         (meta1 (find-meta-for-series series1))
+         (meta2 (find-meta-for-series series2))
+         (frac-digits1 (send meta1 fractional-digits))
+         (frac-digits2 (send meta2 fractional-digits))
+         (scatter-hist (make-hash)))
+    (for (((sid index) (in-indexed (reorder-sids sids))))
+      (let ((scatter (get-scatter sid series1 series2)))
+        (when progress (progress (exact->inexact (/ index nitems))))
+        (add-scatter-data scatter-hist scatter frac-digits1 frac-digits2)))
+    (scatter-data->scatter-group scatter-hist frac-digits1 frac-digits2)))
+
+;; Calculate the scatter plot bounds for SCATTER-GROUP (a
+;; aggregate-scatter/c).  Returns a vector of (minx maxx miny maxy)
+;; representing the min and max values for the data.
+;;
+;; X-DIGITS and Y-DIGITS represent the precision of the values in the scatter
+;; group, it is used to align the bounds so that values at the edge are not
+;; cut out.
+(define (aggregate-scatter-bounds scatter-group x-digits y-digits)
+  ;; TODO: there is a similar function in inspect-scatter.rkt, but that works
+  ;; on a data series, instead of a scatter group hash.  We could refactor
+  ;; them.
+
+  (define (good-or-false num)
+    (and (number? num) (not (nan? num)) (not (infinite? num)) num))
+
+  (define (round n digits)
+    (* (exact-round (* n (expt 10 digits))) (expt 10 (- digits))))
+
+  (let ((xmin #f)
+        (xmax #f)
+        (ymin #f)
+        (ymax #f))
+    (for* ([value (in-hash-values scatter-group)]
+           [item (in-list value)])
+      (match-define (vector x y) item)
+      (set! xmin (if xmin (min xmin x) x))
+      (set! xmax (if xmax (max xmax x) x))
+      (set! ymin (if ymin (min ymin y) y))
+      (set! ymax (if ymax (max ymax y) y)))
+
+    ;; Round the min and max to the actual digits, so we don't cut them out in
+    ;; case we have values along the boundary
+    (set! xmin (and xmin (round xmin x-digits)))
+    (set! xmax (and xmax (round xmax x-digits)))
+    (set! ymin (and ymin (round ymin y-digits)))
+    (set! ymax (and ymax (round ymax y-digits)))
+
+    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+
+    (when xrange
+      (when xmin (set! xmin (- xmin (* xrange 0.05))))
+      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+    (when yrange
+      (when ymin (set! ymin (- ymin (* yrange 0.05))))
+      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+    (vector
+       (good-or-false xmin)
+       (good-or-false xmax)
+       (good-or-false ymin)
+       (good-or-false ymax))))
+
+;; Return a set of bounds for SCATTER-GROUP (a aggregate-scatter/c), such that
+;; values outside Q .. (1 - Q) are left out side the bounds.  For example, if
+;; q is 0.01, the bounds will contain values in the 1 to 99 quantile.
+;;
+;; Returns a vector of (minx maxx miny maxy) representing the min and max
+;; values for the data.
+(define (aggregate-scatter-bounds/quantile scatter-group q)
+  ;; TODO: there is a similar function in inspect-scatter.rkt, but that works
+  ;; on a data series, instead of a scatter group hash.  We could refactor
+  ;; them.
+  (if (= (hash-count scatter-group) 0)
+      (vector #f #f #f #f)
+      (let ((xs '())
+            (ys '())
+            (ws '()))
+        (for* ([key+value (in-hash-pairs scatter-group)]
+               [item (in-list (cdr key+value))])
+          (match-define (vector x y) item)
+          (set! xs (cons x xs))
+          (set! ws (cons (car key+value) ws))
+          (set! ys (cons y ys)))
+        (let* ((xmin (quantile q < xs ws))
+               (xmax (quantile (- 1 q) < xs ws))
+               (ymin (quantile q < ys ws))
+               (ymax (quantile (- 1 q) < ys ws))
+               (xrange (- xmax xmin))
+               (yrange (- ymax ymin)))
+          (set! xmin (- xmin (* xrange 0.05)))
+          (set! xmax (+ xmax (* xrange 0.05)))
+          (set! ymin (- ymin (* yrange 0.05)))
+          (set! ymax (+ ymax (* yrange 0.05)))
+          (vector xmin xmax ymin ymax)))))
+
+;; Calculate simple linear regression parameters for SCATTER-GROUP (a
+;; aggregate-scatter/c).  We just expand the SCATTER-GROUP and call MAKE-SLR.
+(define (aggregate-scatter-slr scatter-group)
+  ;; TODO: when computing scatter plots, we need both the bounds and SLR data.
+  ;; We currently expand the SCATTER-GROUP both here and in
+  ;; 'aggregate-scatter-bounds/quantile' to further process it, resulting in
+  ;; duplicate work and memory use.  Perhaps we can optimize this, especially
+  ;; since scatter plots already take a significant time to compute and
+  ;; render.
+  (if (= (hash-count scatter-group) 0)
+      #f
+      (let ((xs '())
+            (ys '())
+            (ws '()))
+        (for* ([key+value (in-hash-pairs scatter-group)]
+               [item (in-list (cdr key+value))])
+          (match-define (vector x y) item)
+          (set! xs (cons x xs))
+          (set! ws (cons (car key+value) ws))
+          (set! ys (cons y ys)))
+        (make-slr xs ys ws))))
+
+
 ;;................................................................. rest ....
 
 ;; Fetch session IDs filtering by sport/sub-sport and within a date range.
@@ -437,7 +704,8 @@ where ~a
 ;; and a new one is opened.
 (define (clear-metrics-cache)
   (set! bavg-cache (make-hash))
-  (set! hist-cache (make-hash)))
+  (set! hist-cache (make-hash))
+  (set! scatter-cache (make-hash)))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt
@@ -449,6 +717,14 @@ where ~a
 
 (define aggregate-hist-item/c (list/c real? real?)) ; key, rank
 (define aggregate-hist/c (listof aggregate-hist-item/c))
+
+(define aggregate-scatter/c (hash/c exact-positive-integer?
+                                    (listof (vector/c number? number?))))
+
+(define bounds/c (vector/c (or/c #f number?)
+                           (or/c #f number?)
+                           (or/c #f number?)
+                           (or/c #f number?)))
 
 (provide/contract
  (fetch-candidate-sessions (-> connection?
@@ -480,5 +756,10 @@ where ~a
                          #:bucket-width (and/c real? positive?)
                          #:as-percentage? boolean?)
                         histogram/c))
- )
+ (aggregate-scatter (->* ((listof exact-nonnegative-integer?) string? string?)
+                         (#:progress-callback (or/c #f (-> real? any/c)))
+                         aggregate-scatter/c))
+ (aggregate-scatter-bounds/quantile (-> aggregate-scatter/c positive? bounds/c))
+ (aggregate-scatter-bounds (-> aggregate-scatter/c number? number? bounds/c))
+ (aggregate-scatter-slr (-> aggregate-scatter/c slr?)))
 

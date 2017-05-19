@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(21);
+insert into SCHEMA_VERSION(version) values(22);
 
 
 --........................................................ Enumerations ....
@@ -735,6 +735,18 @@ create table HIST_CACHE (
   );
 
 create unique index IX0_HIST_CACHE on HIST_CACHE(session_id, series);
+
+-- Store scatter plot data for sessions and series.  See notes for BAVG_CACHE
+create table SCATTER_CACHE (
+  id integer not null primary key autoincrement,
+  session_id integer not null,
+  series1 text not null,
+  series2 text not null,
+  data blob not null,
+  foreign key(session_id) references A_SESSION(id)
+  );
+
+create unique index IX0_SCATTER_CACHE on SCATTER_CACHE(session_id, series1, series2);
 
 
 
