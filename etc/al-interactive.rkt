@@ -23,7 +23,7 @@
          racket/match
          racket/class
          racket/contract
-         "../rkt/al-prefs.rkt"
+         "../rkt/utilities.rkt"
          "../rkt/data-frame.rkt"
          "../rkt/session-df.rkt"
          "../rkt/dbapp.rkt"
@@ -50,7 +50,7 @@
 
 ;; Open the default database
 (define *db*
-  (let ((db-file (al-get-pref 'activity-log:database-file (lambda () #f))))
+  (let ((db-file (get-pref 'activity-log:database-file (lambda () #f))))
     (unless db-file (error "No default database, open one in the ActivityLog2 application."))
     (begin0
         (open-activity-log db-file)
