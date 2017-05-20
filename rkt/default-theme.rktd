@@ -55,6 +55,7 @@
   (rppps #x64 #x95 #xed)
   (rpppe #x64 #x95 #xed)
   (rpppa #x64 #x95 #xed)
+  (wbal #x2f #x4f #x4f)
   (swolf 38 127 0)
   (strokes 127 0 0)
   (stride 127 0 0)

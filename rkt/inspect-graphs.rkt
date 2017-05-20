@@ -923,6 +923,23 @@
     ))
 
 
+;.......................................................... wbal-graph% ....
+
+(define wbal-graph%
+  (class graph-view%
+    (init parent)
+    (super-new [parent parent]
+               [tag 'activity-log:wbal-graph]
+               [text "W' Bal "])
+
+    (send this set-y-axis axis-wbal)
+
+    (define/override (is-valid-for? data-frame)
+      (send data-frame contains? "wbal"))
+
+    ))
+
+
 ;;..................................................... power-graph% ....
 
 (define power-graph%
@@ -1665,6 +1682,7 @@
        (new vosc-vratio-graph% [parent graphs-panel])
        (new gct-graph% [parent graphs-panel])
        (new power-graph% [parent graphs-panel])
+       (new wbal-graph% [parent graphs-panel])
        (new lrbal-graph% [parent graphs-panel])
        (new teff-graph% [parent graphs-panel])
        (new psmth-graph% [parent graphs-panel])

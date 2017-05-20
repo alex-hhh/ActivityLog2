@@ -45,7 +45,12 @@
  [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-zones (->* (sport-id? sport-id? zone-metric?) ((or/c positive-number? #f)) sport-zones?)]
- [get-session-sport-zones (-> positive-number? zone-metric? sport-zones?)]
+ [get-session-sport-zones (-> positive-number? zone-metric? (or/c #f sport-zones?))]
+ [get-session-critical-power (-> positive-number?
+                                 (or/c #f (list/c positive-number? ; CP
+                                                  positive-number? ; WPRIME
+                                                  (or/c #f positive-number?) ; TAU
+                                                  )))]
  [put-sport-zones (-> sport-id? sport-id? zone-metric? sport-zones? any/c)]
  [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
  [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
@@ -294,6 +299,22 @@ select max(zone_id) from V_SPORT_ZONE
                "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
                zid)
               #f)))
+      #f))
+
+(define scp-query
+  "select CP.cp, CP.wprime, CP.tau
+     from V_CRITICAL_POWER_FOR_SESSION VCPFS, CRITICAL_POWER CP
+    where VCPFS.session_id = ? and VCPFS.cp_id = CP.id")
+
+(define (get-session-critical-power session-id)
+  (if (current-database)
+      (let ((r (query-maybe-row (current-database) scp-query session-id)))
+        (if r
+            (let ((cp (sql-column-ref r 0))
+                  (wprime (sql-column-ref r 1))
+                  (tau (sql-column-ref r 2)))
+              (list cp wprime tau))
+            #f))
       #f))
 
 (define (put-sport-zones sport sub-sport zone-metric zones)

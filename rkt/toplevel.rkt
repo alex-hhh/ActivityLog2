@@ -30,6 +30,7 @@
          "edit-preferences.rkt"
          "edit-seasons.rkt"
          "edit-sport-zones.rkt"
+         "edit-cp.rkt"
          "elevation-correction.rkt"
          "export-fit-settings.rkt"
          "icon-resources.rkt"
@@ -313,7 +314,16 @@
           (lambda (m e)
             (send (get-sport-zone-editor) show-dialog
                   (send toplevel get-frame)))])
-
+    (new menu-item%
+         [parent menu] [label "Edit Critical Power..."]
+         [callback
+          (lambda (m e)
+            (when (send (get-cp-editor) show-dialog
+                        (send toplevel get-frame)
+                        (send toplevel get-database))
+              ;; If the CP data has changed, clear the DF cache, so we create
+              ;; new W'Bal series
+              (clear-session-df-cache)))])
     (new menu-item%
          [parent menu] [label "Export Settings to Device..."]
          [callback
@@ -322,6 +332,7 @@
                   (send toplevel get-frame)
                   (send toplevel get-database)))])
     menu))
+
 
 ;;................................................... make-activtiy-menu ....
 

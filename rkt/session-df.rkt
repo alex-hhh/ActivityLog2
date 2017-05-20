@@ -156,6 +156,13 @@
      (if is-lap-swim? fetch-trackpoins/swim fetch-trackpoins)
      session-id))
 
+  (define cp-data (get-session-critical-power session-id))
+  (when cp-data
+    (match-define (list cp wprime tau) cp-data)
+    (send df put-property 'critical-power cp)
+    (send df put-property 'wprime wprime)
+    (send df put-property 'tau tau))
+
   (send df put-property 'is-lap-swim? is-lap-swim?)
   (send df put-property 'sport sport)
   (send df put-property 'session-id session-id)
@@ -215,6 +222,7 @@
   (add-rppa-series df)
   (add-rpppa-series df)
   (fixup-lrbal-series df)
+
   (when is-lap-swim?
     (add-swolf-series df))
 
@@ -223,6 +231,12 @@
            (send df set-default-weight-series "timer"))
           ((send df contains? "elapsed")
            (send df set-default-weight-series "elapsed"))))
+
+  (when cp-data
+    (cond ((eqv? (vector-ref sport 0) 1) ; running
+           (add-wbald-series df "spd"))
+          ((eqv? (vector-ref sport 0) 2) ; biking
+           (add-wbald-series df "pwr"))))
 
   df)
 
@@ -767,7 +781,102 @@
             #:when (let ((val (vector-ref data index)))
                      (and (number? val) (or (zero? val) (zero? (- 100 val))))))
         (vector-set! data index #f)))))
-    
+
+;; Add the W'Bal series to the data frame using the differential method by
+;; Andy Froncioni and Dave Clarke.  This is based off the GoldenCheetah
+;; implementation, I could not find any reference to this formula on the web.
+;;
+;; BASE-SERIES is either "pwr" or "spd"
+(define (add-wbald-series df base-series)
+
+  (define sid (send df get-property 'session-id))
+  (define cp (send df get-property 'critical-power))
+  (define wprime (send df get-property 'wprime))
+  (define tau (send df get-property 'tau))
+
+  (define tau-rate
+    (if tau (/ (/ wprime cp) tau) 1.0))
+
+  (when (and (send df contains? "elapsed" base-series) cp wprime)
+
+    (define wbal wprime)
+  
+    (send df add-derived-series/lazy
+          "wbal"
+          (list "elapsed" base-series)
+          (lambda (prev current)
+            (when (and prev current)
+              (match-define (vector t1 v1) prev)
+              (match-define (vector t2 v2) current)
+              (when (and t1 v1 t2 v2)
+                (let ((dt (- t2 t1))
+                      (v (* 0.5 (+ v1 v2))))
+                  (if (< v cp)
+                      (let ((rate (/ (- wprime wbal) wprime))
+                            (delta (- cp v)))
+                        (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                      (let ((delta (- v cp)))
+                        (set! wbal (- wbal (* delta dt))))))))
+            wbal))))
+
+;; Add the W'Bal series to the data frame using the integral method by
+;; Dr. Phil Skiba.  This is based off the GoldenCheetah implementation, see
+;; also
+;;
+;; http://markliversedge.blogspot.com.au/2014/07/wbal-its-implementation-and-optimisation.html
+;;
+;; and
+;;
+;; http://markliversedge.blogspot.com.au/2014/10/wbal-optimisation-by-mathematician.html
+;;
+;; BASE-SERIES is either "pwr" or "spd"
+(define (add-wbali-series df base-series)
+
+  (define sid (send df get-property 'session-id))
+  (define cp (send df get-property 'critical-power))
+  (define wprime (send df get-property 'wprime))
+
+  (when (and (send df contains? "elapsed" base-series) cp wprime)
+
+    (define sum-count
+      (send df fold
+            (list "elapsed" base-series)
+            '(0 0)
+            (lambda (accum prev current)
+              (if (and prev current)
+                  (match-let (((vector t1 v1) prev)
+                              ((vector t2 v2) current))
+                    (if (and t1 v1 t2 v2)
+                        (let ((dt (- t2 t1))
+                              (v (* 0.5 (+ v1 v2))))
+                          (if (< v cp)
+                              (match-let (((list sum count) accum))
+                                (list (+ sum v) (+ count dt)))
+                              accum))
+                          accum))
+                  accum))))
+  
+    (define avg-below-cp (/ (first sum-count) (second sum-count)))
+    (define tau
+      (+ 316.0 (* 546 (exp (- (* 1.0 (- cp avg-below-cp)))))))
+    (define integral 0)
+    (define wbal wprime)
+  
+    (send df add-derived-series/lazy
+          "wbali"
+          (list "elapsed" base-series)
+          (lambda (prev current)
+            (when (and prev current)
+              (match-let (((vector t1 v1) prev)
+                          ((vector t2 v2) current))
+                (when (and t1 v1 t2 v2)
+                  (define dt (- t2 t1))
+                  (define v (* 0.5 (+ v1 v2)))
+                  (when (> v cp)
+                    (set! integral (+ integral (* (exp (/ t2 tau)) (* (- v cp) dt)))))
+                  (set! wbal (- wprime (* integral (exp (- (/ t2 tau)))))))))
+            wbal))))
+
 
 ;;................................................................ other ....
 
@@ -798,6 +907,7 @@
         (should-filter? (send y-axis should-filter?))
         (base-filter-width (send x-axis filter-width))
         (stop-detection? (send x-axis has-stop-detection?)))
+
     (define data
       (send data-frame select* xseries yseries "timestamp"
             #:filter (lambda (v)

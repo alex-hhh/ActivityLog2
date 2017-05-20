@@ -1,4 +1,4 @@
-# Session data-frames% objects
+# Session data-frame% objects
 
 Session data is loaded into a `data-frame%` object (defined in
 "data-frame.rkt") by `session-df`.  Data frames contain track data for a
@@ -24,6 +24,18 @@ while other parts of the application can attach additional properties:
   happen at constant intervals (e.g. 1 second), so the "weight" can be
   different for each data point when calculating an average.  This can be set
   to #f if no weighting is to be done.
+* **critical-power** the critical power value used for this session.  If this
+  is a bike session, it is a power value in watts, if it is a run session, the
+  value is a speed in meters/second
+* **wprime** is the value for the W' parameter in the critical power
+  equation. If this is a bike session, it is a "work" value in joules, if it
+  is a run session, the value is a distance in meters.
+* **tau** is the W' reconstitution time constant.  It represents the time it
+  takes for 63% of W' to be recovered when the athlete stops exercising
+  entirely.
+  
+> For more information about the critical-power, wprime and tau properties,
+> see the implementation notes on [Critical Power](./critical-power.md)
 
 Properties can be accessed using the `get-property` method.  For example, this
 will return the session id for the session data:
@@ -132,6 +144,14 @@ method:
   degrees, where 0 is the top, 180 is the bottom of the pedal stroke.
 * **lpppa**, **rpppa** -- is the peak power angle for the left and right pedal
   respectively.  The angle is in degrees.
+
+### W' Balance series
+
+* **wbal** is the W' Balance, calculated using the differential method based
+  on a method by Andy Froncioni and Dave Clarke
+  
+> For more information about the "wbal" series, see the implementation notes
+> on [Critical Power](./critical-power.md)
 
 ### Swim Specific Series
 

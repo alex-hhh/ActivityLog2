@@ -685,6 +685,22 @@
          )))
 (provide axis-torque)
 
+(define axis-wbal
+  (new (class series-metadata% (init) (super-new)
+         (define/override (axis-label) "W' Bal")
+         (define/override (should-filter?) #f)
+         (define/override (series-name) "wbal")
+         )))
+(provide axis-wbal)
+
+(define axis-wbali
+  (new (class series-metadata% (init) (super-new)
+         (define/override (axis-label) "W' Bal (integral)")
+         (define/override (should-filter?) #f)
+         (define/override (series-name) "wbali")
+         )))
+(provide axis-wbali)
+
 (define axis-power-zone
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Power (zone)")
