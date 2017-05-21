@@ -1,72 +1,27 @@
-language: c                             # -*- mode: conf -*-
-
-# To use Travis CI's newer container infrastructure, use the following
-# line. (Also be sure RACKET_DIR is set to somewhere like ~/racket
-# that doesn't require sudo.)
+language: c
 sudo: false
-
 env:
   global:
-    # Supply a global RACKET_DIR environment variable. This is where
-    # Racket will be installed. A good idea is to use ~/racket because
-    # that doesn't require sudo to install and is therefore compatible
-    # with Travis CI's newer container infrastructure.
-    - RACKET_DIR=~/racket
+  - RACKET_DIR=~/racket
+  - secure: 3vqwMDeZJu/3MZCE5jyg2m6c7FtnGq236/dtG0ka7PR4ep4UEyqvzTyFw2G72iaZucTdhY0qq2WqgMTh54+vp+TW7dNCF9E5JCzcmKRPhn00ElpsghocPvniBlBW8KeBCqtbJGKaBTJrNtsAV48DlmZsNGTT6hvJliLPVeMB+mab7+0sStB+Bn2tjpStkux+lH6u0WfPXVg7BmPAAaUNjjjcFqdGVDv58fx+iAjy81n/IaAgCMfjQN9B7weSjTWiN8RzGthGusx0vCPupH4bzHoHzu6J/Vk2ExCT1y1KWV8faZR7PGTGmvWExDlp0s+fPOMocyop1uIIsJYqaGjZWjg1lSlXuzPB/lAxvmaqSYkRQSFuGQ4KUxvQRRNxt0OS96Eqho2dev6auCrE5BJ7HLT9hEAZ9AMrNpEA2gQ51a27lTMrYfrSiYl1W4L172Fd9eJL08sVeu27g3VNH/4wPUqbiQr76lIMRsjwcqPUwFL11UsA78eTzkj8B/1rW5YN4uTvC9ICVtgQYCJKlPbPv/CC22B/m6Vq5spYbtXgWV6mvIYO/oAx8114rK5eNtHcv5zBo6VM8xo5/x1CedIOwkHmec0VQ8PSVi8UhP9oxlhYBnTXUb/Jc4FegrU2goBQ21KeIExOx7Z4kGgvi7tP0lTwABF+0AzXIEvb9S4AAfY=
   matrix:
-    # Supply at least one RACKET_VERSION environment variable. This is
-    # used by the install-racket.sh script (run at before_install,
-    # below) to select the version of Racket to download and install.
-    #
-    # Supply more than one RACKET_VERSION (as in the example below) to
-    # create a Travis-CI build matrix to test against multiple Racket
-    # versions.
-    #
-    # The RELEASE snapshot is only available during the release process.
-    - RACKET_VERSION=6.8
-
-# You may want to test against certain versions of Racket, without
-# having them count against the overall success/failure.
+  - RACKET_VERSION=6.8
 matrix:
   allow_failures:
-    - env: RACKET_VERSION=HEAD
-    - env: RACKET_VERSION=RELEASE
-  # Fast finish: Overall build result is determined as soon as any of
-  # its rows have failed, or, all of its rows that aren't allowed to
-  # fail have succeeded.
+  - env: RACKET_VERSION=HEAD
+  - env: RACKET_VERSION=RELEASE
   fast_finish: true
-
-
 before_install:
-  - git clone https://github.com/greghendershott/travis-racket.git
-  - cat travis-racket/install-racket.sh | bash # pipe to bash not sh!
-  - export PATH="${RACKET_DIR}/bin:${PATH}" #install-racket.sh can't set for us
-
-install:
-
-# https://docs.travis-ci.com/user/gui-and-headless-browsers/
-# Unit tests need the GUI to be present (they don't actually use it)
+- git clone https://github.com/greghendershott/travis-racket.git
+- cat travis-racket/install-racket.sh | bash
+- export PATH="${RACKET_DIR}/bin:${PATH}"
+install: 
 before_script:
-  - "export DISPLAY=:99.0"
-  - "sh -e /etc/init.d/xvfb start"
-  # Don't need to sleep here, as we only need xvfb for the tests, and it takes
-  # more than 3 seconds to run the build anyway
-  
-  # - sleep 3 # give xvfb some time to start
-  
-# Here supply steps such as raco make, raco test, etc.
-#
-# Tip: Use `raco pkg install --deps search-auto <pkg>` to install any
-# required packages without getting stuck on a confirmation prompt.
+- export DISPLAY=:99.0
+- sh -e /etc/init.d/xvfb start
+- sh ./test/download-test-db.sh
 script:
-  - raco make run.rkt rkt/main.rkt
-  - raco test test/db-test.rkt test/df-test.rkt
-
-# NOTE: If your repo is a Racket package with an info.rkt that
-# includes some `deps`, the following is more elegant:
-#
-# script:
-# - cd ..   # Travis did a cd into the dir. Back up, for the next:
-# - raco pkg install --deps search-auto --link <pkg>
-# - raco test -x -p <pkg>
-
-after_script:
+- raco make run.rkt rkt/main.rkt
+- raco test test/db-test.rkt test/df-test.rkt
+- raco test test/db-upgrade-test.rkt
+after_script: 
