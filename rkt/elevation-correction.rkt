@@ -45,6 +45,7 @@
 (provide fixup-elevation-for-session)
 (provide fixup-elevation-for-all-sessions)
 (provide interactive-fixup-elevation)
+(provide clear-corrected-elevation-for-session)
 
 (define tile-level 18)
 (define tile-mult (expt 2 tile-level))
@@ -567,3 +568,41 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
           (fixup-elevation-for-all-sessions database m))))
 
   (send progress-dialog run parent-window task))
+
+;; Remove the corrected elevation information for SESSION-ID.  Trackpoint and
+;; section summary altitudes are removed.  This will cause all grade and
+;; summary information displays to use the recorded elevation.
+(define (clear-corrected-elevation-for-session database session-id)
+  (call-with-transaction
+   database
+   (lambda ()
+     (query-exec database "
+update A_TRACKPOINT
+   set corrected_altitude = null
+ where length_id in (select L.id
+                       from A_LENGTH L, A_LAP P
+                      where L.lap_id = P.id
+                        and P.session_id = ?)" session-id)
+     (query-exec database "
+update SECTION_SUMMARY
+   set total_corrected_ascent = null,
+       total_corrected_descent = null
+ where id in (select P.summary_id
+                from A_LAP P
+               where P.session_id = ?)" session-id)
+     (query-exec database "
+update SECTION_SUMMARY
+   set total_corrected_ascent = null,
+       total_corrected_descent = null
+ where id in (select L.summary_id
+                from A_LAP P, A_LENGTH L
+               where L.lap_id = P.id
+                 and P.session_id = ?)" session-id)
+     (query-exec database "
+update SECTION_SUMMARY
+   set total_corrected_ascent = null,
+       total_corrected_descent = null
+ where id in (select S.summary_id
+                from A_SESSION S
+               where S.id = ?)" session-id))))
+

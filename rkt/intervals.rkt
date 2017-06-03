@@ -167,8 +167,14 @@
 ;; Construct ascent and descent lap information from the data frame DF between
 ;; START-INDEX and END-INDEX
 (define (make-ascent-descent df start-index end-index)
-  (define ad (total-ascent-descent df start-index end-index))
-  (define cad (total-cascent-cdescent df start-index end-index))
+  (define ad
+    (if (send df contains? "alt")
+        (total-ascent-descent df start-index end-index)
+        (cons #f #f)))
+  (define cad
+    (if (send df contains? "calt")
+        (total-cascent-cdescent df start-index end-index)
+        (cons #f #f)))
   (list
    (cons 'total-ascent (car ad))
    (cons 'total-descent (cdr ad))
@@ -227,7 +233,7 @@
              (statistics-max stats)))))
       (cons tag val)))
 
-  (when (send df contains? "alt" "calt")
+  (when (send df contains/any? "alt" "calt")
     (set! base (append base (make-ascent-descent df start-index end-index))))
   (when (send df contains? "timer" "cad")
     (set! base (append base (make-total-cycles df start-index end-index))))
@@ -349,11 +355,16 @@
       (let ((idx (min last-index (sub1 (send df get-row-count)))))
         (send df ref idx "dst")))
     (match-define (cons ascent descent)
-      (total-cascent-cdescent df (climb-start-idx c) last-index))
+      (cond ((send df contains? "calt")
+             (total-cascent-cdescent df (climb-start-idx c) last-index))
+            ((send df contains? "alt")
+             (total-ascent-descent df (climb-start-idx c) last-index))
+            (#t
+             (cons 0 0))))
     (struct-copy climb c
                  (end-idx last-index)
                  (end-dst last-dst)
-                 (hdiff (if descents? descent ascent))
+                 (hdiff (if descents? (- descent ascent) (- ascent descent)))
                  (hard-end? hard-end?)))
 
   (define climbs '())

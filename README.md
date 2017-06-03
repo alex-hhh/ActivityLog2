@@ -25,7 +25,7 @@ see [doc/building.md](doc/building.md) for how to build your own.
 * Show data charts, histograms, scatter plots, best-average plots
 * Show GPS track on a map, with several map tile styles
 * Show hill climbs and best sections (e.g. best 5k, best 20 min power)
-* Elevation correction
+* Elevation correction (see [Notes](./doc/elevation-correction.md))
 * Show weather information for sessions with GPS data
 * Fix recording errors in swim activities (merge or split lengths, fix stroke
   type)

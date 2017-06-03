@@ -93,7 +93,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (is-lap-swim? (and target (equal? (send target get-selected-sport) '(5 . 17)))))
         (send inspect-menu-item enable (and have-sid? the-inspect-callback))
         (send edit-menu-item enable have-sid?)
-        (send fixup-elevation-menu-item enable have-guid?)
+        (send fixup-elevation-menu-item enable have-sid?)
+        (send clear-elevation-menu-item enable have-sid?)
         (send delete-menu-item enable
               (and have-sid? (send target can-delete? sid)))
         (send copy-guid-menu-item enable have-guid?)
@@ -131,8 +132,23 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (clear-session-df-cache sid) ; remove this session from the cache
-        (interactive-fixup-elevation db sid toplevel)))
+        (interactive-fixup-elevation db sid toplevel)
+        (send target after-update sid)))
 
+    (define (on-clear-corrected-elevation m e)
+      (let ((sid (send target get-selected-sid))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (let ((mresult (message-box/custom
+                        "Confirm clear corrected elevation"
+                        (format "Really clear the corrected elevation for \"~a\"?~%You can re-create this data again using Fixup Elevation."
+                                  (get-session-headline db sid))
+                           #f "Clear" "Cancel" toplevel '(caution default=3))))
+          (when (equal? mresult 2)
+            (clear-session-df-cache sid) ; remove this session from the cache
+            (clear-corrected-elevation-for-session db sid)
+            (send target after-update sid)))))
+              
     (define (on-edit-weather m e)
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
@@ -239,6 +255,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Edit ..." on-edit #\E))
     (define fixup-elevation-menu-item
       (make-menu-item "Fixup elevation ..." on-fixup-elevation))
+    (define clear-elevation-menu-item
+      (make-menu-item "Clear corrected elevation ..." on-clear-corrected-elevation))
     (define edit-tss-menu-item
       (make-menu-item "Edit effort ..." on-edit-tss))
     (define edit-weather-menu-item

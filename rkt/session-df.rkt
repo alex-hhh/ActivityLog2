@@ -466,24 +466,28 @@
   ;; Minimum distance between which we can calculate grade.  For distances
   ;; less than this, it would result in wildly inaccurate grade, so we don't
   ;; calculate it.
-  (define minimum-distance 10.0)
+  (define minimum-distance 50.0)
 
   ;; Maximum distance between points for which we assume a monotonic grade.
   ;; For distances less than this (and greater than MINIMUM-DISTANCE) we
   ;; calculate a constant grade between the start and end point.
-  (define maximum-monotonic 50.0)
+  (define maximum-monotonic 100.0)
 
   ;; Minimum altidute difference in a range for which we split the range.  If
   ;; the altidute difference in a range is less than this, we consider the
   ;; range monotonic.
   (define minimum-altitude 3.0)
 
-  ;; The altitude series data
+  ;; The altitude series data, we make some modifications to it below, so we
+  ;; make a copy.  Technically, we don't always modify it, so we could save
+  ;; the 'vector-copy' call in some cases.  This is left for a future
+  ;; improvement.
   (define alt
-    (let ((series (cond ((send df contains? "calt") "calt")
-                        ((send df contains? "alt") "alt")
-                        (#t #f))))
-      (send df select series)))
+    (vector-copy
+     (let ((series (cond ((send df contains? "calt") "calt")
+                         ((send df contains? "alt") "alt")
+                         (#t #f))))
+       (send df select series))))
 
   ;; Fixup #f's in the alt series, this works OK for one-off missing values,
   ;; if whole ranges are missing, this will not produce nice results.
@@ -507,6 +511,29 @@
                 (when (and plat plon lat lon)
                   (set! adst (+ adst (map-distance/degrees plat plon lat lon)))))
               adst))))
+
+  ;; When entering a longer tunnel and loosing the GPS signal, the Garmin
+  ;; Device will continue to log the last known GPS location, but will
+  ;; interpolate the altitude (and distance data).  When it exits the tunnel
+  ;; and the GPS signal is re-acquired, it will adjust the distance data
+  ;; (usually with a big distance jump which is quite off)
+  ;;
+  ;; Since we recompute the distance form the GPS data, this behavior will
+  ;; result in a lot of points with the same distance but the altitude
+  ;; changing, resulting in large and unrealistic grade values.
+  ;;
+  ;; For now, we make all altitude values match the first one.  This will make
+  ;; the grade inside the tunnel effectively 0, with possibly a big grade
+  ;; adjustment at the exit of the tunnel.
+  ;;
+  ;; NOTE: On a device with a barometric altimeter, the altitude data may well
+  ;; be accurate, but since we cannot calculate the distance correctly, we
+  ;; cannot really use it for grade calculations.
+  (for ((idx (in-range 1 (vector-length dst))))
+    (define delta (- (vector-ref dst idx)
+                     (vector-ref dst (sub1 idx))))
+    (when (< delta 0.1)
+      (vector-set! alt idx (vector-ref alt (sub1 idx)))))
 
   ;; The grade series we will fill in
   (define grade (make-vector (vector-length alt) #f))
