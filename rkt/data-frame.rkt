@@ -977,11 +977,13 @@
         (* 20 60) (* 30 60) (* 45 60) (* 60 60)
         (* 90 60) (* 120 60) (* 180 60)))
 
-(define (generate-best-avg-durations start limit [growth-factor 1.05])
+(define (generate-best-avg-durations start limit [growth-factor 1.05] [max-growth 300])
   (let loop ((series (list start)) (current start))
     (let ((nval (exact-round (* current growth-factor))))
       (when (< nval (+ current 5))
         (set! nval (+ 20 current)))     ; ensure min growth
+      (when (> nval (+ current max-growth))
+        (set! nval (+ current max-growth)))
       (if (< nval limit)
           (loop (cons nval series) nval)
           (reverse series)))))
