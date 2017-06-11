@@ -168,7 +168,7 @@
     
     (define (on-add-season)
       (let ((sn (send one-season-editor show-dialog 
-                      (send this get-toplevel-window))))
+                      (send this get-top-level-window))))
         (when sn
           (send season-lb add-row 
                 (vector #f (first sn) (second sn) (third sn) (fourth sn))))))
@@ -190,7 +190,7 @@
         (when index
           (let* ((data (send season-lb get-data-for-row index))
                  (sn (send one-season-editor show-dialog
-                           (send this get-toplevel-window)
+                           (send this get-top-level-window)
                            (season-name data)
                            (season-description data)
                            (season-start-date data)

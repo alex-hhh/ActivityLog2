@@ -126,7 +126,7 @@
     
     (define (on-add-label)
       (let ((new-label (send one-label-editor show-dialog 
-                             (send this get-toplevel-window) "" "")))
+                             (send this get-top-level-window) "" "")))
         (when new-label
           (send label-lb add-row 
                 (vector #f (car new-label) 0 (cdr new-label))))))
@@ -139,7 +139,7 @@
                 (message-box
                  "Cannot delete" 
                  "Cowardly refusing to delete a label that is attached to sessions."
-                 (send this get-toplevel-window)
+                 (send this get-top-level-window)
                  '(ok stop))
                 (begin
                   ;; Store the id of the label to delete, it will be deleted
@@ -153,7 +153,7 @@
         (when index
           (let ((data (send label-lb get-data-for-row index)))
             (let ((new-label (send one-label-editor show-dialog
-                                   (send this get-toplevel-window)
+                                   (send this get-top-level-window)
                                    (label-name data)
                                    (label-description data))))
               (when new-label

@@ -332,7 +332,7 @@
     (define (on-add-cp)
       (define sport (get-selected-sport))
       (define data (send cp-editor show-dialog
-                         (send this get-toplevel-window)
+                         (send this get-top-level-window)
                          sport #f #f #f #f))
       (when data
         (match-define (list valid-from cp wprime tau) data)
@@ -350,7 +350,7 @@
           (let ((sport (get-selected-sport))
                 (data (send cplb get-data-for-row index)))
             (let ((ndata (send cp-editor show-dialog
-                               (send this get-toplevel-window)
+                               (send this get-top-level-window)
                                sport
                                (cp-valid-from data)
                                (cp-cp data)

@@ -1676,7 +1676,7 @@
     (define/public (get-client-pane)
       client-pane)
 
-    (define/public (get-toplevel-window)
+    (define/public (get-top-level-window)
       toplevel-window)
 
     (define/public (set-icon icon)

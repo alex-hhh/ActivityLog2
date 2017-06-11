@@ -278,7 +278,7 @@ select body_weight
       (let* ([current (send export-dir-field get-value)]
              [updated (get-directory
                        "Select directory for export..."
-                       (send this get-toplevel-window)
+                       (send this get-top-level-window)
                        (if (equal? (string-trim current) "") #f current)
                        '(common))])
         (when updated
@@ -303,7 +303,7 @@ select body_weight
               (send ac-field set-selection ac))))))
 
     (define (on-edit-sport-zones sport sub-sport zone-metric canvas checkbox)
-      (let* ((tl (send this get-toplevel-window))
+      (let* ((tl (send this get-top-level-window))
              (zedit (get-sport-zone-editor))
              (updated (send zedit show-dialog tl sport sub-sport zone-metric)))
         (when updated
