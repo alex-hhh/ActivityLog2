@@ -35,7 +35,7 @@
 (define edit-equipment%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit equipment"] [icon (equipment-icon)])
+    (super-new [title "Equipment"] [icon (equipment-icon)])
 
     (define name-text-field #f)
     (define type-text-field #f)
@@ -154,7 +154,7 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
 (define edit-service-log%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Service reminder"] [icon (equipment-icon)])
+    (super-new [title "Service Reminder"] [icon (equipment-icon)])
 
     (define name-text-field #f)
     (define equipment-choice #f)

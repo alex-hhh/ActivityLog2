@@ -148,7 +148,7 @@
 (define edit-session-tss-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Session Stress"] [icon (edit-icon)])
+    (super-new [title "Session Effort"] [icon (edit-icon)])
 
     (define database #f)
     (define session-id #f)

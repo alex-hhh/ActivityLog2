@@ -37,7 +37,7 @@
 (define edit-one-season-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit season"] [icon ""] [min-height 10])
+    (super-new [title "Edit Season"] [icon ""] [min-height 10])
 
     (define name-field #f)
     (define description-field #f)
@@ -134,7 +134,7 @@
 (define edit-seasons-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit seasons"] [icon (edit-icon)] [min-width 600] [min-height 400])
+    (super-new [title "Seasons"] [icon (edit-icon)] [min-width 600] [min-height 400])
 
     (define season-lb #f)
     

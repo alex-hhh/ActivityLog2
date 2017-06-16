@@ -38,7 +38,7 @@
 (define weather-edit%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit weather"] [icon (weather-icon)])
+    (super-new [title "Session Weather"] [icon (weather-icon)])
 
     ;; A message% object where we display any errors while fetching weather
     ;; data.

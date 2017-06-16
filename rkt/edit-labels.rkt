@@ -32,7 +32,7 @@
 (define edit-one-label-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit label"] [icon ""] [min-height 10])
+    (super-new [title "Edit Label"] [icon ""] [min-height 10])
     
     (define name-field #f)
     (define description-field #f)
@@ -92,7 +92,7 @@
 (define edit-labels-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit labels"] [icon (edit-icon)] [min-width 600] [min-height 400])
+    (super-new [title "Labels"] [icon (edit-icon)] [min-width 600] [min-height 400])
     
     (define label-lb #f)
     

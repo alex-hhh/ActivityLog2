@@ -58,7 +58,7 @@
 (define edit-sport-zones-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit sport zones"] [icon (edit-icon)])
+    (super-new [title "Sport Zones"] [icon (edit-icon)])
 
     (define sport-choice #f)
     (define zmetric-choice #f)

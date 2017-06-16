@@ -30,7 +30,7 @@
 (define edit-preferences-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Preferences"]
+    (super-new [title "Preferences"]
                [icon (edit-icon)]
                [min-width 600]
                [min-height 300])

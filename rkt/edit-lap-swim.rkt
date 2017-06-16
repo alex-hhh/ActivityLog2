@@ -580,7 +580,7 @@ select LE.start_time as timestamp,
 (define lap-swim-edit%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit swim lengths"] [icon (edit-icon)])
+    (super-new [title "Edit Swim Lengths"] [icon (edit-icon)])
 
     (define msg-headline #f)
     (define msg-start-time #f)

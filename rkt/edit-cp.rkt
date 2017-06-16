@@ -224,7 +224,7 @@
 (define edit-cp-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Critical Power"] [icon (edit-icon)] [min-width 600] [min-height 400])
+    (super-new [title "Critical Power"] [icon (edit-icon)] [min-width 600] [min-height 400])
 
     (define cp-editor (new edit-cp-value%))
     (define database #f)

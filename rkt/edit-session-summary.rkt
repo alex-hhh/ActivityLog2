@@ -30,7 +30,7 @@
 (define edit-session-summary-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Edit Session Summary"] 
+    (super-new [title "Session Summary"] 
                [icon (get-sport-bitmap-colorized #f #f)]
                [min-width 600]
                [min-height 500])

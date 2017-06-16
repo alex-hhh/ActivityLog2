@@ -1305,7 +1305,7 @@
 (define select-data-series-dialog%
   (class al-edit-dialog%
     (init)
-    (super-new [title "Select data series"] [icon (edit-icon)]
+    (super-new [title "Data Series"] [icon (edit-icon)]
                [min-width 600] [min-height 450])
 
     ;; List of graphs that are visible (their order determines how they are

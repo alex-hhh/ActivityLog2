@@ -1655,7 +1655,11 @@
                 (new message% [parent p0]
                      [label icon]
                      [stretchable-width #f]
-                     [stretchable-height #f])))
+                     [stretchable-height #f]))
+          (new message%
+               [label title]
+               [parent p0]
+               [font (send the-font-list find-or-create-font 16 'default 'normal 'normal)]))
 
         (set! client-pane
               (new vertical-panel% [parent p]
