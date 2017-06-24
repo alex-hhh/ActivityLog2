@@ -30,4 +30,5 @@ create view V_SPORT_ZONE as
              and SZ1.valid_from > SZ.valid_from) as valid_until
     from SPORT_ZONE SZ;
 
--- update SCHEMA_VERSION set version = 24;
+update SCHEMA_VERSION set version = 24;
+
