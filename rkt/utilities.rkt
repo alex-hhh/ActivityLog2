@@ -258,7 +258,7 @@
     ;; worth starting too many of them.  Theis main purpose is to free up the
     ;; GUI thread from long operations.
     (set! the-workers
-          (for/list ([id (in-range 3)])
+          (for/list ([id (in-range 5)])
             (make-worker-thread id the-request-channel)))))
 
 ;; Queue a task to one of the worker threads. NOTE: since there are multiple

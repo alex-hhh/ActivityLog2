@@ -983,7 +983,7 @@
       (define before-length (vector-length data))
       ;; Max number of seconds between two adjacent values in the simplified
       ;; data.
-      (define max-time-delta 15.0)
+      (define max-time-delta 30.0)
       ;; Y values that differ by less than this amount will be dropped.
       (define max-y-delta (expt 10 (- (send x-axis fractional-digits))))
       ;; We update the data vector in place, than create a copy at the end to

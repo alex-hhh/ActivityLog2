@@ -53,6 +53,7 @@
          racket/class
          racket/math
          (only-in typed/racket/gui Snip% Editor-Canvas%)
+         (only-in typed/racket/draw Bitmap%)
          'glue)
 
 (: plot-snip/hack
@@ -100,5 +101,19 @@
                             #:legend-anchor legend-anchor)])
       (set-snip canvas snip)))
   (void))
-(provide plot-snip/hack)
+
+(: plot-to-bitmap/hack
+   (-> (Treeof (U renderer2d nonrenderer))
+       (Instance Bitmap%)
+       Void))
+(define (plot-to-bitmap/hack renderer-tree bitmap)
+  (plot/dc renderer-tree
+           (send bitmap make-dc)
+           0
+           0
+           (send bitmap get-width)
+           (send bitmap get-height)))
+
+(provide plot-snip/hack
+         plot-to-bitmap/hack)
 

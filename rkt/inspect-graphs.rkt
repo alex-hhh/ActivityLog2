@@ -24,6 +24,7 @@
          racket/math
          racket/sequence
          racket/vector
+         "plot-hack.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
@@ -83,6 +84,35 @@
     (values
      (vector-ref (vector-ref data-series start-idx) 0)
      (vector-ref (vector-ref data-series end-idx) 0))))
+
+;; Split DATA-SERIES into continuous segments having the same factor
+;; (according to FACTOR-FN).  For example, if the data series contains heart
+;; rate and the FACTOR-FN returns zones, the function will split the data into
+;; segments that have the same heart rate zone.
+(define (split-by-factor data-series factor-fn #:key (key #f))
+  (define result '())
+  (define current-factor #f)
+  (define seq '())
+  (for ([item data-series])
+    (let ((factor (factor-fn (if key (key item) item))))
+      (unless current-factor
+        (set! current-factor factor))
+      (set! seq (cons item seq))
+      (unless (equal? factor current-factor)
+        (set! result (cons (cons current-factor (reverse seq)) result))
+        (set! current-factor factor)
+        (set! seq (list item)))))
+  ;; Add last one
+  (when current-factor
+    (set! result (cons (cons current-factor (reverse seq)) result)))
+  (reverse result))
+
+;; Return a list of plot renderers for data created by `split-by-factor`.
+(define (make-plot-renderer-for-splits fdata yr factor-colors)
+  (for/list ((item fdata))
+    (match-define (cons factor data) item)
+    (define color (cdr (assoc factor factor-colors)))
+    (make-plot-renderer data yr #:color color #:width 4.0)))
 
 (define graph-view%
   (class object%
@@ -259,8 +289,8 @@
                        [plot-x-label (send x-axis axis-label)]
                        [plot-y-ticks (send y-axis plot-ticks)]
                        [plot-y-label (send y-axis axis-label)])
-          (plot/dc (full-render-tree) (send bmp make-dc) 0 0 width height))
-        bmp))
+          (plot-to-bitmap/hack (full-render-tree) bmp)
+        bmp)))
 
     (define (make-cached-graph-bitmap width height)
       (queue-task
@@ -349,7 +379,7 @@
                  (if color-by-zone?
                      (or factored-data
                          (if (and factor-fn ds)
-                             (group-samples/factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
+                             (split-by-factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
                              #f))
                      #f))
                (define ds2
@@ -383,7 +413,7 @@
                     (make-plot-renderer/swim-stroke
                      ds
                      (send data-frame select "swim_stroke")))
-                   (fdata (make-plot-renderer/factors fdata yr factor-colors))
+                   (fdata (make-plot-renderer-for-splits fdata yr factor-colors))
                    ((and ds ds2)
                     (list
                      (make-plot-renderer ds yr
@@ -1562,9 +1592,13 @@
       (for-each (lambda (g) (send g show-average-line show)) graphs))
 
     (define (highlight-lap n lap)
-      (let ((start (lap-start-time lap))
-            (elapsed (lap-elapsed-time lap)))
-        (for-each (lambda (g) (send g highlight-interval start (+ start elapsed))) graphs)))
+      (let* ((start (lap-start-time lap))
+             (elapsed (lap-elapsed-time lap))
+             ;; use floor because timestamps are at 1 second precision and
+             ;; this ensures swim laps are correctly highlighted.
+             (end (floor (+ start elapsed))))
+        (for ([g graphs])
+          (send g highlight-interval start end))))
 
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
