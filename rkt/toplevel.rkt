@@ -29,7 +29,7 @@
          "edit-labels.rkt"
          "edit-preferences.rkt"
          "edit-seasons.rkt"
-         "edit-sport-zones.rkt"
+         "edit-sz.rkt"
          "edit-cp.rkt"
          "elevation-correction.rkt"
          "export-fit-settings.rkt"
@@ -312,8 +312,9 @@
          [parent menu] [label "Edit Sport Zones..."]
          [callback
           (lambda (m e)
-            (send (get-sport-zone-editor) show-dialog
-                  (send toplevel get-frame)))])
+            (send (get-sz-editor) show-dialog
+                  (send toplevel get-frame)
+                  (send toplevel get-database)))])
     (new menu-item%
          [parent menu] [label "Edit Critical Power..."]
          [callback

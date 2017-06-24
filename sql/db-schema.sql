@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(23);
+insert into SCHEMA_VERSION(version) values(24);
 
 
 --........................................................ Enumerations ....
@@ -374,13 +374,16 @@ create index IX0_TIME_IN_ZONE on TIME_IN_ZONE(session_id);
 -- operator.  A sport zone is valid until a newer zone of the same type for
 -- the same sport is defined.  The last zone in the field has the valid_until
 -- set to the current seconds + 1 day in the future.
+--
+-- NOTE: the "+ 0" syntax in the strftime() call is needed to coerce the value
+-- from a string to a number.
 create view V_SPORT_ZONE as
   select SZ.id as zone_id,
          SZ.sport_id as sport_id,
          SZ.sub_sport_id as sub_sport_id,
          SZ.zone_metric_id as zone_metric_id,
          SZ.valid_from as valid_from,
-         (select ifnull(min(SZ1.valid_from), strftime('%s', datetime('now', '+1 day')))
+         (select ifnull(min(SZ1.valid_from - 1), strftime('%s', datetime('now', '+1 day')) + 0)
             from SPORT_ZONE SZ1
            where SZ1.sport_id = SZ.sport_id
              and ((SZ1.sub_sport_id is null and SZ.sub_sport_id is null)

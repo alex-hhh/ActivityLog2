@@ -24,7 +24,6 @@
          racket/math
          racket/string
          "utilities.rkt"
-         "edit-sport-zones.rkt"
          "fit-file.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
@@ -302,19 +301,6 @@ select body_weight
             (when ac
               (send ac-field set-selection ac))))))
 
-    (define (on-edit-sport-zones sport sub-sport zone-metric canvas checkbox)
-      (let* ((tl (send this get-top-level-window))
-             (zedit (get-sport-zone-editor))
-             (updated (send zedit show-dialog tl sport sub-sport zone-metric)))
-        (when updated
-          (send canvas refresh))
-        (let ((zones (get-sport-zones sport sub-sport zone-metric)))
-          ;; The checkbox will be disabled if there are no sport zones
-          ;; defined.
-          (unless zones
-            (send checkbox set-value #f))
-          (send checkbox enable (not (eq? zones #f))))))
-
     (define (save-preferences)
       (let ((autoset-bw (send bw-auto-set-chkbox get-value))
             (autoset-ac (send ac-auto-set-chkbox get-value))
@@ -435,9 +421,7 @@ select body_weight
         (let ((p (make-horizontal-pane p2)))
           (set! run-hrz-chkbox
                 (new check-box% [parent p] [label "Export HR Zones"]))
-          (new message% [parent p] [label ""] [stretchable-width #t])
-          (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 1 #f 1 run-hrz-canvas run-hrz-chkbox))]))
+          (new message% [parent p] [label ""] [stretchable-width #t]))
 
         (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 1)))
         
@@ -445,9 +429,7 @@ select body_weight
         (let ((p (make-horizontal-pane p3)))
           (set! bike-hrz-chkbox
                 (new check-box% [parent p] [label "Export HR Zones"]))
-          (new message% [parent p] [label ""] [stretchable-width #t])
-          (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 2 #f 1 bike-hrz-canvas bike-hrz-chkbox))]))
+          (new message% [parent p] [label ""] [stretchable-width #t]))
         (set! bike-hrz-canvas (make-zone-display-canvas p3 2 #f 1))
         (let ([p (make-horizontal-pane p3)])
           (set! bike-pwrz-chkbox
@@ -456,9 +438,7 @@ select body_weight
                 (new number-input-field% [parent p] [label "FTP: "]
                      [min-value 0] [max-value 1000]
                      [min-width 100] [stretchable-width #f]))
-          (new message% [parent p] [label ""] [stretchable-width #t])
-          (new button% [parent p] [label "Edit..."]
-               [callback (lambda (b e) (on-edit-sport-zones 2 #f 3 bike-pwrz-canvas bike-pwrz-chkbox))]))
+          (new message% [parent p] [label ""] [stretchable-width #t]))
         (set! bike-pwrz-canvas (make-zone-display-canvas p3 2 #f 3)))
 
       (let ([p (make-horizontal-pane p)])
