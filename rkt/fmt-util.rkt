@@ -31,7 +31,8 @@
 (require/typed
     "utilities.rkt"
   [get-pref (-> Symbol (-> Any) Any)]
-  [put-pref (-> Symbol Any Void)])
+  [put-pref (-> Symbol Any Void)]
+  [ignore-errors (-> (-> Any) Any)])
 
 (require racket/date
          racket/list
@@ -269,9 +270,11 @@
     (put-pref ms-tag val)
     (set! ms-val val)
     (setup-measurement-system ms-val)
-    (for-each (lambda ([fn : (-> Symbol Any)]) (fn ms-val)) ms-val-listeners)))
+    (for-each (lambda ([fn : (-> Symbol Any)])
+                (ignore-errors (lambda () (fn ms-val))))
+              ms-val-listeners)))
 (provide al-pref-measurement-system set-al-pref-measurement-system)
-  
+
 (setup-measurement-system ms-val)
 
 

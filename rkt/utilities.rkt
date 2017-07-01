@@ -28,6 +28,7 @@
  (get-pref (-> symbol? any/c any/c))
 
  (dbglog (->* (string?) () #:rest (listof any/c) any/c))
+ (ignore-errors (->* ((-> any/c)) (#:name string?) any/c))
  (dbglog-exception (-> string? any/c any/c))
  (thread/dbglog (->* ((-> any/c))
                      (#:name string?
@@ -208,6 +209,13 @@
                          (lambda (o) (print-error-trace o e)))
                         "#<no call stack>")))
     (dbglog "~a: ~a ~a" who message call-stack)))
+
+;; Run THUNK, catching all exceptions and logging them.
+(define (ignore-errors thunk #:name (name "*unnamed*"))
+  (with-handlers
+    (((lambda (e) #t)
+      (lambda (e) (dbglog (format "thunk <~a>: ~a" name e)))))
+    (thunk)))
 
 ;; Wrapper around `thread', log a message if THUNK throws an exception and
 ;; optionally log messages when the thread starts and finishes.

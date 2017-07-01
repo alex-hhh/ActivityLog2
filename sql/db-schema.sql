@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(24);
+insert into SCHEMA_VERSION(version) values(25);
 
 
 --........................................................ Enumerations ....
@@ -800,7 +800,9 @@ create table BAVG_CACHE (
   foreign key(session_id) references A_SESSION(id)
   );
 
-create unique index IX0_BAVG_CACHE on BAVG_CACHE(session_id, series);
+-- this index is written such that it can be used to look up entries both by
+-- series only and by session id + series.
+create unique index IX0_BAVG_CACHE on BAVG_CACHE(series, session_id);
 
 -- Store Histogram data for sessions and series.  See notes for BAVG_CACHE
 create table HIST_CACHE (
@@ -811,7 +813,9 @@ create table HIST_CACHE (
   foreign key(session_id) references A_SESSION(id)
   );
 
-create unique index IX0_HIST_CACHE on HIST_CACHE(session_id, series);
+-- this index is written such that it can be used to look up entries both by
+-- series only and by session id + series.
+create unique index IX0_HIST_CACHE on HIST_CACHE(series, session_id);
 
 -- Store scatter plot data for sessions and series.  See notes for BAVG_CACHE
 create table SCATTER_CACHE (
@@ -823,8 +827,11 @@ create table SCATTER_CACHE (
   foreign key(session_id) references A_SESSION(id)
   );
 
-create unique index IX0_SCATTER_CACHE on SCATTER_CACHE(session_id, series1, series2);
+-- this index is written such that it can be used to look up entries both by
+-- series1 only and by session id + series1 + series2.
+create unique index IX0_SCATTER_CACHE on SCATTER_CACHE(series1, series2, session_id);
 
+create index IX1_SCATTER_CACHE on SCATTER_CACHE(series2);
 
 
 --......................................................... Other views ....

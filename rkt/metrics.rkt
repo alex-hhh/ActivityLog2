@@ -28,7 +28,8 @@
          "spline-interpolation.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "fmt-util.rkt")
 
 ;; WARNING: a best-avg set and a histogram in this file has a different
 ;; structure than the one produced by df-best-avg and df-histogram from
@@ -706,6 +707,33 @@ where ~a
   (set! bavg-cache (make-hash))
   (set! hist-cache (make-hash))
   (set! scatter-cache (make-hash)))
+
+(define (clear-saved-metrics-for-series series)
+  (query-exec (current-database)
+              "delete from BAVG_CACHE where series = ?" series)
+  (query-exec (current-database)
+              "delete from HIST_CACHE where series = ?" series)
+  (query-exec (current-database)
+              "delete from SCATTER_CACHE where series1 = ? or series2 = ?" series series))
+
+;; Clear the metrics that depend on the measurement system, these will have to
+;; be recomputed.  This is a somewhat expensive operation (and will result in
+;; the metrics having to be recomputed once they are required again).
+;; Hopefully, the user will not switch measurement system too often.
+(define (clear-ms-dependent-metrics)
+  (call-with-transaction
+   (current-database)
+   (lambda ()
+     (clear-saved-metrics-for-series "pace")
+     (clear-saved-metrics-for-series "speed")
+     (clear-saved-metrics-for-series "stride")
+     ;; (clear-saved-metrics-for-series "alt")
+     ;; (clear-saved-metrics-for-series "calt")
+     ;; (clear-saved-metrics-for-series "vosc")
+     (clear-metrics-cache))))
+
+(register-measurement-system-change-listener
+ (lambda (m) (clear-ms-dependent-metrics)))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt
