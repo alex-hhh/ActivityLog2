@@ -1698,10 +1698,18 @@
            [notify-callback
             (lambda () (send save-button enable (has-valid-data?)))]))
 
+    ;; This is called by finish-edit just before the dialog window is closed.
+    ;; It can be used to display further dialog boxes that have this dialog as
+    ;; a parent.  If it returns #t, the dialog is closed, otherwise the dialog
+    ;; is left open.
+    (define/public (on-finish-edit result)
+      #t)
+
     (define (finish-edit result)
       (set! dialog-result result)
-      (send toplevel-window show #f)
-      (send validate-timer stop))
+      (send validate-timer stop)
+      (when (on-finish-edit result)
+        (send toplevel-window show #f)))
 
     (define (on-save)
       ;; Don't allow finishing the edit with invalid data.  Our validate timer

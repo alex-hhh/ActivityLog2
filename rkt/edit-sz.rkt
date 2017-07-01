@@ -28,7 +28,9 @@
          "dbutil.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "time-in-zone.rkt"
+         "utilities.rkt")
 
 (provide get-sz-editor)
 
@@ -329,12 +331,88 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                     "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
                       values(?, ?, ?)" zid znum zone)))))
 
+;; Return a list of session ID's that had their sport zones changed when we
+;; changed validity times for the sport zones.  The TIME_IN_ZONE data for
+;; these sessions will have to be updated.
+(define (get-modified-sessions db)
+  (query-list
+   db
+   ;; distinct is needed because we might get duplicates when both the HR and
+   ;; power/pace zones change for an activity.  Also, we only look for HR and
+   ;; POWER zones (1 and 3), as these are the only ones for which we calculate
+   ;; TIME_IN_ZONE data
+   "select distinct VSZFS.session_id
+  from V_SPORT_ZONE_FOR_SESSION VSZFS
+ where VSZFS.zone_metric_id in (1, 3)
+   and not exists(select * from TIME_IN_ZONE TIZ
+                   where TIZ.session_id = VSZFS.session_id
+                     and TIZ.sport_zone_id = VSZFS.zone_id)"))
+
+;; Update time in zone data for SESSIONS.  Displays a progress window to keep
+;; the user informed.
+(define (interactive-update-time-in-zone sessions database parent-window)
+
+  (define frame #f)
+  (define message-field #f)
+  (define progress-bar #f)
+  (define last-msg #f)
+  (define title "Updating Sessions")
+
+  (define (cb msg crt max)
+    ;; Setting the same message causes it to flicker.  Avoid doing that.
+    (when (and msg (not (equal? last-msg msg)))
+      (set! last-msg msg)
+      (send message-field set-label msg))
+    (when (and crt max)
+      (let ((new-progress (exact-round (* 100 (/ crt max)))))
+        (send progress-bar set-value new-progress))))
+
+  (define (task-thread)
+    (with-handlers
+      (((lambda (e) #t)
+        (lambda (e) (dbglog-exception "interactive-update-time-in-zone" e))))
+      (dbglog "interactive-update-time-in-zone started")
+      (define num-sessions (length sessions))
+      (for ([(sid n) (in-indexed sessions)])
+        (with-handlers
+          (((lambda (e) #t)
+            (lambda (e)                   ; log the exception, than propagate it
+              (dbglog "while updating session ~a: ~a" sid e)
+              (raise e))))
+          (update-time-in-zone-data sid database)
+          (cb (format "Updating session ~a" sid) n num-sessions)))
+      (dbglog "interactive-update-time-in-zone completed")
+      (send frame show #f)))
+
+  (set! frame (new
+               (class dialog%
+                 (super-new)
+                 (define/override (on-superwindow-show show?)
+                   (thread/dbglog
+                    #:name "interactive-update-time-in-zone"
+                    task-thread)))
+               [width 400] [height 250]
+               [parent parent-window]
+               [stretchable-width #f] [stretchable-height #f]
+               [label title]))
+  (let ((pane (make-horizontal-pane frame)))
+    (send pane border 20)
+    (new message% [parent pane] [label (sql-export-icon)]
+         [stretchable-height #f] [stretchable-width #f])
+    (let ((p2 (make-vertical-pane pane)))
+      (set! message-field (new message% [parent p2] [label ""] [min-width 200]))
+      (set! progress-bar (new gauge% [parent p2] [label ""] [range 100]))))
+  (send progress-bar set-value 0)
+  (send frame show #t)      ; on-superwindow-show will start the update thread
+  (void))
+
 (define edit-sz-dialog%
   (class al-edit-dialog%
     (init)
     (super-new [title "Sport Zones"] [icon (edit-icon)] [min-width 600] [min-height 500])
 
     (define database #f)
+    (define parent-window #f)
     (define sport-choice #f)
     (define metric-choice #f)
     (define szlb #f)
@@ -345,10 +423,6 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                      [stretchable-height #t]
                      [parent p] [spacing 5]
                      [alignment '(center center)])))
-        (new message%
-             [parent p1]
-             [label "WARNING: If you change sport zones, you will need to rebuild the metrics\nfrom the \"Tools/Rebuild Metrics...\" menu"]
-             [font (send the-font-list find-or-create-font 12 'default 'normal 'normal)])
         (let ((p2 (new horizontal-pane%
                        [stretchable-height #f]
                        [border 15]
@@ -483,10 +557,57 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
         (send szlb setup-column-defs cdefs)
         (send szlb set-data rows)))
 
+    ;; Number of sessions that would need their TIZ updated when we show this
+    ;; dialog (and therefore have not updated anything).
+    (define original-modified-session-count 0)
+
+    ;; Show a confirmation dialog if too many sessions need to be updated.
+    ;; There is a bit of heuristic here: some sessions will always show up in
+    ;; the GET-MODIFIED-SESSIONS, usually because they don't have any HR/POWER
+    ;; data and there are HR/POWER zones that cover their date range.  We try
+    ;; to capture these in ORIGINAL-MODIFIED-SESSION-COUNT and only show the
+    ;; dialog if more sessions than that have been updated.  However,
+    ;; ORIGINAL-MODIFIED-SESSION-COUNT might also contain sessions that, for
+    ;; one reason or another, have failed to update last time we opened this
+    ;; dialog, so we return #t even if we don't ask for confirmation.
+    ;; Regardless of outcome, we will always update the TIZ if we have any
+    ;; sessions in the list.
+    (define (maybe-show-confirmation-dialog num-sessions)
+      (if (> (abs (- num-sessions original-modified-session-count)) 10)
+          (eq? (message-box
+                "Confirmation"
+                (format (string-append "~a sessions are affected by the changes and will need to be updated.  "
+                                       "Continue and update these sessions?")
+                        num-sessions)
+                (send this get-top-level-window)
+                '(caution yes-no))
+               'yes)
+          #t))
+
+    (define/override (on-finish-edit result)
+      ;; NOTE: we need to return #t if we want to close the dialog, #t
+      ;; otherwise
+      (if result
+          (let* ((sessions (get-modified-sessions database))
+                 (num-sessions (length sessions)))
+            (cond ((= num-sessions 0) #t)
+                  ((maybe-show-confirmation-dialog num-sessions)
+                   (maybe-start-transaction)
+                   (interactive-update-time-in-zone
+                    sessions
+                    database
+                    (send this get-top-level-window))
+                   #t)
+                  (#t #f)))
+          #t            ; user clicked "Cancel", return #t to close the dialog
+          ))
+
     (define/public (show-dialog parent db)
       (set! database db)
+      (set! parent-window parent)
       (on-sport-selected)
       (refresh-contents)
+      (set! original-modified-session-count (length (get-modified-sessions database)))
       (if (send this do-edit parent)
           (when (in-transaction? database)
             (commit-transaction database))

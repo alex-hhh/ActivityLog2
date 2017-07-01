@@ -525,6 +525,7 @@
         (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
         (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
     (send progress-bar set-value 0)
+    (send frame center 'both)
     (send frame show #t))
 
   (define (cb msg crt max)
