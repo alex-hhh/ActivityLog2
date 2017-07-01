@@ -553,9 +553,13 @@
   (define (monotonic-slope start end)
     (let* ((dist (delta-dist start end))
            (alt (delta-alt start end))
-           (slp (if (> dist 0) (* 100.0 (/ alt dist)) #f)))
+           (slp (if (> dist 0) (* 100.0 (/ alt dist)) #f))
+           ;; Round the slope to 0.1% values, we cannot really compute the
+           ;; slope with greater precision than that, and the extra false
+           ;; precision creates problems with the plot.
+           (rslp (and slp (/ (round (* slp 10.0)) 10.0))))
       (for ([idx (in-range start (add1 end))])
-        (vector-set! grade idx slp))))
+        (vector-set! grade idx rslp))))
   ;; Find the minimum and maximum altitude between START and END and return 4
   ;; values: min-alt, min-alt position, max-alt, max-alt position.
   (define (find-min-max-alt start end)
