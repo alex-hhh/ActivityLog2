@@ -103,14 +103,6 @@
     (lambda () (printf "~a~%" revision))
     #:mode 'text #:exists 'truncate/replace)
 
-  ;; Remove stale compiled versions of version.rkt, otherwise it will not pick
-  ;; up new versions, build ids and timestamps
-  (with-handlers
-    (((lambda (e) #t)
-      (lambda (e) (printf (exn-message e)))))
-    (delete-file "rkt/compiled/version_rkt.zo")
-    (delete-file "rkt/compiled/version_rkt.dep"))
-
   (parameterize
       ([use-compiled-file-paths (list "compiled")])
     (create-embedding-executable
