@@ -360,7 +360,9 @@ order by T.timestamp")))
                      (for ([s ranges] [e (cdr ranges)])
                        (iterate s e))))))))))
 
-  (when (> (vector-length trackpoints) 0)
+  (when (and (> (vector-length trackpoints) 0)
+             ;; At least one valid altitude in the data set
+             (for/first ((tp (in-vector trackpoints)) #:when (tpoint-calt tp)) #t))
 
     ;; Fixup #f's in the calt values, this works OK for one-off missing
     ;; values, if whole ranges are missing, this will not produce nice
