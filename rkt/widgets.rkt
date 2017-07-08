@@ -399,6 +399,12 @@
 (define (last-30-days-start)
   (- (this-day-start) (* 29 24 3600)))
 
+(define (last-6-weeks-start)
+  (- (this-day-start) (* 41 24 3600)))
+
+(define (last-6-months-start)
+  (- (this-day-start) (* (* 30 6) 24 3600)))
+
 (define (last-365-days-start)
   (- (this-day-start) (* 364 24 3600)))
 
@@ -445,7 +451,13 @@
    (time-period 'last-month "last month"
                 last-month-start this-month-start
                 "between strftime('%s', 'now', 'start of month', '- 1 month') and strftime('%s', 'now', 'start of month')")
-   (time-period 'last-365-days "last 365 days"
+   (time-period 'last-6-weeks "last 6 weeks"
+                last-6-weeks-start this-day-end
+                "> strftime('%s', 'now', '-6 weeks')")
+   (time-period 'last-6-months "last 6 months"
+                last-6-months-start this-day-end
+                "> strftime('%s', 'now', '-6 months')")
+   (time-period 'last-365-days "last 12 months"
                 last-365-days-start this-day-end
                 "> strftime('%s', 'now', '-365 days')")
    (time-period 'this-year "this year"
