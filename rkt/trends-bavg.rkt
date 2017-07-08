@@ -71,6 +71,15 @@
    axis-right-peak-power-phase-angle
    ))
 
+;; Axis choices for lap swimming
+(define swim-axis-choices
+  (list
+   axis-swim-avg-cadence
+   axis-swim-stroke-count
+   axis-swim-stroke-length
+   axis-swim-swolf
+   axis-swim-pace))
+
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
 (define (find-axis axis-list series-name)
@@ -96,6 +105,40 @@
                [icon (edit-icon)]
                [min-height 10])
 
+    ;; determines if the SERIES-SELECTOR contains lap swimming series
+    (define lap-swimming-series? #f)
+    ;; last selection on the lap swimming series
+    (define last-lap-swim-selection #f)
+    ;; last selection on the default series
+    (define last-non-lap-swim-selection #f)
+
+    (define (install-axis-choices new-choices selection)
+      (set! axis-choices
+        (sort new-choices string<? #:key
+              (lambda (x)
+                (if (list? x) (car x) (send x axis-label)))))
+      (send series-selector clear)
+      (for ([a axis-choices])
+        (let ((n (if (list? a) (car a) (send a axis-label))))
+          (send series-selector append n)))
+
+      (when (and selection (>= selection 0) (< selection (length axis-choices)))
+        (send series-selector set-selection selection)
+        (on-series-selected selection)))
+
+    (define (on-sport-selected sport)
+      (define lap-swimming?
+        (and (eq? (car sport) 5) (eq? (cdr sport) 17)))
+      (unless (eq? lap-swimming? lap-swimming-series?)
+        (if lap-swimming?
+            (begin
+              (set! last-non-lap-swim-selection (send series-selector get-selection))
+              (install-axis-choices swim-axis-choices last-lap-swim-selection))
+            (begin
+              (set! last-lap-swim-selection (send series-selector get-selection))
+              (install-axis-choices default-axis-choices last-non-lap-swim-selection))))
+      (set! lap-swimming-series? lap-swimming?))
+
     (define name-gb (make-group-box-panel (send this get-client-pane)))
     (define name-field (new text-field% [parent name-gb] [label "Name "]))
     (send name-field set-value default-name)
@@ -104,7 +147,8 @@
 
     (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define sport-selector
-      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]))
+      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]
+           [callback on-sport-selected]))
     (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
@@ -287,7 +331,8 @@
           (send date-range-selector restore-from dr)))
       (let ((sp (hash-ref hdata 'sport #f)))
         (when sp
-          (send sport-selector set-selected-sport (car sp) (cdr sp))))
+          (send sport-selector set-selected-sport (car sp) (cdr sp))
+          (on-sport-selected sp)))
       (let ((series (hash-ref hdata 'series #f)))
         (when series
           (let ((index (find-axis axis-choices series)))
@@ -369,9 +414,11 @@
 (struct tbavg (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
 
 (define (fetch-data database params progress-callback)
-  (let* ((candidates (candidate-sessions database params))
-         (axis-index (find-axis default-axis-choices (bavg-params-series params))))
-    (define axis (if axis-index (list-ref default-axis-choices axis-index) #f))
+  (let* ((lap-swimming? (is-lap-swimming? (bavg-params-sport params)))
+         (axis-choices (if lap-swimming? swim-axis-choices default-axis-choices))
+         (candidates (candidate-sessions database params))
+         (axis-index (find-axis axis-choices (bavg-params-series params))))
+    (define axis (if axis-index (list-ref axis-choices axis-index) #f))
     (unless axis (error "no axis for series"))
     (define data (aggregate-bavg candidates
                                  (send axis series-name)
@@ -393,8 +440,9 @@
     (when plot-fn
       (when (and (send axis have-cp-estimate) (bavg-params-cp-params params))
         (define cp2 (send axis cp-estimate plot-fn (bavg-params-cp-params params)))
-        (set! cp-fn (send axis pd-function cp2))
-        (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn))))
+        (when cp2
+          (set! cp-fn (send axis pd-function cp2))
+          (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn)))))
 
     (tbavg axis data heat-map
            plot-fn
@@ -403,12 +451,20 @@
            cp-pict)))
 
 (define (make-render-tree data)
+
+  ;; HACK: some plot-color methods return 'smart, we should fix this
+  (define (get-color axis)
+    (let ((color (send axis plot-color)))
+      (if (or (not color) (eq? color 'smart))
+          '(0 148 255)
+          color)))
+  
   (let-values (((min-x max-x min-y max-y) (aggregate-bavg-bounds (tbavg-data data))))
     (when (tbavg-zero-base? data) (set! min-y 0))
     (if (tbavg-plot-fn data)
         (let ((rt (list
                    (tick-grid)
-                   (function (tbavg-plot-fn data) #:color (send (tbavg-axis data) plot-color) #:width 3))))
+                   (function (tbavg-plot-fn data) #:color (get-color (tbavg-axis data)) #:width 3))))
           (when (tbavg-cp-fn data)
             (set! rt
                   (cons (function (tbavg-cp-fn data) #:color "red" #:width 1.5 #:style 'long-dash) rt)))

@@ -320,8 +320,8 @@
          ;; Series can be "lteff+rteff" for dual series!
          (series1 (string-split (scatter-params-series1 params) "+"))
          (series2 (string-split (scatter-params-series2 params) "+"))
-         (meta1 (find-meta-for-series (first series1)))
-         (meta2 (find-meta-for-series (first series2)))
+         (meta1 (find-meta-for-series (first series1) (is-lap-swimming? (scatter-params-sport params))))
+         (meta2 (find-meta-for-series (first series2) (is-lap-swimming? (scatter-params-sport params))))
          (data (aggregate-scatter candidates (first series1) (first series2)
                                   #:progress-callback progress))
          (bounds (aggregate-scatter-bounds

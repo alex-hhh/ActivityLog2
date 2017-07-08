@@ -244,7 +244,8 @@
 ;; We also remove keys with 0 rank to keep the data smaller (as it will be
 ;; stored in the database.
 (define (histogram/jsexpr df series)
-  (let* ((meta (find-meta-for-series series))
+  (let* ((lap-swim? (send df get-property 'is-lap-swim?))
+         (meta (find-meta-for-series series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
          (hist (df-histogram df series #:bucket-width bw)))
     (for/list ((item hist) #:when (> (vector-ref item 1) 0))
@@ -410,14 +411,16 @@
 ;; list of (x y rank) where rank is the number of points at the X, Y location.
 (define (scatter/jsexpr df series1 series2)
 
+  (define is-lap-swim? (send df get-property 'is-lap-swim?))
+  
   (define (extract)
     (if (send df contains? series1 series2)
         (send df select* series1 series2 #:filter valid-only)
         #f))
 
   (define (group data)
-    (let ((meta1 (find-meta-for-series series1))
-          (meta2 (find-meta-for-series series2)))
+    (let ((meta1 (find-meta-for-series series1 is-lap-swim?))
+          (meta2 (find-meta-for-series series2 is-lap-swim?)))
       (let ((gdata (group-samples data
                                   (send meta1 fractional-digits)
                                   (send meta2 fractional-digits))))
@@ -738,7 +741,7 @@ where ~a
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt
 (define aggregate-bavg-item/c (list/c exact-nonnegative-integer? ; session-id
-                                      exact-nonnegative-integer? ; time stamp
+                                      real?                      ; time stamp
                                       (and/c real? positive?)    ; duration
                                       real?))                    ; value
 (define aggregate-bavg/c (listof aggregate-bavg-item/c))
@@ -769,7 +772,7 @@ where ~a
                             (values (or/c #f real?) (or/c #f real?)
                                     (or/c #f real?) (or/c #f real?))))
  (aggregate-bavg->spline-fn (-> aggregate-bavg/c
-                                (or/c #f (-> real? real?))))
+                                (or/c #f (-> real? (or/c #f real?)))))
  (aggregate-bavg-heat-map (->* (aggregate-bavg/c
                                 (and/c real? positive?)
                                 (listof exact-nonnegative-integer?)

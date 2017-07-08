@@ -300,7 +300,7 @@
          ;; Series can be "lteff+rteff" for dual series!
          (series (string-split (hist-params-series params) "+")))
     (hist
-     (for/list ([s series]) (find-meta-for-series s))
+     (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hist-params-sport params))))
      (for/list ([s series]) (aggregate-hist candidates s #:progress-callback progress)))))
 
 (define (make-render-tree data params)

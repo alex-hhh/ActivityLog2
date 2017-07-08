@@ -186,11 +186,13 @@
 (define (convert-m/s->pace val) (m/s->pace val))
 (define (convert-pace->m/s val) (pace->m/s val))
 (define (convert-swim-pace->m/s val) (swim-pace->m/s val))
+(define (convert-m/s->swim-pace val) (m/s->swim-pace val))
 (provide convert-m/s->speed
          convert-speed->m/s
          convert-m/s->pace
          convert-pace->m/s
-         convert-swim-pace->m/s)
+         convert-swim-pace->m/s
+         convert-m/s->swim-pace)
 
 (: setup-measurement-system (-> Symbol Void))
 (define (setup-measurement-system mu)
@@ -202,7 +204,7 @@
         (set! m/s->pace m/s->sec/mi)
         (set! pace->m/s sec/mi->m/s)
         (set! pace-label "min/mi")
-        (set! m/s->swim-pace m/s->sec/100yd)
+        (set! m/s->swim-pace m/s->sec/100m)
         (set! swim-pace->m/s sec/100m->m/s)
         (set! swim-pace-label "min/100yd")
         (set! celsius->temperature celsius->fahrenheit)
@@ -226,7 +228,7 @@
         (set! pace->m/s sec/km->m/s)
         (set! pace-label "min/km")
         (set! m/s->swim-pace m/s->sec/100m)
-        (set! swim-pace->m/s sec/100yd->m/s)
+        (set! swim-pace->m/s sec/100m->m/s)
         (set! swim-pace-label "min/100m")
         (set! celsius->temperature identity)
         (set! temperature-label "°C")

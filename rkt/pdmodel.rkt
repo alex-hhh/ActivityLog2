@@ -13,6 +13,7 @@
 ;; more details.
 
 (require racket/match
+         racket/contract
          racket/math
          racket/format
          racket/flonum)
@@ -43,9 +44,21 @@
 (define (cp-fn cp wprime)
   (lambda (t) (fl+ cp (fl/ wprime  (exact->inexact t)))))
 
+;; Validate cp2search structure parameters.  The search ranges should be
+;; distinct and at least 60 seconds.
+(define/contract (cp2search-guard anstart anend aestart aeend struct-name)
+  (-> positive? positive? positive? positive? any/c any)
+  (unless (and (< anstart anend aestart aeend)
+               (> (- anend anstart) 60.0)
+               (> (- aeend aestart) 60.0))
+    (raise "cp2search parameters invalid"))
+  (values anstart anend aestart aeend))
+
 ;; Hold search parameters for the CP solver (anaerobic and aerobic search
 ;; ranges)
-(struct cp2search (anstart anend aestart aeend) #:transparent)
+(struct cp2search (anstart anend aestart aeend)
+  #:transparent
+  #:guard cp2search-guard)
 
 ;; Solving CP, W' is done by looking at the best power (or speed) at two data
 ;; points.  The following explains how these parameters are determined:
@@ -188,7 +201,6 @@
         (begin
           (set! done? (and (eqv? x x-lim) (eqv? y y-lim)))
           (values x y)))))
-
 
 ;; Find CP and W' by an exhaustive search for a two maximal efforts, one in
 ;; [ANSTART, ANEND] (the anaerobic range) and one in [AESTART, AEEND] (the

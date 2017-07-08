@@ -40,6 +40,25 @@
 (define pd-item-face (cons pd-item-color pd-item-font))
 (define pd-label-face (cons pd-label-color pd-label-font))
 
+;; Find the actual maximum value for a pd function, starting at TMAX and going
+;; downwards.  We assume the function is at least valid at T = 20 seconds.
+;; This is used to find the maximum range of an empirical PD function
+;; (best-avg), when there are only short activities available.
+(define (find-actual-max pd tmax)
+  (define min 20)
+  (if (pd min)
+      (let loop ((amin min)
+                 (amax tmax))
+        (cond ((pd amax) (floor amax))
+              ((<= (- amax amin) 2.0)
+               (floor amin))
+              (#t
+               (let ((mid (/ (+ amin amax) 2.0)))
+                 (if (pd mid)
+                     (loop mid amax)
+                     (loop amin mid))))))
+      #f))
+  
 ;; Return the max speed (in meters/second) at which DISTANCE can be covered
 ;; according to the Pace-Duration function PD.
 ;;
@@ -53,10 +72,12 @@
 ;;
 ;; NOTE: this function needs to be in a different file.
 (define (estimate-distance pd distance tmin tmax)
-  (define (dst t) (* t (pd t)))
+  (define (dst t)
+    (let ((p (pd t)))
+      (if p (* t p) #f)))
   (define dmin (dst tmin))
   (define dmax (dst tmax))
-  (if (or (< distance dmin) (> distance dmax))
+  (if (or (not dmin) (not dmax) (< distance dmin) (> distance dmax))
       #f
       (let loop ((dlow dmin)
                  (tlow tmin)
@@ -66,7 +87,9 @@
             (pd thigh)
             (let* ((tmid (/ (+ tlow thigh) 2.0))
                    (dmid (dst tmid)))
-              (cond ((< (abs (- dmid distance)) 0.01)
+              (cond ((not dmid)
+                     #f)
+                    ((< (abs (- dmid distance)) 0.01)
                      (pd tmid))         ; good enough
                     ((< dmid distance)
                      (loop dmid tmid dhigh thigh))
@@ -304,23 +327,32 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          (define/override (have-cp-estimate) #t)
-
+         
          (define/override (cp-estimate bavg-fn params)
            (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
-           (search-best-cp/exhausive
-            afn params
-            #:cp-precision 3 #:wprime-precision 1))
+           ;; Check that the bavg function can provide values for the CP2
+           ;; search range.  The cp2search structure is already validated via
+           ;; a #:guard, so we only need to check that the bavg function is
+           ;; valid at the AEEND point.
+           (and (bavg-fn (cp2search-aeend params))
+                (search-best-cp/exhausive
+                 afn params
+                 #:cp-precision 3 #:wprime-precision 1)))
 
          (define/override (pd-function cp-params)
            (define fn (cp2-fn cp-params))
-           (lambda (t) (convert-m/s->pace (fn t))))
+           (lambda (t)
+             (let ((spd (fn t)))
+               (if spd (convert-m/s->pace spd) #f))))
 
          (define/override (pd-data-as-pict cp-params bavgfn)
            (define metric? (eq? (al-pref-measurement-system) 'metric))
            (define fn (cp2-fn cp-params))
            (define dfn
-             (lambda (t) (convert-m/s->pace (bavgfn t))))
-           
+             (lambda (t)
+               (let ((val (bavgfn t)))
+                 (if val (convert-m/s->pace val) #f))))
+
            (define title (text "Model" pd-title-face))
            (define dprime (short-distance->string (round (cp2-wprime cp-params))))
            (define cv (pace->string (cp2-cp cp-params)))
@@ -342,7 +374,11 @@
                               ("20 min" . 1200))])
                 (list (text (car t) pd-label-face)
                       (text (pace->string (fn (cdr t))) pd-item-face)
-                      (text (pace->string (dfn (cdr t))) pd-item-face)))))
+                      (text (let ((val (dfn (cdr t))))
+                              (if val (pace->string val) "N/A"))
+                            pd-item-face)))))
+
+           (define actual-max (find-actual-max dfn 7200))
 
            (define interval-estimates-distance
              (flatten
@@ -350,8 +386,8 @@
                               ("1 mile" . 1610.0)
                               ("5k" . 5000.0)
                               ("10k" . 10000.0))])
-                (define model-pace (estimate-distance fn (cdr t) 10 7200))
-                (define data-pace (estimate-distance dfn (cdr t) 10 7200))
+                (define model-pace (estimate-distance fn (cdr t) 10 actual-max))
+                (define data-pace (estimate-distance dfn (cdr t) 10 actual-max))
                 (list (text (car t) pd-label-face)
                       (text (if model-pace (pace->string model-pace) "N/A") pd-item-face)
                       (text (if data-pace (pace->string data-pace) "N/A") pd-item-face)))))
@@ -363,13 +399,13 @@
                     (text "data" pd-label-face))
               interval-estimates-time
               interval-estimates-distance))
-           
+
            (define title2 (text "Estimates" pd-title-face))
            (define p2
              (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
 
            (define p (vc-append 10 p1 p2))
-              
+
            (cc-superimpose
             (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
                                       #:draw-border? #f #:color pd-background)
@@ -377,7 +413,7 @@
 
          (define/override (value-formatter)
            (lambda (p) (pace->string (convert-pace->m/s p))))
-           
+
 
          )))
 (provide axis-pace)
@@ -622,11 +658,16 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          (define/override (have-cp-estimate) #t)
-         
+
          (define/override (cp-estimate bavg-fn params)
-           (search-best-cp/exhausive
-            bavg-fn params
-            #:cp-precision 1 #:wprime-precision -2))
+           ;; Check that the bavg function can provide values for the CP2
+           ;; search range.  The cp2search structure is already validated via
+           ;; a #:guard, so we only need to check that the bavg function is
+           ;; valid at the AEEND point.
+           (and (bavg-fn (cp2search-aeend params))
+                (search-best-cp/exhausive
+                 bavg-fn params
+                 #:cp-precision 1 #:wprime-precision -2)))
 
          (define/override (pd-function cp-params)
            (cp2-fn cp-params))
@@ -662,7 +703,7 @@
                     (text "model" pd-label-face)
                     (text "data" pd-label-face))
               interval-estimates-time))
-           
+
            (define title2 (text "Estimates" pd-title-face))
            (define p2
              (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
@@ -928,8 +969,97 @@
          (define/override (y-range) (cons 0 #f))
          (define/override (plot-color) 'smart)
          (define/override (series-name) "pace")
+         (define/override (inverted-best-avg?) #t)
          (define/override (value-formatter)
            (lambda (p) (swim-pace->string (convert-swim-pace->m/s p))))
+
+         (define/override (have-cp-estimate) #t)
+
+         (define/override (cp-estimate bavg-fn params)
+           (define afn (lambda (t) (convert-swim-pace->m/s (bavg-fn t))))
+           ;; Check that the bavg function can provide values for the CP2
+           ;; search range.  The cp2search structure is already validated via
+           ;; a #:guard, so we only need to check that the bavg function is
+           ;; valid at the AEEND point.
+           (and (bavg-fn (cp2search-aeend params))
+                (search-best-cp/exhausive
+                 afn params
+                 #:cp-precision 3 #:wprime-precision 1)))
+
+         (define/override (pd-function cp-params)
+           (define fn (cp2-fn cp-params))
+           (lambda (t)
+             (let ((spd (fn t)))
+               (if spd (convert-m/s->swim-pace spd) #f))))
+
+         (define/override (pd-data-as-pict cp-params bavgfn)
+           (define metric? (eq? (al-pref-measurement-system) 'metric))
+           (define fn (cp2-fn cp-params))
+           (define dfn
+             (lambda (t)
+               (let ((val (bavgfn t)))
+                 (if val (convert-m/s->swim-pace val) #f))))
+
+           (define title (text "Model" pd-title-face))
+           (define dprime (short-distance->string (round (cp2-wprime cp-params))))
+           (define cv (swim-pace->string (cp2-cp cp-params)))
+           (define picts
+             (list (text "CV" pd-label-face)
+                   (text cv pd-item-face)
+                   (text (if metric? "min/100m" "min/100yd") pd-label-face)
+                   (text "D'" pd-label-face)
+                   (text dprime pd-item-face)
+                   (text (if metric? "meters" "yards") pd-label-face)))
+           (define p1
+             (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
+
+           (define interval-estimates-time
+             (flatten
+              (for/list ([t '(("5 min" . 300)
+                              ("10 min" . 600)
+                              ("15 min" . 900)
+                              ("20 min" . 1200))])
+                (list (text (car t) pd-label-face)
+                      (text (swim-pace->string (fn (cdr t))) pd-item-face)
+                      (text (let ((val (dfn (cdr t))))
+                              (if val (swim-pace->string val) "N/A"))
+                            pd-item-face)))))
+
+           (define actual-max (find-actual-max dfn 7200))
+
+           (define interval-estimates-distance
+             (flatten
+              (for/list ([t '(("50 m" . 50.0)
+                              ("100 m" . 100.0)
+                              ("200 m" . 200.0)
+                              ("400 m" . 400.0)
+                              ("1000 m" . 1000.0)
+                              ("1500 m" . 1500.0))])
+                (define model-pace (estimate-distance fn (cdr t) 10 actual-max))
+                (define data-pace (estimate-distance dfn (cdr t) 10 actual-max))
+                (list (text (car t) pd-label-face)
+                      (text (if model-pace (swim-pace->string model-pace) "N/A") pd-item-face)
+                      (text (if data-pace (swim-pace->string data-pace) "N/A") pd-item-face)))))
+
+           (define interval-estimates
+             (append
+              (list (text "" pd-label-face)
+                    (text "model" pd-label-face)
+                    (text "data" pd-label-face))
+              interval-estimates-time
+              interval-estimates-distance))
+
+           (define title2 (text "Estimates" pd-title-face))
+           (define p2
+             (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
+
+           (define p (vc-append 10 p1 p2))
+
+           (cc-superimpose
+            (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
+                                      #:draw-border? #f #:color pd-background)
+            p))
+
          )))
 (provide axis-swim-pace)
 
@@ -1048,7 +1178,16 @@
    axis-swim-distance
    axis-swim-time))
 
-(define (find-meta-for-series name)
+(define swim-series-meta
+  (list axis-swim-pace
+        axis-swim-swolf
+        axis-swim-stroke-count
+        axis-swim-stroke-length
+        axis-swim-avg-cadence
+        axis-swim-distance
+        axis-swim-time))
+
+(define (find-meta-for-series name (is-lap-swimming? #f))
   (findf (lambda (meta) (equal? (send meta series-name) name))
-         all-series-meta))
+         (if is-lap-swimming? swim-series-meta all-series-meta)))
 (provide find-meta-for-series)
