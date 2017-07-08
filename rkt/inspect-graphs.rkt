@@ -16,6 +16,7 @@
 
 (require plot
          racket/class
+         racket/contract
          racket/gui/base
          (rename-in srfi/48 (format format-48))
          racket/list
@@ -24,6 +25,7 @@
          racket/math
          racket/sequence
          racket/vector
+         plot/utils
          "plot-hack.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
@@ -47,6 +49,7 @@
 
 (define graph-title-font
   (send the-font-list find-or-create-font 9 'default 'normal 'normal))
+
 
 
 ;;.............................................................. helpers ....
@@ -114,52 +117,360 @@
     (define color (cdr (assoc factor factor-colors)))
     (make-plot-renderer data yr #:color color #:width 4.0)))
 
+;; A function that generates integer tokens (effectively a counter).  It uses
+;; a channel and a separate thread so that tokens can be correctly generated
+;; from multiple threads.  Tokens are used in PS and PD structures to ensure
+;; data consistency.
+(define next-token
+  (let ((c (make-channel)))
+    (thread (lambda ()
+              (let loop ((n 0))
+                (channel-put c n)
+                (loop (add1 n)))))
+    (lambda () (channel-get c))))
+
+;; Guard function for the PS structure.  Serves two purposes: generates a new
+;; token each time a new PS structure is created and validates all the values
+;; in the structure slots via a contract.
+(define/contract (ps-guard
+                  token
+                  df
+                  x-axis
+                  y-axis
+                  y-axis2
+                  avg?
+                  zoom?
+                  color?
+                  filter
+                  ivl
+                  struct-name)
+  (-> nonnegative-integer?
+      (or/c #f (is-a?/c data-frame%))
+      (or/c #f (is-a?/c series-metadata%))
+      (or/c #f (is-a?/c series-metadata%))
+      (or/c #f (is-a?/c series-metadata%))
+      boolean?
+      boolean?
+      boolean?
+      nonnegative-integer?
+      (or/c #f (cons/c number? number?))
+      any/c
+      any)
+  (values
+   (next-token)
+   df
+   x-axis
+   y-axis
+   y-axis2
+   avg?
+   zoom?
+   color?
+   filter
+   ivl))
+
+;; Plot state, defines data and input parameters for a plot: data frame, what
+;; axis do we plot, etc
+(struct ps
+  (;; Automatically set by the ps guard to a (next-token), regardless of what
+   ;; you pass in here :-)
+   token
+   ;; The data-frame% from which we extract data
+   df
+   ;; series-meta for X-axis, this will be time, elapsed time or distance
+   x-axis
+   ;; series-meta for Y-axis
+   y-axis
+   ;; series-meta for secondary Y-axis (for a dual axis plot), #f if there is
+   ;; no secondary axis.
+   y-axis2
+   ;; show an average line on the plot
+   avg?
+   ;; zoom the selected lap on the plot
+   zoom?
+   ;; color the plot by factors (e.g. zones)
+   color?
+   ;; filter amount for the data on the plot, 0 means no filtering
+   filter
+   ;; interval to highlight.  This can be #f for no highlighted interval, or a
+   ;; cons of start and end timestamps.
+   ivl)
+  #:guard ps-guard
+  #:transparent)
+
+;; The "empty" plot state, defined for convenience
+(define empty-ps (ps 0 #f #f #f #f #f #f #f 0 #f))
+
+;; Guard function for the PD structure.  Can be used to add contracts to its
+;; fields (disabled for now, for performance reasons).
+(define (pd-guard
+         token
+         sdata
+         sdata2
+         fdata
+         y-range
+         plot-rt
+         hlivl-rt
+         struct-name)
+  ;; (-> nonnegative-integer?
+  ;;     (or/c #f ts-data/c)
+  ;;     (or/c #f ts-data/c)
+  ;;     (or/c #f (listof (cons/c any/c ts-data/c)))
+  ;;     (or/c #f y-range/c)
+  ;;     (or/c #f (treeof renderer2d?))
+  ;;     (or/c #f (treeof renderer2d?))
+  ;;     any/c
+  ;;     any)
+  (values
+   token                             ; NOTE: don't generate a new token here!
+   sdata
+   sdata2
+   fdata
+   y-range
+   plot-rt
+   hlivl-rt))
+
+;; Plot Data, contains the data that is ready to plot, based on a
+;; corresponding PS structure
+(struct pd
+  (;; Token is copied from a PS structure and is used to identify what PS
+   ;; instance this data corresponds to.
+   token
+   ;; Plot data extracted from the data-frame for the first Y axis, see
+   ;; `extract-data`
+   sdata
+   ;; Plot data extracted from the data-frame for the second Y axis, if any,
+   ;; see `extract-data`
+   sdata2
+   ;; Factored data, if the data requires factoring (color? is #t).  Note that
+   ;; we might have a FDATA here even if color? is #f in the corresponding PS
+   ;; structure.  This is done to avoid re-factoring the data if the user
+   ;; clicks on-off on the color repeatedly.
+   fdata
+   ;; The min and max Y values for the plot
+   y-range
+   ;; The plot renderer tree for the data
+   plot-rt
+   ;; The highlighted interval renderer tree for the data.
+   hlivl-rt)
+  #:guard pd-guard
+  #:transparent)
+
+;; An empty plot data structure, for convenience.
+(define empty-pd (pd 0 #f #f #f #f #f #f))
+
+;; Produce a renderer tree from the data in the PD and PS structures.  We
+;; assume the PD structure is up-to date w.r.t PD structure.
+(define/contract (plot-data-renderer-tree pd ps)
+  (-> pd? ps? (or/c #f (treeof renderer2d?)))
+  (let ((df (ps-df ps))
+        (y (ps-y-axis ps))
+        (y2 (ps-y-axis2 ps))
+        (sdata (pd-sdata pd))
+        (sdata2 (pd-sdata2 pd))
+        (fdata (pd-fdata pd))
+        (y-range (pd-y-range pd)))
+    (cond ((and df (is-lap-swimming? df)
+                (eq? (send y plot-color) 'smart))
+           (make-plot-renderer/swim-stroke
+            sdata (send df select "swim_stroke")))
+          ((and (ps-color? ps) fdata)
+           (make-plot-renderer-for-splits fdata y-range (send y factor-colors)))
+          ((and sdata sdata2)
+           (list
+            (make-plot-renderer sdata y-range
+                                #:color (send y plot-color)
+                                #:width 1
+                                #:alpha 0.9
+                                #:label (send y plot-label))
+            (make-plot-renderer sdata2 y-range
+                                #:color (send y2 plot-color)
+                                #:width 1
+                                #:alpha 0.9
+                                #:label (send y2 plot-label))))
+          (sdata
+           (make-plot-renderer sdata y-range
+                               #:color (send y plot-color)))
+          (sdata2
+           (error "plot-data-renderer-tree -- unexpected combination"))
+          (#t #f))))
+
+;; Produce an highlight interval renderer tree from the data in the PD and PS
+;; structures.  We assume the PD structure is up-to date w.r.t PD structure.
+(define/contract (plot-highlight-interval-renderer-tree pd ps)
+  (-> pd? ps? (or/c #f (treeof renderer2d?)))
+  (let ((df (ps-df ps))
+        (y (ps-y-axis ps))
+        (ivl (ps-ivl ps))
+        (sdata (pd-sdata pd))
+        (y-range (pd-y-range pd)))
+
+    (define (get-color)
+      (let ((c (send y plot-color)))
+        (if (eq? c 'smart) "gray" c)))
+
+    (if (and (cons? ivl) df y sdata y-range)
+        (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
+          (make-box-renderer start end (car y-range) (cdr y-range) (get-color)))
+        #f)))
+
+;; Produce a new PD structure given an old PD and PS structure and a new PS
+;; structure.  This function determines what has changed between OLD-PS and
+;; NEW-PS and re-computes only what is needed, the remaining data is taken
+;; from OLD-PD.
+(define/contract (update-plot-data old-pd old-ps new-ps)
+  (-> pd? ps? ps? pd?)
+  (unless (equal? (ps-token old-ps) (pd-token old-pd))
+    (error "update-plot-data -- token mismatch"))
+  (cond
+    ((or (eq? old-ps new-ps)
+         (equal? (ps-token old-ps) (ps-token new-ps)))
+     old-pd)
+    (#t
+     ;; need a new sdata if the df, x-axis, y-axis or filter amount have
+     ;; changed, or there is no sdata in old-pd
+     (define need-sdata?
+       (and (ps-df new-ps)
+            (ps-x-axis new-ps)
+            (ps-y-axis new-ps)
+            (or (not (pd-sdata old-pd))
+                (not (and (eq? (ps-df old-ps) (ps-df new-ps))
+                          (eq? (ps-x-axis old-ps) (ps-x-axis new-ps))
+                          (eq? (ps-y-axis old-ps) (ps-y-axis new-ps))
+                          (equal? (ps-filter old-ps) (ps-filter new-ps)))))))
+     ;; need a new sdata2 if df, x-axis, y-axis2 or filter amount have
+     ;; changed, or there is no sdata2 in old-pd.
+     (define need-sdata2?
+       (and (ps-df new-ps)
+            (ps-x-axis new-ps)
+            (ps-y-axis2 new-ps)
+            (or (not (pd-sdata2 old-pd))
+                (not (and (eq? (ps-df old-ps) (ps-df new-ps))
+                          (eq? (ps-x-axis old-ps) (ps-x-axis new-ps))
+                          (eq? (ps-y-axis2 old-ps) (ps-y-axis2 new-ps))
+                          (equal? (ps-filter old-ps) (ps-filter new-ps)))))))
+     ;; need new fdata if we update sdata or color? has changed or there is no
+     ;; fdata in old-pd
+     (define need-fdata?
+       (and (ps-color? new-ps)
+            (or need-sdata?
+                (not (pd-fdata old-pd)))))
+
+     ;; Calculate new SDATA if NEED-SDATA? is #t, or re-use the one from
+     ;; OLD-PD
+     (define sdata
+       (if need-sdata?
+           (let ((df (ps-df new-ps))
+                 (x (ps-x-axis new-ps))
+                 (y (ps-y-axis new-ps))
+                 (filter (ps-filter new-ps)))
+             (if (send df contains? (send x series-name) (send y series-name))
+                 (let ([ds (extract-data df x y filter #t)])
+                   (if (is-lap-swimming? df)
+                       (add-verticals ds)
+                       ds))
+                 #f))
+           (pd-sdata old-pd)))
+     ;; Calculate new SDATA2 if NEED-SDATA2? is #t, or re-use the one from
+     ;; OLD-PD (but only if we actually have an y-axis2)
+     (define sdata2
+       (if need-sdata2?
+           (let ((df (ps-df new-ps))
+                 (x (ps-x-axis new-ps))
+                 (y (ps-y-axis2 new-ps))
+                 (filter (ps-filter new-ps)))
+             (if (send df contains? (send x series-name) (send y series-name))
+                 (let ([ds (extract-data df x y filter #t)])
+                   (if (is-lap-swimming? df)
+                       (add-verticals ds)
+                       ds))
+                 #f))
+           (if (ps-y-axis2 new-ps)
+               (pd-sdata2 old-pd) ; don't reuse sdata2 unless there is an y-axis2
+               #f)))
+     ;; Calculate a new FDATA if NEED-FDATA? is #t, or re-use the one from
+     ;; OLD-PD.  Note that we keep the old FDATA around even if color? is now
+     ;; #f.
+     (define fdata
+       (if need-fdata?
+           (let ((df (ps-df new-ps))
+                 (y (ps-y-axis new-ps)))
+             (let* ((sport (send df get-property 'sport))
+                    (sid (send df get-property 'session-id))
+                    (factor-fn (send y factor-fn sport sid))
+                    (factor-colors (send y factor-colors)))
+               (if (and factor-fn sdata)
+                   (split-by-factor sdata factor-fn #:key (lambda (v) (vector-ref v 1)))
+                   #f)))
+           (pd-fdata old-pd)))
+     ;; Calculate new Y-RANGE, if needed, or reuse the one from OLD-PD.
+     (define y-range
+       (if (or need-sdata? need-sdata2?)
+           (let* ((y (ps-y-axis new-ps))
+                  (y2 (ps-y-axis2 new-ps))
+                  (st1 (if sdata (ds-stats sdata) #f))
+                  (st2 (if sdata2 (ds-stats sdata2) #f))
+                  (yr1 (if st1 (get-plot-y-range st1 y) #f))
+                  (yr2 (if st2 (get-plot-y-range st2 y2) #f)))
+             (cond ((and yr1 yr2)
+                    (combine-y-range yr1 yr2))
+                   (yr1)
+                   (yr2)
+                   (#t #f)))
+           (pd-y-range old-pd)))
+
+     ;; Temporary PD structure, used to pass them on to the renderer tree
+     ;; functions.
+     (define tmp-pd (pd (ps-token new-ps) sdata sdata2 fdata y-range #f #f))
+
+     ;; Calculate a new plot renderer tree if needed, or reuse the one from
+     ;; OLD-PD
+     (define plot-rt
+       (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
+           (if (or need-sdata? need-sdata2? need-fdata?
+                   (not (equal? (ps-color? old-ps) (ps-color? new-ps))))
+               (plot-data-renderer-tree tmp-pd new-ps)
+               (pd-plot-rt old-pd))
+           #f))
+     ;; Calculate a new highlight interval renderer tree if needed, or reuse
+     ;; the one from OLD-PD
+     (define hlivl-rt
+       (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
+           (if (or need-sdata? need-sdata2? need-fdata?
+                   (and (ps-ivl new-ps)
+                        (not (equal? (ps-ivl old-ps) (ps-ivl new-ps)))))
+               (plot-highlight-interval-renderer-tree tmp-pd new-ps)
+               (pd-hlivl-rt old-pd))
+           #f))
+
+     ;; Put the renderer tree in the structure and return the result.
+     (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl-rt hlivl-rt)))))
+
+
 (define graph-view%
   (class object%
     (init parent)
     (init-field text tag [min-height 250])
-
     (super-new)
 
-    (define data-frame #f)
+    (define previous-plot-state empty-ps)
+    (define plot-state empty-ps)
+    (define plot-data empty-pd)
 
-    (define data-series #f)
-    (define data-y-range #f)
+    ;; True if the plot is shown, false if hidden, controlled by the Show/Hide
+    ;; button.
+    (define show-graph? #t)
 
-    (define factored-data #f)
-    (define factor-fn #f)
-    (define factor-colors #f)
+    ;; When #t, the plot is not refreshed when parameters change.  This is
+    ;; used to prevent multiple refresh calls when there are multiple changes
+    ;; in one go.
+    (define flush-suspended? #f)
 
-    (define data-series2 #f)            ; secondary data series
-
-    (define show-graph? #t)         ; graph view can be toggled on/off
-    (define show-avg? #f)           ; display the average line
-    (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
-    (define color-by-zone? #f)      ; color data by zone (if zones are available)
-    (define filter-amount 0)        ; amount of filtering to use
-
-    (define x-axis #f)
-    (define y-axis #f)
-    (define y-axis2 #f)                 ; secondary Y axis
-
-    ;; Time-stamp for the start of highlighted interval.  If #f, there is no
-    ;; highlighted interval
-    (define ivl-start #f)
-
-    ;; Time-stamp for the end of the highlighted interval.  If #f, it means
-    ;; the interval extends to the end of the data range.
-    (define ivl-end #f)
-
-    ;; The render tree to be passed to plot.  This is produced by
-    ;; `prepare-render-tree' once we have an session
-    (define graph-render-tree #f)
-    (define lap-render-tree #f)
-
-    ;; The graph itself is drawn once and stored as a bitmap.  It will be
-    ;; redrawn only when graph params change or the width/height of the canvas
-    ;; does.
-    (define cached-graph-bitmap #f)
-    (define cached-bitmap-dirty? #f)
+    ;; Bitmap containing the plot.
+    (define cached-bitmap #f)
+    ;; Token corresponding to the PD instance that was used to generate the
+    ;; CACHED-BITMAP.  If cached-bitmap-token is not the same as (ps-token
+    ;; plot-state), the cached-bitmap is outdated.
+    (define cached-bitmap-token #f)
 
     (define y-axis-by-sport (make-hash)) ; saved as a preference
 
@@ -168,10 +479,6 @@
     ;; changes.
     (define export-file-name #f)
 
-    (define generation 0)
-
-    (define (get-generation) generation)
-
     (let ((pref (get-pref tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 3))
         (set! show-graph? (second pref))
@@ -179,8 +486,7 @@
 
     ;; The panel that contains the entire graph view
     (define panel (new (class vertical-panel%
-                         (init)
-                         (super-new)
+                         (init) (super-new)
                          (define/public (interactive-export-image)
                            (on-interactive-export-image)))
                        [parent parent]
@@ -212,7 +518,8 @@
                 (if show-graph?
                     (begin
                       (send panel add-child graph-canvas)
-                      (send button set-label "Hide"))
+                      (send button set-label "Hide")
+                      (refresh))
                     (begin
                       (send panel delete-child graph-canvas)
                       (send button set-label "Show")))
@@ -235,9 +542,7 @@
 
     (define/public (setup-y-axis-items y-axis-choices)
       ;; First remove all previous children from the panel
-      (for-each
-       (lambda (c) (send optional-items-panel delete-child c))
-       (send optional-items-panel get-children))
+      (send optional-items-panel change-children (lambda (old) '()))
 
       (when y-axis-choices
 	(set! y-axis-choice
@@ -245,207 +550,157 @@
                    [label "Display: "]
                    [choices y-axis-choices]
                    [callback (lambda (c e)
-                               (let ((index (send c get-selection))
-                                     (sport (if data-frame (send data-frame get-property 'sport) #f)))
+                               (let* ((df (ps-df plot-state))
+                                      (index (send c get-selection))
+                                      (sport (and df (send df get-property 'sport))))
                                  (when sport
                                    (hash-set! y-axis-by-sport sport index))
                                  (on-y-axis-selected index)))]))
         (send y-axis-choice set-selection 0)
         (on-y-axis-selected 0)))
 
-    (define (get-cached-graph-bitmap width height)
+    (define (put-plot dc pd ps)
 
       (define (full-render-tree)
-        (let ((render-tree (list graph-render-tree)))
-          (when lap-render-tree
-            (set! render-tree (cons lap-render-tree render-tree)))
+        (let ((render-tree (list (pd-plot-rt pd))))
+          (when (pd-hlivl-rt pd)
+            (set! render-tree (cons (pd-hlivl-rt pd) render-tree)))
           (set! render-tree (cons (tick-grid) render-tree))
-          (when show-avg?
+          (when (ps-avg? ps)
             (let ((avg (get-average-renderer)))
               (when avg (set! render-tree (cons avg render-tree)))))
           (reverse render-tree)))
 
       (define (get-x-transform)
-        (if (and ivl-start zoom-to-lap?)
-            (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
-              (stretch-transform start end 30))
-            id-transform))
+        (let ((ivl (ps-ivl ps))
+              (sdata (pd-sdata pd)))
+          (if (and (cons? ivl) (ps-zoom? ps))
+              (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
+                (stretch-transform start end 30))
+              id-transform)))
+
+      (define x-axis (ps-x-axis ps))
+      (define y-axis (ps-y-axis ps))
 
       (define (get-x-axis-ticks)
-        (let ((ticks (send x-axis plot-ticks)))
-          (if (and ivl-start zoom-to-lap?)
-              (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
+        (let ((ticks (send x-axis plot-ticks))
+              (ivl (ps-ivl ps))
+              (sdata (pd-sdata pd)))
+          (if (and (cons? ivl) (ps-zoom? ps))
+              (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
                 (ticks-add ticks (list start end)))
               ticks)))
 
-      (let* ((bmp (if (and cached-graph-bitmap
-                           (= (send cached-graph-bitmap get-width) width)
-                           (= (send cached-graph-bitmap get-height) height))
-                      ;; We can reuse the bitmap if it is the same size
-                      cached-graph-bitmap
-                      (make-object bitmap% width height #f #f (get-display-backing-scale)))))
+      (let-values (((width height) (send dc get-size)))
         (parameterize ([plot-x-transform (get-x-transform)]
                        [plot-x-ticks (get-x-axis-ticks)]
                        [plot-x-label (send x-axis axis-label)]
                        [plot-y-ticks (send y-axis plot-ticks)]
                        [plot-y-label (send y-axis axis-label)])
-          (plot-to-bitmap/hack (full-render-tree) bmp)
-        bmp)))
-
-    (define (make-cached-graph-bitmap width height)
-      (queue-task
-       "graph-view%/make-cached-graph-bitmap"
-       (lambda ()
-         (let ((bmp (get-cached-graph-bitmap width height)))
-           (queue-callback
-            (lambda ()
-              (set! cached-graph-bitmap bmp)
-              (set! cached-bitmap-dirty? #f)
-              (send graph-canvas refresh)))))))
+          (plot/dc (full-render-tree) dc 0 0 width height))))
 
     (define (on-canvas-paint canvas dc)
+      (cond
+        ((not (and (ps-df plot-state) (ps-x-axis plot-state) (ps-y-axis plot-state)))
+         (send dc clear)
+         (draw-centered-message dc "Graph not configured" message-font))
 
-      (define (maybe-draw-working-message)
-        (when cached-graph-bitmap
-          ;; if a bitmap is available, use it untill data is ready.
-          (send dc draw-bitmap cached-graph-bitmap 0 0))
-        (draw-centered-message dc "Working..." message-font))
+        ;; If there's a cached-bitmap, draw it now, even if it is not the
+        ;; latest one.
+        (cached-bitmap
+         (send dc draw-bitmap cached-bitmap 0 0)
+         (unless (equal? cached-bitmap-token (ps-token plot-state))
+           (draw-centered-message dc "Working..." message-font)))
 
-      (cond ((or (eq? x-axis #f) (eq? y-axis #f))
-             (draw-centered-message dc "Graph not configured" message-font))
-            ((eq? graph-render-tree #f)
-             (draw-centered-message dc "No data for graph" message-font))
-            ((eq? graph-render-tree 'working)
-             (maybe-draw-working-message))
-            (#t
-             (let-values (([w h] (send canvas get-virtual-size)))
-               (if (or cached-bitmap-dirty?
-                         (not cached-graph-bitmap)
-                         (not (= (send cached-graph-bitmap get-width) w))
-                         (not (= (send cached-graph-bitmap get-height) h)))
-                   (begin
-                     (make-cached-graph-bitmap w h)
-                     (maybe-draw-working-message))
-                   (send dc draw-bitmap cached-graph-bitmap 0 0))))))
+        ((not (equal? (ps-token plot-state) (pd-token plot-data)))
+         ;; We're working on the first bitmap for this plot...
+         (send dc clear)
+         (draw-centered-message dc "Working..." message-font))
+
+        (#t
+         (send dc clear)
+         (draw-centered-message dc "No data for plot" message-font))))
+
+    (define (on-canvas-paint/wrapped canvas)
+      ;; The canvas will be left in an invalid state if exceptions are thrown
+      ;; while painting it.  We catch the exceptions, log them than discard
+      ;; them.
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e) (dbglog-exception "graph-canvas%/on-canvas-paint-wrapped" e))))
+        (on-canvas-paint canvas (send canvas get-dc))))
 
     (define graph-canvas
-      (new canvas% [parent panel]
+      (new (class canvas%
+             (init) (super-new)
+             (define/override (on-size w h) (refresh))
+             (define/override (on-paint) (on-canvas-paint/wrapped this)))
+           [parent panel]
            [min-height min-height]
-           [style (if show-graph? '() '(deleted))]
-           [paint-callback
-            (lambda (canvas dc)
-              ;; The canvas will be left in an invalid state if exceptions are
-              ;; thrown while painting it.  We catch the exceptions and just
-              ;; discard them, but it would be nice to clean-up and re-raise
-              ;; the exception.
-              (with-handlers
-                (((lambda (e) #t)
-                  (lambda (e) (display (format "Exception in canvas/paint-callback: ~a~%" e)))))
-                (on-canvas-paint canvas dc)))]))
+           [style (if show-graph? '() '(deleted))]))
 
-    (define/public (suspend-flush) (send graph-canvas suspend-flush))
-    (define/public (resume-flush) (send graph-canvas resume-flush))
+    (define/public (suspend-flush)
+      (send graph-canvas suspend-flush)
+      (set! flush-suspended? #t))
+    (define/public (resume-flush)
+      (send graph-canvas resume-flush)
+      (set! flush-suspended? #f))
 
-    (define (prepare-render-tree)
-      (set! generation (add1 generation))
-      (if (and data-frame x-axis y-axis)
-          ;; Capture all variables, we are about to do work in another thread
-          ;; and these could change underneath us.
-          (let ((data-frame data-frame)
-                (x-axis x-axis)
-                (y-axis y-axis)
-                (y-axis2 y-axis2)
-                (color-by-zone? color-by-zone?)
-                (filter-amount filter-amount)
-                (saved-generation generation))
-            (set! graph-render-tree 'working)
-            (queue-task
-             "graph-view%/prepare-render-tree"
-             (lambda ()
-               (define ds
-                 (or data-series
-                     ;; NOTE: a graph can be configured for multiple Y axis,
-                     ;; and some of them might not exist. We need to check
-                     ;; that the series exists.
-                     (if (send data-frame contains?
-                               (send y-axis series-name)
-                               (send x-axis series-name))
-                         (let ([ds (extract-data data-frame x-axis y-axis filter-amount #t)])
-                           (if (is-lap-swimming? data-frame)
-                               (add-verticals ds)
-                               ds))
-                         #f)))
-               (define fdata
-                 (if color-by-zone?
-                     (or factored-data
-                         (if (and factor-fn ds)
-                             (split-by-factor ds factor-fn #:key (lambda (v) (vector-ref v 1)))
-                             #f))
-                     #f))
-               (define ds2
-                 (or data-series2
-                     ;; NOTE: a graph can be configured for multiple Y axis,
-                     ;; and some of them might not exist. We need to check
-                     ;; that the series exists.
-                     (if (and y-axis2 (send data-frame contains?
-                                            (send x-axis series-name)
-                                            (send y-axis2 series-name)))
-                         (let ([ds (extract-data data-frame x-axis y-axis2 filter-amount #t)])
-                           (if (is-lap-swimming? data-frame)
-                               (add-verticals ds)
-                               ds))
-                         #f)))
-               (define yr
-                 (or data-y-range
-                     (let* ((st1 (if ds (ds-stats ds) #f))
-                            (st2 (if ds2 (ds-stats ds2) #f))
-                            (yr1 (if st1 (get-plot-y-range st1 y-axis) #f))
-                            (yr2 (if st2 (get-plot-y-range st2 y-axis2) #f)))
-                       (cond ((and yr1 yr2)
-                              (combine-y-range yr1 yr2))
-                             (yr1)
-                             (yr2)
-                             (#t #f)))))
-               (define rt
-                 (cond
-                   ((and ds (is-lap-swimming? data-frame)
-                         (eq? (send y-axis plot-color) 'smart))
-                    (make-plot-renderer/swim-stroke
-                     ds
-                     (send data-frame select "swim_stroke")))
-                   (fdata (make-plot-renderer-for-splits fdata yr factor-colors))
-                   ((and ds ds2)
-                    (list
-                     (make-plot-renderer ds yr
-                                         #:color (send y-axis plot-color)
-                                         #:width 1
-                                         #:alpha 0.9
-                                         #:label (send y-axis plot-label))
-                     (make-plot-renderer ds2 yr
-                                         #:color (send y-axis2 plot-color)
-                                         #:width 1
-                                         #:alpha 0.9
-                                         #:label (send y-axis2 plot-label))))
-                   (ds
-                    (make-plot-renderer ds yr
-                                        #:color (send y-axis plot-color)))
-                   (ds2
-                    (make-plot-renderer ds2 yr
-                                        #:color (send y-axis2 plot-color)))
-                   (#t #f)))
+    (define (refresh-plot)
+      (let ((pstate plot-state)
+            (ppstate previous-plot-state)
+            (pdata plot-data))
+        (queue-task
+         "graph-view%/refresh-plot"
+         (lambda ()
+           (let* ((npdata (update-plot-data pdata ppstate pstate))
+                  (bmp (let-values (((w h) (send graph-canvas get-size)))
+                         (send graph-canvas make-bitmap w h))))
+             (when (pd-plot-rt npdata)
+               (put-plot (send bmp make-dc) npdata pstate))
+             (queue-callback
+              (lambda ()
+                (if (= (pd-token npdata) (ps-token plot-state))
+                    (begin
+                      (set! previous-plot-state pstate)
+                      (set! plot-state pstate)
+                      (set! plot-data npdata)
+                      (if (pd-plot-rt npdata)
+                          (set! cached-bitmap bmp)
+                          (set! cached-bitmap #f))
+                      (set! cached-bitmap-token (pd-token npdata))
+                      (send graph-canvas refresh))
+                    (begin
+                      ;; (printf "refresh-plot: discarding data ~a -- ~a~%"
+                      ;;         (pd-token npdata) (ps-token plot-state))
+                      (void))))))))))
+
+    (define (refresh-cached-bitmap)
+      (let ((pstate plot-state)
+            (pdata plot-data))
+        (queue-task
+         "graph-view%/refresh-cached-bitmap"
+         (lambda ()
+           (when (pd-plot-rt pdata)
+             (let ((bmp (let-values (((w h) (send graph-canvas get-size)))
+                          (send graph-canvas make-bitmap w h))))
+               (put-plot (send bmp make-dc) pdata pstate)
                (queue-callback
                 (lambda ()
-                  (let ((current-generation (get-generation)))
-                    (when (= saved-generation current-generation)
-                      (set! data-series ds)
-                      (set! data-y-range yr)
-                      (set! data-series2 ds2)
-                      (set! factored-data fdata)
-                      (set! graph-render-tree rt)
-                      (set! cached-bitmap-dirty? #t)
-                      (highlight-interval ivl-start ivl-end)
-                      (send graph-canvas refresh))))))))
-          (set! graph-render-tree #f)))
+                  (if (= (pd-token pdata) cached-bitmap-token)
+                      (begin
+                        (set! cached-bitmap bmp)
+                        (send graph-canvas refresh))
+                      (begin
+                        ;; (printf "refresh-cached-bitmap: discarding data ~a -- ~a~%"
+                        ;;         (pd-token pdata) cached-bitmap-token)
+                        (void)))))))))))
+      
+    (define (refresh)
+      (when (and (not flush-suspended?) show-graph?)
+        (if (equal? (pd-token plot-data) (ps-token plot-state))
+            (refresh-cached-bitmap)
+            (refresh-plot))))
 
     (define/public (get-average-renderer)
       #f)
@@ -455,7 +710,7 @@
 
     ;; Return #t if this graph can display some data for DATA-FRAME (e.g. a
     ;; cadence graph is only valid if there is cadence series in the data
-    ;; frame).  This needs to be overriden.
+    ;; frame).  This needs to be overridden.
     (define/public (is-valid-for? data-frame) #f)
 
     (define/public (save-visual-layout)
@@ -465,102 +720,46 @@
 
     (define/public (set-data-frame df)
       (suspend-flush)
-      (set! cached-bitmap-dirty? #t)
-      (set! cached-graph-bitmap #f)     ; dont use previous one
-      (set! data-frame df)
-      (set! data-series #f)
-      (set! data-y-range #f)
-      (set! factored-data #f)
-      (set! data-series2 #f)
+      (set! plot-state (struct-copy ps plot-state [df df] [ivl #f]))
       (set! export-file-name #f)
-      (when (and y-axis-choice data-frame)
-        (let* ((sport (send data-frame get-property 'sport))
+      (when (and y-axis-choice df)
+        (let* ((sport (send df get-property 'sport))
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
           (send y-axis-choice set-selection y-axis-index)
           (on-y-axis-selected y-axis-index)))
-      (if (and data-frame y-axis)
-          (let ((sport (send data-frame get-property 'sport))
-                (sid (send data-frame get-property 'session-id)))
-            (set! factor-fn (send y-axis factor-fn sport sid))
-            (set! factor-colors (send y-axis factor-colors)))
-          (begin
-            (set! factor-fn #f)
-            (set! factor-colors #f)))
-      (set! ivl-start #f)
-      (set! ivl-end #f)
-      (prepare-render-tree)
-      (resume-flush))
+      (resume-flush)
+      (refresh))
 
     (define/public (zoom-to-lap zoom)
-      (set! zoom-to-lap? zoom)
-      (set! cached-bitmap-dirty? #t)
-      (send graph-canvas refresh))
+      (set! plot-state (struct-copy ps plot-state [zoom? zoom]))
+      (refresh))
 
     (define/public (color-by-zone flag)
-      (set! color-by-zone? flag)
-      (set! cached-bitmap-dirty? #t)
-      (prepare-render-tree))
+      (set! plot-state (struct-copy ps plot-state [color? flag]))
+      (refresh))
 
     (define/public (set-filter-amount a)
-      (set! filter-amount a)
-      (set! data-series #f)
-      (set! data-series2 #f)
-      (set! factored-data #f)
-      (set! data-y-range #f)
-      (prepare-render-tree))
+      (set! plot-state (struct-copy ps plot-state [filter a]))
+      (refresh))
 
     (define/public (show-average-line show)
-      (set! show-avg? show)
-      (set! cached-bitmap-dirty? #t)
-      (send graph-canvas refresh))
+      (set! plot-state (struct-copy ps plot-state [avg? show]))
+      (refresh))
 
     (define/public (set-x-axis new-x-axis)
-      (set! x-axis new-x-axis)
-      (set! data-series #f)
-      (set! data-series2 #f)
-      (set! factored-data #f)
-      (set! data-y-range #f)
-      (prepare-render-tree))
+      (set! plot-state (struct-copy ps plot-state [x-axis new-x-axis]))
+      (refresh))
 
     (define/public (set-y-axis new-y-axis (new-y-axis2 #f))
-      (set! y-axis new-y-axis)
-      (set! y-axis2 new-y-axis2)
-      (set! data-series #f)
-      (set! data-y-range #f)
-      (set! data-series2 #f)
+      (set! plot-state (struct-copy ps plot-state [y-axis new-y-axis] [y-axis2 new-y-axis2]))
       (set! export-file-name #f)
-
-      (if data-frame
-          (let ((sport (send data-frame get-property 'sport))
-                (sid (send data-frame get-property 'session-id)))
-            (set! factor-fn (send y-axis factor-fn sport sid))
-            (set! factor-colors (send y-axis factor-colors)))
-          (begin
-            (set! factor-fn #f)
-            (set! factor-colors #f)))
-
-      (set! factored-data #f)
-      (prepare-render-tree))
+      (refresh))
 
     (define/public (highlight-interval start-timestamp end-timestamp)
+      (set! plot-state (struct-copy ps plot-state [ivl (cons start-timestamp end-timestamp)]))
+      (refresh))
 
-      (define (get-color)
-        (let ((c (send y-axis plot-color)))
-          (if (eq? c 'smart) "gray" c)))
-
-      (set! ivl-start start-timestamp)
-      (set! ivl-end end-timestamp)
-
-      (if (and ivl-start data-series data-frame data-y-range)
-          (let-values (((start end) (ivl-extents data-series ivl-start ivl-end)))
-            (set! lap-render-tree
-                  (make-box-renderer start end (car data-y-range) (cdr data-y-range) (get-color))))
-          (begin
-            (set! lap-render-tree #f)))
-      (set! cached-bitmap-dirty? #t)
-      (send graph-canvas refresh))
-
-    (define/public (get-data-frame) data-frame)
+    (define/public (get-data-frame) (ps-df plot-state))
 
     (define/public (export-image-to-file file-name)
       (let-values (([cwidth cheight] (send graph-canvas get-size)))
@@ -573,9 +772,12 @@
     ;; name from the session id and axis names of the plot.
     (define (get-default-export-file-name)
       (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id))
-                (s1 (and y-axis (send y-axis series-name)))
-                (s2 (and y-axis2 (send y-axis2 series-name))))
+          (let* ((df (ps-df plot-state))
+                 (y (ps-y-axis plot-state))
+                 (y2 (ps-y-axis2 plot-state))
+                 (sid (send df get-property 'session-id))
+                 (s1 (and y (send y2 series-name)))
+                 (s2 (and y2 (send y2 series-name))))
             (cond ((and sid s1 s2)
                    (format "graph-~a-~a-~a.png" sid s1 s2))
                   ((and sid s1)
@@ -1461,28 +1663,30 @@
       (cond ((send visible-lb get-selection)
              => (lambda (index)
                   (set! available
-                        (cons (list-ref visible index) available))
+                        (append available (list (list-ref visible index))))
                   (set! visible
                         (append (take visible index)
                                 (drop visible (add1 index))))
                   (refill)
                   ;; Select the next visible item, this way, if the user
                   ;; repeats the click, he can remove another item
-                  (when (> (length visible) 0)
-                    (send visible-lb set-selection 0))
+                  (let ((nindex (sub1 index)))
+                    (when (and (> nindex 0) (> (length visible) nindex))
+                      (send visible-lb set-selection nindex)))
                   (enable-disable-buttons)))
             ((send available-lb get-selection)
              => (lambda (index)
                   (set! visible
-                        (cons (list-ref available index) visible))
+                        (append visible (list (list-ref available index))))
                   (set! available
                         (append (take available index)
                                 (drop available (add1 index))))
                   (refill)
                   ;; Select the next available item, this way, if the user
                   ;; repeats the click, he can add another item.
-                  (when (> (length available) 0)
-                    (send available-lb set-selection 0))
+                  (let ((nindex (sub1 index)))
+                    (when (and (> nindex 0) (> (length available) nindex))
+                      (send available-lb set-selection nindex)))
                   (enable-disable-buttons)))))
 
     ;; Show the dialog to allow the user to select which graphs should be
@@ -1535,6 +1739,29 @@
 (define swim-x-axis-choices
   `(("Distance" . ,axis-swim-distance)
     ("Time" . ,axis-swim-time)))
+
+(define (make-default-graphs parent)
+  (list
+   (new speed-graph% [parent parent])
+   (new elevation-graph% [parent parent])
+   (new heart-rate-graph% [parent parent])
+   (new cadence-graph% [parent parent])
+   (new vosc-vratio-graph% [parent parent])
+   (new gct-graph% [parent parent])
+   (new power-graph% [parent parent])
+   (new wbal-graph% [parent parent])
+   (new lrbal-graph% [parent parent])
+   (new teff-graph% [parent parent])
+   (new psmth-graph% [parent parent])
+   (new pco-graph% [parent parent])
+   (new power-phase-graph% [parent parent])))
+
+(define (make-swim-graphs parent)
+  (list
+   (new swim-pace-graph% [parent parent])
+   (new swim-swolf-graph% [parent parent])
+   (new swim-stroke-count-graph% [parent parent])
+   (new swim-cadence-graph% [parent parent])))
 
 (define graph-panel%
   (class object%
@@ -1707,30 +1934,17 @@
                               [style '(vscroll)]
                               [alignment '(left top)]))
 
-    (define default-graphs
-      (list
-       (new speed-graph% [parent graphs-panel])
-       (new elevation-graph% [parent graphs-panel])
-       (new heart-rate-graph% [parent graphs-panel])
-       (new cadence-graph% [parent graphs-panel])
-       (new vosc-vratio-graph% [parent graphs-panel])
-       (new gct-graph% [parent graphs-panel])
-       (new power-graph% [parent graphs-panel])
-       (new wbal-graph% [parent graphs-panel])
-       (new lrbal-graph% [parent graphs-panel])
-       (new teff-graph% [parent graphs-panel])
-       (new psmth-graph% [parent graphs-panel])
-       (new pco-graph% [parent graphs-panel])
-       (new power-phase-graph% [parent graphs-panel])
-       ))
+    (define default-graphs-1 #f)
+    (define (default-graphs)
+      (unless default-graphs-1
+        (set! default-graphs-1 (make-default-graphs graphs-panel)))
+      default-graphs-1)
 
-    (define swim-graphs
-      (list
-       (new swim-pace-graph% [parent graphs-panel])
-       (new swim-swolf-graph% [parent graphs-panel])
-       (new swim-stroke-count-graph% [parent graphs-panel])
-       (new swim-cadence-graph% [parent graphs-panel])
-       ))
+    (define swim-graphs-1 #f)
+    (define (swim-graphs)
+      (unless swim-graphs-1
+        (set! swim-graphs-1 (make-swim-graphs graphs-panel)))
+      swim-graphs-1)
 
     (define sds-dialog #f)
 
@@ -1741,7 +1955,7 @@
         (let ((toplevel (send panel get-top-level-window))
               (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
               (all-graphs (if (is-lap-swimming? data-frame)
-                              swim-graphs default-graphs)))
+                              (swim-graphs) (default-graphs))))
           (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
                  => (lambda (ngraps)
                       (hash-set! graphs-by-sport
@@ -1752,8 +1966,8 @@
     (define/public (save-visual-layout)
       (send interval-view save-visual-layout)
       (send interval-choice save-visual-layout)
-      (for-each (lambda (g) (send g save-visual-layout)) default-graphs)
-      (for-each (lambda (g) (send g save-visual-layout)) swim-graphs)
+      (for-each (lambda (g) (send g save-visual-layout)) (default-graphs))
+      (for-each (lambda (g) (send g save-visual-layout)) (swim-graphs))
       (put-pref
        the-pref-tag
        (hash
@@ -1773,8 +1987,8 @@
 
         (define candidates
           (if (is-lap-swimming? data-frame)
-              swim-graphs
-              (for/list ([g default-graphs] #:when (send g is-valid-for? data-frame))
+              (swim-graphs)
+              (for/list ([g (default-graphs)] #:when (send g is-valid-for? data-frame))
                 g)))
 
         ;; NOTE: a #f value for VISIBLE means all graphs are visible.  The '()
@@ -1803,13 +2017,6 @@
             (lambda (old) (map (lambda (g) (send g get-panel)) graphs))))
 
     (define/public (set-session session df)
-      ;; Clear the sessions from all graphs, this will allow it to be garbage
-      ;; collected (as we won't set the session on all graphs all the time,
-      ;; the previous session might stick around longer than intended.
-
-      (for-each (lambda (g) (send g set-data-frame #f)) default-graphs)
-      (for-each (lambda (g) (send g set-data-frame #f)) swim-graphs)
-
       (set! the-session session)
       (set! data-frame df)
 

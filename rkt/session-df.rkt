@@ -69,6 +69,8 @@
  (clear-session-df-cache (->* () ((or/c integer? #f)) any/c))
  (is-teleport? (-> (is-a?/c data-frame%) number? boolean?)))
 
+(provide y-range/c factor-colors/c)
+
 
 ;;.............................................. make-session-data-frame ....
 
