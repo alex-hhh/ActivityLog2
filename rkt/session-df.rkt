@@ -465,14 +465,9 @@
 ;; checks).
 (define (add-grade-series-1 df)
 
-  ;; Minimum distance between which we can calculate grade.  For distances
-  ;; less than this, it would result in wildly inaccurate grade, so we don't
-  ;; calculate it.
-  (define minimum-distance 50.0)
-
   ;; Maximum distance between points for which we assume a monotonic grade.
-  ;; For distances less than this (and greater than MINIMUM-DISTANCE) we
-  ;; calculate a constant grade between the start and end point.
+  ;; For distances less than this we calculate a constant grade between the
+  ;; start and end point.
   (define maximum-monotonic 100.0)
 
   ;; Minimum altidute difference in a range for which we split the range.  If
@@ -594,7 +589,6 @@
   (define (iterate start end)
     (let ((dist (delta-dist start end)))
       (cond
-        ((< dist minimum-distance) (void)) ; leave range without a grade
         ((< dist maximum-monotonic) (monotonic-slope start end))
         (#t
          (let-values (((min-alt min-alt-idx max-alt max-alt-idx)
@@ -956,18 +950,23 @@
     ;; Filter the data in place, if required.
     (when (and should-filter? (> filter-width 0) (> (vector-length data) 0))
       (let ((fw (* base-filter-width filter-width))
+            (sp (or (send data-frame get-property 'stop-points) '()))
             (px (vector-ref (vector-ref data 0) 0))
             (py (vector-ref (vector-ref data 0) 1)))
-        (for ((idx (in-range 1 (vector-length data))))
-          (let* ((v (vector-ref data idx))
-                 (x (vector-ref v 0))
-                 (y (vector-ref v 1))
-                 (dt (- x px))
-                 (alpha (/ dt (+ dt fw)))
-                 (ny (+ (* alpha y) (* (- 1 alpha) py))))
-            (vector-set! v 1 ny)
-            (set! py ny)
-            (set! px x)))))
+        (for ((v (in-vector data)))
+          (match-define (vector x y t) v)
+          (if (or (empty? sp) (>= (car sp) t))
+              (let* ((dt (- x px))
+                     (alpha (/ dt (+ dt fw)))
+                     (ny (+ (* alpha y) (* (- 1 alpha) py))))
+                (vector-set! v 1 ny)
+                (set! py ny)
+                (set! px x))
+              (begin
+                ;; stop point, reset the filter
+                (set! sp (cdr sp))
+                (set! px x)
+                (set! py y))))))
 
     ;; Mark stop points by setting the values around the stop point to 0. stop
     ;; points are stored in the data-frame when it is loaded up by
@@ -997,12 +996,18 @@
       (define oidx 0)
       (define oval (vector-ref (vector-ref data 0) 1))
       (define ots (vector-ref (vector-ref data 0) 2))
+      (define stop-points (or (send data-frame get-property 'stop-points) '()))
       (for ([idx (in-range 1 (vector-length data))])
         (define item (vector-ref data idx))
         (define val (vector-ref item 0))
         (define ts (vector-ref item 2))
-        (when (or (> (- ts ots) max-time-delta)
-                  (> (abs (- val oval)) max-y-delta))
+        (when (or
+               ;; Don't simplify the stop points
+               (and (cons? stop-points) (>= ts (car stop-points)))
+               (> (- ts ots) max-time-delta)
+               (> (abs (- val oval)) max-y-delta))
+          (when (and (cons? stop-points) (= ts (car stop-points)))
+            (set! stop-points (cdr stop-points)))
           (set! oidx (add1 oidx))
           (vector-set! data oidx item)
           (set! oval val)
