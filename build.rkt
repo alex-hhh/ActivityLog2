@@ -87,14 +87,6 @@
           (format "~a (modified)" rev)))))
 
 (define (compile-app)
-  (managed-compile-zo "./rkt/main.rkt")
-  (managed-compile-zo "./run.rkt"))
-
-(define (build-app)
-
-  (unless (file-exists? app-icon-file)
-    (create-icon-file app-icon-file make-app-icon icon-sizes))
-
   (define revision (app-revision))
 
   ;; Write the application revision, version.rkt will read it in and store it
@@ -102,6 +94,14 @@
   (with-output-to-file "./build-id.txt"
     (lambda () (printf "~a~%" revision))
     #:mode 'text #:exists 'truncate/replace)
+
+  (managed-compile-zo "./rkt/main.rkt")
+  (managed-compile-zo "./run.rkt"))
+
+(define (build-app)
+
+  (unless (file-exists? app-icon-file)
+    (create-icon-file app-icon-file make-app-icon icon-sizes))
 
   (parameterize
       ([use-compiled-file-paths (list "compiled")])
