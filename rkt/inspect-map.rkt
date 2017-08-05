@@ -55,6 +55,10 @@
     ;; When #t, the selected lap is made to fit the view
     (define zoom-to-lap? #f)
 
+    ;; When #t, only the selected lap is shown on the map.  This is useful if
+    ;; the track overlaps onto itself several times.
+    (define show-selected-lap-only? #f)
+
     (define panel (new (class horizontal-pane%
                          (init)
                          (super-new)
@@ -106,6 +110,9 @@
       (new check-box% [parent p] [label "Zoom to Lap"]
            [value zoom-to-lap?]
            [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
+      (new check-box% [parent p] [label "Show Only Selected Lap"]
+           [value show-selected-lap-only?]
+           [callback (lambda (b e) (show-selected-lap-only (send b get-value)))])
       (set! zoom-slider
             (new slider% [parent p] [label "Zoom Level "]
                  [min-value (get-min-zoom-level)]
@@ -139,6 +146,7 @@
     (send elevation-graph set-filter-amount 1)
 
     (define selected-lap #f)
+    (define selected-lap-data #f)
 
     (define (zoom-to-lap flag)
       (set! zoom-to-lap? flag)
@@ -146,6 +154,12 @@
       (when zoom-to-lap?
         (send map-view resize-to-fit selected-lap)))
 
+    (define (show-selected-lap-only flag)
+      (unless (eq? flag show-selected-lap-only?)
+        (set! show-selected-lap-only? flag)
+        (when selected-lap-data
+          (highlight-lap selected-lap-data))))
+      
     (define (set-zoom-level v)
       (send map-view set-zoom-level v))
 
@@ -154,12 +168,14 @@
 
     (define (highlight-lap lap)
       ;; Remove custom any lap and set all other tracks to default pen and
-      ;; z-order (effectively un-highlights any highlighted lap)
+      ;; z-order (effectively un-highlights any highlighted lap).
       (send map-view delete-track-group 'custom)
       (send map-view set-track-group-pen #f
             (send the-pen-list find-or-create-pen
                   (make-object color% 226 34 62)
-                  3 'solid 'round 'round))
+                  3
+                  (if show-selected-lap-only? 'transparent 'solid)
+                  'round 'round))
       (send map-view set-track-group-zorder #f 0.5)
 
       (let ((lap-num (assq1 'lap-num lap))
@@ -190,7 +206,9 @@
 
       ;; Zoom canvas to current lap (if needed)
       (when zoom-to-lap?
-        (send map-view resize-to-fit selected-lap)))
+        (send map-view resize-to-fit selected-lap))
+
+      (set! selected-lap-data lap))
 
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
