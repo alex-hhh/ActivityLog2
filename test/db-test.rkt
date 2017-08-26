@@ -286,6 +286,84 @@ select count(T.id),
          (let ((session (db-fetch-session session-id db)))
            (cyd-check-retrieved-session session)))))))
 
+(define db-patch-26-tests
+  (test-suite
+   "Database Patch 26"
+   (test-case "V_SPORT_ZONE_FOR_SESSION and V_CRITICAL_POWER_FOR_SESSION"
+     (with-database
+       (lambda (db)
+         ;; Put some sport zones and CP values in the database.  We don't care
+         ;; about the actual values, only their validity dates
+         (query-exec
+          db
+          "insert into SPORT_ZONE(valid_from, sport_id, sub_sport_id, zone_metric_id)
+           values (strftime('%s', '2015-01-01'), 2, null, 3)")
+         (query-exec
+          db
+          "insert into SPORT_ZONE(valid_from, sport_id, sub_sport_id, zone_metric_id)
+           values (strftime('%s', '2016-01-01'), 2, null, 3)")
+         (query-exec
+          db
+          "insert into SPORT_ZONE(valid_from, sport_id, sub_sport_id, zone_metric_id)
+           values (strftime('%s', '2017-01-01'), 2, null, 3)")
+         (query-exec
+          db
+          "insert into CRITICAL_POWER(valid_from, sport_id, sub_sport_id, cp, wprime, tau)
+           values (strftime('%s', '2015-01-01'), 2, null, 100, 100000, 300)")
+         (query-exec
+          db
+          "insert into CRITICAL_POWER(valid_from, sport_id, sub_sport_id, cp, wprime, tau)
+           values (strftime('%s', '2016-01-01'), 2, null, 110, 110000, 300)")
+         (query-exec
+          db
+          "insert into CRITICAL_POWER(valid_from, sport_id, sub_sport_id, cp, wprime, tau)
+           values (strftime('%s', '2017-01-01'), 2, null, 120, 120000, 300)")
+
+         ;; Put an indoor cycling session in the database "sub_sport_id = 6"
+         (query-exec
+          db
+          "insert into A_SESSION(name, start_time, sport_id, sub_sport_id)
+           values ('a1, indoor cycling', strftime('%s', '2016-06-01'), 2, 6)")
+
+         ;; Put a cycling session in the database "sub_sport_id = null"
+         (query-exec
+          db
+          "insert into A_SESSION(name, start_time, sport_id, sub_sport_id)
+           values ('a1 cycling', strftime('%s', '2016-06-01'), 2, null)")
+
+         ;; Check that the indoor cycling session has a sport zone and a CP zone assigned
+         (check-eq? 1 (length (query-list db "
+select S.id 
+from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS 
+where S.id = SZFS.session_id 
+  and S.sport_id = 2 
+  and S.sub_sport_id = 6")))
+
+         (check-eq? 1 (length (query-list db "
+select S.id 
+from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS 
+where S.id = CPFS.session_id 
+  and S.sport_id = 2 
+  and S.sub_sport_id = 6")))
+
+         ;; Check that the cycling session has a sport zone and a CP zone assigned
+         (check-eq? 1 (length (query-list db "
+select S.id 
+from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS 
+where S.id = SZFS.session_id 
+  and S.sport_id = 2 
+  and S.sub_sport_id is null")))
+
+         (check-eq? 1 (length (query-list db "
+select S.id 
+from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS 
+where S.id = CPFS.session_id 
+  and S.sport_id = 2 
+  and S.sub_sport_id is null")))
+
+         )))))
+     
+
 
 ;;.....................................................................  ....
 
@@ -338,10 +416,12 @@ select count(T.id),
              ;; No Sport zones are defined
              (check-false (get-sport-zones sport sub-sport 1)))))))
 
+   
+   db-patch-26-tests
    cyd-tests
    ))
 
 (module+ test
-  (run-tests db-tests))
+ (run-tests db-tests))
 
 ;; (test/gui db-tests)

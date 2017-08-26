@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(25);
+insert into SCHEMA_VERSION(version) values(26);
 
 
 --........................................................ Enumerations ....
@@ -396,15 +396,26 @@ create view V_SPORT_ZONE as
 -- This view can be used to easily determine the sport zone for a specific
 -- session.
 create view V_SPORT_ZONE_FOR_SESSION as
-select S.id as session_id,
-       VSZ.zone_id as zone_id,
-       VSZ.zone_metric_id as zone_metric_id
-  from A_SESSION S, V_SPORT_ZONE VSZ
- where S.sport_id = VSZ.sport_id
-   and (((S.sub_sport_id is null or S.sub_sport_id = 0)
-         and (VSZ.sub_sport_id is null or VSZ.sub_sport_id = 0))
-         or S.sub_sport_id = VSZ.sub_sport_id)
-   and S.start_time between VSZ.valid_from and VSZ.valid_until;
+  select S.id as session_id,
+         VSZ.zone_id as zone_id,
+         VSZ.zone_metric_id as zone_metric_id
+    from A_SESSION S, V_SPORT_ZONE VSZ
+   where S.sport_id = VSZ.sport_id
+     and S.start_time between VSZ.valid_from and VSZ.valid_until
+     and (S.sub_sport_id = VSZ.sub_sport_id
+          -- sub_sport_id is NULL for both session and sport zone
+          or ((S.sub_sport_id is null or S.sub_sport_id = 0)
+              and (VSZ.sub_sport_id is null or VSZ.sub_sport_id = 0))
+          -- sub_sport_id is NOT NULL for the session, but there is no
+          -- specific sub_sport_id zone, so use the sport zone with a NULL
+          -- sub_sport_id
+          or (S.sub_sport_id > 0
+              and (VSZ.sub_sport_id is null or VSZ.sub_sport_id = 0)
+              and not exists (
+                select * from V_SPORT_ZONE VSZ2
+                 where S.sport_id = VSZ2.sport_id
+                   and S.sub_sport_id = VSZ2.sub_sport_id
+                   and S.start_time between VSZ2.valid_from and VSZ2.valid_until)));
 
 -- List the sport zones in a user friendly format (dereferencing sport names
 -- and metric names and adding the number of sessions that use each zone
@@ -472,14 +483,25 @@ create view V_CRITICAL_POWER as
 -- session.  This view can be used to easily determine the critical power
 -- setting for a specific session.
 create view V_CRITICAL_POWER_FOR_SESSION as
-select S.id as session_id,
-       VCP.cp_id as cp_id
-  from A_SESSION S, V_CRITICAL_POWER VCP
- where S.sport_id = VCP.sport_id
-   and (((S.sub_sport_id is null or S.sub_sport_id = 0)
-         and (VCP.sub_sport_id is null or VCP.sub_sport_id = 0))
-         or S.sub_sport_id = VCP.sub_sport_id)
-   and S.start_time between VCP.valid_from and VCP.valid_until;
+  select S.id as session_id,
+         VCP.cp_id as cp_id
+    from A_SESSION S, V_CRITICAL_POWER VCP
+   where S.sport_id = VCP.sport_id
+     and S.start_time between VCP.valid_from and VCP.valid_until
+     and (S.sub_sport_id = VCP.sub_sport_id
+          -- sub_sport_id is NULL for both session and sport zone
+          or ((S.sub_sport_id is null or S.sub_sport_id = 0)
+              and (VCP.sub_sport_id is null or VCP.sub_sport_id = 0))
+          -- sub_sport_id is NOT NULL for the session, but there is no
+          -- specific sub_sport_id zone, so use the sport zone with a NULL
+          -- sub_sport_id
+          or (S.sub_sport_id > 0
+              and (VCP.sub_sport_id is null or VCP.sub_sport_id = 0)
+              and not exists (
+                select * from V_SPORT_ZONE VCP2
+                 where S.sport_id = VCP2.sport_id
+                   and S.sub_sport_id = VCP2.sub_sport_id
+                   and S.start_time between VCP2.valid_from and VCP2.valid_until)));
 
 -- List the sport zones in a user friendly format (dereferencing sport names
 -- and metric names and adding the number of sessions that use each zone
