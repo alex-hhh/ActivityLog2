@@ -1137,15 +1137,16 @@
     (define/public (get-data-for-row row-index)
       (send the-list-box get-data row-index))
 
-    (define/public (update-row row-index new-data)
+    (define/public (update-row row-index new-data (select? #t))
       (set! the-data
             (append
              (take the-data row-index)
              (list new-data)
              (drop the-data (+ row-index 1))))
       (refresh-contents-1 row-index new-data)
-      (send the-list-box set-selection row-index)
-      (send the-list-box set-first-visible-item row-index))
+      (when select?
+        (send the-list-box set-selection row-index)
+        (send the-list-box set-first-visible-item row-index)))
 
     (define/public (add-row data)
       (send the-list-box append "")

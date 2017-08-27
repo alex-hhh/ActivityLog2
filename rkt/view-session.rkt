@@ -174,7 +174,8 @@
 
     (define (on-save-headline)
       (update-session-healine session-id database)
-      (switch-to-view-mode))
+      (switch-to-view-mode)
+      (log-event 'session-updated session-id))
 
     (define (on-revert-headline)
       (switch-to-view-mode))
@@ -376,8 +377,26 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (switch-tabs 0)
       (collect-garbage 'major))
 
+    (define (refresh-session-summary)
+      (set! session (db-fetch-session session-id the-database))
+      (send header set-session session)
+      (send (tdata-contents overview) set-session session data-frame))
+
+    (define (refresh-session-data)
+      (set-session session-id))
+
+    (define change-notification-source (make-log-event-source))
+    
     (define/public (activated)
-      #f)
+      ;; Process changes that happened while we were inactive
+      (define events (collect-events change-notification-source))
+      (cond
+        ((member session-id (hash-ref events 'session-deleted '()))
+         (set-session #f))
+        ((member session-id (hash-ref events 'session-updated '()))
+         (refresh-session-summary))
+        ((member session-id (hash-ref events 'session-updated-data '()))
+         (refresh-session-data))))
 
     (define/public (refresh)
       (set-session session-id))
@@ -415,12 +434,17 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (let ((sport (session-sport session))
             (sub-sport (session-sub-sport session)))
         (cons sport sub-sport)))
-    (define/public (after-update sid) (refresh))
-    (define/public (after-new sid) (set-session sid)) ; show the new session
+    (define/public (after-update sid)
+      (activated))
+    (define/public (after-new sid)
+      ;; We only receive the 'after-new' message if a new session was created
+      ;; while this view is active, so switch to the new session now.
+      (set-session sid))
     (define/public (can-delete? sid)
       ;; We don't allow deleting from here
       #f)
-    (define/public (after-delete sid) #f)
+    (define/public (after-delete sid)
+      (activated))
     (define/public (before-popup) #f)
     (define/public (after-popdown) #f)
 

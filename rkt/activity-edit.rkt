@@ -118,6 +118,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (when (send (get-edit-session-summary-dialog) show-dialog toplevel db sid)
           (clear-session-df-cache sid) ; remove this session from the cache
+          (log-event 'session-updated sid)
           (send target after-update sid))))
 
     (define (on-new m e)
@@ -125,6 +126,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (let ((sid (send (get-edit-session-summary-dialog) show-dialog toplevel db #f)))
           (when sid
+            (log-event 'session-created sid)
             (send target after-new sid)))))
 
     (define (on-fixup-elevation m e)
@@ -133,6 +135,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (clear-session-df-cache sid) ; remove this session from the cache
         (interactive-fixup-elevation db sid toplevel)
+        (log-event 'session-updated sid)
+        (log-event 'session-updated-data sid)
         (send target after-update sid)))
 
     (define (on-clear-corrected-elevation m e)
@@ -147,6 +151,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
           (when (equal? mresult 2)
             (clear-session-df-cache sid) ; remove this session from the cache
             (clear-corrected-elevation-for-session db sid)
+            (log-event 'session-updated sid)
+            (log-event 'session-updated-data sid)
             (send target after-update sid)))))
               
     (define (on-edit-weather m e)
@@ -154,6 +160,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (send (get-weather-editor) begin-edit toplevel db sid)
+          (log-event 'session-updated sid)
           (send target after-update sid))))
 
     (define (on-edit-lap-swim m e)
@@ -164,6 +171,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (when (equal? sport '(5 . 17))  ; lap swimming
           (when (send (get-lap-swim-editor) begin-edit toplevel db sid)
             (clear-session-df-cache sid) ; remove this session from the cache
+            (log-event 'session-updated sid)
+            (log-event 'session-updated-data sid)
             (send target after-update sid)))))
 
     (define (on-edit-tss m e)
@@ -171,6 +180,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (send (get-edit-session-tss-dialog) run toplevel db sid)
+          (log-event 'session-updated sid)
           (send target after-update sid))))
 
     (define (on-delete m e)
@@ -186,6 +196,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (when (equal? mresult 2)
               (db-delete-session sid db)
               (clear-session-df-cache sid) ; remove this session from the cache
+              (log-event 'session-deleted sid)
               (send target after-delete sid))))))
 
     (define (on-copy-guid-to-clipboard m e)

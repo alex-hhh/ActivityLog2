@@ -55,7 +55,9 @@
   (show-progress "updating time in zone...")
   (update-tiz-for-new-sessions db)
   (show-progress "updating weather data...")
-  (update-weather-for-new-sessions db))
+  (update-weather-for-new-sessions db)
+  (for ((sid (get-new-sessions db)))
+    (log-event 'session-created sid)))
 
 ;; Some Garmin firmware versions reported only the lower two bytes of the
 ;; serial number of equipment like heart rate monitor or cadence sensors.

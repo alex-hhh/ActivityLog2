@@ -158,6 +158,8 @@
     (define equipment-input-field #f)
     (define date-range-field #f)
 
+    (define change-notification-source (make-log-event-source))
+
     (let ((sel-pane (new horizontal-pane% [parent pane]
                          [border 0]
                          [stretchable-height #f]
@@ -566,11 +568,68 @@
 
     (define first-time? #t)
 
+    (define (row-index-for-sid sid)
+      (for/or ([pos (in-range (send lb get-row-count))])
+        (let ((data (send lb get-data-for-row pos)))
+          (if (and data (= sid (db-row-ref data "session_id" headers 0)))
+              pos #f))))
+
+    (define (maybe-delete sid)
+      (set! data (remove sid data
+                         (lambda (sid item)
+                           (= sid (db-row-ref item "session_id" headers 0)))))
+      (let ((index (row-index-for-sid sid)))
+        (when index
+          (send lb delete-row index))))
+
+    (define (maybe-update sid)
+      (define row-data #f)
+      (when (member sid data (lambda (sid item)
+                               (= sid (db-row-ref item "session_id" headers 0))))
+        (set! row-data (get-activity-list-1 database sid))
+        (set! data
+              (for/list ((item data))
+                (if (= sid (db-row-ref item "session_id" headers 0))
+                    row-data
+                    item)))
+        (let ((index (row-index-for-sid sid)))
+          (send lb update-row index row-data #f))))
+    
     (define/public (activated)
-      (when first-time?
-        (send lb setup-column-defs *activity-list-display-columns*)
-        (refresh)
-        (set! first-time? #f))
+      ;; Get the full list of events, but we will discard them if the view is
+      ;; activated the first time and has to do a full refresh anyway
+      (define events (collect-events change-notification-source))
+      (if first-time?
+          (begin
+            (send lb setup-column-defs *activity-list-display-columns*)
+            (refresh)
+            (set! first-time? #f))
+          (begin
+            ;; Process changes that happened while we were inactive
+            (for ((sid (hash-ref events 'session-deleted '())))
+              (maybe-delete sid))
+            (for ((sid (hash-ref events 'session-updated '())))
+              (maybe-update sid))
+            (let ((new-sids (hash-ref events 'session-created #f)))
+              (when new-sids
+                ;; Check if any of the new sessions are present in the
+                ;; dataset, if they are, update the view.
+                (let* ((result (get-activity-list
+                                database sport-filter date-range-filter
+                                distance-filter duration-filter
+                                labels-filter equipment-filter))
+                       (ndata (rows-result-rows result))
+                       (nheaders (make-col-name->col-id-hash
+                                  (rows-result-headers result))))
+                  (when (for/first
+                            ((item ndata)
+                             #:when (member
+                                     (db-row-ref item "session_id" nheaders 0)
+                                     new-sids))
+                          #t)
+                    (set! data ndata)
+                    (set! headers nheaders)
+                    (on-text-filter-changed)))))))
       
       ;; Set the status text when activated
       (let ((rows (get-text-filtered-data data text-filter)))
@@ -585,6 +644,7 @@
       ;; Refresh the date range (in case the selection is something like "last
       ;; 30 days" and the date has changed.
       (set! date-range-filter (send date-range-field get-selection))
+      (collect-events change-notification-source) ; discard the events
       (on-filter-changed))
 
     (define/public (save-visual-layout)
@@ -634,17 +694,13 @@
                     guid))
               #f))))
     (define/public (after-update sid)
-      (when selected-row-index
-        (let ((new-data (get-activity-list-1 database sid)))
-          (send lb update-row selected-row-index new-data))))
+      (activated))
     (define/public (after-new sid)
-      (let ((new-data (get-activity-list-1 database sid)))
-        (send lb add-row new-data)))
+      (activated))
     (define/public (can-delete? sid)
       (number? selected-row-index))
     (define/public (after-delete sid)
-      (when selected-row-index
-        (send lb delete-row selected-row-index)))
+      (activated))
     (define/public (before-popup)
       (set! selected-row-index (send lb get-selected-row-index)))
     (define/public (after-popdown)

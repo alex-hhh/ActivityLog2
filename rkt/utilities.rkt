@@ -47,6 +47,8 @@
          racket/format
          racket/math
          racket/port
+         racket/match
+         racket/list
 
          (for-syntax
           racket/base
@@ -291,3 +293,29 @@
 (define (assq1 tag alist)
   (cond ((assq tag alist) => cdr)
         (#t #f)))
+
+(define *event-sinks* '())
+
+(define (log-event tag data)
+  (for ([sink *event-sinks*])
+    (async-channel-put sink (list tag data))))
+
+(define (make-log-event-source)
+  (let ((sink (make-async-channel #f)))
+    (set! *event-sinks* (cons sink *event-sinks*))
+    sink))
+
+(define (collect-events source)
+  (let ((result (make-hash)))
+    (let loop ((item (async-channel-try-get source)))
+      (when item
+        (match-define (list tag data) item)
+        (hash-update! result tag
+                      (lambda (v) (cons data v))
+                      '())
+        (loop (async-channel-try-get source))))
+    (for/hash (((k v) (in-hash result)))
+      (values k (remove-duplicates v)))))
+
+(provide log-event make-log-event-source collect-events)
+

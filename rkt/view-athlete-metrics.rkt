@@ -23,6 +23,7 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "dbutil.rkt"
+         "utilities.rkt"
          "widgets.rkt")
 
 (provide athlete-metrics-operations<%>)
@@ -76,6 +77,7 @@
         (unless id
           (error "athlete-metrics-operations-menu%/on-edit: bad id" id))
         (when (send (get-edit-athlete-metrics-dialog) show-dialog tl db id)
+          (log-event 'athlete-metrics-updated id)
           (send target after-update id))))
 
     (define (on-new m e)
@@ -83,6 +85,7 @@
             (tl (send target get-top-level-window)))
         (let ((id (send (get-edit-athlete-metrics-dialog) show-dialog tl db #f)))
           (when id
+            (log-event 'athlete-metrics-created id)
             (send target after-new id)))))
 
     (define (on-delete m e)
@@ -97,6 +100,7 @@
                         #f "Delete" "Cancel" tl '(caution default=3))))
           (when (eqv? mresult 2)
             (delete-athlete-metrics db id)
+            (log-event 'athlete-metrics-deleted id)
             (send target after-delete id)))))
 
     (define the-menu
@@ -294,12 +298,45 @@
 
 
     (define first-time? #t)
+    (define change-notification-source (make-log-event-source))
+
+    (define (row-index-for-aid aid)
+      (for/or ([pos (in-range (send lb get-row-count))])
+        (let ((data (send lb get-data-for-row pos)))
+          (if (and data (= aid (vector-ref data 0)))
+              pos #f))))
+
+    (define (maybe-delete aid)
+      (let ((index (row-index-for-aid aid)))
+        (when index
+          (send lb delete-row index))))
+
+    (define (maybe-update aid)
+      (let ((index (row-index-for-aid aid)))
+        (when index
+          (let ((ndata (get-athlete-metrics-1 database aid)))
+            (send lb update-row selected-row-index ndata)))))
     
     (define/public (activated)
-      (when first-time?
-        (send lb setup-column-defs athlete-metrics-display-columns)
-        (set! first-time? #f))
-      (refresh))
+      ;; Get the full list of events, but we will discard them if the view is
+      ;; activated the first time and has to do a full refresh anyway
+      (define events (collect-events change-notification-source))
+      (if first-time?
+          (begin
+            (send lb setup-column-defs athlete-metrics-display-columns)
+            (set! first-time? #f)
+            (refresh))
+          (begin
+            ;; Process changes that happened while we were inactive
+            (for ((aid (hash-ref events 'athlete-metrics-deleted '())))
+              (maybe-delete aid))
+            (for ((aid (hash-ref events 'athlete-metrics-updated '())))
+              (maybe-update aid))
+             (let ((new-aids (hash-ref events 'athlete-metrics-created #f)))
+               (when new-aids
+                 ;; lazy way out.  We should really check if we need to
+                 ;; display the new metrics.
+                 (on-filter-changed))))))
 
     (define/public (refresh)
       (send date-range-selector set-seasons (db-get-seasons database))
@@ -328,17 +365,13 @@
     (define/public (get-top-level-window) (send pane get-top-level-window))
 
     (define/public (after-update id)
-      (when selected-row-index
-        (let ((new-data (get-athlete-metrics-1 database id)))
-          (send lb update-row selected-row-index new-data))))
+      (activated))
 
     (define/public (after-new id)
-      (let ((new-data (get-athlete-metrics-1 database id)))
-        (send lb add-row new-data)))
+      (activated))
 
     (define/public (after-delete id)
-      (when selected-row-index
-        (send lb delete-row selected-row-index)))
+      (activated))
 
     (define/public (on-interactive-export-sql-query)
       (let ((query (get-athlete-metrics-sql-query date-range)))

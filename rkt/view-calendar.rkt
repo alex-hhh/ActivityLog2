@@ -26,7 +26,8 @@
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "utilities.rkt")
 
 (provide view-calendar%)
 
@@ -969,15 +970,53 @@
              (send the-calendar bulk-insert snips))))))
 
     (define dirty? #t)
+    (define change-notification-source (make-log-event-source))
+
+    (define (find-snip-by-sid sid)
+      (let loop ((snip (send the-calendar find-first-snip)))
+        (if snip
+            (if (= sid (send snip get-session-id))
+                snip
+                (loop (send snip next)))
+            #f)))
+
+    (define (maybe-update sid)
+      (let ((snip (find-snip-by-sid sid)))
+        (when snip
+          (send snip refresh (get-session-by-id sid database)))))
+
+    (define (maybe-delete sid)
+      (let ((snip (find-snip-by-sid sid)))
+        (send the-calendar please-delete snip)))
+
+    (define (maybe-add sid)
+      (let* ((row (get-session-by-id sid database))
+             (snip (new calendar-item-snip% [db-row row])))
+        ;; Will silently fail if the new sid is outside the date range of the
+        ;; calendar
+        (send the-calendar insert snip)))
 
     (define/public (activated)
-      (when dirty?
-        (init-date-range)
-        (jump-to-today)
-        (set! dirty? #f)))
+      ;; Get the full list of events, but we will discard them if the calendar
+      ;; is "dirty" and has to do a full refresh anyway
+      (define events (collect-events change-notification-source))
+      (if dirty?
+          (begin
+            (init-date-range)
+            (jump-to-today)
+            (set! dirty? #f))
+          (begin
+            ;; Process changes that happened while we were inactive
+            (for ((sid (hash-ref events 'session-deleted '())))
+              (maybe-delete sid))
+            (for ((sid (hash-ref events 'session-updated '())))
+              (maybe-update sid))
+            (for ((sid (hash-ref events 'session-created '())))
+              (maybe-add sid)))))
 
     (define/public (refresh)
       (init-date-range)
+      (collect-events change-notification-source) ; discard the events
       (update-calendar))
 
     (define/public (save-visual-layout)
@@ -1011,21 +1050,16 @@
           #f))
 
     (define/public (after-update sid)
-      (when selected-item
-        (send selected-item refresh (get-session-by-id sid database))))
+      (activated))
 
     (define/public (after-new sid)
-      (let* ((row (get-session-by-id sid database))
-             (snip (new calendar-item-snip% [db-row row])))
-        ;; Will silently fail if the new sid is outside the date range of the
-        ;; calendar
-        (send the-calendar insert snip)))
+      (activated))
 
     (define/public (can-delete? sid)
       (not (eq? selected-item #f)))
 
     (define/public (after-delete sid)
-      (send the-calendar please-delete selected-item))
+      (activated))
 
     (define/public (before-popup)
       #f)
