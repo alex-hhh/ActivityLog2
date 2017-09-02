@@ -20,6 +20,7 @@
          (rename-in srfi/48 (format format-48))
          racket/list
          racket/string
+         racket/format
          "activity-edit.rkt"
          "utilities.rkt"
          "al-widgets.rkt"
@@ -85,17 +86,44 @@
                      "1 = 1"))
               "1 = 1")
           (if (pair? labels)
-              (let ((labels-str (map (lambda (l) (format "~a" l)) labels)))
-                (format "VAL.session_id in (select SL.session_id from SESSION_LABEL SL where SL.label_id in (~a))"
-                        (string-join labels-str ", ")))
+              (let ((labels-str (string-join (map ~a (sort labels <)) ", ")))
+                ;; NOTE: We want to select sessions that have ALL the labels
+                ;; listed in LABELS.  To do this, we use a group by than
+                ;; concatenate the equipment values in a string and compare
+                ;; against another string.  This works only if the equipment
+                ;; IDs are sorted before being passed to group_concat().  This
+                ;; seems to be the case, but I believe it is a side effect of
+                ;; the SQLite query planner, not an explicit SQL statement, so
+                ;; it may break in the future.
+                (format "VAL.session_id in (
+select X.session_id
+  from (select session_id,
+               group_concat(label_id, ', ') as test
+          from SESSION_LABEL
+         where label_id in (~a)
+         group by session_id) as X
+ where X.test = '~a')" labels-str labels-str))
               "1 = 1")
 
           (if (pair? equipment)
-              (let ((equipment-str (map (lambda (l) (format "~a" l)) equipment)))
-                (format "VAL.session_id in (select EU.session_id from EQUIPMENT_USE EU where EU.equipment_id in (~a))"
-                        (string-join equipment-str ", ")))
+              (let ((equipment-str (string-join (map ~a (sort equipment <)) ", ")))
+                ;; NOTE: We want to select sessions that have ALL the
+                ;; equipment listed in EQUIPMENT.  To do this, we use a group
+                ;; by than concatenate the equipment values in a string and
+                ;; compare against another string.  This works only if the
+                ;; equipment IDs are sorted before being passed to
+                ;; group_concat().  This seems to be the case, but I believe
+                ;; it is a side effect of the SQLite query planner, not an
+                ;; explicit SQL statement, so it may break in the future.
+                (format "VAL.session_id in (
+select X.session_id
+  from (select session_id,
+               group_concat(equipment_id, ', ') as test
+          from EQUIPMENT_USE
+         where equipment_id in (~a)
+         group by session_id) as X
+ where X.test = '~a')" equipment-str equipment-str))
               "1 = 1")
-
           ))
 
 (define (get-activity-list db sport date-range distance duration labels equipment)
@@ -212,7 +240,6 @@
             (set! equipment-input-field
                   (new equipment-input-field%
                        [parent p]
-                       [use-retired-equipment? #t]
                        [callback (lambda (o)
                                    (set! equipment-filter (send o get-contents-as-tag-ids))
                                    (on-filter-changed))])))))
