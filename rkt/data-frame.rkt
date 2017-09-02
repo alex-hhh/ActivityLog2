@@ -1304,6 +1304,17 @@
       (set! max-y (+ max-y padding))))
   (values min-x max-x min-y max-y))
 
+;; Create a renderer for BEST-AVG-DATA (as produced by `df-best-avg') and
+;; possibly AUX-DATA (as produced by `df-best-avg-aux`).  The line is
+;; interpolated between the data points using spline interpolation.  The plot
+;; will use a logarithmic scale for the X axis.
+;;
+;; color1 -- color to use for the best avg plot
+;;
+;; color2 -- color to use for the aux data plot
+;;
+;; zero-base? -- if true, start the Y axis at 0.
+;;
 (define (make-best-avg-renderer best-avg-data (aux-data #f)
                                 #:color1 (best-avg-color #f)
                                 #:color2 (aux-color #f)
@@ -1340,6 +1351,9 @@
 
 ;;................................................................ other ....
 
+;; Delay the data in DATA-SERIES by AMOUNT.  Data-series is a sequence of
+;; 3-element vectors: #(X Y TIMESTAMP).  For each item, this function replaces
+;; the Y value with the Y value at TIMESTAMP + AMOUNT.
 (define (time-delay-series data-series amount)
 
   (define (key-fn item) (vector-ref item 2))
@@ -1362,6 +1376,13 @@
     (define item (vector-ref data-series index))
     (vector (vector-ref item 0) val (vector-ref item 2))))
 
+;; Group samples in DATA-SERIES in groups of identical elements.  DATA-SERIES
+;;is a sequence of at least 2 elements #(X Y ...).  The X values are rounded
+;;to FRAC-DIGITS1 and Y values to FRAC-DIGITS2.  Identical (X, Y) pairs are
+;;grouped together.
+;;
+;; Return a hash, mapping "RANK" (the number of pairs) to a list of pairs with
+;; that rank.
 (define (group-samples data-series (frac-digits1 0) (frac-digits2 0))
 
   (define result (make-hash))
@@ -1392,6 +1413,12 @@
                      (hash-ref result-1 rank '()))))
   result-1)
 
+;; Apply FACTOR-FN to each item in DATA-SERIES and group items according to
+;; the result of the function.  If KEY is specified, it is applied to the
+;; items first and its result is passed to FACTOR-FN, e.g (FACTOR-FN (KEY
+;; item))
+;;
+;; Returns a hash mapping a factor value to the list of items with that value.
 (define (group-samples/factor data-series factor-fn #:key (key #f))
   (define result (make-hash))
   (for ([item data-series])
@@ -1399,6 +1426,16 @@
       (hash-set! result factor (cons item (hash-ref result factor '())))))
   result)
 
+;; Make a scatter plot renderer for items in DATA-SERIES.
+;;
+;; COLOR is the color of the dots
+;;
+;; SIZE is the size of the dots, as a multiplier of (point-size)
+;;
+;; LABEL is the label to use for the data
+;;
+;; ALPHA specifies the transparency for the dots.
+;;
 (define (make-scatter-renderer data-series #:color color #:size size #:label label #:alpha [alpha 1.0])
   (let ((kwd '()) (val '()))
     (define (add-arg k v) (set! kwd (cons k kwd)) (set! val (cons v val)))
@@ -1438,6 +1475,18 @@
        key
        (make-object color% r g b)))))
 
+;; Make a scatter plot renderer for GROUP, as returned by `group-samples`. The
+;; color of the dots will vary depending on the number of items at that point.
+;; This allows creating simplified plots which use color to show areas with
+;; lots of points, instead of rendering the points themselves.
+;;
+;; COLOR determines the base color for the plot.  The actual color for a dot
+;; will be lighter or darker depending on the number of items at that point.
+;;
+;; LABEL determines the label of the plot
+;;
+;; SIZE is the size of the dots, as a multiplier of (point-size)
+;;
 (define (make-scatter-group-renderer group #:color color #:label [label #f] #:size [size 1.5])
   (define keys (sort (hash-keys group) <))
   (define color-map (make-key-colors keys color))
@@ -1584,13 +1633,6 @@
  (group-samples/factor (->* (scatter-data/c (-> any/c any/c))
                             (#:key (or/c #f (-> (or/c xy-item/c ts-item/c) any/c)))
                             factor-data/c))
- ;; (group-samples/factor
- ;;  (parametric->/c
- ;;   (item key factor)
- ;;   (->* ((or/c (vectorof item) (listof item))
- ;;         (-> (or/c item key) factor))
- ;;        (#:key (or/c #f (-> item key)))
- ;;        (hash/c factor (listof item)))))
  (make-scatter-renderer (->* (scatter-data/c #:color any/c #:size positive? #:label (or/c #f string?))
                              (#:alpha (between/c 0 1))
                              renderer2d?))

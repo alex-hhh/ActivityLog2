@@ -1586,6 +1586,7 @@
       (new editor-canvas% [parent p] [editor pb]
            [style '(no-border hide-hscroll)]
            [min-height 60]
+           [min-width 250]
            [stretchable-height #f]
            [horizontal-inset 0]
            [vertical-inset 0]))
@@ -1614,10 +1615,10 @@
        [border 0] [spacing 5]
        [stretchable-height stretchable-height?]))
 
-(define (make-vertical-pane parent (stretchable-height? #t))
+(define (make-vertical-pane parent (stretchable-width? #t))
   (new vertical-pane% [parent parent]
        [border 0] [spacing 5]
-       [stretchable-height stretchable-height?]))
+       [stretchable-width stretchable-width?]))
 
 (define (make-group-box-panel parent (label ""))
   (let ((gb (new group-box-panel%

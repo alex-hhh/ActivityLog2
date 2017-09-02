@@ -329,7 +329,7 @@
   ;; NOTE: not sure if we should just force a Positive-Real on the SPEED/MPS
   ;; and not return an empty string...
   (if (> speed/mps 0)
-      (let* ((sec/km (m/s->pace speed/mps))
+      (let* ((sec/km (exact-round (m/s->pace speed/mps)))
              (min (exact-truncate (/ sec/km 60.0)))
              (sec (exact-round (- sec/km (* min 60.0)))))
         (string-append
@@ -340,7 +340,7 @@
 (: swim-pace->string (->* (Real) (Boolean) String))
 (define (swim-pace->string speed/mps [unit-label #f])
   (if (> speed/mps 0)
-      (let* ((sec/100m (m/s->swim-pace speed/mps))
+      (let* ((sec/100m (exact-round (m/s->swim-pace speed/mps)))
              (min (exact-truncate (/ sec/100m 60.0)))
              (sec (exact-truncate (- sec/100m (* min 60.0)))))
         (string-append

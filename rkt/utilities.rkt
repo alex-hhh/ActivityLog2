@@ -39,6 +39,10 @@
  (queue-task (-> string? procedure? any/c))
  (shutdown-workers (-> any/c))
 
+ (log-event (-> symbol? any/c any/c))
+ (make-log-event-source (-> async-channel?))
+ (collect-events (-> async-channel? (hash/c symbol? (listof any/c))))
+
  )
 
 (require errortrace/errortrace-lib
@@ -287,24 +291,34 @@
     (set! the-request-channel #f)
     (set! the-workers '())))
 
-;; Rest
+;; List of async channels on which we send events.  We keep the sync channels
+;; in weak boxes, so they can be garbage collected.
+(define the-event-sinks '())
 
-(provide assq1)
-(define (assq1 tag alist)
-  (cond ((assq tag alist) => cdr)
-        (#t #f)))
-
-(define *event-sinks* '())
-
+;; Send an event with TAG and DATA to all the registered channels.
 (define (log-event tag data)
-  (for ([sink *event-sinks*])
-    (async-channel-put sink (list tag data))))
+  (define have-gced-sinks? #f)
+  (for ([sink-box the-event-sinks])
+    (let ((sink (weak-box-value sink-box)))
+      (if sink
+          (async-channel-put sink (list tag data))
+          (set! have-gced-sinks? #t))))
+  ;; Clean up any garbage collected sinks
+  (when have-gced-sinks?
+    (set! the-event-sinks
+          (for/list ([box the-event-sinks] #:unless (weak-box-value box)) box))))
 
+;; Create a source of log-events.  This is an async channel that will receive
+;; events logged with `log-event`
 (define (make-log-event-source)
-  (let ((sink (make-async-channel #f)))
-    (set! *event-sinks* (cons sink *event-sinks*))
+  (let* ((sink (make-async-channel #f))
+         (sink-box (make-weak-box sink)))
+    (set! the-event-sinks (cons sink-box the-event-sinks))
     sink))
 
+;; Collect all events from SOURCE, an async channel.  Returns a hash mapping
+;; an event tag to a list of data values for that tag.  Duplicate data items
+;; (according to `equal?`) are also removed from the list.
 (define (collect-events source)
   (let ((result (make-hash)))
     (let loop ((item (async-channel-try-get source)))
@@ -317,5 +331,10 @@
     (for/hash (((k v) (in-hash result)))
       (values k (remove-duplicates v)))))
 
-(provide log-event make-log-event-source collect-events)
+;; Rest
+
+(provide assq1)
+(define (assq1 tag alist)
+  (cond ((assq tag alist) => cdr)
+        (#t #f)))
 

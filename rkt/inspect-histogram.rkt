@@ -270,7 +270,10 @@
           (let ((y-axis (list-ref axis-choices y-axis-index)))
             (when (list? y-axis) (set! y-axis (second y-axis)))
             (parameterize ([plot-y-label (if show-as-percentage? "pct %"
-                                             (if (lap-swimming?) "# of lengths" "time (seconds)"))]
+                                             (if (lap-swimming?) "# of lengths" "time"))]
+                           [plot-y-ticks (if (or show-as-percentage? (lap-swimming?))
+                                             (linear-ticks)
+                                             (time-ticks))]
                            [plot-x-ticks (send y-axis plot-ticks)]
                            [plot-x-label (send y-axis axis-label)])
               (plot-snip/hack plot-pb rt))))))
