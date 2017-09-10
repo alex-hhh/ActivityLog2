@@ -24,6 +24,7 @@
  racket/gui/base
  racket/math
  racket/format
+ racket/hash
  pict
  "database.rkt"
  "trends-chart.rkt"
@@ -41,7 +42,9 @@
  "pdmodel.rkt")
 
 
-(struct bavg-params tc-params (start-date end-date sport series zero-base? heat-map? heat-map-pct cp-params))
+(struct bavg-params tc-params
+  (start-date end-date sport labels equipment
+              series zero-base? heat-map? heat-map-pct cp-params))
 
 (define default-axis-choices
   (list
@@ -121,10 +124,11 @@
       (for ([a axis-choices])
         (let ((n (if (list? a) (car a) (send a axis-label))))
           (send series-selector append n)))
-
       (when (and selection (>= selection 0) (< selection (length axis-choices)))
-        (send series-selector set-selection selection)
-        (on-series-selected selection)))
+        (send series-selector set-selection selection))
+      (let ((selection (send series-selector get-selection)))
+        (when selection
+          (on-series-selected selection))))
 
     (define (on-sport-selected sport)
       (define lap-swimming?
@@ -145,11 +149,10 @@
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define sport-selector
-      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]
-           [callback on-sport-selected]))
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
+    (define session-filter (new session-filter%
+                                [database database]
+                                [parent (send this get-client-pane)]
+                                [sport-selected-callback on-sport-selected]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (define series-selector
@@ -288,25 +291,23 @@
            (number? (send ae-range-end-input get-converted-value)))))
 
     (define/public (get-restore-data)
-      (hash
-       'name (send name-field get-value)
-       'title (send title-field get-value)
-       'date-range (send date-range-selector get-restore-data)
-       'sport (send sport-selector get-selection)
-       'series (let ((axis (list-ref axis-choices (send series-selector get-selection))))
-                 (send axis series-name))
-       'zero-base? (send zero-base-checkbox get-value)
-       'show-heat? (send show-heat-checkbox get-value)
-       'heat-percent (send heat-percent-input get-converted-value)
-       'estimate-cp? (send estimate-cp-checkbox get-value)
-       'an-start (send an-range-start-input get-converted-value)
-       'an-end (send an-range-end-input get-converted-value)
-       'ae-start (send ae-range-start-input get-converted-value)
-       'ae-end (send ae-range-end-input get-converted-value)))
+      (hash-union
+       (send session-filter get-restore-data)
+       (hash
+        'name (send name-field get-value)
+        'title (send title-field get-value)
+        'series (let ((axis (list-ref axis-choices (send series-selector get-selection))))
+                  (send axis series-name))
+        'zero-base? (send zero-base-checkbox get-value)
+        'show-heat? (send show-heat-checkbox get-value)
+        'heat-percent (send heat-percent-input get-converted-value)
+        'estimate-cp? (send estimate-cp-checkbox get-value)
+        'an-start (send an-range-start-input get-converted-value)
+        'an-end (send an-range-end-input get-converted-value)
+        'ae-start (send ae-range-start-input get-converted-value)
+        'ae-end (send ae-range-end-input get-converted-value))))
 
     (define/public (restore-from data)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
 
       (define hdata
         ;; Old data format was just a list, not a hash.  Convert it to a hash
@@ -323,16 +324,11 @@
                'show-heat? show-heat?
                'heat-percent heat-pct))
             data))
+      
+      (send session-filter restore-from hdata)
 
       (send name-field set-value (hash-ref hdata 'name "Bavg"))
       (send title-field set-value (hash-ref hdata 'title "BestAvg Chart"))
-      (let ((dr (hash-ref hdata 'date-range #f)))
-        (when dr
-          (send date-range-selector restore-from dr)))
-      (let ((sp (hash-ref hdata 'sport #f)))
-        (when sp
-          (send sport-selector set-selected-sport (car sp) (cdr sp))
-          (on-sport-selected sp)))
       (let ((series (hash-ref hdata 'series #f)))
         (when series
           (let ((index (find-axis axis-choices series)))
@@ -370,25 +366,24 @@
       (on-estimate-cp (send estimate-cp-checkbox get-value)))
 
     (define/public (show-dialog parent)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+      (send session-filter on-before-show-dialog)
       (if (send this do-edit parent)
           (get-settings)
           #f))
 
     (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
+      (let ((dr (send session-filter get-date-range)))
         (if dr
             (let ((start-date (car dr))
                   (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
               (bavg-params
                (send name-field get-value)
                (send title-field get-value)
                start-date
                end-date
-               (send sport-selector get-selection)
+               (send session-filter get-sport)
+               (send session-filter get-labels)
+               (send session-filter get-equipment)
                (let ((axis (list-ref axis-choices (send series-selector get-selection))))
                  (send axis series-name))
                (send zero-base-checkbox get-value)
@@ -408,8 +403,11 @@
 (define (candidate-sessions db params)
   (let ((start (bavg-params-start-date params))
         (end (bavg-params-end-date params))
-        (sport (bavg-params-sport params)))
-    (fetch-candidate-sessions db (car sport) (cdr sport) start end)))
+        (sport (bavg-params-sport params))
+        (labels (bavg-params-labels params))
+        (equipment (bavg-params-equipment params)))
+    (fetch-candidate-sessions db (car sport) (cdr sport) start end
+                              #:label-ids labels #:equipment-ids equipment)))
 
 (struct tbavg (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
 

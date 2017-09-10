@@ -24,6 +24,7 @@
  racket/format
  racket/string
  racket/list
+ racket/hash
  "database.rkt"
  "trends-chart.rkt"
  "icon-resources.rkt"
@@ -97,6 +98,8 @@
   (start-date
    end-date
    sport
+   labels
+   equipment
    series1
    series2
    ;; Percentile of the points that are considered outliers
@@ -179,11 +182,10 @@
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define sport-selector
-      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]
-           [callback on-sport-selected]))
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
+    (define session-filter (new session-filter%
+                                [database database]
+                                [parent (send this get-client-pane)]
+                                [sport-selected-callback on-sport-selected]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (set! series1-selector
@@ -236,29 +238,21 @@
           'crop))
 
     (define/public (get-restore-data)
-      (hash
-       'name (send name-field get-value)
-       'title (send title-field get-value)
-       'date-range (send date-range-selector get-restore-data)
-       'sport (send sport-selector get-selection)
-       'series1 (get-selected-series-name series1-selector)
-       'series2 (get-selected-series-name series2-selector)
-       'opct (get-outlier-percentile)
-       'ohandling (get-outlier-handling)))
+      (hash-union
+       (send session-filter get-restore-data)
+       (hash
+        'name (send name-field get-value)
+        'title (send title-field get-value)
+        'series1 (get-selected-series-name series1-selector)
+        'series2 (get-selected-series-name series2-selector)
+        'opct (get-outlier-percentile)
+        'ohandling (get-outlier-handling))))
 
     (define/public (restore-from data)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+      (send session-filter restore-from data)
       (when (hash? data)
         (send name-field set-value (hash-ref data 'name "Scatter"))
         (send title-field set-value (hash-ref data 'title "Scatter Plot"))
-        (let ((dr (hash-ref data 'date-range #f)))
-          (when dr
-            (send date-range-selector restore-from dr)))
-        (let ((sp (hash-ref data 'sport #f)))
-          (when sp
-            (send sport-selector set-selected-sport (car sp) (cdr sp))
-            (on-sport-selected sp)))
         (let ((series1 (hash-ref data 'series1 #f)))
           (when series1
             (let ((index (find-axis series1 axis-choices)))
@@ -277,25 +271,24 @@
           (send outlier-handling-choice set-selection (if (eq? ohandling 'crop) 1 0)))))
 
     (define/public (show-dialog parent)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+      (send session-filter on-before-show-dialog)
       (if (send this do-edit parent)
           (get-settings)
           #f))
 
     (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
+      (let ((dr (send session-filter get-date-range)))
         (if dr
             (let ((start-date (car dr))
                   (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
               (scatter-params
                (send name-field get-value)
                (send title-field get-value)
                start-date
                end-date
-               (send sport-selector get-selection)
+               (send session-filter get-sport)
+               (send session-filter get-labels)
+               (send session-filter get-equipment)
                (get-selected-series-name series1-selector)
                (get-selected-series-name series2-selector)
                (get-outlier-percentile)
@@ -309,8 +302,11 @@
 (define (candidate-sessions db params)
   (let ((start (scatter-params-start-date params))
         (end (scatter-params-end-date params))
-        (sport (scatter-params-sport params)))
-    (fetch-candidate-sessions db (car sport) (cdr sport) start end)))
+        (sport (scatter-params-sport params))
+        (labels (scatter-params-labels params))
+        (equipment (scatter-params-equipment params)))
+    (fetch-candidate-sessions db (car sport) (cdr sport) start end
+                              #:label-ids labels #:equipment-ids equipment)))
 
 (struct scatter (axis1 axis2 data bounds qbounds slr) #:transparent)
 (define empty-bounds (vector #f #f #f #f))

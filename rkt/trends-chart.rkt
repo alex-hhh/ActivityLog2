@@ -21,11 +21,16 @@
  racket/date
  racket/math
  racket/vector
- racket/contract)
+ racket/contract
+ racket/match
+ "database.rkt"
+ "widgets.rkt"
+ "al-widgets.rkt")
 
 (provide
  (struct-out tc-params)
- trends-chart%)
+ trends-chart%
+ session-filter%)
 
 (provide/contract
  (get-true-min-start-date (-> connection? exact-integer?))
@@ -44,6 +49,100 @@
 ;; Basic parameters for a chart, all chart parameters should derive from this
 ;; structure.  Individual charts will define additional parameters.
 (struct tc-params (name title))
+
+;; A "session filter" widget: displays options for selecting sessions based on
+;; sport, date-range, labels and equipment.  This is just a convenient package
+;; for the four widgets together with save/restore functionality.  It is used
+;; as part of the settings dialogs for several trends charts.
+(define session-filter%
+  (class object%
+    (init parent)
+    (init-field database [sport-selected-callback #f])
+    (super-new)
+
+    (define gb (make-group-box-panel parent))
+    (define hpane (make-horizontal-pane gb))
+    (define left-pane (make-vertical-pane hpane #f))
+    (define sport-selector
+      (new sport-selector%
+           [parent left-pane]
+           [sports-in-use-only? #t]
+           [callback sport-selected-callback]))
+
+    (define date-range-selector
+      (new date-range-selector% [parent left-pane]))
+
+    (define right-pane (make-vertical-pane hpane))
+
+    (define labels-input (new label-input-field% [parent right-pane]))
+    (define equipment-input (new equipment-input-field% [parent right-pane]))
+
+    ;; Returns "save" data that can be set back to this widget via
+    ;; `restore-from` so the widget will display the same selection.
+    (define/public (get-restore-data)
+      (hash
+       'date-range (send date-range-selector get-restore-data)
+       'sport (send sport-selector get-selection)
+       'labels (send labels-input get-contents-as-tag-ids)
+       'equipment (send equipment-input get-contents-as-tag-ids)))
+
+    ;; Restore data produced by `get-restore-data`.  After this call, the
+    ;; widget will display the same selection as when `get-restore-data` was
+    ;; called.
+    (define/public (restore-from data)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database)
+        (send equipment-input refresh-available-tags database))
+      (when (hash? data)
+        (let ((labels (hash-ref data 'labels '())))
+          ;; NOTE: set the contents even if they are empty, as this sets the
+          ;; available tags, allowing new ones to be added
+          (send labels-input set-contents-from-tag-ids labels))
+        (let ((equipment (hash-ref data 'equipment '())))
+          ;; NOTE: set the contents even if they are empty, as this sets the
+          ;; available tags, allowing new ones to be added
+          (send equipment-input set-contents-from-tag-ids equipment))
+        (let ((dr (hash-ref data 'date-range #f)))
+          (when dr
+            (send date-range-selector restore-from dr)))
+        (let ((sp (hash-ref data 'sport #f)))
+          (when sp
+            (send sport-selector set-selected-sport (car sp) (cdr sp))
+            (and sport-selected-callback (sport-selected-callback sp))))))
+
+    ;; Return the selected date range as a (cons START END), where START and
+    ;; END are unix timestamps.
+    (define/public (get-date-range)
+      (match-define (cons start end) (send date-range-selector get-selection))
+      (cons (if (and database (= start 0))
+                (get-true-min-start-date database)
+                start)
+            end))
+
+    ;; Returns the selected sport as a (cons SPORT SUB-SPORT)
+    (define/public (get-sport) (send sport-selector get-selection))
+
+    ;; Returns the list of selected labels as IDS (the LABEL.id value from the
+    ;; database).  Returns the empty list if no labels are selected.
+
+    (define/public (get-labels) (send labels-input get-contents-as-tag-ids))
+
+    ;; Returns the list of selected equipment as IDS (the EQUIPMENT.id value
+    ;; from the database.  Returns the empty list if no equipment is selected.
+    (define/public (get-equipment) (send equipment-input get-contents-as-tag-ids))
+
+    ;; Update the selectors with the possibly updated seasons, available
+    ;; labels and equipment.  Should be called before showing the dialog that
+    ;; contains this widget to ensure the menus are up to date with the
+    ;; database contents.
+    (define/public (on-before-show-dialog)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database)
+        (send equipment-input refresh-available-tags database)))
+
+    ))
 
 ;; Base class for all the trends charts. Contains the common mechanisms for
 ;; interacting with the rest of the application, so the individual charts can
@@ -81,7 +180,7 @@
 
     (define/public (export-data-to-file file formatted?)
       #f)
-    
+
     (define/public (get-settings-dialog)
       (unless settings-dialog (set! settings-dialog (make-settings-dialog)))
       settings-dialog)
@@ -94,7 +193,7 @@
     (define/public (get-name)
       (let ((p (get-params)))
         (if p (tc-params-name p) "XXX (no params)")))
-    
+
     (define/public (get-title)
       (let ((p (get-params)))
         (if p (tc-params-title p) "No Title (no params)")))
@@ -145,8 +244,8 @@
 
 (define (start-of-day timestamp)
   (let ((d (seconds->date timestamp #t)))
-    (find-seconds 
-     0 0 0 
+    (find-seconds
+     0 0 0
      (date-day d) (date-month d) (date-year d) #t)))
 
 (define (week-start timestamp)
@@ -176,7 +275,7 @@
          (december? (eqv? month 12)))
     (date->seconds
      (date 0 0 0
-           1 
+           1
            (if december? 1 (+ 1 month))
            (if december? (+ 1 year) year)
            0 0 0 (date-time-zone-offset d)))))
@@ -195,7 +294,7 @@
            1 1 (+ 1 (date-year d))
            0 0 0 (date-time-zone-offset d)))))
 
-(define months '("XXX" "Jan" "Feb" "Mar" 
+(define months '("XXX" "Jan" "Feb" "Mar"
                  "Apr" "May" "Jun" "Jul" "Aug"
                  "Sep" "Oct" "Nov" "Dec"))
 
@@ -211,7 +310,7 @@
                        ((eq? group-by 2) next-year-start)
                        (#t #f))))
     (let loop ((crt start) (timestamps '()))
-      (if (> crt end) 
+      (if (> crt end)
           (reverse timestamps)
           (loop (skip-fn crt) (cons crt timestamps))))))
 
@@ -364,4 +463,3 @@
                   (thread-cell-set! state v)
                   v)
                 (begin (thread-cell-set! state new-v) new-v)))))))
-

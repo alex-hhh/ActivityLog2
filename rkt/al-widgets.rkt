@@ -143,6 +143,12 @@
       (set-available-tags (for/list ([tag available-tags]) (vector-ref tag 1)))
       (set-contents (for/list ([tag session-tags]) (vector-ref tag 1))))
 
+    ;; Refresh the available tags from the database.  These are the tags that
+    ;; will appear in the pop-up menu for adding new tags to the control.
+    (define/public (refresh-available-tags db)
+      (set! available-tags (get-available-tags db))
+      (set-available-tags (for/list ([tag available-tags]) (vector-ref tag 1))))
+
     (define/public (get-contents-as-tag-ids)
       ;; NOTE: available-tags contains tags that can be set for a session,
       ;; while session-tags might contain additional tags.  This is especially
@@ -159,6 +165,15 @@
       (let ((contents (get-contents)))
         (for/list ([tag contents])
           (find-tag tag))))
+
+    ;; Set contents of this widget from the list of TAG-IDS.  The actual tag
+    ;; names are looked up in AVAILABLE-TAGS.
+    (define/public (set-contents-from-tag-ids tag-ids)
+      (define tags
+        (for/list ([t (in-list available-tags)] #:when (member (vector-ref t 0) tag-ids))
+          (vector-ref t 1)))
+      (set-available-tags (for/list ([tag available-tags]) (vector-ref tag 1)))
+      (set-contents tags))
 
     (define/public (update-session-tags sid)
       (let ((ids (get-contents-as-tag-ids)))

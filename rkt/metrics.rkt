@@ -23,6 +23,8 @@
          racket/math
          racket/contract
          racket/list
+         racket/string
+         racket/format
          math/statistics
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "spline-interpolation.rkt"
@@ -675,10 +677,19 @@
 ;;................................................................. rest ....
 
 ;; Fetch session IDs filtering by sport/sub-sport and within a date range.
+;;
+;; #:label-ids is a list of LABEL.id values, if present, only sessions with
+;; ALL the specified labels are selected.
+;;
+;; #:equipment-ids is a list of EQUIPMENT.id values, if present, only sessions
+;; with ALL the specified equipment are selected.
+;;
 ;; The session IDs are also filtered by the 'equipment-failure' label, so we
 ;; don't compute best avg data off bad data.  This is a bit of a hack, but bad
 ;; HR data produced completely wrong bests data.
-(define (fetch-candidate-sessions db sport-id sub-sport-id start-timestamp end-timestamp)
+(define (fetch-candidate-sessions db sport-id sub-sport-id start-timestamp end-timestamp
+                                  #:label-ids (labels #f)
+                                  #:equipment-ids (equipment #f))
   ;; NOTE: it would be nice to be able to use parameters instead of
   ;; constructing the SQL using format, however, I'm not sure how to write
   ;; such a query (e.g. when sub-sport-id is #f, we want to select *ALL* sub
@@ -692,6 +703,8 @@ where ~a
   and ~a
   and ~a
   and ~a
+  and ~a
+  and ~a
   and S.id not in (
    select SL.session_id
      from SESSION_LABEL SL, LABEL L
@@ -700,7 +713,47 @@ where ~a
             (if sport-id (format "S.sport_id = ~a" sport-id) "1=1")
             (if sub-sport-id (format "S.sub_sport_id = ~a" sub-sport-id) "1=1")
             (if start-timestamp (format "S.start_time >= ~a" start-timestamp) "1=1")
-            (if end-timestamp (format "S.start_time <= ~a" end-timestamp) "1=1")))
+            (if end-timestamp (format "S.start_time <= ~a" end-timestamp) "1=1")
+            (if (pair? labels)
+                (let ((labels-str (string-join (map ~a (sort labels <)) ", ")))
+                  ;; NOTE: We want to select sessions that have ALL the labels
+                  ;; listed in LABELS.  To do this, we use a group by than
+                  ;; concatenate the equipment values in a string and compare
+                  ;; against another string.  This works only if the equipment
+                  ;; IDs are sorted before being passed to group_concat().
+                  ;; This seems to be the case, but I believe it is a side
+                  ;; effect of the SQLite query planner, not an explicit SQL
+                  ;; statement, so it may break in the future.
+                  (format "S.id in (
+select X.session_id
+  from (select session_id,
+               group_concat(label_id, ', ') as test
+          from SESSION_LABEL
+         where label_id in (~a)
+         group by session_id) as X
+ where X.test = '~a')" labels-str labels-str))
+                "1 = 1")
+            (if (pair? equipment)
+                (let ((equipment-str (string-join (map ~a (sort equipment <)) ", ")))
+                  ;; NOTE: We want to select sessions that have ALL the
+                  ;; equipment listed in EQUIPMENT.  To do this, we use a
+                  ;; group by than concatenate the equipment values in a
+                  ;; string and compare against another string.  This works
+                  ;; only if the equipment IDs are sorted before being passed
+                  ;; to group_concat().  This seems to be the case, but I
+                  ;; believe it is a side effect of the SQLite query planner,
+                  ;; not an explicit SQL statement, so it may break in the
+                  ;; future.
+                  (format "S.id in (
+select X.session_id
+  from (select session_id,
+               group_concat(equipment_id, ', ') as test
+          from EQUIPMENT_USE
+         where equipment_id in (~a)
+         group by session_id) as X
+ where X.test = '~a')" equipment-str equipment-str))
+                "1 = 1")
+            ))
   (define result (query-list db q))
   result)
 
@@ -758,12 +811,14 @@ where ~a
                            (or/c #f number?)))
 
 (provide/contract
- (fetch-candidate-sessions (-> connection?
-                               (or/c #f exact-nonnegative-integer?)
-                               (or/c #f exact-nonnegative-integer?)
-                               (or/c #f exact-nonnegative-integer?)
-                               (or/c #f exact-nonnegative-integer?)
-                               (listof exact-nonnegative-integer?)))
+ (fetch-candidate-sessions (->* (connection?
+                                 (or/c #f exact-nonnegative-integer?)
+                                 (or/c #f exact-nonnegative-integer?)
+                                 (or/c #f exact-nonnegative-integer?)
+                                 (or/c #f exact-nonnegative-integer?))
+                                (#:label-ids (or/c #f (listof exact-nonnegative-integer?))
+                                 #:equipment-ids (or/c #f (listof exact-nonnegative-integer?)))
+                                (listof exact-nonnegative-integer?)))
  (clear-metrics-cache (-> any/c))
  (aggregate-bavg (->* ((listof exact-nonnegative-integer?) string?)
                       (#:inverted? boolean? #:progress-callback (or/c #f (-> real? any/c)))
@@ -786,7 +841,7 @@ where ~a
                         (#:include-zeroes? boolean?
                          #:bucket-width (and/c real? positive?)
                          #:as-percentage? boolean?)
-                        histogram/c))
+                        (or/c #f histogram/c)))
  (aggregate-scatter (->* ((listof exact-nonnegative-integer?) string? string?)
                          (#:progress-callback (or/c #f (-> real? any/c)))
                          aggregate-scatter/c))

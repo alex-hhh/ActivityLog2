@@ -26,6 +26,8 @@
  racket/format
  racket/string
  racket/list
+ racket/string
+ racket/hash
  "database.rkt"
  "trends-chart.rkt"
  "icon-resources.rkt"
@@ -38,6 +40,7 @@
  "metrics.rkt"
  "utilities.rkt")
 
+(provide hist-trends-chart%)
 
 
 ;;....................................................... axis selection ....
@@ -97,9 +100,12 @@
 
 ;;................................................. hist-chart-settings% ....
 
-(struct hist-params tc-params (start-date end-date sport series zeroes? colors? aspct? bwidth otrim) #:transparent)
+(struct hist-params tc-params
+  (start-date end-date sport labels equipment
+              series
+              zeroes? colors? aspct? bwidth otrim)
+  #:transparent)
 
-(provide hist-chart-settings%)
 (define hist-chart-settings%
   (class al-edit-dialog%
     (init-field database
@@ -152,12 +158,11 @@
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define sport-selector
-      (new sport-selector% [parent time-gb] [sports-in-use-only? #t]
-           [callback on-sport-selected]))
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
-
+    (define session-filter (new session-filter%
+                                [parent (send this get-client-pane)]
+                                [database database]
+                                [sport-selected-callback on-sport-selected]))
+    
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (set! series-selector
           (let ((p (make-horizontal-pane series-gb #f)))
@@ -207,31 +212,23 @@
             (send axis series-name))))
 
     (define/public (get-restore-data)
-      (hash
-       'name (send name-field get-value)
-       'title (send title-field get-value)
-       'date-range (send date-range-selector get-restore-data)
-       'sport (send sport-selector get-selection)
-       'series (get-selected-series-name)
-       'include-zeroes? (send include-zeroes-checkbox get-value)
-       'color-by-zone? (send color-by-zone-checkbox get-value)
-       'show-as-pct? (send show-as-pct-checkbox get-value)
-       'bucket-width (send bucket-width-field get-converted-value)
-       'outlier-trim (send outlier-trim-field get-converted-value)))
+      (hash-union
+       (send session-filter get-restore-data)
+       (hash
+        'name (send name-field get-value)
+        'title (send title-field get-value)
+        'series (get-selected-series-name)
+        'include-zeroes? (send include-zeroes-checkbox get-value)
+        'color-by-zone? (send color-by-zone-checkbox get-value)
+        'show-as-pct? (send show-as-pct-checkbox get-value)
+        'bucket-width (send bucket-width-field get-converted-value)
+        'outlier-trim (send outlier-trim-field get-converted-value))))
 
     (define/public (restore-from data)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+      (send session-filter restore-from data)
       (when (hash? data)
         (send name-field set-value (hash-ref data 'name "Hist"))
         (send title-field set-value (hash-ref data 'title "Histogram Chart"))
-        (let ((dr (hash-ref data 'date-range #f)))
-          (when dr
-            (send date-range-selector restore-from dr)))
-        (let ((sp (hash-ref data 'sport #f)))
-          (when sp
-            (send sport-selector set-selected-sport (car sp) (cdr sp))
-            (on-sport-selected sp)))
         (let ((series (hash-ref data 'series #f)))
           (when series
             (let ((index (find-axis series axis-choices)))
@@ -251,25 +248,24 @@
         ))
 
     (define/public (show-dialog parent)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+      (send session-filter on-before-show-dialog)
       (if (send this do-edit parent)
           (get-settings)
           #f))
 
     (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
+      (let ((dr (send session-filter get-date-range)))
         (if dr
             (let ((start-date (car dr))
                   (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
               (hist-params
                (send name-field get-value)
                (send title-field get-value)
                start-date
                end-date
-               (send sport-selector get-selection)
+               (send session-filter get-sport)
+               (send session-filter get-labels)
+               (send session-filter get-equipment)
                (get-selected-series-name)
                (send include-zeroes-checkbox get-value)
                (send color-by-zone-checkbox get-value)
@@ -287,8 +283,11 @@
 (define (candidate-sessions db params)
   (let ((start (hist-params-start-date params))
         (end (hist-params-end-date params))
-        (sport (hist-params-sport params)))
-    (fetch-candidate-sessions db (car sport) (cdr sport) start end)))
+        (sport (hist-params-sport params))
+        (labels (hist-params-labels params))
+        (equipment (hist-params-equipment params)))
+    (fetch-candidate-sessions db (car sport) (cdr sport) start end
+                              #:label-ids labels #:equipment-ids equipment)))
 
 ;; AXIS is a list of series-metadata% instances (one for a single series, two
 ;; for a dual series), data is a list of histograms (as returned by
@@ -335,7 +334,8 @@
 
   (when (> (hist-params-otrim params) 0)
     (let ((trim (/ (hist-params-otrim params) 100)))
-      (set! h1 (trim-histogram-outliers h1 trim))
+      (when h1
+        (set! h1 (trim-histogram-outliers h1 trim)))
       (when h2
         (set! h2 (trim-histogram-outliers h2 trim)))))
 
@@ -345,12 +345,12 @@
           '(0 148 255)
           color)))
 
-  (if (zero? (vector-length h1))
+  (if (or (not h1) (zero? (vector-length h1)))
       #f
       (list
        (tick-grid)
        (cond (dual?
-              (if (zero? (vector-length h2))
+              (if (or (not h2) (zero? (vector-length h2)))
                   #f
                   (make-histogram-renderer/dual
                    h1 (send axis1 plot-label)
@@ -372,8 +372,11 @@
   (if rt
       (let* ((aspct? (hist-params-aspct? params))
              (lap-swim? (is-lap-swimming? (hist-params-sport params)))
-             (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time (seconds)"))))
+             (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time"))))
         (parameterize ([plot-y-label label]
+                       [plot-y-ticks (if (or aspct? lap-swim?)
+                                         (linear-ticks)
+                                         (time-ticks))]
                        [plot-x-ticks (send axis plot-ticks)]
                        [plot-x-label (send axis axis-label)])
           (plot-snip/hack canvas rt)))
@@ -381,7 +384,7 @@
         (send canvas set-snip #f)
         (send canvas set-background-message "No data to plot"))))
 
-(provide hist-trends-chart%)
+
 (define hist-trends-chart%
   (class trends-chart%
     (init-field database) (super-new)
