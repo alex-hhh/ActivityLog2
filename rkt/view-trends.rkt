@@ -216,11 +216,16 @@
     (define/public (get-restore-data)
       (list info-tag (send trend-chart get-restore-data)))
 
-    (define/public (export-image-to-file file)
-      (send graph-pb export-image-to-file file))
+    (define/public (export-image file-name)
+      ;; NOTE: we use individual image exports, because the snip-canvas%
+      ;; export-image-to-file will scale the image and that results in a
+      ;; blurry image...
+      
+      ;; (send graph-pb export-image-to-file file-name 800 400)
+      (send trend-chart save-plot-image file-name 800 400))
 
-    (define/public (export-data-to-file file formatted?)
-      (send trend-chart export-data-to-file file formatted?))
+    (define/public (export-data file-name formatted?)
+      (send trend-chart export-data-to-file file-name formatted?))
 
     ))
 
@@ -420,12 +425,12 @@
           (let ((n (send trend-charts-panel get-selection)))
             (when n
               (let* ((c (list-ref trend-charts n))
-                     (file (put-file "Select file to export to" #f #f
+                     (fname (put-file "Select file to export to" #f #f
                                      (format "~a.png" (send c get-name))
                                      "png" '()
                                      '(("PNG Files" "*.png") ("Any" "*.*")))))
-                (when file
-                  (send c export-image-to-file file))))))))
+                (when fname
+                  (send c export-image fname))))))))
         
     (define (on-interactive-export-data formatted?)
       (with-exn-handling
@@ -434,12 +439,12 @@
           (let ((n (send trend-charts-panel get-selection)))
             (when n
               (let* ((c (list-ref trend-charts n))
-                     (file (put-file "Select file to export to" #f #f
+                     (fname (put-file "Select file to export to" #f #f
                                      (format "~a.csv" (send c get-name))
                                      "csv" '()
                                      '(("CSV Files" "*.csv") ("Any" "*.*")))))
-                (when file
-                  (send c export-data-to-file file formatted?))))))))
+                (when fname
+                  (send c export-data fname formatted?))))))))
         
     (define first-activation #t)
 

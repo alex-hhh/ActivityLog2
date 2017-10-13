@@ -359,34 +359,54 @@
                   rt)))
     (reverse rt)))
 
+(define (generate-plot output-fn data params rt)
+  (let ((outlier-handling (scatter-params-outlier-handling params))
+        (bounds (scatter-bounds data))
+        (qbounds (scatter-qbounds data))
+        (rt rt))
+    (when (eq? outlier-handling 'mark)
+      (match-define (vector left right low high) qbounds)
+      (when left
+        (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
+      (when right
+        (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
+      (when low
+        (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
+      (when high
+        (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
+    (parameterize ([plot-x-ticks (send (scatter-axis1 data) plot-ticks)]
+                   [plot-x-label (send (scatter-axis1 data) axis-label)]
+                   [plot-y-ticks (send (scatter-axis2 data) plot-ticks)]
+                   [plot-y-label (send (scatter-axis2 data) axis-label)])
+      (match-define (vector x-min x-max y-min y-max)
+        (if (eq? outlier-handling 'mark) bounds qbounds))
+      (output-fn rt x-min x-max y-min y-max))))
+
 (define (insert-plot-snip canvas data params rt)
   (if rt
-      (let ((outlier-handling (scatter-params-outlier-handling params))
-            (bounds (scatter-bounds data))
-            (qbounds (scatter-qbounds data))
-            (rt rt))
-        (when (eq? outlier-handling 'mark)
-          (match-define (vector left right low high) qbounds)
-          (when left
-            (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
-          (when right
-            (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
-          (when low
-            (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
-          (when high
-            (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
-        (parameterize ([plot-x-ticks (send (scatter-axis1 data) plot-ticks)]
-                       [plot-x-label (send (scatter-axis1 data) axis-label)]
-                       [plot-y-ticks (send (scatter-axis2 data) plot-ticks)]
-                       [plot-y-label (send (scatter-axis2 data) axis-label)])
-          (match-define (vector x-min x-max y-min y-max)
-            (if (eq? outlier-handling 'mark) bounds qbounds))
-          (plot-snip/hack canvas rt
-                           #:x-min x-min #:x-max x-max
-                           #:y-min y-min #:y-max y-max)))
+      (generate-plot
+       (lambda (renderer-tree min-x max-x min-y max-y)
+         (plot-snip/hack
+          canvas
+          #:x-min min-x
+          #:x-max max-x
+          #:y-min min-y
+          #:y-max max-y
+          renderer-tree))
+       data params rt)
       (begin
         (send canvas set-snip #f)
         (send canvas set-background-message "No data to plot"))))
+
+(define (save-plot-to-file file-name width height data params rt)
+  (generate-plot
+   (lambda (renderer-tree min-x max-x min-y max-y)
+     (plot-file renderer-tree file-name #:width width #:height height
+                #:x-min min-x
+                #:x-max max-x
+                #:y-min min-y
+                #:y-max max-y))
+   data params rt))
 
 (provide scatter-trends-chart%)
 (define scatter-trends-chart%
@@ -394,6 +414,7 @@
     (init-field database) (super-new)
 
     (define cached-data #f)
+    (define cached-renderer-tree #f)
     (define generation 0)
 
     (define (get-generation) generation)
@@ -438,9 +459,18 @@
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
+                    (set! cached-renderer-tree rt)
                     (insert-plot-snip canvas data params rt))))))
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))
+
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (let ((data cached-data)
+            (rt cached-renderer-tree)
+            (params (send this get-params)))
+        (when (and data params rt)
+          (save-plot-to-file file-name width height data params rt))))
 
     ))

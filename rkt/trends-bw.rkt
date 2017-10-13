@@ -102,6 +102,27 @@
 
 (define *sea-green* '(#x2e #x8b #x57))
 
+(define (make-renderer-tree bw-data)
+  (list (tick-grid) (lines bw-data #:color *sea-green* #:width 3.0)))
+
+(define (generate-plot output-fn renderer-tree)
+  (parameterize ([plot-x-ticks (pmc-date-ticks)]
+                 [plot-x-label #f]
+                 [plot-y-label "Bodyweight"])
+    (output-fn renderer-tree)))
+
+(define (insert-plot-snip canvas renderer-tree)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-snip/hack canvas renderer-tree))
+   renderer-tree))
+
+(define (save-plot-to-file file-name width height renderer-tree)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-file renderer-tree file-name #:width width #:height height))
+   renderer-tree))
+
 (define bw-trends-chart%
   (class trends-chart%
     (init-field database)
@@ -143,15 +164,18 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (parameterize ([plot-x-ticks (pmc-date-ticks)]
-                         [plot-x-label #f]
-                         [plot-y-label "Bodyweight"])
-            (plot-snip/hack
-             canvas
-             (list (tick-grid) (lines bw-data #:color *sea-green* #:width 3.0))))
+          (insert-plot-snip
+           canvas
+           (make-renderer-tree bw-data))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
+
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (when data-valid?
+        (save-plot-to-file file-name width height
+                           (make-renderer-tree bw-data))))
 
     (define (maybe-fetch-data)
       (unless data-valid?

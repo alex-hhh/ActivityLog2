@@ -448,7 +448,7 @@
            cp-fn
            cp-pict)))
 
-(define (make-render-tree data)
+(define (make-renderer-tree data)
 
   ;; HACK: some plot-color methods return 'smart, we should fix this
   (define (get-color axis)
@@ -482,18 +482,34 @@
           (values rt min-x max-x min-y max-y))
         (values #f #f #f #f #f))))
 
+(define (generate-plot output-fn axis renderer-tree)
+  (parameterize ([plot-x-ticks (best-avg-ticks)]
+                 [plot-x-label "Duration"]
+                 [plot-x-transform log-transform]
+                 [plot-y-ticks (send axis plot-ticks)]
+                 [plot-x-tick-label-anchor 'top-right]
+                 [plot-x-tick-label-angle 30]
+                 [plot-y-label (send axis axis-label)])
+    (output-fn renderer-tree)))
+
 (define (insert-plot-snip canvas axis rt min-x max-x min-y max-y)
   (if rt
-      (parameterize ([plot-x-ticks (best-avg-ticks)]
-                     [plot-x-label "Duration"]
-                     [plot-x-transform log-transform]
-                     [plot-y-ticks (send axis plot-ticks)]
-                     [plot-y-label (send axis axis-label)])
-        (plot-snip/hack canvas rt
-                        #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+      (generate-plot
+       (lambda (renderer-tree)
+         (plot-snip/hack canvas renderer-tree
+                         #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+       axis rt)
       (begin
         (send canvas set-snip #f)
         (send canvas set-background-message "No data to plot"))))
+
+(define (save-plot-to-file file-name width height axis rt min-x max-x min-y max-y)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-file renderer-tree file-name
+                #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y
+                #:width width #:height height))
+   axis rt))
 
 (provide bavg-trends-chart%)
 (define bavg-trends-chart%
@@ -580,7 +596,7 @@
                       (send canvas set-background-message
                             (format "Working (~a %)..." (exact-round (* p 100.0))))))))
                (define data (or previous-data (fetch-data database params report-progress)))
-               (define-values (rt min-x max-x min-y max-y) (make-render-tree data))
+               (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
@@ -594,6 +610,17 @@
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))
+
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (let ((data cached-data)
+            (params (send this get-params)))
+        (when (and params data)
+          (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
+          (when rt
+            (save-plot-to-file file-name width height
+                               (tbavg-axis data)
+                               rt min-x max-x min-y max-y)))))
 
     (define/override (get-restore-data)
       (define sdata (super get-restore-data))

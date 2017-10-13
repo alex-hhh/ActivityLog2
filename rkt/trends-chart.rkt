@@ -178,7 +178,13 @@
     (define/public (put-plot-snip canvas)
       #f)
 
-    (define/public (export-data-to-file file formatted?)
+    ;; Save the plot to a file. The image is stored in FILE-NAME, and will
+    ;; have WIDTH x HEIGHT dimensions.
+    (define/public (save-plot-image file-name width height)
+      #f)
+
+    ;; Export the data for the plot as a CSV file.
+    (define/public (export-data-to-file file-name formatted?)
       #f)
 
     (define/public (get-settings-dialog)

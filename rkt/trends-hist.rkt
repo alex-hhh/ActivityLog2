@@ -302,7 +302,7 @@
      (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hist-params-sport params))))
      (for/list ([s series]) (aggregate-hist candidates s #:progress-callback progress)))))
 
-(define (make-render-tree data params)
+(define (make-renderer-tree data params)
   (define cbz? (hist-params-colors? params))
   (define aspct? (hist-params-aspct? params))
   (define zeroes? (hist-params-zeroes? params))
@@ -368,22 +368,33 @@
                #:x-value-formatter (send axis1 value-formatter)
                #:color (get-color axis1)))))))
 
-(define (insert-plot-snip canvas axis params rt)
-  (if rt
-      (let* ((aspct? (hist-params-aspct? params))
-             (lap-swim? (is-lap-swimming? (hist-params-sport params)))
-             (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time"))))
-        (parameterize ([plot-y-label label]
-                       [plot-y-ticks (if (or aspct? lap-swim?)
-                                         (linear-ticks)
-                                         (time-ticks))]
-                       [plot-x-ticks (send axis plot-ticks)]
-                       [plot-x-label (send axis axis-label)])
-          (plot-snip/hack canvas rt)))
+(define (generate-plot output-fn axis params renderer-tree)
+  (let* ((aspct? (hist-params-aspct? params))
+         (lap-swim? (is-lap-swimming? (hist-params-sport params)))
+         (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time"))))
+    (parameterize ([plot-y-label label]
+                   [plot-y-ticks (if (or aspct? lap-swim?)
+                                     (linear-ticks)
+                                     (time-ticks))]
+                   [plot-x-ticks (send axis plot-ticks)]
+                   [plot-x-label (send axis axis-label)])
+      (output-fn renderer-tree))))
+
+(define (insert-plot-snip canvas axis params renderer-tree)
+  (if renderer-tree
+      (generate-plot
+       (lambda (renderer-tree)
+         (plot-snip/hack canvas renderer-tree))
+       axis params renderer-tree)
       (begin
         (send canvas set-snip #f)
         (send canvas set-background-message "No data to plot"))))
 
+(define (save-plot-to-file file-name width height axis params renderer-tree)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-file renderer-tree file-name #:width width #:height height))
+   axis params renderer-tree))
 
 (define hist-trends-chart%
   (class trends-chart%
@@ -413,7 +424,7 @@
       (define data cached-data)
       (define params (send this get-params))
 
-      ;; NOTE: this section is the same as MAKE-RENDER-TREE, could use some
+      ;; NOTE: this section is the same as MAKE-RENDERER-TREE, could use some
       ;; refactoring.
       (define aspct? (hist-params-aspct? params))
       (define zeroes? (hist-params-zeroes? params))
@@ -491,7 +502,7 @@
                       (send canvas set-background-message
                             (format "Working (~a %)..." (exact-round (* p 100.0))))))))
                (define data (or previous-data (fetch-data database params report-progress)))
-               (define rt (make-render-tree data params))
+               (define rt (make-renderer-tree data params))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
@@ -500,5 +511,14 @@
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))
+
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (let ((data cached-data)
+            (params (send this get-params)))
+        (when (and params data)
+          (let ((rt (make-renderer-tree data params)))
+            (when rt
+              (save-plot-to-file file-name width height (first (hist-axis data)) params rt))))))
 
     ))

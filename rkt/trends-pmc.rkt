@@ -299,6 +299,48 @@
   (let ((fdata (get-fatigue-data-series data)))
     (lines fdata #:color *dark-red* #:width 1.5 #:label "Fatigue")))
 
+(define (make-renderer-tree params pmc-data)
+  (let ((rt (list (tick-grid))))
+    (when (pmc-params-show-form? params)
+      (let ((form-renderer (make-form-renderer pmc-data)))
+        (set! rt (cons form-renderer rt))))
+
+    (when (pmc-params-show-fitness? params)
+      (let ((fitness-renderer (make-fitness-renderer pmc-data)))
+        (set! rt (cons fitness-renderer rt))))
+
+    (when (pmc-params-show-fatigue? params)
+      (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
+        (set! rt (cons fatigue-renderer rt))))
+
+    (when (pmc-params-show-daily-tss? params)
+      (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
+        (set! rt (cons daily-tss-renderer rt))))
+    rt))
+
+(define (generate-plot output-fn renderer-tree)
+  (parameterize ([plot-x-ticks (pmc-date-ticks)])
+    (output-fn renderer-tree)))
+
+(define (insert-plot-snip canvas params renderer-tree)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-snip/hack
+      canvas
+      #:x-min (pmc-params-start-date params)
+      #:x-label #f #:y-label #f renderer-tree))
+   renderer-tree))
+
+(define (save-plot-to-file file-name width height params renderer-tree)
+  (generate-plot
+   (lambda (renderer-tree)
+     (plot-file
+      renderer-tree
+      file-name #:width width #:height height
+      #:x-min (pmc-params-start-date params)
+      #:x-label #f #:y-label #f))
+   renderer-tree))
+
 (define pmc-trends-chart%
   (class trends-chart% (init-field database) (super-new)
 
@@ -340,29 +382,16 @@
       (maybe-build-pmc-data)
       (let ((params (send this get-params)))
         (if params
-            (let ((rt (list (tick-grid))))
-              (when (pmc-params-show-form? params)
-                (let ((form-renderer (make-form-renderer pmc-data)))
-                  (set! rt (cons form-renderer rt))))
-
-              (when (pmc-params-show-fitness? params)
-                (let ((fitness-renderer (make-fitness-renderer pmc-data)))
-                  (set! rt (cons fitness-renderer rt))))
-
-              (when (pmc-params-show-fatigue? params)
-                (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
-                  (set! rt (cons fatigue-renderer rt))))
-
-              (when (pmc-params-show-daily-tss? params)
-                (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
-                  (set! rt (cons daily-tss-renderer rt))))
-
-              (parameterize ([plot-x-ticks (pmc-date-ticks)])
-                (plot-snip/hack
-                 canvas
-                 #:x-min (pmc-params-start-date params)
-                 #:x-label #f #:y-label #f rt)))
+            (let ((rt (make-renderer-tree params pmc-data)))
+              (insert-plot-snip canvas params rt))
             #f)))
+
+    (define/override (save-plot-image file-name width height)
+      (when data-valid?
+        (let ((params (send this get-params)))
+          (when params
+            (let ((rt (make-renderer-tree params pmc-data)))
+              (save-plot-to-file file-name width height params rt))))))
 
     (define (maybe-build-pmc-data)
       (unless data-valid?

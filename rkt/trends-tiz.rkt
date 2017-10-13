@@ -144,7 +144,7 @@
 (define (get-data db sql-query sport zone-metric start end)
   (query-rows db sql-query sport zone-metric start end))
 
-(define (tiz-trends-plot canvas data)
+(define (generate-plot output-fn data)
 
   (define (min-zone . zones)
     (let loop ((zones zones)
@@ -194,20 +194,38 @@
                  [plot-x-label #f]
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
-                 [plot-y-label "Time in Zone"])
-    (plot-snip/hack
-     canvas
-     #:x-min 0
-     #:x-max (length pdata)
-     #:y-min 0
-     #:y-max max-y
+                 [plot-y-label "Time in Zone (hours)"])
+    (output-fn
      (list (y-tick-lines)
-           (stacked-histogram
-            pdata
-            #:colors plot-colors
-            #:labels plot-labels
-            #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
-            #:gap 0.5)))))
+                     (stacked-histogram
+                      pdata
+                      #:colors plot-colors
+                      #:labels plot-labels
+                      #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
+                      #:gap 0.5))
+     0 (length pdata) 0 max-y)))
+
+(define (insert-plot-snip canvas data)
+  (generate-plot
+   (lambda (renderer-tree min-x max-x min-y max-y)
+     (plot-snip/hack
+      canvas
+      #:x-min min-x
+      #:x-max max-x
+      #:y-min min-y
+      #:y-max max-y
+      renderer-tree))
+   data))
+
+(define (save-plot-to-file file-name width height data)
+  (generate-plot
+   (lambda (renderer-tree min-x max-x min-y max-y)
+     (plot-file renderer-tree file-name #:width width #:height height
+                #:x-min min-x
+                #:x-max max-x
+                #:y-min min-y
+                #:y-max max-y))
+   data))
 
 (define tiz-trends-chart%
   (class trends-chart%
@@ -262,10 +280,15 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (tiz-trends-plot canvas chart-data)
+          (insert-plot-snip canvas chart-data)
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
+
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (when data-valid?
+        (save-plot-to-file file-name width height chart-data)))
 
     (define (maybe-fetch-data)
       (unless data-valid?

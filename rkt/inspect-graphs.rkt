@@ -445,7 +445,6 @@
      ;; Put the renderer tree in the structure and return the result.
      (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl-rt hlivl-rt)))))
 
-
 (define graph-view%
   (class object%
     (init parent)
@@ -559,7 +558,8 @@
         (send y-axis-choice set-selection 0)
         (on-y-axis-selected 0)))
 
-    (define (put-plot dc pd ps)
+    (define (put-plot output-fn pd ps)
+      ;; (-> (-> (treeof renderer2d?) any/c) pd? ps? any/c)
 
       (define (full-render-tree)
         (let ((render-tree (list (pd-plot-rt pd))))
@@ -581,7 +581,7 @@
 
       (define x-axis (ps-x-axis ps))
       (define y-axis (ps-y-axis ps))
-
+      
       (define (get-x-axis-ticks)
         (let ((ticks (send x-axis plot-ticks))
               (ivl (ps-ivl ps))
@@ -591,13 +591,27 @@
                 (ticks-add ticks (list start end)))
               ticks)))
 
-      (let-values (((width height) (send dc get-size)))
-        (parameterize ([plot-x-transform (get-x-transform)]
-                       [plot-x-ticks (get-x-axis-ticks)]
-                       [plot-x-label (send x-axis axis-label)]
-                       [plot-y-ticks (send y-axis plot-ticks)]
-                       [plot-y-label (send y-axis axis-label)])
-          (plot/dc (full-render-tree) dc 0 0 width height))))
+      (parameterize ([plot-x-transform (get-x-transform)]
+                     [plot-x-ticks (get-x-axis-ticks)]
+                     [plot-x-label (send x-axis axis-label)]
+                     [plot-y-ticks (send y-axis plot-ticks)]
+                     [plot-y-label (send y-axis axis-label)])
+        (output-fn (full-render-tree))))
+
+    (define (put-plot/dc dc pd ps)
+      ;; (-> (is-a? dc<%>)  pd? ps? any/c)
+      (put-plot
+       (lambda (renderer-tree)
+         (let-values (((width height) (send dc get-size)))
+           (plot/dc renderer-tree dc 0 0 width height)))
+       pd ps))
+
+    (define (put-plot/file file-name width height pd ps)
+      ;; (-> path-string? exact-positive-integer? exact-positive-integer? pd? ps? any/c)
+      (put-plot
+       (lambda (renderer-tree)
+         (plot-file renderer-tree file-name #:width width #:height height))
+       pd ps))
 
     (define (on-canvas-paint canvas dc)
       (cond
@@ -657,7 +671,7 @@
                   (bmp (let-values (((w h) (send graph-canvas get-size)))
                          (send graph-canvas make-bitmap w h))))
              (when (pd-plot-rt npdata)
-               (put-plot (send bmp make-dc) npdata pstate))
+               (put-plot/dc (send bmp make-dc) npdata pstate))
              (queue-callback
               (lambda ()
                 (if (= (pd-token npdata) (ps-token plot-state))
@@ -684,7 +698,7 @@
            (when (pd-plot-rt pdata)
              (let ((bmp (let-values (((w h) (send graph-canvas get-size)))
                           (send graph-canvas make-bitmap w h))))
-               (put-plot (send bmp make-dc) pdata pstate)
+               (put-plot/dc (send bmp make-dc) pdata pstate)
                (queue-callback
                 (lambda ()
                   (if (= (pd-token pdata) cached-bitmap-token)
@@ -762,10 +776,7 @@
     (define/public (get-data-frame) (ps-df plot-state))
 
     (define/public (export-image-to-file file-name)
-      (let-values (([cwidth cheight] (send graph-canvas get-size)))
-        (let ((bmp (send graph-canvas make-bitmap cwidth cheight)))
-          (on-canvas-paint graph-canvas (new bitmap-dc% [bitmap bmp]))
-          (send bmp save-file file-name 'png))))
+      (put-plot/file file-name 800 300 plot-data plot-state))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
@@ -776,7 +787,7 @@
                  (y (ps-y-axis plot-state))
                  (y2 (ps-y-axis2 plot-state))
                  (sid (send df get-property 'session-id))
-                 (s1 (and y (send y2 series-name)))
+                 (s1 (and y (send y series-name)))
                  (s2 (and y2 (send y2 series-name))))
             (cond ((and sid s1 s2)
                    (format "graph-~a-~a-~a.png" sid s1 s2))

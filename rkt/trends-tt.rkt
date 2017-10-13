@@ -253,6 +253,83 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           #:alpha alpha
           #:x-jitter 0.2))
 
+(define (make-renderer-tree triathlon? tt-data sport)
+  (cond (triathlon?
+         (list
+          (tick-grid)
+          (make-renderer
+           (make-data tt-data "ncycle")
+           #:color (get-sport-color 2 #f #t)
+           #:label (get-sport-name 2 #f)
+           #:alpha 0.8
+           #:size 1.5)
+          (make-renderer
+           (make-data tt-data "nrun")
+           #:color (get-sport-color 1 #f #t)
+           #:label (get-sport-name 1 #f)
+           #:alpha 0.8
+           #:size 1.5)
+          (make-renderer
+           (make-data tt-data "nswim")
+           #:color (get-sport-color 5 #f #t)
+           #:label (get-sport-name 5 #f)
+           #:alpha 0.8
+            #:size 1.5)
+          (make-renderer
+           (make-data tt-data "nstrength")
+           #:color (get-sport-color 4 20 #t)
+           #:label (get-sport-name 4 20)
+           #:alpha 0.8
+           #:size 1.5)))
+        ((and (eq? (car sport) #f) (eq? (cdr sport) #f)) ; all sports
+         (let* ((data (make-data/multisport tt-data))
+                (keys (sort (hash-keys data) string<?
+                            #:key (lambda (k) (get-sport-name (car k) (cdr k))))))
+           (append
+            (list (tick-grid))
+            (for/list ([k keys])
+              (make-renderer
+               (hash-ref data k '())
+               #:color (get-sport-color (car k) (cdr k) #t)
+               #:label (get-sport-name (car k) (cdr k))
+               #:size 1.5
+               #:alpha 0.8)))))
+        (#t
+         (list
+          (tick-grid)
+          (make-renderer
+           (make-data tt-data "ntotal")
+           #:color (get-sport-color (car sport) (cdr sport) #t)
+           #:label (get-sport-name (car sport) (cdr sport))
+           #:size 1.5)))))
+
+(define (generate-plot output-fn renderer-tree)
+  (parameterize ([plot-x-ticks (day-of-week-ticks)]
+                 [plot-x-label #f]
+                 [plot-y-ticks (hours-of-day-ticks)]
+                 [plot-y-label #f])
+    (output-fn renderer-tree)))
+
+(define (save-plot-to-file file-name width height renderer-tree)
+  (when renderer-tree
+    (generate-plot
+     (lambda (rt)
+       (plot-file rt file-name
+                  #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
+                  #:width width #:height height))
+    renderer-tree)))
+
+(define (insert-plot-snip canvas renderer-tree)
+  (if renderer-tree
+      (generate-plot
+       (lambda (rt)
+         (plot-snip/hack
+          canvas #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25 rt))
+       renderer-tree)
+    (begin
+      (send canvas set-snip #f)
+      (send canvas set-background-message "No data to plot"))))
+
 (define tt-trends-chart%
   (class trends-chart%
     (init-field database) (super-new)
@@ -278,7 +355,8 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           #:mode 'text #:exists 'truncate)))
 
     (define (export-data-as-csv out formatted?)
-      (define all-series '("dow" "time" "ntotal" "nstrength" "nswim" "ncycle" "nrun" "sport_id" "sub_sport_id"))
+      (define all-series '("dow" "time" "ntotal" "nstrength" "nswim"
+                           "ncycle" "nrun" "sport_id" "sub_sport_id"))
       (define actual-series
         (for/list ([series all-series] #:when (send tt-data contains? series))
           series))
@@ -287,69 +365,16 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (parameterize ([plot-x-ticks (day-of-week-ticks)]
-                         [plot-x-label #f]
-                         [plot-y-ticks (hours-of-day-ticks)]
-                         [plot-y-label #f])
-            (cond (tri?
-                   (plot-snip/hack
-                    canvas
-                    #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
-                    (list
-                     (tick-grid)
-                     (make-renderer
-                      (make-data tt-data "ncycle")
-                      #:color (get-sport-color 2 #f #t)
-                      #:label (get-sport-name 2 #f)
-                      #:alpha 0.8
-                      #:size 1.5)
-                     (make-renderer
-                      (make-data tt-data "nrun")
-                      #:color (get-sport-color 1 #f #t)
-                      #:label (get-sport-name 1 #f)
-                      #:alpha 0.8
-                      #:size 1.5)
-                     (make-renderer
-                      (make-data tt-data "nswim")
-                      #:color (get-sport-color 5 #f #t)
-                      #:label (get-sport-name 5 #f)
-                      #:alpha 0.8
-                      #:size 1.5)
-                     (make-renderer
-                      (make-data tt-data "nstrength")
-                      #:color (get-sport-color 4 20 #t)
-                      #:label (get-sport-name 4 20)
-                      #:alpha 0.8
-                      #:size 1.5))))
-                  ((and (equal? (car sport) #f) (equal? (cdr sport) #f)) ; all sports
-                   (let* ((data (make-data/multisport tt-data))
-                          (keys (sort (hash-keys data) string<? #:key (lambda (k) (get-sport-name (car k) (cdr k))))))
-                     (plot-snip/hack
-                      canvas
-                      #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
-                      (append
-                       (list (tick-grid))
-                       (for/list ([k keys])
-                         (make-renderer
-                          (hash-ref data k '())
-                          #:color (get-sport-color (car k) (cdr k) #t)
-                          #:label (get-sport-name (car k) (cdr k))
-                          #:size 1.5
-                          #:alpha 0.8))))))
-                  (#t
-                   (plot-snip/hack
-                    canvas
-                    #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25
-                    (list
-                     (tick-grid)
-                     (make-renderer
-                      (make-data tt-data "ntotal")
-                      #:color (get-sport-color (car sport) (cdr sport) #t)
-                      #:label (get-sport-name (car sport) (cdr sport))
-                      #:size 1.5))))))
+          (begin
+            (insert-plot-snip canvas (make-renderer-tree tri? tt-data sport)))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
+
+    (define/override (save-plot-image file-name width height)
+      (when data-valid?
+        (save-plot-to-file file-name width height
+                           (make-renderer-tree tri? tt-data sport))))
 
     (define (maybe-fetch-data)
       (unless data-valid?

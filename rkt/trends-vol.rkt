@@ -147,7 +147,7 @@
 
 (define *sea-green* '(#x2e #x8b #x57))
 
-(define (vol-trends-plot canvas data y-label)
+(define (generate-plot output-fn data y-label)
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -164,15 +164,37 @@
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label y-label])
-    (plot-snip/hack
-     canvas
+    (output-fn
      (list (y-tick-lines)
            (discrete-histogram
             pdata
             #:y-max max-y
             #:color *sea-green*
             #:line-width 0
-            #:gap 0.5)))))
+            #:gap 0.5))
+     0 (length pdata) 0 max-y)))
+
+(define (insert-plot-snip canvas data y-label)
+  (generate-plot
+   (lambda (renderer-tree min-x max-x min-y max-y)
+    (plot-snip/hack
+     canvas
+     #:x-min min-x
+     #:x-max max-x
+     #:y-min min-y
+     #:y-max max-y
+     renderer-tree))
+   data y-label))
+
+(define (save-plot-to-file file-name width height data y-label)
+  (generate-plot
+   (lambda (renderer-tree min-x max-x min-y max-y)
+     (plot-file renderer-tree file-name #:width width #:height height
+                #:x-min min-x
+                #:x-max max-x
+                #:y-min min-y
+                #:y-max max-y))
+   data y-label))
 
 (define vol-trends-chart%
   (class trends-chart%
@@ -183,7 +205,6 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
-    (define y-label #f)
 
     (define/override (make-settings-dialog)
       (new vol-chart-settings%
@@ -200,18 +221,31 @@
           #:mode 'text #:exists 'truncate)))
 
     (define (export-data-as-csv out)
-      (write-string (format "Timestamp, ~a~%" y-label) out)
+      (write-string (format "Timestamp, ~a~%" (get-y-label)) out)
       (for ((datum chart-data) #:when (> (vector-length datum) 1))
         (match-define (vector timestamp val) datum)
         (write-string (format "~a, ~a~%" timestamp val) out)))
 
+    (define (get-y-label)
+      (let ((metric (vol-params-metric (send this get-params))))
+        (case metric
+          ((0) "Time (hours)")
+          ((1) "Distance (km)")
+          ((2) "Session Count")
+          ((3) "Trainning Stress"))))
+        
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (vol-trends-plot canvas chart-data y-label)
+          (insert-plot-snip canvas chart-data (get-y-label))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
+    
+    (define/override (save-plot-image file-name width height)
+      ;; We assume the data is ready, and don't do anything if it is not.
+      (when data-valid?
+        (save-plot-to-file file-name width height chart-data (get-y-label))))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -224,9 +258,6 @@
                    (sport (vol-params-sport params))
                    (sub-sport (vol-params-sub-sport params))
                    (timestamps (generate-timestamps start end group-by)))
-              (set! y-label (case metric
-                              ((0) "Time") ((1) "Distance")
-                              ((2) "Session Count") ((3) "Trainning Stress")))
               (set! sql-query (make-sql-query start end group-by sport sub-sport))
               (set! sql-query-result (get-data database sql-query metric))
               (when (> (length sql-query-result) 0)

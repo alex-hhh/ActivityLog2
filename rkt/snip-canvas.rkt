@@ -99,10 +99,35 @@
       (send text insert s)
       (send text set-writable #f))
 
-    (define/public (export-image-to-file file-name)
-      (when snip
-        (let ((bmp (send snip get-bitmap)))
-          (send bmp save-file file-name 'png))))
+    ;; (define/public (export-image-to-file file-name)
+    ;;   (when snip
+    ;;     (let ((bmp (send snip get-bitmap)))
+    ;;       (send bmp save-file file-name 'png))))
+
+    (define/public (export-image-to-file file-name (width #f) (height #f))
+      (let-values (((cw ch) (send this get-size)))
+        (unless (and width height)
+          (set! width (or width cw))
+          (set! height (or height ch)))
+        (let* ((bitmap (if (regexp-match #px".*\\.(?i:svg)" file-name)
+                           #f
+                           (make-bitmap width height #t)))
+               (dc (if bitmap
+                       (new bitmap-dc% [bitmap bitmap])
+                       (new svg-dc%
+                            [width width] [height height]
+                            [output file-name]
+                            [exists 'truncate/replace]))))
+          ;; NOTE: scaling works, but makes the entire plot blurry
+          (send dc scale (/ width cw) (/ height ch))
+          (unless bitmap
+            (send dc start-doc "export to file"))
+          ;; NOTE: print-to-dc handles start-page/end-page calls
+          (send (send this get-editor) print-to-dc dc 0)
+          (unless bitmap
+            (send dc end-doc))
+          (when bitmap
+            (send bitmap save-file file-name 'png)))))
 
     (super-new [parent parent]
                [editor text]
