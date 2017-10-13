@@ -67,7 +67,8 @@
  (session-df (-> connection? number? (is-a?/c data-frame%)))
  (reorder-sids (-> (listof integer?) (listof integer?)))
  (clear-session-df-cache (->* () ((or/c integer? #f)) any/c))
- (is-teleport? (-> (is-a?/c data-frame%) number? boolean?)))
+ (is-teleport? (-> (is-a?/c data-frame%) number? boolean?))
+ (add-grade-series (-> (is-a?/c data-frame%) any/c)))
 
 (provide y-range/c factor-colors/c)
 

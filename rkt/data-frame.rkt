@@ -554,7 +554,8 @@
 ;;......................................................... df-write/csv ....
 
 ;; Write to OUTP a data frame DF. Optionally, the series to be written out can
-;; be specified, if empty, all series are written out.
+;; be specified as the SERIES list. If SERIES is empty, all series are written
+;; out as columns in an unspecified order.
 (define (df-write/csv outp df . series)
   (for ([header (if (null? series) (send df get-series-names) series)])
     (write-string header outp)

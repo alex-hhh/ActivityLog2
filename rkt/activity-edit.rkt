@@ -17,17 +17,30 @@
 (require db
          racket/class
          racket/gui/base
+         racket/lazy-require
          "database.rkt"
-         "edit-session-summary.rkt"
-         "edit-session-tss.rkt"
-         "edit-session-weather.rkt"
-         "edit-lap-swim.rkt"
-         "elevation-correction.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "session-df.rkt"
          "data-frame.rkt")
+
+;; (lazy-require
+;;  ("edit-session-summary.rkt" (get-edit-session-summary-dialog))
+;;  ("edit-session-tss.rkt" (get-edit-session-tss-dialog))
+;;  ("edit-session-weather.rkt" (get-weather-editor))
+;;  ("edit-lap-swim.rkt" (get-lap-swim-editor))
+;;  ("gpx.rkt" (df-write/gpx))
+;;  ("elevation-correction.rkt" (interactive-fixup-elevation
+;;                               clear-corrected-elevation-for-session)))
+
+(require
+ "edit-session-summary.rkt"
+ "edit-session-tss.rkt"
+ "edit-session-weather.rkt"
+ "edit-lap-swim.rkt"
+ "gpx.rkt"
+ "elevation-correction.rkt")
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)
@@ -104,7 +117,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send edit-lap-swim-menu-item enable is-lap-swim?)
         ;; TODO: we need to enable it only if there's an actual file to export.
         (send export-original-menu-item enable have-sid?)
-        (send export-csv-menu-item enable have-sid?)))
+        (send export-csv-menu-item enable have-sid?)
+        (send export-gpx-menu-item enable have-sid?)))
 
     (define (on-popdown m e)
       (send target after-popdown))
@@ -248,6 +262,35 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame"
                              toplevel '(ok stop)))))))
 
+    (define (on-export-gpx m e)
+      (let ((sid (send target get-selected-sid))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (let ((df #f) (fname #f))
+          ;; Triksy Hobbit, fetch the data frame while the user is selecting
+          ;; the file name, so that response time is improved (we will do some
+          ;; unnecessary work if the user changes their mind.)
+          (queue-task "activity-edit/on-export-gpx"
+                      (lambda ()
+                        (let ((df1 (session-df db sid)))
+                          (queue-callback
+                           (lambda ()
+                             (set! df df1))))))
+          (set! fname
+                (put-file "Select file to export to" toplevel #f
+                          (format "track-data-~a.gpx" sid) ".gpx" '()
+                          '(("GPX files" "*.gpx") ("Any" "*.*"))))
+          (when fname
+            (unless df      ; wait for the data frame if it did not arrive yet
+              (for ((_ (in-range 20)) #:unless df) (sleep/yield 0.1)))
+            (if df
+                (call-with-output-file fname
+                  (lambda (port)
+                    (df-write/gpx df port #:name (get-session-headline db sid)))
+                    #:mode 'text #:exists 'truncate/replace )
+                (message-box "Failed to fetch data frame" "Failed to fetch data frame"
+                             toplevel '(ok stop)))))))
+
     (define the-menu
       (if menu-bar
           (new menu% [parent menu-bar] [label "&Activity"]
@@ -289,6 +332,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Export original file..." on-export-original-file))
     (define export-csv-menu-item
       (make-menu-item "Export track data (CSV)..." on-export-csv))
+    (define export-gpx-menu-item
+      (make-menu-item "Export track data (GPX)..." on-export-gpx))
 
     (define/public (get-popup-menu) the-menu)
 
