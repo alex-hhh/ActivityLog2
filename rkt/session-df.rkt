@@ -25,6 +25,7 @@
          racket/contract
          racket/list
          racket/draw
+         racket/async-channel
          math/statistics
          plot/utils
          plot
@@ -33,7 +34,8 @@
          "fmt-util.rkt"
          "sport-charms.rkt"
          "series-meta.rkt"
-         "map-util.rkt")
+         "map-util.rkt"
+         "utilities.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
@@ -1292,16 +1294,60 @@
           (set! not-in-cache (cons sid not-in-cache))))
     (append in-cache not-in-cache)))
 
+;; If DF has a 'dirty-wbal property, check if the effective CP params have
+;; changed.  If they did, update the WBAL series.  Note that we return a copy
+;; of the data frame, as code relies on `eq?` to check for "different" data
+;; frames.
+(define (refresh-df sid df)
+  (if (send df get-property 'dirty-wbal)
+      (let ((cp-data (get-session-critical-power sid)))
+        (cond
+          (cp-data
+           (match-let (((list cp wprime tau) cp-data))
+             (let ((cp1 (send df get-property 'critical-power))
+                   (wprime1 (send df get-property 'wprime))
+                   (tau1 (send df get-property 'tau))
+                   (sport (send df get-property 'sport)))
+
+               (if (and (equal? cp cp1) (equal? wprime wprime1) (equal? tau tau1))
+                   (begin
+                     ;; parameters are the same, no need to change anything
+                     (send df del-property 'dirty-wbal)
+                     df)
+                   (let ((new-df (send df shallow-copy)))
+                     (send new-df del-property 'dirty-wbal)
+                     (send new-df put-property 'critical-power cp)
+                     (send new-df put-property 'wprime wprime)
+                     (send new-df put-property 'tau tau)
+                     (cond ((eqv? (vector-ref sport 0) 1) ; running
+                            (add-wbald-series new-df "spd"))
+                           ((eqv? (vector-ref sport 0) 2) ; biking
+                            (add-wbald-series new-df "pwr")))
+                     (hash-set! df-cache sid new-df)
+                     new-df)))))
+          (#t
+           ;; We no longer have CP params for this data frame, delete them.
+           (let ((new-df (send df shallow-copy)))
+             (send new-df del-property 'dirty-wbal)
+             (send new-df del-property 'critical-power)
+             (send new-df del-property 'wprime)
+             (send new-df del-property 'tau)
+             (send new-df del-series "wbal")
+             (hash-set! df-cache sid new-df)
+             new-df))
+          ))
+      df))
+
 ;; Return the data frame for a session id SID.  Data frames are cached in
 ;; memory, so retrieving the same one again should be fast.
 (define (session-df db sid)
   (cond ((hash-ref df-cache sid #f)
-         => (lambda (df) df))
+         => (lambda (df) (refresh-df sid df)))
         ((hash-ref df-cache2 sid #f)
          => (lambda (df)
               ;; Promote it to first cache
               (hash-set! df-cache sid df)
-              df))
+              (refresh-df sid df)))
         (#t
          (let ((df (make-session-data-frame db sid)))
            (hash-set! df-cache sid df)
@@ -1323,7 +1369,32 @@
         (hash-clear! df-cache)
         (hash-clear! df-cache2))))
 
-;; When the measurement system changes, we need to clear the cache so we can
-;; rebuild data frames with the new pace and speed units.
-(register-measurement-system-change-listener
- (lambda (m) (clear-session-df-cache)))
+;; Mark the "wbal" series as dirty in all cached series.  The wbal series will
+;; be refreshed when it is next retrieved by `session-df`
+(define (mark-wbal-dirty)
+  (define sids
+    (append (hash-keys df-cache)
+            (hash-keys df-cache2)))
+  (for ((sid sids))
+    (define cp-data (get-session-critical-power sid))
+    (define df (or (hash-ref df-cache sid #f)
+                   (hash-ref df-cache2 sid #f)))
+    (when df                            ; might no longer be here
+      (send df put-property 'dirty-wbal #t))
+      (log-event 'session-updated-data sid)))
+
+(define dummy
+  (let ((s (make-log-event-source)))
+    (thread/dbglog
+     #:name "session df change processor"
+     ;; NOTE there might be multithreading race conditions here...
+     (lambda ()
+       (let loop ((item (async-channel-get s)))
+         (when item
+           (match-define (list tag data) item)
+           (cond
+             ((eq? tag 'measurement-system-changed)
+              (clear-session-df-cache))
+             ((eq? tag 'critical-power-parameters-changed)
+              (mark-wbal-dirty)))
+           (loop (async-channel-get s))))))))

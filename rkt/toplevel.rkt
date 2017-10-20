@@ -319,12 +319,9 @@
          [parent menu] [label "Edit Critical Power..."]
          [callback
           (lambda (m e)
-            (when (send (get-cp-editor) show-dialog
-                        (send toplevel get-frame)
-                        (send toplevel get-database))
-              ;; If the CP data has changed, clear the DF cache, so we create
-              ;; new W'Bal series
-              (clear-session-df-cache)))])
+            (send (get-cp-editor) show-dialog
+                  (send toplevel get-frame)
+                  (send toplevel get-database)))])
     (new menu-item%
          [parent menu] [label "Export Settings to Device..."]
          [callback

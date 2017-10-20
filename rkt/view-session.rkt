@@ -18,6 +18,8 @@
          racket/class
          racket/date
          racket/gui/base
+         racket/match
+         racket/async-channel
          (rename-in srfi/48 (format format-48))
          "activity-edit.rkt"
          "activity-util.rkt"
@@ -386,17 +388,40 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (set-session session-id))
 
     (define change-notification-source (make-log-event-source))
-    
+
+    ;; Monitor the change-notification-source in a separate thread and update
+    ;; the view if the session we display has changed.  This thread will run
+    ;; even if the view is not active, so there is the potential of slowing
+    ;; things down when there are a lot of updates.  Unfortunately, hooking
+    ;; into 'activated' does not work, as updates while this view is active
+    ;; (e.g. changing critical power params) will not work.
+    (define change-processing-thread
+      (thread/dbglog
+       #:name "view-session%/change-notification-thread"
+       (lambda ()
+         (let loop ((item (async-channel-get change-notification-source)))
+           (when item
+             (match-define (list tag data) item)
+             (case tag
+               ((session-deleted)
+                (queue-callback
+                 (lambda ()
+                   (when (eq? session-id data)
+                     (set-session #f)))))
+               ((session-updated)
+                (queue-callback
+                 (lambda ()
+                   (when (eq? session-id data)
+                     (refresh-session-summary)))))
+               ((session-updated-data)
+                (queue-callback
+                 (lambda ()
+                   (when (eq? session-id data)
+                     (refresh-session-data))))))
+             (loop (async-channel-get change-notification-source)))))))
+
     (define/public (activated)
-      ;; Process changes that happened while we were inactive
-      (define events (collect-events change-notification-source))
-      (cond
-        ((member session-id (hash-ref events 'session-deleted '()))
-         (set-session #f))
-        ((member session-id (hash-ref events 'session-updated '()))
-         (refresh-session-summary))
-        ((member session-id (hash-ref events 'session-updated-data '()))
-         (refresh-session-data))))
+      (void))
 
     (define/public (refresh)
       (set-session session-id))

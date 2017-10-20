@@ -25,13 +25,15 @@
          racket/list
          racket/string
          racket/format
+         racket/async-channel
          math/statistics
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "spline-interpolation.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
          "session-df.rkt"
-         "fmt-util.rkt")
+         "fmt-util.rkt"
+         "utilities.rkt")
 
 ;; WARNING: a best-avg set and a histogram in this file has a different
 ;; structure than the one produced by df-best-avg and df-histogram from
@@ -788,8 +790,18 @@ select X.session_id
      ;; (clear-saved-metrics-for-series "vosc")
      (clear-metrics-cache))))
 
-(register-measurement-system-change-listener
- (lambda (m) (clear-ms-dependent-metrics)))
+(define dummy
+  (let ((s (make-log-event-source)))
+    (thread/dbglog
+     #:name "session df change processor"
+     ;; NOTE there might be multithreading race conditions here...
+     (lambda ()
+       (let loop ((item (async-channel-get s)))
+         (when item
+           (match-define (list tag data) item)
+           (when (eq? tag 'measurement-system-changed)
+             (clear-ms-dependent-metrics))
+           (loop (async-channel-get s))))))))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the best-avg/c defined in data-frame.rkt

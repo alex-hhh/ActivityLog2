@@ -22,7 +22,8 @@
          "icon-resources.rkt"
          "widgets.rkt"
          "fmt-util.rkt"
-         "dbutil.rkt")
+         "dbutil.rkt"
+         "utilities.rkt")
 
 (provide get-cp-editor)
 
@@ -379,7 +380,8 @@
       (refresh-contents)
       (if (send this do-edit parent)
           (when (in-transaction? database)
-            (commit-transaction database))
+            (commit-transaction database)
+            (log-event 'critical-power-parameters-changed #f))
           (when (in-transaction? database)
             (rollback-transaction database)))
       (set! database #f))

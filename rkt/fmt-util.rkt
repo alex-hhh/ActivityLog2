@@ -32,7 +32,8 @@
     "utilities.rkt"
   [get-pref (-> Symbol (-> Any) Any)]
   [put-pref (-> Symbol Any Void)]
-  [ignore-errors (-> (-> Any) Any)])
+  [ignore-errors (-> (-> Any) Any)]
+  [log-event (-> Symbol Any Any)])
 
 (require racket/date
          racket/list
@@ -244,8 +245,6 @@
         (set! weight-label "kg")
         )))
 
-
-
 (define ms-tag 'activity-log:measurement-system)
 
 (: ms-val (U 'metric 'statute))
@@ -254,14 +253,6 @@
     (if (or (eq? v 'metric) (eq? v 'statute))
         v
         'metric)))
-
-(: ms-val-listeners (Listof (-> Symbol Any)))
-(define ms-val-listeners '())
-
-(: register-measurement-system-change-listener (-> (-> Symbol Any) Any))
-(define (register-measurement-system-change-listener fn)
-  (set! ms-val-listeners (cons fn ms-val-listeners)))
-(provide register-measurement-system-change-listener)
 
 (: al-pref-measurement-system (-> (U 'metric 'statute)))
 (define (al-pref-measurement-system)
@@ -272,9 +263,7 @@
     (put-pref ms-tag val)
     (set! ms-val val)
     (setup-measurement-system ms-val)
-    (for-each (lambda ([fn : (-> Symbol Any)])
-                (ignore-errors (lambda () (fn ms-val))))
-              ms-val-listeners)))
+    (log-event 'measurement-system-changed ms-val)))
 (provide al-pref-measurement-system set-al-pref-measurement-system)
 
 (setup-measurement-system ms-val)
