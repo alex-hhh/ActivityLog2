@@ -1220,6 +1220,41 @@
   (define data (send df select* weight column #:filter filter-fn))
   (make-best-avg data inverted? durations))
 
+;; Adapt the `df-best-avg` calculation for lap swimming data frames.
+;;
+;; The problem: Data frames for lap swim activities are special in that data
+;; is **not** recorded continuously at short intervals (usually at 1 second).
+;; Instead, data is recorded at the end of each length, also pauses have all
+;; non-timing series set to #f.  This makes "avg" calculations (which average
+;; data between two consecutive points) produce the wrong result, also #f
+;; values (and thus pauses) are ignored by `df-best-avg`, resulting in higher
+;; than reasonable best-avg values being produced.
+;;
+;; The solution: We pre-process the data before passing it on to
+;; `make-best-avg`, which does the real work.  We do the following: we
+;; duplicate each entry, effectively creating two data points for each length,
+;; one at the start of the length, one at the end (there will be a 0 length
+;; delta between consecutive lengths, but this does not affect the
+;; calculations.  Also, #f values are not discarded, instead they are replaced
+;; with 0.
+;;
+;; NOTE: this function does not need to be used of Open Water Swimming
+;; activities.
+(define (df-best-avg/lap-swim df column
+                          #:inverted? (inverted? #f)
+                          #:weight-column [weight "elapsed"]
+                          #:durations [durations default-best-avg-durations])
+  (define (filter-fn val) (and (vector-ref val 0) (vector-ref val 1)))
+  (define data (send df select* weight column))
+  (define ndata (make-vector (* 2 (vector-length data)) #f))
+  (define prev-weight 0)
+  (for (((item index) (in-indexed (in-vector data))))
+    (match-define (vector weight value) item)
+    (vector-set! ndata (* 2 index) (vector prev-weight (or value 0)))
+    (vector-set! ndata (+ (* 2 index) 1) (vector weight (or value 0)))
+    (set! prev-weight weight))
+  (make-best-avg ndata inverted? durations))
+
 ;; Return average values for a second data series at the same positions as the
 ;; BEST-AVG-DATA bests are determined.  This can be used, for example, to
 ;; determine the average cadence for each best power value obtained from
@@ -1591,7 +1626,7 @@
 (define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
 
-(provide ts-item/c ts-data/c factor-data/c histogram/c (struct-out slr))
+(provide ts-item/c ts-data/c factor-data/c histogram/c (struct-out slr) best-avg/c)
 
 (provide/contract
  (make-data-frame-from-query (->* (connection? (or/c string? virtual-statement?))
@@ -1637,7 +1672,12 @@
                    (#:inverted? boolean?
                     #:weight-column string?
                     #:durations (listof real?))
-                  best-avg/c))
+                   best-avg/c))
+ (df-best-avg/lap-swim (->* ((is-a?/c data-frame%) string?)
+                            (#:inverted? boolean?
+                             #:weight-column string?
+                             #:durations (listof real?))
+                            best-avg/c))
  (df-best-avg-aux (->* ((is-a?/c data-frame%) string? best-avg/c)
                        (#:weight-column string?)
                        best-avg/c))

@@ -26,6 +26,7 @@
  racket/format
  racket/hash
  pict
+ embedded-gui                           ; snip-width, snip-height
  "database.rkt"
  "trends-chart.rkt"
  "icon-resources.rkt"
@@ -39,7 +40,8 @@
  "spline-interpolation.rkt"
  "snip-canvas.rkt"
  "utilities.rkt"
- "pdmodel.rkt")
+ "pdmodel.rkt"
+ "bavg-util.rkt")
 
 
 (struct bavg-params tc-params
@@ -418,19 +420,12 @@
          (axis-index (find-axis axis-choices (bavg-params-series params))))
     (define axis (if axis-index (list-ref axis-choices axis-index) #f))
     (unless axis (error "no axis for series"))
-    (define data (aggregate-bavg candidates
-                                 (send axis series-name)
-                                 #:inverted? (send axis inverted-best-avg?)
-                                 #:progress-callback progress-callback))
+    (define data (get-aggregate-bavg candidates axis progress-callback))
     (define heat-map
       (and (bavg-params-heat-map? params)
            (number? (bavg-params-heat-map-pct params))
            (let ((pct (bavg-params-heat-map-pct params)))
-             (aggregate-bavg-heat-map
-              data pct candidates
-              (send axis series-name)
-              #:inverted? (send axis inverted-best-avg?)
-              #:as-percentage? #t))))
+             (get-aggregate-bavg-heat-map candidates data pct axis))))
     (define plot-fn
       (aggregate-bavg->spline-fn data))
     (define cp-fn #f)
@@ -532,12 +527,17 @@
           #f))
 
     (define (place-snip snip location)
-      (define editor (send (send snip get-admin) get-editor))
-      (if location
-          (send editor move-to snip (car location) (cdr location))
-          (if saved-pd-model-snip-location
-              (send editor move-to snip (car saved-pd-model-snip-location) (cdr saved-pd-model-snip-location))
-              (send editor move-to snip 50 50))))
+      (match-let (((cons x y) (or location
+                                  saved-pd-model-snip-location
+                                  (cons 50 50))))
+        (define editor (send (send snip get-admin) get-editor))
+        (define canvas (send editor get-canvas))
+        ;; Adjust the coordinates X Y such that the snip is placed inside the
+        ;; canvas.
+        (let-values (((width height) (send canvas get-size)))
+          (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
+                (adjusted-y (max 0 (min y (- height (snip-height snip))))))
+            (send editor move-to snip adjusted-x adjusted-y)))))
 
     (define (get-generation) generation)
 

@@ -30,7 +30,8 @@
          "metrics.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
-         "spline-interpolation.rkt")
+         "spline-interpolation.rkt"
+         "bavg-util.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -372,10 +373,7 @@
            (lambda ()
              (define data
                (or (hash-ref cache axis #f)
-                   (let ((inverted? (send axis inverted-best-avg?))
-                         (series (send axis series-name)))
-                     (and (send df contains? series)
-                          (df-best-avg df series #:inverted? inverted?)))))
+                   (get-session-bavg df axis)))
              (hash-set! cache axis data)
              ;; rebuild auxiliary data here
              (define aux-data
@@ -419,8 +417,7 @@
                 ((second (list-ref period-choices time-interval)))))
 
              (define inverted? (send axis inverted-best-avg?))
-             (define sname (send axis series-name))
-             (define bavg (aggregate-bavg candidates sname #:inverted? inverted?))
+             (define bavg (get-aggregate-bavg candidates axis #f))
 
              (let ((fn (aggregate-bavg->spline-fn bavg)))
                (define brt

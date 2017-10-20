@@ -63,7 +63,10 @@
 ;; (this is a scheme form that can be encoded as JSON, we can only use lists
 ;; and hashes).
 (define (best-avg/jsexpr df series (inverted? #f))
-  (let ((bavg (df-best-avg df series #:inverted? inverted?))
+  (let ((bavg
+         (if (send df get-property 'is-lap-swim?)
+             (df-best-avg/lap-swim df series #:inverted? inverted?)
+             (df-best-avg df series #:inverted? inverted?)))
         (sid (send df get-property 'session-id)))
     (for/list ((item bavg) #:when (vector-ref item 1))
       (match-define (vector duration value timestamp) item)
@@ -821,6 +824,9 @@ select X.session_id
                            (or/c #f number?)
                            (or/c #f number?)
                            (or/c #f number?)))
+
+(provide
+ aggregate-bavg/c)
 
 (provide/contract
  (fetch-candidate-sessions (->* (connection?
