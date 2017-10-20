@@ -41,9 +41,9 @@
 
 ;............................................................ resources ....
 
-(define *title-font* (make-object font% 24 'default))
-(define *label-font* (make-object font% 12 'default))
-(define *data-font* (make-object font% 12 'default 'normal 'bold))
+(define *title-font* (make-object font% 18 'default))
+(define *label-font* (make-object font% 10 'default))
+(define *data-font* (make-object font% 10 'default 'normal 'bold))
 
 
 ;;..................................................... session-header% ....

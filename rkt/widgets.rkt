@@ -1900,7 +1900,7 @@
     (super-new)
 
     ;; Font used to draw the labels
-    (define font (send the-font-list find-or-create-font 11 'default 'normal 'normal
+    (define font (send the-font-list find-or-create-font 9 'default 'normal 'normal
                        #f 'smoothed))
     ;; Colors for drawing the labels.  Can be overridden for individual
     ;; labels.
