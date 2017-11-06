@@ -256,9 +256,13 @@
   (for/list ((e (in-list pmc-data)))
     (vector (vector-ref e 0) (vector-ref e 2))))
 
+;; NOTE: the form computed "today" is applied the next day.  That is, form is
+;; plotted at the start of the day, fitness and fatigue at the end of the day.
+;; See also issue #2
 (define (get-form-data-series pmc-data)
-  (for/list ((e (in-list pmc-data)))
-    (vector (vector-ref e 0) (- (vector-ref e 1) (vector-ref e 2)))))
+  (for/list ((e (in-list pmc-data))
+             (next (in-list (if (pair? pmc-data) (cdr pmc-data) '()))))
+    (vector (vector-ref next 0) (- (vector-ref e 1) (vector-ref e 2)))))
 
 (define (get-tss-data-series pmc-data)
   ;; NOTE: TSS data series does not contain zeroes
@@ -316,6 +320,11 @@
     (when (pmc-params-show-daily-tss? params)
       (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
         (set! rt (cons daily-tss-renderer rt))))
+
+    ;; Add a "today" vertical line to the plot
+    (set! rt
+          (cons (vrule (current-seconds)) rt))
+    
     rt))
 
 (define (generate-plot output-fn renderer-tree)
