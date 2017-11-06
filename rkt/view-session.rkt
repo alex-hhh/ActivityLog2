@@ -33,6 +33,7 @@
          "inspect-overview.rkt"
          "inspect-scatter.rkt"
          "inspect-quadrant.rkt"
+         "inspect-model-parameters.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets.rkt"
@@ -302,6 +303,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define maps
       (make-tdata "Map" detail-panel
                   (lambda (panel) (new map-panel% [parent panel]))))
+    (define model-params
+      (make-tdata "Model Params" detail-panel
+                  (lambda (panel) (new model-parameters-panel% [parent panel]))))
     
     (define installed-tabs '())
 
@@ -335,7 +339,6 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
         ;; data.
         (when (send data-frame get-row-count)
-
           (set! tabs (cons charts tabs))
           (set! tabs (cons scatter tabs))
           (set! tabs (cons histogram tabs))
@@ -344,7 +347,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
             (set! tabs (cons quadrant tabs)))
           (set! tabs (cons laps tabs))
           (when (send data-frame contains? "lat" "lon")
-            (set! tabs (cons maps tabs))))
+            (set! tabs (cons maps tabs)))
+          (set! tabs (cons model-params tabs)))
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs)))
