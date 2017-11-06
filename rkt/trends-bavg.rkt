@@ -625,7 +625,11 @@
     (define/override (get-restore-data)
       (define sdata (super get-restore-data))
       (if (hash? sdata)
-          (hash-set sdata 'pd-model-location (get-location pd-model-snip))
+          (let ((location (or (get-location pd-model-snip)
+                              saved-pd-model-snip-location)))
+            (if location
+                (hash-set sdata 'pd-model-location location)
+                sdata))
           sdata))
 
     (define/override (restore-from data)
