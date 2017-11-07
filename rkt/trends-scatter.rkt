@@ -338,20 +338,13 @@
      qbounds
      slr)))
 
-;; TODO: this function is present in several places.  needs refactoring.
-(define (get-color axis)
-  (let ((color (send axis plot-color)))
-    (if (or (not color) (eq? color 'smart))
-        '(0 148 255)
-        color)))
-
 (define (make-render-tree data params)
   (let ((rt (list (tick-grid))))
     (when (scatter-data data)
       (set! rt
             (cons (make-scatter-group-renderer
                    (scatter-data data)
-                   #:color (get-color (scatter-axis2 data)))
+                   #:color (send (scatter-axis2 data) plot-color))
                   rt)))
     (when (scatter-slr data)
       (set! rt

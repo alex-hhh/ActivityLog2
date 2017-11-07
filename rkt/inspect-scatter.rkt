@@ -182,13 +182,6 @@
             xnam ynam "elapsed"
             #:filter valid-only))))
 
-;; HACK: some plot-color methods return 'smart, we should fix this
-(define (get-color axis)
-  (let ((color (send axis plot-color)))
-    (if (or (not color) (eq? color 'smart))
-        '(0 148 255)
-        color)))
-
 ;; Scatter plot state, contains data that is calculated in a separate thread
 ;; and passed to the plot routines.
 (struct spstate (data                   ; data, as produced by `extract-data'
@@ -236,7 +229,7 @@
     (unless ds (set! ds (extract-data df xaxis yaxis)))
     (let* ((x-digits (send xaxis fractional-digits))
            (y-digits (send yaxis fractional-digits))
-           (color (get-color yaxis))
+           (color (send yaxis plot-color))
            (bounds (find-bounds ds x-digits y-digits))
            (qbounds (if opct
                         (find-bounds/quantile

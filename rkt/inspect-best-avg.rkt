@@ -371,13 +371,6 @@
 
     (define (refresh-plot)
 
-      ;; HACK: some plot-color methods return 'smart, we should fix this
-      (define (get-color axis)
-        (let ((color (send axis plot-color)))
-          (if (or (not color) (eq? color 'smart))
-              '(0 148 255)
-              color)))
-      
       (set! plot-rt #f)
       (send plot-pb set-background-message "Working...")
       (send plot-pb set-snip #f)
@@ -405,8 +398,8 @@
                (and data
                     (make-best-avg-renderer
                      data aux-data
-                     #:color1 (get-color axis)
-                     #:color2 (and aux-axis (get-color aux-axis))
+                     #:color1 (send axis plot-color)
+                     #:color2 (and aux-axis (send aux-axis plot-color))
                      #:zero-base? zerob?)))
              (queue-callback
               (lambda ()

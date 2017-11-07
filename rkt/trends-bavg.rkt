@@ -445,19 +445,14 @@
 
 (define (make-renderer-tree data)
 
-  ;; HACK: some plot-color methods return 'smart, we should fix this
-  (define (get-color axis)
-    (let ((color (send axis plot-color)))
-      (if (or (not color) (eq? color 'smart))
-          '(0 148 255)
-          color)))
-  
   (let-values (((min-x max-x min-y max-y) (aggregate-bavg-bounds (tbavg-data data))))
     (when (tbavg-zero-base? data) (set! min-y 0))
     (if (tbavg-plot-fn data)
         (let ((rt (list
                    (tick-grid)
-                   (function (tbavg-plot-fn data) #:color (get-color (tbavg-axis data)) #:width 3))))
+                   (function (tbavg-plot-fn data)
+                             #:color (send (tbavg-axis data) plot-color)
+                             #:width 3))))
           (when (tbavg-cp-fn data)
             (set! rt
                   (cons (function (tbavg-cp-fn data) #:color "red" #:width 1.5 #:style 'long-dash) rt)))

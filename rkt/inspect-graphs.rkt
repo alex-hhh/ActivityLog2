@@ -270,7 +270,7 @@
         (fdata (pd-fdata pd))
         (y-range (pd-y-range pd)))
     (cond ((and df (is-lap-swimming? df)
-                (eq? (send y plot-color) 'smart))
+                (send y plot-color-by-swim-stroke?))
            (make-plot-renderer/swim-stroke
             sdata (send df select "swim_stroke")))
           ((and (ps-color? ps) fdata)
@@ -304,13 +304,10 @@
         (sdata (pd-sdata pd))
         (y-range (pd-y-range pd)))
 
-    (define (get-color)
-      (let ((c (send y plot-color)))
-        (if (eq? c 'smart) "gray" c)))
-
     (if (and (cons? ivl) df y sdata y-range)
         (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
-          (make-box-renderer start end (car y-range) (cdr y-range) (get-color)))
+          (make-box-renderer start end (car y-range) (cdr y-range)
+                             (send y plot-color)))
         #f)))
 
 ;; Produce a new PD structure given an old PD and PS structure and a new PS

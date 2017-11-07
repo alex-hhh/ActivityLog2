@@ -339,12 +339,6 @@
       (when h2
         (set! h2 (trim-histogram-outliers h2 trim)))))
 
-  (define (get-color axis)
-    (let ((color (send axis plot-color)))
-      (if (or (not color) (eq? color 'smart))
-          '(0 148 255)
-          color)))
-
   (if (or (not h1) (zero? (vector-length h1)))
       #f
       (list
@@ -356,8 +350,8 @@
                    h1 (send axis1 plot-label)
                    h2 (send axis2 plot-label)
                    #:x-value-formatter (send axis1 value-formatter)
-                   #:color1 (get-color axis1)
-                   #:color2 (get-color axis2))))
+                   #:color1 (send axis1 plot-color)
+                   #:color2 (send axis2 plot-color))))
              (factor-fn
               (make-histogram-renderer/factors
                h1 factor-fn factor-colors
@@ -366,7 +360,7 @@
               (make-histogram-renderer
                h1
                #:x-value-formatter (send axis1 value-formatter)
-               #:color (get-color axis1)))))))
+               #:color (send axis1 plot-color)))))))
 
 (define (generate-plot output-fn axis params renderer-tree)
   (let* ((aspct? (hist-params-aspct? params))

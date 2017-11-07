@@ -188,8 +188,15 @@
         (let* ((tag (string->symbol (series-name)))
                (color-item (assq tag (ct:series-colors))))
           (when color-item
-            (set! color (cdr color-item)))))
+            (set! color (cdr color-item))))
+        ;; Could not find it, use a default
+        (unless color
+          (set! color (make-object color% 0 148 255))))
       color)
+
+    ;; When true, color the plot by swim stroke colors.  Only makes sense for
+    ;; swimming activities.
+    (define/public (plot-color-by-swim-stroke?) #f)
 
     ;; Return the Y range for ploting this series.  Returns a (cons LOW HIGH),
     ;; either of them can be #f, in which case the range is automatically
@@ -967,7 +974,7 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Pace (min/100m)" "Pace (min/100yd)"))
          (define/override (y-range) (cons 0 #f))
-         (define/override (plot-color) 'smart)
+         (define/override (plot-color-by-swim-stroke?) #t)
          (define/override (series-name) "pace")
          (define/override (inverted-best-avg?) #t)
          (define/override (value-formatter)

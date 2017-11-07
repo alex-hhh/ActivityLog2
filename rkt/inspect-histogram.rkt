@@ -284,13 +284,6 @@
     ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
 
-      ;; HACK: some plot-color methods return 'smart, we should fix this
-      (define (get-color axis)
-        (let ((color (send axis plot-color)))
-          (if (or (not color) (eq? color 'smart))
-              '(0 148 255)
-              color)))
-
       (define (get-factor-fn axis df)
         (let ((sport (send df get-property 'sport))
               (sid (send df get-property 'session-id)))
@@ -333,8 +326,8 @@
                             h1 (send axis1 plot-label)
                             h2 (send axis2 plot-label)
                             #:x-value-formatter (send axis1 value-formatter)
-                            #:color1 (get-color axis1)
-                            #:color2 (get-color axis2)))
+                            #:color1 (send axis1 plot-color)
+                            #:color2 (send axis2 plot-color)))
                           (h1
                            (if factor-fn
                                (make-histogram-renderer/factors
@@ -343,7 +336,7 @@
                                (list (make-histogram-renderer
                                       h1
                                       #:x-value-formatter (send axis1 value-formatter)
-                                      #:color (get-color axis1)))))
+                                      #:color (send axis1 plot-color)))))
                           (#t #f))))
                (queue-callback
                 (lambda ()
