@@ -51,9 +51,11 @@
          (inverted? (if  (or is-pace? is-swim-pace?)
                          #f
                          (send axis inverted-best-avg?)))
+         (best-avg-fn (if (send df get-property 'is-lap-swim?)
+                          df-best-avg/lap-swim
+                          df-best-avg))
          (data (and (send df contains? sname)
-                    (df-best-avg df sname #:inverted? inverted?))))
-                     
+                    (best-avg-fn df sname #:inverted? inverted?))))
     (if data
         (if (or is-pace? is-swim-pace?)
             (for/list ((item data))

@@ -342,7 +342,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (set! tabs (cons charts tabs))
           (set! tabs (cons scatter tabs))
           (set! tabs (cons histogram tabs))
-          (unless is-lap-swim? (set! tabs (cons best-avg tabs)))
+          (set! tabs (cons best-avg tabs))
           (when (send (tdata-contents quadrant) should-display-for-data-frame? data-frame)
             (set! tabs (cons quadrant tabs)))
           (set! tabs (cons laps tabs))

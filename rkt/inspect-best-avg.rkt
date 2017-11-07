@@ -97,6 +97,15 @@
    axis-right-peak-power-phase-angle
    ))
 
+;; Axis choices for lap swimming
+(define swim-axis-choices
+  (list
+   axis-swim-avg-cadence
+   axis-swim-stroke-count
+   axis-swim-stroke-length
+   axis-swim-swolf
+   axis-swim-pace))
+
 ;; Return the start of today as a UNIX timestamp (in seconds)
 (define (this-day-start)
   (let ((now (current-date)))
@@ -275,7 +284,10 @@
     (define (get-best-rt-generation) best-rt-generation)
 
     (define (install-axis-choices)
-      (set! axis-choices (filter-axis-list data-frame default-axis-choices))
+      (let ((alist (if (send data-frame get-property 'is-lap-swim?)
+                       swim-axis-choices
+                       default-axis-choices)))
+        (set! axis-choices (filter-axis-list data-frame alist)))
       (send axis-choice-box clear)
       (send aux-axis-choice-box clear)
       (send aux-axis-choice-box append "None")
@@ -358,6 +370,14 @@
                                   #:y-min min-y #:y-max max-y))))))))
 
     (define (refresh-plot)
+
+      ;; HACK: some plot-color methods return 'smart, we should fix this
+      (define (get-color axis)
+        (let ((color (send axis plot-color)))
+          (if (or (not color) (eq? color 'smart))
+              '(0 148 255)
+              color)))
+      
       (set! plot-rt #f)
       (send plot-pb set-background-message "Working...")
       (send plot-pb set-snip #f)
@@ -385,8 +405,8 @@
                (and data
                     (make-best-avg-renderer
                      data aux-data
-                     #:color1 (send axis plot-color)
-                     #:color2 (and aux-axis (send aux-axis plot-color))
+                     #:color1 (get-color axis)
+                     #:color2 (and aux-axis (get-color aux-axis))
                      #:zero-base? zerob?)))
              (queue-callback
               (lambda ()
