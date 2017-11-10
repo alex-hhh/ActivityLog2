@@ -392,6 +392,7 @@
     ;;; data to display on the map
     (define tracks '())
     (define markers '())
+    (define current-location #f)        ; (vector lat lon)
     (define zoom-level 1)
     (define max-tile-num (expt 2 zoom-level))
     (define max-coord (* tile-size max-tile-num))
@@ -422,7 +423,7 @@
         (set! origin-x (- (+ origin-x (/ old-width 2)) (/ w 2)))
         (set! origin-y (- (+ origin-y (/ old-height 2)) (/ h 2)))
         (limit-origin canvas)
-        (send canvas refresh)))
+        (request-refresh)))
 
     (define last-mouse-x #f)
     (define last-mouse-y #f)
@@ -442,7 +443,7 @@
                  (set! origin-x (- origin-x (- mouse-x last-mouse-x)))
                  (set! origin-y (- origin-y (- mouse-y last-mouse-y)))
                  (limit-origin canvas)
-                 (send canvas refresh))
+                 (request-refresh))
                (set! last-mouse-x mouse-x)
                (set! last-mouse-y mouse-y)))))
 
@@ -463,7 +464,17 @@
           (for ([track (sort tracks > #:key (lambda (t) (send t get-zorder)))])
             (send track draw dc zoom-level))
           (for ([marker markers])
-            (send marker draw dc zoom-level))))
+            (send marker draw dc zoom-level))
+          (when current-location
+            (let* ((point (lat-lon->map-point
+                           (point-lat current-location) (point-long current-location)))
+                   (px (* max-coord (map-point-x point)))
+                   (py (* max-coord (map-point-y point)))
+                   (pen (send the-pen-list find-or-create-pen "red" 5 'solid))
+                   (brush (send the-brush-list find-or-create-brush (make-color 255 0 0 0.5) 'solid)))
+              (send dc set-pen pen)
+              (send dc set-brush brush)
+              (send dc draw-ellipse (- px 12) (- py 12) 24 24)))))
       (draw-map-legend canvas dc zoom-level))
 
     ;; Bitmap to draw when we don't receive a tile
@@ -472,7 +483,7 @@
     ;; Timer to schedule a re-paint of the canvas when we have some missing
     ;; tiles -- hopefully the tiles will arrive by the time we get to re-paint
     (define redraw-timer
-      (new timer% [notify-callback (lambda () (send canvas refresh))]))
+      (new timer% [notify-callback (lambda () (request-refresh))]))
 
     (define (draw-map-tiles canvas dc)
       ;; Use smoothing on high DPI displays, but not on low DPI ones (each
@@ -507,8 +518,33 @@
         (when (or request-redraw? (> (get-download-backlog) 0))
           (send redraw-timer start 100))))
 
+    (define pasteboard
+      (new (class pasteboard% (init) (super-new)
+             (define/override (on-default-event event)
+               ;; The map view uses the mouse drag operation to pan the map.
+               ;; Unfortunately, this is also used by the pasteboard to select
+               ;; and move snips.  As a hack, if the control key is pressed,
+               ;; we pass the event to the pasteboard's on-default-event (with
+               ;; the control modifier cleared), otherwise we handle the event
+               ;; ourselves.  This means that the Control key is used to move
+               ;; snips.
+               (if (send event get-control-down)
+                   (begin
+                     (send event set-control-down #f)
+                     (super on-default-event event))
+                   (let ((canvas (send this get-canvas)))
+                     (if canvas
+                         (on-mouse-event canvas event)
+                         (super on-default-event event)))))
+
+             (define/override (on-paint before? dc left top right bottom dx dy draw-caret)
+               (let ((canvas (send this get-canvas)))
+                 (when (and canvas before?)
+                   (on-canvas-paint canvas dc))))
+             )))
+
     (define canvas
-      (new (class canvas% (init) (super-new)
+      (new (class editor-canvas% (init) (super-new)
              ;; Save the canvas width and height here, on-size will only get
              ;; the new size from the canvas.  Note that the first resize
              ;; event is ignored and the on-canvas-resize event will not fire.
@@ -523,11 +559,18 @@
                (let-values (([w h] (send this get-size)))
                  (set! canvas-width w)
                  (set! canvas-height h)))
-             (define/override (on-event event)
-               (on-mouse-event this event))
+             
              (define/override (on-char event)
-               (on-key-event this event)))
-           [parent parent] [paint-callback on-canvas-paint]))
+               (on-key-event this event))
+
+             )
+           [parent parent]
+           [editor pasteboard]
+           [horizontal-inset 0]
+           [vertical-inset 0]
+           [style '(no-hscroll no-vscroll)]))
+
+    (define/public (get-pasteboard) pasteboard)
 
     (define/public (set-zoom-level zl)
       ;; Ensure the zoom level is in the valid range
@@ -547,16 +590,26 @@
             (set! origin-x (- (* scale (+ origin-x (/ w 2))) (/ w 2)))
             (set! origin-y (- (* scale (+ origin-y (/ h 2))) (/ h 2)))))
         (limit-origin canvas)
-        (send canvas refresh)
+        (request-refresh)
         (on-zoom-level-change zoom-level)))
+
+    (define/public (get-zoom-level)
+      zoom-level)
 
     (define/public (clear-items)
       (send canvas suspend-flush)
       (set! tracks '())
       (set! markers '())
-      (set! zoom-level 1)
       (send canvas resume-flush)
-      (send canvas refresh))
+      (request-refresh))
+
+    (define (request-refresh)
+      (let ((admin (send pasteboard get-admin)))
+        (when admin
+          (let-values (([cw ch] (send canvas get-size)))
+            (send admin needs-update 0 0 cw ch))))
+      ;; (send canvas refresh)
+      )
 
     ;; Add a GPS track to the map.  TRACK is a sequence of (Vector LAT LON)
     ;; and GROUP is a group identifier for the track.  Tracks are grouped
@@ -569,7 +622,7 @@
       (define gtrack (new gps-track% [track track] [group group]))
       (set! tracks (cons gtrack tracks))
       (send canvas resume-flush)
-      (send canvas refresh))
+      (request-refresh))
 
     ;; Add a label on the map at a specified position a (Vector LAT LON)
     (define/public (add-marker pos text direction color)
@@ -578,7 +631,62 @@
                            [direction direction] [color color]))
       (set! markers (cons gmarker markers))
       (send canvas resume-flush)
-      (send canvas refresh))
+      (request-refresh))
+
+    (define auto-drag-map #f)
+    (define last-current-location-x #f)
+    (define last-current-location-y #f)
+
+    (define (track-current-location)
+      (when current-location
+        (let-values (([w h] (send canvas get-size)))
+          (let* ((point (lat-lon->map-point
+                         (point-lat current-location) (point-long current-location)))
+                 (px (* max-coord (map-point-x point)))
+                 (py (* max-coord (map-point-y point)))
+                 (cx (+ origin-x (/ w 2)))
+                 (cy (+ origin-y (/ h 2)))
+                 (dx (- cx px))
+                 (dy (- cy py))
+                 (need-refresh? #f))
+            ;; We only need a refresh if the current location moved at least
+            ;; one pixel on the screen.
+            (set! need-refresh?
+                  (or (not last-current-location-x)
+                      (not last-current-location-y)
+                      (>= (abs (- last-current-location-x px)) 1.0)
+                      (>= (abs (- last-current-location-y py)) 1.0)))
+            (when need-refresh?
+              (let ((admin (send pasteboard get-admin)))
+                (when admin
+                  ;; only request update for the small regions where the point
+                  ;; used to be and it is now
+                  (when (and last-current-location-x last-current-location-y)
+                    (let ((ex (- last-current-location-x origin-x))
+                          (ey (- last-current-location-y origin-y)))
+                      (send admin needs-update (- ex 20) (- ey 20) 40 40)))
+                  (let ((ex (- px origin-x))
+                        (ey (- py origin-y)))
+                    (send admin needs-update (- ex 20) (- ey 20) 40 40))))
+              ;; Only update this if we need to refresh -- otherwise we can
+              ;; creep out in small increments and never notice it!
+              (set! last-current-location-x px)
+              (set! last-current-location-y py))
+            (cond
+              ((or (> (abs dx) (/ w 4)) (> (abs dy) (/ h 4)))
+               (set! auto-drag-map #t))
+              ((and (< (abs dx) 10) (< (abs dy) 10))
+               (set! auto-drag-map #f)))
+            (when auto-drag-map
+              (set! origin-x (exact-round (- origin-x (* dx 0.05))))
+              (set! origin-y (exact-round (- origin-y (* dy 0.05))))
+              (limit-origin canvas))
+            (when auto-drag-map
+              (request-refresh))))))
+
+    (define/public (set-current-location pos)
+      (set! current-location pos)
+      (track-current-location))
 
     ;; Set the pen used to draw a certain track group.  If GROUP is #f, all
     ;; the tracks will use this pen.
@@ -587,7 +695,7 @@
             #:when (or (not group)
                        (equal? group (send track get-group))))
         (send track set-pen pen))
-      (send canvas refresh))
+      (request-refresh))
 
     ;; Set the Z-ORDER used to draw a track group.  If GROUP is #f, al the
     ;; tracks will use this Z-ORDER and the tracks are drawn in the order they
@@ -598,7 +706,7 @@
             #:when (or (not group)
                        (equal? group (send track get-group))))
         (send track set-zorder zorder))
-      (send canvas refresh))
+      (request-refresh))
 
     ;; Delete all tracks in GROUP, or delete all tracks if GROUP is #f.
     (define/public (delete-track-group group)
@@ -607,9 +715,9 @@
                    #:unless (or (not group) (equal? group (send track get-group))))
           track))
       (set! tracks ntracks)
-      (send canvas refresh))
+      (request-refresh))
           
-    (define/public (get-bbox [group #f])
+    (define (get-bbox [group #f])
       (for/fold ([bbox #f])
                 ([track tracks]
                  #:when (or (not group)
@@ -617,14 +725,18 @@
         (let ((bb1 (send track get-bbox)))
           (if bbox (bbox-merge bbox bb1) bb1))))
 
-    (define/public (get-center [group #f])
+    (define (get-center [group #f])
       (let ([bbox (get-bbox group)])
         (if bbox
-            (let* ([cp/ndcs (bbox-center/ndcs bbox)]
-                   [max-coord (* tile-size (expt 2 zoom-level))])
+            (let ([cp/ndcs (bbox-center/ndcs bbox)])
               (values (* (map-point-x cp/ndcs) max-coord)
                       (* (map-point-y cp/ndcs) max-coord)))
-            (values 0 0))))
+            ;; For no particular reason, the center of the map, when no
+            ;; bounding box is available is the middle of Swan River, Perth,
+            ;; Western Australia
+            (let ([p (lat-lon->map-point -31.974762 115.839303)])
+              (values (* (map-point-x p) max-coord)
+                      (* (map-point-y p) max-coord))))))
 
     (define/public (center-map [group #f])
       (let-values (([cx cy] (get-center group))
@@ -634,13 +746,15 @@
           (set! origin-x (+ origin-x (- cx actual-center-x)))
           (set! origin-y (+ origin-y (- cy actual-center-y)))))
       (limit-origin canvas)
-      (send canvas refresh))
+      (request-refresh))
 
     (define/public (resize-to-fit [group #f])
       (let-values (((cwidth cheight) (send canvas get-size)))
-        (set-zoom-level (select-zoom-level (get-bbox group) cwidth cheight))
+        (let ((bbox (get-bbox group)))
+          (when bbox
+            (set-zoom-level (select-zoom-level bbox cwidth cheight))))
         (center-map group)
-        (send canvas refresh)))
+        (request-refresh)))
 
     ;; Can be overriden to be notified of zoom level changes
     (define/public (on-zoom-level-change zl)

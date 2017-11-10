@@ -1,5 +1,22 @@
 ![Logo](img/logo/ActivityLog2.png)
 
+# Bike Trainer Prototype
+
+[![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=bike-trainer)](https://travis-ci.org/alex-hhh/ActivityLog2)
+
+This branch contains a prototype bike trainer application, which allows to
+ride a virtual GPS route using a bike and a ANT+ FE-C capable bike-trainer
+(all recent trainers are FE-C capable.)
+
+<p align="center">
+<img align="center" width="800" 
+     alt="session view" 
+     src="https://drive.google.com/uc?export=download&id=1bygxcA9U7Qzkx4YZfhY7AkW4F_NR-Tmy" />
+</p>
+
+You can find mode about it in
+the [bike-trainer/readme.md](bike-trainer/readme.md) file.
+
 # ActivityLog2 - analyze data from swim, bike and run activities
 
 [![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)
