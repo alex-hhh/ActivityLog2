@@ -1,5 +1,9 @@
 ![Logo](img/logo/ActivityLog2.png)
 
+The bike-trainer prototype is on a separate
+branch
+[https://github.com/alex-hhh/ActivityLog2/tree/bike-trainer](https://github.com/alex-hhh/ActivityLog2/tree/bike-trainer)
+
 # ActivityLog2 - analyze data from swim, bike and run activities
 
 [![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)
