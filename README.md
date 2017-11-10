@@ -6,16 +6,14 @@
 
 This branch contains a prototype bike trainer application, which allows to
 ride a virtual GPS route using a bike and a ANT+ FE-C capable bike-trainer
-(all recent trainers are FE-C capable.)
+(all recent trainers are FE-C capable.) You can find mode about it in
+the [bike-trainer/readme.md](bike-trainer/readme.md) file.
 
 <p align="center">
 <img align="center" width="800" 
      alt="session view" 
      src="https://drive.google.com/uc?export=download&id=1bygxcA9U7Qzkx4YZfhY7AkW4F_NR-Tmy" />
 </p>
-
-You can find mode about it in
-the [bike-trainer/readme.md](bike-trainer/readme.md) file.
 
 # ActivityLog2 - analyze data from swim, bike and run activities
 
