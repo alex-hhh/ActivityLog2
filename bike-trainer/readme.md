@@ -5,7 +5,7 @@ GPS route using a bike and a ANT+ FE-C capable bike-trainer (all recent
 trainers are FE-C capable.)
 
 <p align="center">
-<img align="center" width="800" 
+<img align="center"
      alt="session view" 
      src="https://drive.google.com/uc?export=download&id=1bygxcA9U7Qzkx4YZfhY7AkW4F_NR-Tmy" />
 </p>
