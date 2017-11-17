@@ -20,13 +20,11 @@
          racket/class
          racket/file
          racket/list
-         racket/runtime-path
+         racket/dict
          "dbutil.rkt"
          "fit-defs.rkt"
          "fit-file.rkt"
-         "elevation-correction.rkt"
-         "utilities.rkt"
-         "al-profiler.rkt")
+         "elevation-correction.rkt")
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)
@@ -82,8 +80,8 @@
       (call-with-transaction
        db
        (lambda ()
-         (let ((start-time (assq1 'start-time activity))
-               (guid (assq1 'guid activity)))
+         (let ((start-time (dict-ref activity 'start-time #f))
+               (guid (dict-ref activity 'guid #f)))
            (query-exec db stmt start-time (or guid sql-null))
            (let ((activity-id (db-get-last-pk "ACTIVITY" db))
                  (sessions (assq 'sessions activity)))
@@ -159,7 +157,7 @@
       (let ((values (map (lambda (x) 
                            (let ((y (if (procedure? x)
                                         (x record)
-                                        (assq1 x record))))
+                                        (dict-ref record x #f))))
                              (cond (y)
                                    ((void? y) sql-null)
                                    (#t sql-null))))
@@ -176,16 +174,16 @@
                   values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))))
     (lambda (session activity-id db)
       (let ((summary-id (db-insert-section-summary session db))
-            (name (or (assq1 'name session) sql-null))
-            (description (or (assq1 'description session) sql-null))
-            (start-time (or (assq1 'start-time session) sql-null))
-            (sport-id (rassq1 (assq1 'sport session) *sport*))
-            (sub-sport (rassq1 (assq1 'sub-sport session) *sub-sport*))
-            (pool-length (or (assq1 'pool-length session) sql-null))
-            (pool-length-unit (rassq1 (assq1 'pool-length-unit session) *pool-length-unit*))
-            (training-effect (or (assq1 'total-training-effect session) sql-null))
-            (training-stress-score (or (assq1 'training-stress-score session) sql-null))
-            (intensity-factor (or (assq1 'intensity-factor session) sql-null)))
+            (name (dict-ref session 'name sql-null))
+            (description (dict-ref session 'description sql-null))
+            (start-time (dict-ref session 'start-time sql-null))
+            (sport-id (rassq1 (dict-ref session 'sport #f) *sport*))
+            (sub-sport (rassq1 (dict-ref session 'sub-sport #f) *sub-sport*))
+            (pool-length (dict-ref session 'pool-length sql-null))
+            (pool-length-unit (rassq1 (dict-ref session 'pool-length-unit #f) *pool-length-unit*))
+            (training-effect (dict-ref session 'total-training-effect sql-null))
+            (training-stress-score (dict-ref session 'training-stress-score sql-null))
+            (intensity-factor (dict-ref session 'intensity-factor sql-null)))
 
         ;; HACK: Garmin devices started putting in 0 for the sub-sport field,
         ;; but the rest of the activity-log code relies on NULL to mean
@@ -217,7 +215,7 @@
                  "insert into A_LAP(session_id, start_time, summary_id) values (?, ?, ?)"))))
     (lambda (lap session-id db)
       (let ((summary-id (db-insert-section-summary lap db))
-            (start-time (or (assq1 'start-time lap) sql-null)))
+            (start-time (dict-ref lap 'start-time sql-null)))
         (query-exec db stmt session-id start-time summary-id))
       (let ((lap-id (db-get-last-pk "A_LAP" db))
             (lengths (assq 'lengths lap)))
@@ -231,7 +229,7 @@
                  "insert into A_LENGTH(lap_id, start_time, summary_id) values (?, ?, ?)"))))
     (lambda (length session-id db)
       (let ((summary-id (db-insert-section-summary length db))
-            (start-time (or (assq1 'start-time length) sql-null)))
+            (start-time (dict-ref length 'start-time sql-null)))
         (query-exec db stmt session-id start-time summary-id))
       (let ((length-id (db-get-last-pk "A_LENGTH" db))
             (track (assq 'track length)))
@@ -265,14 +263,14 @@
                      left-pp-start left-pp-end right-pp-start right-pp-end
                      left-ppp-start left-ppp-end right-ppp-start right-ppp-end
                      ,(lambda (tp)
-                        (let ((lat (assq1 'position-lat tp))
-                              (lon (assq1 'position-long tp)))
+                        (let ((lat (dict-ref tp 'position-lat #f))
+                              (lon (dict-ref tp 'position-long #f)))
                           (and lat lon (lat-lon->tile-code lat lon)))))))
     (lambda (trackpoint length-id db)
       (let ((values (map (lambda (x) 
                            (let ((y (if (procedure? x)
                                         (x trackpoint)
-                                        (assq1 x trackpoint))))
+                                        (dict-ref trackpoint x #f))))
                              (cond ((void? y) sql-null)
                                    (y)
                                    (#t sql-null))))
@@ -472,7 +470,7 @@
       (let ((guid (send this get-guid)))
         (when (db-get-activity-id guid db)
           (raise (db-exn-activity-exists guid))))
-      (let ((serial (assq1 'serial-number file-id)))
+      (let ((serial (dict-ref file-id 'serial-number #f)))
         (when serial
           (let ((retired? (query-maybe-value 
                            db 

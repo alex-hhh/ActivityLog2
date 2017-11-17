@@ -20,7 +20,7 @@
          racket/gui/base
          racket/match
          racket/async-channel
-         (rename-in srfi/48 (format format-48))
+         racket/dict
          "activity-edit.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
@@ -35,8 +35,8 @@
          "inspect-quadrant.rkt"
          "inspect-model-parameters.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "widgets.rkt"
+         "utilities.rkt"
          "session-df.rkt")
 
 (provide view-session%)
@@ -228,13 +228,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
  where id = ?" headline (or sport sql-null) (or sub-sport sql-null) sid)))))
 
     (define/public (set-session session)
-      (set! headline (or (assq1 'name session) "Untitled"))
+      (set! headline (dict-ref  session 'name "Untitled"))
       (set! sport (session-sport session))
       (set! sub-sport (session-sub-sport session))
-      (set! session-id (assq1 'database-id session))
+      (set! session-id (dict-ref session 'database-id #f))
       (send start-time
 	    set-label
-	    (unix-time->date-time-string (assq1 'start-time session)))
+	    (unix-time->date-time-string (session-start-time session)))
       (switch-to-view-mode))
 
     (define/public (set-database db)

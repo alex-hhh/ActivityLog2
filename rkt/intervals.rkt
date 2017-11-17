@@ -16,10 +16,10 @@
 
 (require racket/class
          racket/match
+         racket/dict
          math/statistics
          "data-frame.rkt"
-         "session-df.rkt"
-         "utilities.rkt")
+         "session-df.rkt")
 
 (provide
  make-split-intervals
@@ -240,8 +240,8 @@
 
   ;; Calculate the average speed from total time and distance, averaging the
   ;; "spd" series does not produce nice results.
-  (let ((total-distance (assq1 'total-distance base))
-        (total-elapsed-time (assq1 'total-elapsed-time base)))
+  (let ((total-distance (dict-ref base 'total-distance #f))
+        (total-elapsed-time (dict-ref base 'total-elapsed-time #f)))
     (when (and total-distance total-elapsed-time (> total-elapsed-time 0))
       (set! base (cons (cons 'avg-speed (/ total-distance total-elapsed-time)) base))))
       

@@ -17,7 +17,6 @@
          racket/math
          racket/format
          racket/flonum)
-(require "al-profiler.rkt")
 
 
 ;;................................................. Critical Power Model ....

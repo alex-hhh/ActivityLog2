@@ -28,7 +28,6 @@
          racket/math
          racket/vector
          racket/draw
-         "al-profiler.rkt"
          "fmt-util.rkt"
          "spline-interpolation.rkt"
          "color-util.rkt")

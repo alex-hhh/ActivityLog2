@@ -16,7 +16,7 @@
 
 (require racket/date
          racket/math
-         "utilities.rkt")
+         racket/dict)
 
 ;; NOTE: this file is littered with provide calls throughout it.  They should
 ;; all be moved at the top...
@@ -31,8 +31,6 @@
 (provide map-session-lengths)
 (provide compute-summary-data)
 (provide ->start-time ->seconds make-manual-activity)
-
-(define identity (lambda (x) x))
 
 
 ;;................................................ map over trackpoinnts ....
@@ -106,11 +104,11 @@
          (fn (car lengths))
          (for-each-length fn (cdr lengths) rest-laps))
         ((pair? rest-laps)
-         (for-each-length fn (assq1 'lengths (car rest-laps)) (cdr rest-laps)))
+         (for-each-length fn (dict-ref (car rest-laps) 'lengths #f) (cdr rest-laps)))
         (#t #t)))
 
 (define (for-each-session-length session fn)
-  (for-each-length fn '() (assq1 'laps session)))
+  (for-each-length fn '() (dict-ref session 'laps #f)))
 
 (define (map-session-lengths session fn)
   (let ((result '()))
@@ -142,12 +140,12 @@
     (for-each-trackpoint
      (lambda (prev current)
        (when current
-         (let ((timestamp (assq1 'timestamp current))
-               (distance (assq1 'distance current))
-               (altitude (assq1 'altitude current))
-               (speed (assq1 'speed current))
-               (heart-rate (assq1 'heart-rate current))
-               (cadence (assq1 'cadence current)))
+         (let ((timestamp (dict-ref current 'timestamp #f))
+               (distance (dict-ref current 'distance #f))
+               (altitude (dict-ref current 'altitude #f))
+               (speed (dict-ref current 'speed #f))
+               (heart-rate (dict-ref current 'heart-rate #f))
+               (cadence (dict-ref current 'cadence #f)))
 
            (when timestamp
              (unless start-time (set! start-time timestamp))
@@ -162,12 +160,12 @@
              (set! max-cadence (max cadence max-cadence)))
 
            (when prev
-             (let ((prev-timestamp (assq1 'timestamp prev))
-                   (prev-distance (assq1 'distance prev))
-                   (prev-altitude (assq1 'altitude prev))
-                   (prev-speed (assq1 'speed prev))
-                   (prev-heart-rate (assq1 'heart-rate prev))
-                   (prev-cadence (assq1 'cadence prev)))
+             (let ((prev-timestamp (dict-ref prev 'timestamp #f))
+                   (prev-distance (dict-ref prev 'distance #f))
+                   (prev-altitude (dict-ref prev 'altitude #f))
+                   (prev-speed (dict-ref prev 'speed #f))
+                   (prev-heart-rate (dict-ref prev 'heart-rate #f))
+                   (prev-cadence (dict-ref prev 'cadence #f)))
 
                (when (and prev-timestamp prev-distance distance)
                  (let ((delta-distance (- distance prev-distance))
@@ -310,13 +308,13 @@
  session-laps)
 
 (define (session-start-time session)
-  (assq1 'start-time session))
+  (dict-ref session 'start-time #f))
 
 (define (session-time session)
-  (assq1 'total-timer-time session))
+  (dict-ref session 'total-timer-time #f))
 
 (define (session-elapsed-time session)
-  (assq1 'total-elapsed-time session))
+  (dict-ref session 'total-elapsed-time #f))
 
 ;; Compute the moving time of a (swim) session.  This is done by counting the
 ;; total-timer-time of all the laps that had a total-distance greater than 0.
@@ -327,76 +325,76 @@
 (define (session-moving-time session)
   (let ((mtime 0.0))
     (for-each (lambda (lap)
-		(let ((distance (assq1 'total-distance lap))
-                      (time (assq1 'total-timer-time lap)))
+		(let ((distance (dict-ref lap 'total-distance #f))
+                      (time (dict-ref lap 'total-timer-time #f)))
                   (when (and time distance (> distance 0))
                     (set! mtime (+ time mtime)))))
-              (assq1 'laps session))
+              (dict-ref session 'laps #f))
     mtime))
 
 (define (session-distance session)
-  (assq1 'total-distance session))
+  (dict-ref session 'total-distance #f))
 
 (define (session-calories session)
-  (assq1 'total-calories session))
+  (dict-ref session 'total-calories #f))
 
 (define (session-sport session)
-  (assq1 'sport session))
+  (dict-ref session 'sport #f))
 
 (define (session-sub-sport session)
-  (assq1 'sub-sport session))
+  (dict-ref session 'sub-sport #f))
 
 (define (session-avg-speed session)
-  (assq1 'avg-speed session))
+  (dict-ref session 'avg-speed #f))
 
 (define (session-max-speed session)
-  (assq1 'max-speed session))
+  (dict-ref session 'max-speed #f))
 
 (define (session-avg-hr session)
-  (assq1 'avg-heart-rate session))
+  (dict-ref session 'avg-heart-rate #f))
 
 (define (session-max-hr session)
-  (assq1 'max-heart-rate session))
+  (dict-ref session 'max-heart-rate #f))
 
 (define (session-aerobic-decoupling session)
-  (assq1 'aerobic-decoupling session))
+  (dict-ref session 'aerobic-decoupling #f))
 
 (define (session-hrv session)
-  (assq1 'hrv session))
+  (dict-ref session 'hrv #f))
 
 (define (session-avg-cadence session)
-  (assq1 'avg-cadence session))
+  (dict-ref session 'avg-cadence #f))
 
 (define (session-avg-vertical-oscillation session)
-  (assq1 'avg-vertical-oscillation session))
+  (dict-ref session 'avg-vertical-oscillation #f))
 
 (define (session-avg-stance-time session)
-  (assq1 'avg-stance-time session))
+  (dict-ref session 'avg-stance-time #f))
 
 (define (session-avg-stance-time-percent session)
-  (assq1 'avg-stance-time-percent session))
+  (dict-ref session 'avg-stance-time-percent #f))
 
 (define (session-training-effect session)
-  (assq1 'total-training-effect session))
+  (dict-ref session 'total-training-effect #f))
 
 (define (session-training-stress-score session)
-  (assq1 'training-stress-score session))
+  (dict-ref session 'training-stress-score #f))
 
 (define (session-intensity-factor session)
-  (assq1 'intensity-factor session))
+  (dict-ref session 'intensity-factor #f))
 
 (define (session-rpe session)
-  (assq1 'rpe-scale session))
+  (dict-ref session 'rpe-scale #f))
 
 (define (session-max-cadence session)
-  (assq1 'max-cadence session))
+  (dict-ref session 'max-cadence #f))
 
 (define (session-total-cycles session)
-  (assq1 'total-cycles session))
+  (dict-ref session 'total-cycles #f))
 
 (define (session-avg-stride session)
-  (let ((total-distance (assq1 'total-distance session))
-	(total-cycles (assq1 'total-cycles session)))
+  (let ((total-distance (dict-ref session 'total-distance #f))
+	(total-cycles (dict-ref session 'total-cycles #f)))
     (if (and total-distance total-cycles)
 	(/ total-distance (* 2 total-cycles))
 	#f)))
@@ -408,16 +406,16 @@
 
 (define (session-total-ascent session)
   (or 
-   (assq1 'total-corrected-ascent session)
-   (assq1 'total-ascent session)))
+   (dict-ref session 'total-corrected-ascent #f)
+   (dict-ref session 'total-ascent #f)))
 
 (define (session-total-descent session)
   (or
-   (assq1 'total-corrected-descent session)
-   (assq1 'total-descent session)))
+   (dict-ref session 'total-corrected-descent #f)
+   (dict-ref session 'total-descent #f)))
 
 (define (session-pool-length session)
-  (assq1 'pool-length session))
+  (dict-ref session 'pool-length #f))
 
 (define (session-avg-swolf session)
   (let ((avg-speed (session-avg-speed session))
@@ -430,7 +428,7 @@
 	#f)))
 
 (define (session-swim-stroke session)
-  (assq1 'swim-stroke session))
+  (dict-ref session 'swim-stroke #f))
 
 (define (session-laps session)
   (cdr (assq 'laps session)))
@@ -451,42 +449,42 @@
         #f)))
 
 (define (session-avg-power session)
-  (assq1 'avg-power session))
+  (dict-ref session 'avg-power #f))
 
 (define (session-max-power session)
-  (assq1 'max-power session))
+  (dict-ref session 'max-power #f))
 
 (define (session-normalized-power session)
-  (assq1 'normalized-power session))
+  (dict-ref session 'normalized-power #f))
 
 (define (session-avg-left-torque-effectiveness session)
-  (assq1 'avg-left-torque-effectiveness session))
+  (dict-ref session 'avg-left-torque-effectiveness #f))
 
 (define (session-avg-right-torque-effectiveness session)
-  (assq1 'avg-right-torque-effectiveness session))
+  (dict-ref session 'avg-right-torque-effectiveness #f))
 
 (define (session-avg-torque-effectiveness session)
-  (let ((left (assq1 'avg-left-torque-effectiveness session))
-        (right (assq1 'avg-right-torque-effectiveness session)))
+  (let ((left (dict-ref session 'avg-left-torque-effectiveness #f))
+        (right (dict-ref session 'avg-right-torque-effectiveness #f)))
     (if (and left right)
         (/ (+ left right) 2.0)
         (or left right))))
 
 (define (session-avg-left-pedal-smoothness session)
-  (assq1 'avg-left-pedal-smoothness session))
+  (dict-ref session 'avg-left-pedal-smoothness #f))
 
 (define (session-avg-right-pedal-smoothness session)
-  (assq1 'avg-right-pedal-smoothness session))
+  (dict-ref session 'avg-right-pedal-smoothness #f))
 
 (define (session-avg-pedal-smoothness session)
-  (let ((left (assq1 'avg-left-pedal-smoothness session))
-        (right (assq1 'avg-right-pedal-smoothness session)))
+  (let ((left (dict-ref session 'avg-left-pedal-smoothness #f))
+        (right (dict-ref session 'avg-right-pedal-smoothness #f)))
     (if (and left right)
         (/ (+ left right) 2.0)
         (or left right))))
 
 (define (session-left-right-balance session)
-  (assq1 'left-right-balance session))
+  (dict-ref session 'left-right-balance #f))
 
 (define (session-total-vertical-travel session)
   (let ((ncycles (session-total-cycles session))
@@ -591,7 +589,7 @@
 
 (define (lap-best-swolf lap)
   (let ((candidates
-         (filter identity (map length-swolf (lap-lengths lap)))))
+         (filter values (map length-swolf (lap-lengths lap)))))
     (if (> (length candidates) 0)
         (apply min candidates)
         #f)))
@@ -604,7 +602,7 @@
         #f)))
 
 (define (lap-lengths lap)
-  (or (assq1 'lengths lap) '()))
+  (dict-ref lap 'lengths '()))
 
 (define (lap-num-lengths lap)
   (length (lap-lengths lap)))
@@ -637,7 +635,7 @@
 (define (length-distance length)
   (let ((track (length-track length)))
     (if (and track (pair? track))
-        (assq1 'distance (car track))
+        (dict-ref (car track) 'distance #f)
         #f)))
 
 (define (length-swolf length)
@@ -661,36 +659,36 @@
  session-weather-source)
  
 (define (session-temperature session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'temperature w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'temperature #f) #f)))
 
 (define (session-dew-point session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'dew-point w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'dew-point #f) #f)))
         
 (define (session-humidity session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'humidity w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'humidity #f) #f)))
 
 (define (session-wind-speed session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'wind-speed w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'wind-speed #f) #f)))
 
 (define (session-wind-gusts session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'wind-gusts w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'wind-gusts #f) #f)))
 
 (define (session-wind-direction session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'wind-direction w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'wind-direction #f) #f)))
 
 (define (session-barometric-pressure session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'pressure w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'pressure #f) #f)))
 
 (define (session-weather-source session)
-  (let ((w (assq1 'weather session)))
-    (if w (assq1 'source w) #f)))
+  (let ((w (dict-ref session 'weather #f)))
+    (if w (dict-ref w 'source #f) #f)))
 
 
 ;;........................................... cycling dynamics accessors ....
@@ -708,34 +706,34 @@
   session-avg-right-ppp-end)
 
 (define (session-avg-left-pco session)
-  (assq1 'avg-left-pco session))
+  (dict-ref session 'avg-left-pco #f))
 
 (define (session-avg-right-pco session)
-  (assq1 'avg-right-pco session))
+  (dict-ref session 'avg-right-pco #f))
 
 (define (session-avg-left-pp-start session)
-  (assq1 'avg-left-pp-start session))
+  (dict-ref session 'avg-left-pp-start #f))
 
 (define (session-avg-left-pp-end session)
-  (assq1 'avg-left-pp-end session))
+  (dict-ref session 'avg-left-pp-end #f))
 
 (define (session-avg-right-pp-start session)
-  (assq1 'avg-right-pp-start session))
+  (dict-ref session 'avg-right-pp-start #f))
 
 (define (session-avg-right-pp-end session)
-  (assq1 'avg-right-pp-end session))
+  (dict-ref session 'avg-right-pp-end #f))
 
 (define (session-avg-left-ppp-start session)
-  (assq1 'avg-left-ppp-start session))
+  (dict-ref session 'avg-left-ppp-start #f))
 
 (define (session-avg-left-ppp-end session)
-  (assq1 'avg-left-ppp-end session))
+  (dict-ref session 'avg-left-ppp-end #f))
 
 (define (session-avg-right-ppp-start session)
-  (assq1 'avg-right-ppp-start session))
+  (dict-ref session 'avg-right-ppp-start #f))
 
 (define (session-avg-right-ppp-end session)
-  (assq1 'avg-right-ppp-end session))
+  (dict-ref session 'avg-right-ppp-end #f))
 
 (provide
   lap-avg-left-pco
@@ -750,32 +748,32 @@
   lap-avg-right-ppp-end)
 
 (define (lap-avg-left-pco lap)
-  (assq1 'avg-left-pco lap))
+  (dict-ref lap 'avg-left-pco #f))
 
 (define (lap-avg-right-pco lap)
-  (assq1 'avg-right-pco lap))
+  (dict-ref lap 'avg-right-pco #f))
 
 (define (lap-avg-left-pp-start lap)
-  (assq1 'avg-left-pp-start lap))
+  (dict-ref lap 'avg-left-pp-start #f))
 
 (define (lap-avg-left-pp-end lap)
-  (assq1 'avg-left-pp-end lap))
+  (dict-ref lap 'avg-left-pp-end #f))
 
 (define (lap-avg-right-pp-start lap)
-  (assq1 'avg-right-pp-start lap))
+  (dict-ref lap 'avg-right-pp-start #f))
 
 (define (lap-avg-right-pp-end lap)
-  (assq1 'avg-right-pp-end lap))
+  (dict-ref lap 'avg-right-pp-end #f))
 
 (define (lap-avg-left-ppp-start lap)
-  (assq1 'avg-left-ppp-start lap))
+  (dict-ref lap 'avg-left-ppp-start #f))
 
 (define (lap-avg-left-ppp-end lap)
-  (assq1 'avg-left-ppp-end lap))
+  (dict-ref lap 'avg-left-ppp-end #f))
 
 (define (lap-avg-right-ppp-start lap)
-  (assq1 'avg-right-ppp-start lap))
+  (dict-ref lap 'avg-right-ppp-start #f))
 
 (define (lap-avg-right-ppp-end lap)
-  (assq1 'avg-right-ppp-end lap))
+  (dict-ref lap 'avg-right-ppp-end #f))
 

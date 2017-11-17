@@ -29,7 +29,6 @@
          math/statistics
          plot/utils
          plot
-         "al-profiler.rkt"
          "data-frame.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"

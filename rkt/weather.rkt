@@ -57,8 +57,6 @@
 
 ;;...................................................... small utilities ....
 
-(define (identity x) x)                 ; avoid requiring racket/function
-
 (define (hash-ref-many hash keys)
   (if (null? keys)
       hash
@@ -147,7 +145,7 @@
   (let ((stations (hash-ref-many node '(location nearby_weather_stations))))
     (let ((airport (hash-ref-many stations '(airport station)))
           (pws (hash-ref-many stations '(pws station))))
-      (filter identity
+      (filter values
               (append
                (map json->wstation airport)
                (map json->wstation pws))))))
@@ -156,7 +154,7 @@
 ;; observations (wobs structures)
 (define (parse-history-response node)
   (let ((h (hash-ref-many node '(history observations))))
-    (filter identity (map json->wobs h))))
+    (filter values (map json->wobs h))))
 
 
 

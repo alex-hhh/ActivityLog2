@@ -28,9 +28,9 @@
          racket/match
          racket/math
          racket/port
+         racket/dict
          "activity-util.rkt"
-         "fit-defs.rkt"
-         "utilities.rkt")
+         "fit-defs.rkt")
 
 (provide make-fit-data-stream)
 (provide read-fit-records)
@@ -352,10 +352,10 @@
                           'little-endian 'big-endian))
          (global-message-number (send fit-stream read-next-value 'uint16 2
                                       (eq? arhitecture 'big-endian)))
-         (global-message-name (assq1 global-message-number *global-message-number*))
+         (global-message-name (dict-ref *global-message-number* global-message-number #f))
          (field-count (send fit-stream read-next-value 'uint8))
          (field-names (if global-message-name
-                          (assq1 global-message-name *field-db*)
+                          (dict-ref *field-db* global-message-name #f)
                           #f)))
     (append
      (list arhitecture (or global-message-name global-message-number))
@@ -364,7 +364,7 @@
        (let* ((number (send fit-stream read-next-value 'uint8))
               (size (send fit-stream read-next-value 'uint8))
               (type (send fit-stream read-next-value 'uint8))
-              (name (if field-names (assq1 number field-names) #f)))
+              (name (if field-names (dict-ref field-names number #f) #f)))
          (list (or name number) size type)))
      ;; Developer specific fields (if any) come last
      (let ((dev-field-count (if (eq? standard-or-custom 'custom)
@@ -435,7 +435,7 @@
   (define dev-field-types (make-hash))
 
   (define (dev-field-name message-data)
-    (let ((n (assq1 'field-name message-data)))
+    (let ((n (dict-ref message-data 'field-name #f)))
       (and n (string->symbol (bytes->string/latin-1 n)))))
 
   (define (read-next-record)
@@ -463,9 +463,9 @@
                  (cond ((eq? message-id 'developer-data-id)
                         #f)
                        ((eq? message-id 'field-description)
-                        (let ((ddi (assq1 'developer-data-index message-data))
-                              (type (assq1 'fit-base-type message-data))
-                              (number (assq1 'field-def-number message-data))
+                        (let ((ddi (dict-ref message-data 'developer-data-index #f))
+                              (type (dict-ref message-data 'fit-base-type #f))
+                              (number (dict-ref message-data 'field-def-number #f))
                               (name (dev-field-name message-data)))
                           (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list name type)))))
                  ;; NOTE: developer data ID and field description messages are
@@ -616,7 +616,7 @@
     (define angle-mult (/ 360 256))
 
     (define (extract-angle record field index)
-      (let ((pp (assq1 field record)))
+      (let ((pp (dict-ref record field #f)))
         (if (and pp (vector-ref pp index))
             (* (vector-ref pp index) angle-mult)
             #f)))
@@ -627,41 +627,41 @@
     (define mappings
       `(;; Ensure the record has a start-time timestamp, borrow it from the
         ;; 'timestamp' value if needed.
-        (start-time . ,(lambda (t) (or (assq1 'start-time t) (assq1 'timestamp t))))
+        (start-time . ,(lambda (t) (or (dict-ref t 'start-time #f) (dict-ref t 'timestamp #f))))
 
         ;; cadences (including AVG and MAX) are stored as an integer plus an
         ;; optional fractional part.  We store it as a real number internally.
         ;; Also swimming candence has a different field name.
         (cadence . ,(lambda (t)
-                      (let ((c (assq1 'cadence t))
-                            (f (assq1 'fractional-cadence t)))
+                      (let ((c (dict-ref t 'cadence #f))
+                            (f (dict-ref t 'fractional-cadence #f)))
                         (if (and (number? c) (number? f))
                             (+ c f)
                             c))))
         (avg-cadence . ,(lambda (t)
-                          (or (assq1 'avg-swimming-cadence t)
-                              (let ((c (assq1 'avg-cadence t))
-                                    (f (assq1 'avg-fractional-cadence t)))
+                          (or (dict-ref t 'avg-swimming-cadence #f)
+                              (let ((c (dict-ref t 'avg-cadence #f))
+                                    (f (dict-ref t 'avg-fractional-cadence #f)))
                                 (if (and (number? c) (number? f))
                                     (+ c f)
                                     c)))))
         (max-cadence . ,(lambda (t)
-                          (or (assq1 'max-swimming-cadence t)
-                              (let ((c (assq1 'max-cadence t))
-                                    (f (assq1 'max-fractional-cadence t)))
+                          (or (dict-ref t 'max-swimming-cadence #f)
+                              (let ((c (dict-ref t 'max-cadence #f))
+                                    (f (dict-ref t 'max-fractional-cadence #f)))
                                 (if (and (number? c) (number? f))
                                     (+ c f)
                                     c)))))
 
         ;; Swimming activites have a different name for total cycles.
         (total-cycles . ,(lambda (t)
-                           (or (assq1 'total-cycles t) (assq1 'total-strokes t))))
+                           (or (dict-ref t 'total-cycles #f) (dict-ref t 'total-strokes #f))))
 
         ;; Gen2 Running Dynamics introduces GCT balance, we roll it into
         ;; left-right-balance
         (left-right-balance . ,(lambda (t)
-                                 (or (assq1 'left-right-balance t)
-                                     (assq1 'stance-time-balance t))))
+                                 (or (dict-ref t 'left-right-balance #f)
+                                     (dict-ref t 'stance-time-balance #f))))
         
         ;; Power phase start and end values are stored as a vector of values,
         ;; we store each individual value separately.  Same for peak power
@@ -701,16 +701,16 @@
               (filter
                ;; Remove fields from RECORD which are already in NEW-FIELDS
                (lambda (t)
-                 (not (assq1 (car t) new-fields)))
+                 (not (dict-ref new-fields (car t) #f)))
                record)))
 
     (define/override (on-file-id file-id)
       (unless activity-guid
         ;; Some activitites contain multiple file-id messages, keep the first
         ;; one only.
-        (let ((serial-number (assq1 'serial-number file-id))
-              (time-created (assq1 'time-created file-id))
-              (file-type (assq1 'type file-id)))
+        (let ((serial-number (dict-ref file-id 'serial-number #f))
+              (time-created (dict-ref file-id 'time-created #f))
+              (file-type (dict-ref file-id 'type #f)))
           (unless (eq? file-type 'activity)
             (raise-error (format "not an activity: ~a" file-type)))
           ;; We use the device serial and time-created as a unique identifier
@@ -721,13 +721,13 @@
     (define/public (get-guid) activity-guid)
 
     (define/override (on-activity activity)
-      (set! activity-timestamp (assq1 'timestamp activity))
+      (set! activity-timestamp (dict-ref activity 'timestamp #f))
       ;; nothing more to do with this one.  the activity-guid comes from the
       ;; file-id message.
       #t)
 
     (define/override (on-session session)
-      ;; (display (format "*** SESSION ~a~%" (assq1 'timestamp session)))
+      ;; (display (format "*** SESSION ~a~%" (dict-ref session 'timestamp #f)))
 
       ;; Session records can come before the lap records (Garmin Swim), so we
       ;; cannot collect the laps when we see a session.  Instead we just save
@@ -735,18 +735,18 @@
 
       (let ((data (process-fields session)))
         (set! data (cons (cons 'devices devices) data))
-        (cond ((or (assq1 'sport sport)
-                   (assq1 'sport session))
+        (cond ((or (dict-ref sport 'sport #f)
+                   (dict-ref session 'sport #f))
                => (lambda (v)
                     (set! data (cons (cons 'sport v) data)))))
-        (cond ((or (assq1 'sub-sport sport)
-                   (assq1 'sub-sport session))
+        (cond ((or (dict-ref sport 'sub-sport #f)
+                   (dict-ref session 'sub-sport #f))
                => (lambda (v)
                     (set! data (cons (cons 'sub-sport v) data)))))
-        (cond ((assq1 'pool-length session) =>
+        (cond ((dict-ref session 'pool-length #f) =>
                (lambda (v)
                  (set! data (cons (cons 'pool-length v) data)))))
-        (cond ((assq1 'pool-length-unit session) =>
+        (cond ((dict-ref session 'pool-length-unit #f) =>
                (lambda (v)
                  (set! data (cons (cons 'pool-length-unit v) data)))))
         (set! devices '())
@@ -755,7 +755,7 @@
       #t)
 
     (define/override (on-record record)
-      ;; (display (format "*** RECORD ~a~%" (assq1 'timestamp record)))
+      ;; (display (format "*** RECORD ~a~%" (dict-ref record 'timestamp #f)))
       (set! records (cons (process-fields record) records))
       ;; (when display-next-record
       ;;   (display record)(newline)
@@ -763,16 +763,16 @@
       #t)
 
     (define/override (on-length length)
-      ;; (display (format "*** LENGTH ~a~%" (assq1 'timestamp length)))
+      ;; (display (format "*** LENGTH ~a~%" (dict-ref length 'timestamp #f)))
       (let ((data (process-fields length)))
-        (cond ((assq1 'length-type length) =>
+        (cond ((dict-ref length 'length-type #f) =>
                (lambda (v)
                  (set! data (cons (cons 'length-type v) data)))))
         (set! lengths (cons data lengths)))
       #t)
 
     (define/override (on-lap lap)
-      ;; (display (format "*** LAP ~a~%" (assq1 'timestamp lap)))
+      ;; (display (format "*** LAP ~a~%" (dict-ref lap 'timestamp #f)))
 
       ;; Reconstructing the track points of the lap is a bit tricky and seems
       ;; to be device specific.  The Garmin Swim FIT file is contrary to the
@@ -793,7 +793,7 @@
                      ;; Easy case, there were no lengths.  Construct a dummy
                      ;; lenght and assign all records to it.
                      (let ((records (reverse records))
-                           (timestamp (assq1 'timestamp (car records))))
+                           (timestamp (dict-ref (car records) 'timestamp #f)))
 
                        (cons
                         (cons 'lengths
@@ -821,15 +821,15 @@
                     (#t
                      ;; Most generic case, use the timestamp field to assign
                      ;; records to the corresponding lengths.
-                     (let ((records (sort records < #:key (lambda (e) (assq1 'timestamp e))))
-                           (lengths (sort lengths < #:key (lambda (e) (assq1 'timestamp e)))))
+                     (let ((records (sort records < #:key (lambda (e) (dict-ref e 'timestamp #f))))
+                           (lengths (sort lengths < #:key (lambda (e) (dict-ref e 'timestamp #f)))))
 
                        (define (add-length-records length)
-                         (let ((timestamp (assq1 'timestamp length)))
+                         (let ((timestamp (dict-ref length 'timestamp #f)))
                            (let-values ([(our-records rest)
                                          (splitf-at records
                                                     (lambda (v)
-                                                      (<= (assq1 'timestamp v) timestamp)))])
+                                                      (<= (dict-ref v 'timestamp #f) timestamp)))])
                              (set! records rest)         ; will be used by the next length
                              (cons (cons 'track our-records) length))))
 
@@ -858,9 +858,9 @@
       (set! sport data))
 
     (define/override (on-event event)
-      (let ((timestamp (assq1 'timestamp event))
-            (e (assq1 'event event))
-            (type (assq1 'event-type event)))
+      (let ((timestamp (dict-ref event 'timestamp #f))
+            (e (dict-ref event 'event #f))
+            (type (dict-ref event 'event-type #f)))
 
         (cond
          ((eq? e 'timer)
@@ -896,11 +896,11 @@
     (define/public (collect-activity)
 
       (define (add-session-laps session)
-        (let ((timestamp (assq1 'timestamp session)))
+        (let ((timestamp (dict-ref session 'timestamp #f)))
           (let-values ([(our-laps rest)
                         (splitf-at laps
                                    (lambda (v)
-                                     (<= (assq1 'timestamp v) timestamp)))])
+                                     (<= (dict-ref v 'timestamp #f) timestamp)))])
             (set! laps rest)            ; will be used by the next session
             (cons (cons 'laps our-laps) session))))
 
@@ -954,10 +954,10 @@
   ;; is somewhat simplistic and will need to be made more generic, w.r.t
   ;; mapping manufacturer, product to actual product names.
   
-  (let ((manufacturer (assq1 'manufacturer device-info))
-        (product (assq1 'product device-info))
-        (antdev (or (assq1 'ant-device-type device-info)
-                    (assq1 'antplus-device-type device-info))))
+  (let ((manufacturer (dict-ref device-info 'manufacturer #f))
+        (product (dict-ref device-info 'product #f))
+        (antdev (or (dict-ref device-info 'ant-device-type #f)
+                    (dict-ref device-info 'antplus-device-type #f))))
     (cond ((eq? antdev 'stride-speed-distance) "Footpod")
           ((eq? antdev 'bike-speed-cadence) "Bike Speed-Cadence Sensor")
           ((eq? antdev 'bike-cadence) "Bike Cadence Sensor")
@@ -1070,7 +1070,7 @@
         (bytes-set! buffer mark (mdef-local-id definition))
         (set! mark (+ 1 mark))
         (for ([field (in-list (mdef-fields definition))])
-          (let ((value (assq1 (list-ref field 0) message-data))
+          (let ((value (dict-ref message-data (list-ref field 0) #f))
                 (type (get-fit-type (list-ref field 3))))
             (set! mark (write-fit-value buffer mark type value big-endian?)))))
       #t)

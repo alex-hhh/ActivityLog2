@@ -45,7 +45,6 @@
          "view-session.rkt"
          "view-trends.rkt"
          "widgets.rkt"
-         "al-profiler.rkt"
          "import.rkt"
          "metrics.rkt"
          "session-df.rkt"

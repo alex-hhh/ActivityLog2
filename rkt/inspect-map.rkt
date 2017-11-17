@@ -18,6 +18,7 @@
          racket/gui/base
          racket/list
          racket/match
+         racket/dict
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
@@ -26,7 +27,6 @@
          "data-frame.rkt"
          "series-meta.rkt"
          "map-tiles.rkt"
-         "utilities.rkt"
          "session-df.rkt")
 
 (provide map-panel%)
@@ -178,8 +178,8 @@
                   'round 'round))
       (send map-view set-track-group-zorder #f 0.5)
 
-      (let ((lap-num (assq1 'lap-num lap))
-            (custom-lap? (assq1 'custom-lap lap))
+      (let ((lap-num (dict-ref lap 'lap-num #f))
+            (custom-lap? (dict-ref lap 'custom-lap #f))
             (start (lap-start-time lap))
             (elapsed (lap-elapsed-time lap)))
 

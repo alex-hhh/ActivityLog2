@@ -330,11 +330,3 @@
         (loop (async-channel-try-get source))))
     (for/hash (((k v) (in-hash result)))
       (values k (remove-duplicates v)))))
-
-;; Rest
-
-(provide assq1)
-(define (assq1 tag alist)
-  (cond ((assq tag alist) => cdr)
-        (#t #f)))
-

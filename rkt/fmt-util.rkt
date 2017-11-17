@@ -42,9 +42,6 @@
          racket/format
          "map-util.rkt")
 
-(: identity (All (a) (-> a a)))
-(define (identity x) x)
-
 (provide wind->string
          temperature->string
          humidity->string
@@ -231,17 +228,17 @@
         (set! m/s->swim-pace m/s->sec/100m)
         (set! swim-pace->m/s sec/100m->m/s)
         (set! swim-pace-label "min/100m")
-        (set! celsius->temperature identity)
+        (set! celsius->temperature values)
         (set! temperature-label "°C")
         (set! m->distance m->km)
         (set! distance-label "km")
-        (set! m->short-distance identity)
+        (set! m->short-distance values)
         (set! short-distance-label "m")
-        (set! m->vertical-distance identity)
+        (set! m->vertical-distance values)
         (set! vertical-distance-label "m")
-        (set! m->vertical-oscillation identity)
+        (set! m->vertical-oscillation values)
         (set! vertical-oscillation-label "mm")
-        (set! m->weight identity)
+        (set! m->weight values)
         (set! weight-label "kg")
         )))
 

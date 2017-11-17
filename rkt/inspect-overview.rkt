@@ -22,6 +22,7 @@
          racket/list
          racket/math
          math/statistics
+         racket/dict
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
@@ -32,8 +33,6 @@
          "data-frame.rkt")
 
 (provide inspect-overview-panel%)
-
-(define identity (lambda (x) x))
 
 
 ;;.............................................. badge field definitions ....
@@ -66,13 +65,13 @@
    (badge-field-def "Wind gusts: " session-wind-gusts (lambda (v) (speed->string v #t)))
    (badge-field-def "Wind direction: " session-wind-direction degrees->wind-rose)
    (badge-field-def "Pressure: " session-barometric-pressure (lambda (v) (pressure->string v #t)))
-   (badge-field-def "Source: " session-weather-source identity)))
+   (badge-field-def "Source: " session-weather-source values)))
 
 (define *hr-fields*
   (list
    (badge-field-def "Avg HR: " 
                     (lambda (s) 
-                      (let ((sid (assq1 'database-id s))
+                      (let ((sid (dict-ref s 'database-id #f))
                             (avg-hr (session-avg-hr s)))
                         (if avg-hr (list sid avg-hr) #f)))
                     (lambda (v)
@@ -80,7 +79,7 @@
                         (heart-rate->string/full (second v) zones))))
    (badge-field-def "Max HR: " 
                     (lambda (s) 
-                      (let ((sid (assq1 'database-id s))
+                      (let ((sid (dict-ref s 'database-id #f))
                             (max-hr (session-max-hr s)))
                         (if max-hr (list sid max-hr) #f)))
                     (lambda (v)
@@ -774,13 +773,13 @@
 
     (define (update-session-labels)
       (when the-session
-        (let ((sid (assq1 'database-id the-session)))
+        (let ((sid (dict-ref the-session 'database-id #f)))
           (when sid
             (send labels-field update-session-tags sid)))))
 
     (define (update-session-equipment)
       (when the-session
-        (let ((sid (assq1 'database-id the-session)))
+        (let ((sid (dict-ref the-session 'database-id #f)))
           (when sid
             (send equipment-field update-session-tags sid)))))
 
@@ -789,7 +788,7 @@
     ;; potential loss of information.  Maybe we can do better?
     (define (update-session-description)
       (when the-session
-        (let ((sid (assq1 'database-id the-session)))
+        (let ((sid (dict-ref the-session 'database-id #f)))
           (when sid
             (let ((text (send description-field get-text 0 'eof #t)))
               (unless (equal? last-description text)
@@ -804,11 +803,11 @@
     (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
       (send badge-pb set-session session df)
-      (let ((session-id (assq1 'database-id session)))
+      (let ((session-id (dict-ref session 'database-id #f)))
         (when session-id
           (send labels-field setup-for-session the-database session-id)
           (send equipment-field setup-for-session the-database session-id)
-          (let ((desc (assq1 'description session)))
+          (let ((desc (dict-ref session 'description #f)))
             (set! last-description (or desc ""))
             (send description-field begin-edit-sequence)
             (send description-field select-all)

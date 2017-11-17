@@ -26,23 +26,21 @@
          racket/sequence
          racket/vector
          plot/utils
+         racket/dict
          "plot-hack.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
          "series-meta.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "data-frame.rkt"
+         "utilities.rkt"
          "widgets.rkt"
-         "al-profiler.rkt"
          "session-df.rkt"
          "icon-resources.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph%)
-
-(define identity (lambda (x) x))
 
 (define *header-font*
   (send the-font-list find-or-create-font 15 'default 'normal 'normal))
@@ -926,7 +924,7 @@
       avg-hr)
 
     (define y-axis-items
-      `(("BPM" ,axis-hr-bpm ,identity ,heart-rate->string/bpm)
+      `(("BPM" ,axis-hr-bpm ,values ,heart-rate->string/bpm)
 	("% of Max" ,axis-hr-pct ,(lambda (v) (val->pct-of-max v zones))
          ,(lambda (v) (heart-rate->string/pct v zones)))
 	("Zone" ,axis-hr-zone ,(lambda (v) (val->zone v zones))
@@ -1201,7 +1199,7 @@
       avg-power)
 
     (define y-axis-items
-      `(("Watts" ,axis-power ,identity ,number->string)
+      `(("Watts" ,axis-power ,values ,number->string)
 	("Zone" ,axis-power-zone ,(lambda (v) (val->zone v zones))
          ,(lambda (v) (format-48 "~1,1F" (val->zone v zones))))))
 
@@ -1872,7 +1870,7 @@
                           [parent interval-view-panel]
                           [tag 'activity-log:charts-mini-lap-view]
                           [callback (lambda (n lap)
-                                      (let ((lap-num (assq1 'lap-num lap)))
+                                      (let ((lap-num (dict-ref lap 'lap-num #f)))
                                         (when lap-num
                                           (highlight-lap (- lap-num 1) lap))))]))
 

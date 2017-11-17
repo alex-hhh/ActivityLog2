@@ -27,8 +27,6 @@
 
 (provide get-weather-editor)
 
-(define identity (lambda (x) x))
-
 
 ;;........................................................ weather-edit% ....
 
@@ -128,7 +126,7 @@
                    [parent wselection-pane] [label ""]
                    [style '(single deleted)]
                    [cue-text "pws:NAME or COUNTRY/NAME"]
-                   [convert-fn identity]
+                   [convert-fn values]
                    [valid-value-cb
                     (lambda (v)
                       (on-new-wstation (send wstation-field get-converted-value)))]

@@ -19,14 +19,15 @@
          racket/gui/base
          racket/math
          racket/match
+         racket/dict
          "activity-util.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "widgets.rkt"
          "al-log.rkt"
-         "intervals.rkt")
+         "intervals.rkt"
+         "utilities.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -36,8 +37,6 @@
 (provide swim-lengths-view%)
 (provide interval-choice%)
 (provide get-sql-export-dialog)
-
-(define identity (lambda (x) x))
 
 ;; Some generic preferences
 
@@ -433,14 +432,13 @@ values (?, ?)" session-id id))
      (or (extractor lap) 0))))
 
 (define (lap-num l)
-  (assq1 'lap-num l))
+  (dict-ref l 'lap-num #f))
 
 (define (lap-num-fmt num)
   (format "~a" num))
 
 (define (lap-num-pretty l)
-  (format "~a" (assq1 'lap-num-pretty l)))
-
+  (format "~a" (dict-ref l 'lap-num-pretty #f)))
 
 (define *run-lap-fields*
   (list
@@ -596,7 +594,7 @@ values (?, ?)" session-id id))
    (mk-column-info "Pace" lap-avg-speed swim-pace->string)))
 
 (define (length-num l)
-  (assq1 'length-num l))
+  (dict-ref l 'length-num #f))
 
 (define (length-num-fmt num)
   (format "~a" num))

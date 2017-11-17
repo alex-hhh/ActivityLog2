@@ -34,8 +34,6 @@
 
 (provide view-activities%)
 
-(define identity (lambda (x) x))
-
 (define (make-col-name->col-id-hash db-headers)
   (let ((result (make-hash)))
     (let loop ((headers db-headers)
@@ -201,7 +199,7 @@ select X.session_id
         (new validating-input-field%
              [label "Search:"]
              [validate-fn (lambda (v) #t)]
-             [convert-fn identity]
+             [convert-fn values]
              [valid-value-cb (lambda (v) (set! text-filter v) (on-text-filter-changed))]
              [parent q])
 

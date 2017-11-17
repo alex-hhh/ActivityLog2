@@ -27,11 +27,11 @@
  racket/match
  racket/math
  racket/vector
+ racket/dict
  math/statistics
  db
  "data-frame.rkt"
  "fit-file.rkt"
- "utilities.rkt"
  "database.rkt"
  )
 
@@ -84,14 +84,14 @@
        (or (not (real? end-timestamp)) (<= ts end-timestamp))))
 
     (define/override (on-record data)
-      (let ((bpm (assq1 'heart-rate data)))
+      (let ((bpm (dict-ref data 'heart-rate #f)))
         (when bpm
           (set! current-bpm bpm))))
     
     ;; NOTE: hrv values are in milliseconds
     (define/override (on-hrv data)
       (let ((ts (send this get-current-timestamp))
-            (hrv-data (assq1 0 data)))
+            (hrv-data (dict-ref data 0 #f)))
         (when (and current-bpm hrv-data (valid-timestamp? ts))
           (for ([hrv hrv-data] #:when hrv)
             (set! timestamps (cons ts timestamps))
