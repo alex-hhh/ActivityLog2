@@ -43,6 +43,33 @@
 (define (cp-session-count data) (vector-ref data 6))
 
 ;; Column definitions for the qresults-list% object used by the critical power
+;; editor for swimming (shows CV and D')
+(define (make-cp-columns-swim)
+  (list
+   (column-info "Valid From"
+                (lambda (row) (date-time->string (cp-valid-from row)))
+                cp-valid-from)
+   (column-info "Valid Until"
+                (lambda (row) (date-time->string (cp-valid-until row)))
+                cp-valid-from)
+   (column-info "CV"
+                (lambda (row) (swim-pace->string (cp-cp row) #t))
+                cp-cp)
+   (column-info "D'"
+                (lambda (row) (short-distance->string (cp-wprime row) #t))
+                cp-wprime)
+   (column-info "Tau"
+                (lambda (row)
+                  (let ((tau (cp-tau row)))
+                    (if tau (number->string tau) "")))
+                (lambda (row) (or  (cp-tau row) 0)))
+   (column-info "Session Count"
+                (lambda (row)
+                  (let ((sc (cp-session-count row)))
+                    (if (sql-null? sc) "" (number->string sc))))
+                cp-session-count)))
+
+;; Column definitions for the qresults-list% object used by the critical power
 ;; editor for running (shows CV and D')
 (define (make-cp-columns-run)
   (list
@@ -108,7 +135,7 @@
              [alignment '(left center)])))
 
     (send pane set-alignment 'left 'center)
-    (define mode #f)                    ; 'bike or 'run
+    (define mode #f)                    ; 'bike, 'run or 'swim
 
     (define valid-from-message
       (new message% [parent pane] [label "Valid From:"]))
@@ -144,6 +171,20 @@
                            (if (= (string-length t) 0)
                                'empty
                                (run-pace-string->mps t))))]))
+    (define swim-cv-field
+      (new validating-input-field% [parent pane]
+           [label ""] [style '(single deleted)]
+           [min-width 100] [stretchable-width #f]
+           [cue-text "min/100m"] [allow-empty? #f]
+           [validate-fn (lambda (v)
+                          (let ((t (string-trim v)))
+                            (or (= (string-length t) 0)
+                                (swim-pace-string->mps t))))]
+           [convert-fn (lambda (v)
+                         (let ((t (string-trim v)))
+                           (if (= (string-length t) 0)
+                               'empty
+                               (swim-pace-string->mps t))))]))
     (define dprime-message
       (new message% [parent pane] [label "D'"] [style '(deleted)]))
     (define dprime-field
@@ -173,6 +214,11 @@
                   (send cp-field has-valid-value?)
                   (send wprime-field has-valid-value?)
                   (send tau-field has-valid-value?)))
+            ((eq? mode 'swim)
+             (and (send valid-from-field has-valid-value?)
+                  (send swim-cv-field has-valid-value?)
+                  (send dprime-field has-valid-value?)
+                  (send tau-field has-valid-value?)))
             (#t #f)))
 
     (define/public (show-dialog parent type valid-from cp wprime tau)
@@ -184,6 +230,18 @@
                                        dprime-message dprime-field
                                        tau-message tau-field)))
              (send cv-field set-value (if cp (pace->string cp) ""))
+             (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
+             (send tau-field set-value (if tau (format "~a" tau) ""))
+             (if valid-from
+                 (send valid-from-field set-date-value valid-from)
+                 (send valid-from-field set-value "")))
+            ((eq? type 'swim)
+             (send pane change-children
+                   (lambda (old) (list valid-from-message valid-from-field
+                                       cv-message swim-cv-field
+                                       dprime-message dprime-field
+                                       tau-message tau-field)))
+             (send swim-cv-field set-value (if cp (swim-pace->string cp) ""))
              (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
              (send tau-field set-value (if tau (format "~a" tau) ""))
              (if valid-from
@@ -210,6 +268,12 @@
                     (send cv-field get-converted-value)
                     (send dprime-field get-converted-value)
                     tau))
+                  ((eq? mode 'swim)
+                   (list
+                    (send valid-from-field get-converted-value)
+                    (send swim-cv-field get-converted-value)
+                    (send dprime-field get-converted-value)
+                    tau))
                   ((eq? mode 'bike)
                    (list
                     (send valid-from-field get-converted-value)
@@ -234,6 +298,7 @@
 
     (define cp-columns-run (make-cp-columns-run))
     (define cp-columns-bike (make-cp-columns-bike))
+    (define cp-columns-swim (make-cp-columns-swim))
 
     (let ((p (send this get-client-pane)))
       (let ((p1 (new vertical-pane%
@@ -249,7 +314,7 @@
                 (new choice% [parent p2]
                      [stretchable-width #f]
                      [label "Show Critical Power for: "]
-                     [choices '("Cycling" "Running")]
+                     [choices '("Cycling" "Running" "Swimming")]
                      [callback (lambda (c e) (on-sport-selected (send c get-selection)))]))
           (new message% [parent p2] [stretchable-width #t] [label ""])
           (new button% [parent p2]
@@ -281,6 +346,8 @@
              (populate 1 cp-columns-run))
             ((eqv? index 0)
              (populate 2 cp-columns-bike))
+            ((eqv? index 2)
+             (populate 5 cp-columns-swim))
             (#t
              (error "cp-edit-dialog%: unknown selection"))))
 
@@ -291,6 +358,8 @@
                'run)
               ((eqv? selection 0)
                'bike)
+              ((eqv? selection 2)
+               'swim)
               (#t
                (error "cp-edit-dialog%: unknown selection")))))
 
@@ -312,7 +381,10 @@
               values (?, ?, ?, ?, ?)")
       (query-exec database
                   qtext
-                  (if (eq? sport 'run) 1 2)
+                  (cond ((eq? sport 'run) 1)
+                        ((eq? sport 'swim) 5)
+                        ((eq? sport 'bike) 2)
+                        (#t (error "Unknown sport")))
                   valid-from cp wprime (or tau sql-null)))
 
     (define (update-cp id valid-from cp wprime tau)

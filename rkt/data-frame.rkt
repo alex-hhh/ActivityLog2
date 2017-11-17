@@ -1717,3 +1717,6 @@
                 ((listof number?))
                 slr?))
  (make-slr-renderer (-> slr? (treeof renderer2d?))))
+
+(provide
+ best-avg->plot-fn)

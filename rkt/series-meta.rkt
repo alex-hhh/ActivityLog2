@@ -223,7 +223,7 @@
     (define/public (factor-colors) (ct:factor-colors))
 
     ;; Return #t if we can estimate Critical Power for this data series.
-    (define/public (have-cp-estimate) #f)
+    (define/public (have-cp-estimate?) #f)
     ;; Estimate CP for this data series given a best-avg function (as returned
     ;; by `aggregate-bavg') and search parameters (a CP2PARAMS instance).
     ;; Returns a CP2 structure.
@@ -233,7 +233,7 @@
     (define/public (pd-function cp-params) #f)
     ;; Return a pict displaying information about the supplied critical power
     ;; parameters (a CP2 instance).
-    (define/public (pd-data-as-pict cp-params) #f)
+    (define/public (pd-data-as-pict cp-params bavgfn) #f)
 
     ;; Return a function (-> number? string?) which formats a value of this
     ;; series into a string.
@@ -333,7 +333,7 @@
 
          (define/override (factor-colors) (ct:zone-colors))
 
-         (define/override (have-cp-estimate) #t)
+         (define/override (have-cp-estimate?) #t)
          
          (define/override (cp-estimate bavg-fn params)
            (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
@@ -664,7 +664,7 @@
 
          (define/override (factor-colors) (ct:zone-colors))
 
-         (define/override (have-cp-estimate) #t)
+         (define/override (have-cp-estimate?) #t)
 
          (define/override (cp-estimate bavg-fn params)
            ;; Check that the bavg function can provide values for the CP2
@@ -980,7 +980,7 @@
          (define/override (value-formatter)
            (lambda (p) (swim-pace->string (convert-swim-pace->m/s p))))
 
-         (define/override (have-cp-estimate) #t)
+         (define/override (have-cp-estimate?) #t)
 
          (define/override (cp-estimate bavg-fn params)
            (define afn (lambda (t) (convert-swim-pace->m/s (bavg-fn t))))

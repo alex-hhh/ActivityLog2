@@ -40,7 +40,7 @@
 ;; purposes.
 (struct cp2 (cp wprime fn t1 t2 cost) #:transparent)
 
-(define (cp-fn cp wprime)
+(define (make-cp-fn cp wprime)
   (lambda (t) (fl+ cp (fl/ wprime  (exact->inexact t)))))
 
 ;; Validate cp2search structure parameters.  The search ranges should be
@@ -269,7 +269,7 @@
           ;; We haven't considered this candidate yet
           (let ((cost (evaluate-cost cp wprime test-data)))
             (when (or (not best) (< cost (cp2-cost best)))
-              (set! best (cp2 cp wprime (cp-fn cp wprime) (+ anstart an-index) (+ aestart ae-index) cost))
+              (set! best (cp2 cp wprime (make-cp-fn cp wprime) (+ anstart an-index) (+ aestart ae-index) cost))
               (hash-set! considered-candidates (cons cpi wprimei) best)))))
       (search)))
 
@@ -364,7 +364,7 @@
            (cp (/ (- w2 w1) (- t2 t1)))
            (wprime (- w1 (* cp t1)))
            (cost (evaluate-cost cp wprime test-data)))
-      (cp2 cp wprime (cp-fn cp wprime) t1 t2 cost)))
+      (cp2 cp wprime (make-cp-fn cp wprime) t1 t2 cost)))
 
   (define anrange (/ (- anend anstart) 2))
   (define aerange (/ (- aeend aestart) 2))
@@ -395,5 +395,6 @@
 (provide
  (struct-out cp2)
  (struct-out cp2search)
+ make-cp-fn
  search-best-cp/exhausive
  search-best-cp/probabilistic)

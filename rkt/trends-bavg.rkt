@@ -235,7 +235,7 @@
 
     (define (on-series-selected series-index)
       (let* ((axis (list-ref axis-choices series-index))
-             (have-cp-estimator? (send axis have-cp-estimate)))
+             (have-cp-estimator? (send axis have-cp-estimate?)))
         (send estimate-cp-checkbox enable have-cp-estimator?)
         (on-estimate-cp have-cp-estimator?)))
 
@@ -431,7 +431,7 @@
     (define cp-fn #f)
     (define cp-pict #f)
     (when plot-fn
-      (when (and (send axis have-cp-estimate) (bavg-params-cp-params params))
+      (when (and (send axis have-cp-estimate?) (bavg-params-cp-params params))
         (define cp2 (send axis cp-estimate plot-fn (bavg-params-cp-params params)))
         (when cp2
           (set! cp-fn (send axis pd-function cp2))
@@ -459,7 +459,11 @@
           (when (tbavg-heat-map data)
             (let* ((range (* 0.3 (- max-y min-y)))
                    (raw-fn (mk-spline-fn (tbavg-heat-map data)))
-                   (fn (lambda (x) (let ((y (raw-fn x))) (+ min-y (* range y))))))
+                   ;; NOTE: splines will have huge peaks when two points with
+                   ;; opposing tangents are close together, this makes the
+                   ;; heat map appear to go over 100%.  Fix that manually with
+                   ;; the `min` call.
+                   (fn (lambda (x) (let ((y (min 0.98 (raw-fn x)))) (+ min-y (* range y))))))
               (set! rt (cons (function-interval
                               (lambda (x) min-y)
                               (lambda (x) (+ min-y range))

@@ -22,6 +22,7 @@
          racket/gui/base
          racket/list
          racket/match
+         embedded-gui                   ; snip-width, snip-height
          "activity-util.rkt"
          "utilities.rkt"
          "series-meta.rkt"
@@ -31,7 +32,8 @@
          "plot-hack.rkt"
          "snip-canvas.rkt"
          "spline-interpolation.rkt"
-         "bavg-util.rkt")
+         "bavg-util.rkt"
+         "pdmodel.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -180,7 +182,19 @@
        max-x
        (if zero-base? 0 (if inverted? (if bmin-y (min bmin-y min-y) min-y) min-y))
        (if (not inverted?) (if bmax-y (max bmax-y max-y) max-y) max-y)
-      ))))
+       ))))
+
+;; Create a CP2 structure, containing critical power information) from the
+;; data frame DF.  This is used to plot the critical power curve for the
+;; respective axis.
+;;
+;; Return #f if no critical power data is present in the data frame.
+(define (make-cp2-from-df df)
+  (let ((cp (send df get-property 'critical-power))
+        (wprime (send df get-property 'wprime)))
+    (if (and cp wprime)
+        (cp2 cp wprime (make-cp-fn cp wprime) #f #f #f)
+        #f)))
 
 (define best-avg-plot-panel%
   (class object% (init parent) (super-new)
@@ -256,6 +270,7 @@
 
     ;; Graph data
     (define data-frame #f)
+    (define cp-data #f)
     (define best-avg-data '())
     (define best-avg-aux-data '())
     (define inhibit-refresh 0)
@@ -270,6 +285,35 @@
     ;; changes.
     (define img-export-file-name #f)
     (define data-export-file-name #f)
+
+    (define pd-model-snip #f)
+    (define saved-pd-model-snip-location #f)
+
+    (define (get-location snip)
+      (if snip
+          (let* ((x (box 0))
+                 (y (box 0))
+                 (a (send snip get-admin))
+                 (e (if a (send a get-editor) #f)))
+            (if e
+                (if (send e get-snip-location snip x y #f)
+                    (cons (unbox x) (unbox y))
+                    #f)
+                #f))
+          #f))
+
+    (define (place-snip snip location)
+      (match-let (((cons x y) (or location
+                                  saved-pd-model-snip-location
+                                  (cons 50 50))))
+        (define editor (send (send snip get-admin) get-editor))
+        (define canvas (send editor get-canvas))
+        ;; Adjust the coordinates X Y such that the snip is placed inside the
+        ;; canvas.
+        (let-values (((width height) (send canvas get-size)))
+          (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
+                (adjusted-y (max 0 (min y (- height (snip-height snip))))))
+            (send editor move-to snip adjusted-x adjusted-y)))))
 
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
@@ -343,7 +387,10 @@
           (when best-rt
             (set! rt (cons best-rt rt)))
           (let ((best-avg-axis (get-series-axis))
-                (aux-axis (get-aux-axis)))
+                (aux-axis (get-aux-axis))
+                ;; get the location of the pd-model-snip here, it will be lost
+                ;; once we insert a new plot in the canvas.
+                (saved-location (get-location pd-model-snip)))
             (let-values (((min-x max-x min-y max-y) (plot-bounds (get-series-axis) zero-base? best-avg-data bests-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
@@ -367,20 +414,34 @@
                                [plot-y-label (send best-avg-axis axis-label)])
                   (plot-snip/hack plot-pb rt
                                   #:x-min min-x #:x-max max-x
-                                  #:y-min min-y #:y-max max-y))))))))
+                                  #:y-min min-y #:y-max max-y)))
+              (when (and cp-data (send best-avg-axis have-cp-estimate?) best-avg-data)
+                ;; NOTE: this is inefficient, as the plot-fn is already
+                ;; computed in the `make-best-avg-renderer` and we are
+                ;; computing it here a second time.
+                (let* ((fn (best-avg->plot-fn best-avg-data))
+                       (pict (send best-avg-axis pd-data-as-pict cp-data fn)))
+                  (set! pd-model-snip (new pict-snip% [pict pict]))
+                  (send plot-pb set-floating-snip pd-model-snip)
+                  (place-snip pd-model-snip saved-location))))))))
 
     (define (refresh-plot)
-
+      (set! saved-pd-model-snip-location
+            (or (get-location pd-model-snip)
+                saved-pd-model-snip-location))
       (set! plot-rt #f)
+      (set! pd-model-snip #f)
       (send plot-pb set-background-message "Working...")
       (send plot-pb set-snip #f)
       (unless (> inhibit-refresh 0)
         ;; Capture all needed data, as we will work in a different thread.
         (let ((df data-frame)
+              (cp cp-data)
               (cache data-cache)
               (axis (get-series-axis))
               (aux-axis (get-aux-axis))
-              (zerob? zero-base?))
+              (zerob? zero-base?)
+              (renderer-tree '()))
           (queue-task
            "inspect-best-avg%/refresh-plot"
            (lambda ()
@@ -394,19 +455,26 @@
                     (let ((series (send aux-axis series-name)))
                       (and (send df contains? series)
                            (df-best-avg-aux df series data)))))
-             (define rt
-               (and data
-                    (make-best-avg-renderer
-                     data aux-data
-                     #:color1 (send axis plot-color)
-                     #:color2 (and aux-axis (send aux-axis plot-color))
-                     #:zero-base? zerob?)))
+             (when data
+               (set! renderer-tree
+                     (cons 
+                      (make-best-avg-renderer
+                       data aux-data
+                       #:color1 (send axis plot-color)
+                       #:color2 (and aux-axis (send aux-axis plot-color))
+                       #:zero-base? zerob?)
+                      renderer-tree)))
+             (when (and cp (send axis have-cp-estimate?))
+               (let ((fn (send axis pd-function cp)))
+                 (set! renderer-tree
+                       (cons (function fn #:color "red" #:width 1.5 #:style 'long-dash)
+                             renderer-tree))))
              (queue-callback
               (lambda ()
-                (cond (rt
+                (cond ((not (null? renderer-tree))
                        (set! best-avg-data data)
                        (set! best-avg-aux-data aux-data)
-                       (set! plot-rt rt)
+                       (set! plot-rt renderer-tree)
                        (set! cache data-cache)
                        (put-plot-snip))
                       (#t
@@ -493,33 +561,41 @@
           (hash-set!
            params-by-series
            (send axis series-name)
-           (list 'gen1
-                 (and aux-axis (send aux-axis series-name))
-                 (first period)
-                 zero-base?)))))
+           (hash
+            'aux-series-name (and aux-axis (send aux-axis series-name))
+            'period-name (first period)
+            'zero-base? zero-base?
+            'pd-model-snip-location (get-location pd-model-snip))))))
 
     (define (restore-params-for-series)
       (set! inhibit-refresh (add1 inhibit-refresh))
       (let* ((axis (get-series-axis))
              (series-name (send axis series-name))
              (params (hash-ref params-by-series series-name #f)))
-        (if (and params (eq? (car params) 'gen1))
-            (match-let (((list tag aux-series-name period-name zb?) params))
-              (let ((selection 0))
+        (if (and params (hash? params))
+            (begin
+              (let ((aux-series-name (hash-ref params 'aux-series-name #f))
+                    (selection 0))
                 (when aux-series-name
                   (let ((index (find-axis aux-series-name axis-choices)))
                     (set! selection (add1 (min (or index 0) (sub1 (length axis-choices)))))))
                 (on-aux-axis-changed selection))
-              (let ((selection 0))
+              (let ((period-name (hash-ref params 'period-name #f))
+                    (selection 0))
                 (when period-name
                   (let ((index (find-period period-name period-choices)))
                     (set! selection (min (or index 0) (sub1 (length period-choices))))))
-                (on-period-changed selection)))
+                (on-period-changed selection))
+              (let ((zb? (hash-ref params 'zero-base? #f)))
+                (on-zero-base zb?))
+              (set! saved-pd-model-snip-location
+                    (hash-ref params 'pd-model-snip-location #f)))
             (begin
               (on-aux-axis-changed 0)
               (on-period-changed 0))))
       (send aux-axis-choice-box set-selection selected-aux-axis)
       (send period-choice-box set-selection selected-period)
+      (send zero-base-check-box set-value zero-base?)
       (set! inhibit-refresh (sub1 inhibit-refresh)))
 
     (define/public (save-visual-layout)
@@ -601,6 +677,7 @@
       (set! inhibit-refresh (add1 inhibit-refresh))
       (save-params-for-sport)
       (set! data-frame df)
+      (set! cp-data (make-cp2-from-df df))
       (set! data-cache (make-hash))
       (set! img-export-file-name #f)
       (set! data-export-file-name #f)
