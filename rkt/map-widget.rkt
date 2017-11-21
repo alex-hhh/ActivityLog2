@@ -16,8 +16,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
-         math/base
+(require math/base
          racket/class
          racket/draw
          racket/flonum
@@ -25,7 +24,6 @@
          racket/list
          racket/sequence
          racket/stream
-         "al-log.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
          "map-util.rkt"

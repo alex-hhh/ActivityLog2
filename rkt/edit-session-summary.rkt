@@ -21,7 +21,6 @@
          "dbutil.rkt"
          "edit-session-tss.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "session-df.rkt"
          "widgets.rkt")
 

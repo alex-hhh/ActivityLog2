@@ -24,7 +24,6 @@
          racket/runtime-path
          racket/string
          racket/contract
-         racket/exn
          (rename-in srfi/48 (format format-48))
          "utilities.rkt"
          "dbutil.rkt"

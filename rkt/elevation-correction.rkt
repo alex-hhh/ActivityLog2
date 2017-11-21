@@ -29,13 +29,11 @@
 (require db
          racket/class
          racket/flonum
-         racket/gui/base
          racket/math
          racket/match
          racket/list
          math/statistics
          "utilities.rkt"
-         "fmt-util.rkt"
          "icon-resources.rkt"
          "map-util.rkt"
          "widgets.rkt"

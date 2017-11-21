@@ -35,8 +35,7 @@
   [ignore-errors (-> (-> Any) Any)]
   [log-event (-> Symbol Any Any)])
 
-(require racket/date
-         racket/list
+(require racket/list
          racket/math
          racket/string
          racket/format

@@ -17,7 +17,6 @@
 (require db
          racket/class
          racket/gui/base
-         racket/port
          "activity-edit.rkt"
          "utilities.rkt"
          "fmt-util.rkt"

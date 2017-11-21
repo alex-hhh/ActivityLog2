@@ -17,10 +17,7 @@
 (require db
          racket/class
          racket/gui/base
-         "database.rkt"
-         "fmt-util.rkt"
          "icon-resources.rkt"
-         "sport-charms.rkt"
          "widgets.rkt")
 
 (provide get-label-editor)

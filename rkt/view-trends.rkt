@@ -24,7 +24,6 @@
  "widgets.rkt"
  "snip-canvas.rkt"
  "icon-resources.rkt"
- "trends-chart.rkt"
  "trends-bw.rkt"
  "trends-vol.rkt"
  "trends-trivol.rkt"

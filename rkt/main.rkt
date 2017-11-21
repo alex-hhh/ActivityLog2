@@ -14,8 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base
-         racket/class
+(require racket/class
          framework/splash
          "utilities.rkt"
          "dbutil.rkt"

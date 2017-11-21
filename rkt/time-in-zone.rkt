@@ -19,7 +19,6 @@
          racket/match
          racket/math
          math/statistics
-         "database.rkt"
          "utilities.rkt"
          "icon-resources.rkt"
          "data-frame.rkt"

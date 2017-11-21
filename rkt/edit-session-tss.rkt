@@ -20,16 +20,12 @@
          racket/gui/base
          racket/string
          racket/match
-         "activity-util.rkt"
-         "database.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
          "widgets.rkt"
-         "data-frame.rkt"
-         "session-df.rkt"
-         "utilities.rkt")
+         "session-df.rkt")
 
 (provide get-edit-session-tss-dialog)
 (provide maybe-update-session-tss)

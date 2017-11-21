@@ -42,7 +42,6 @@
 (require db
          "utilities.rkt"
          racket/file
-         racket/string
          racket/format)
 
 ;; Read the next SQL statement from INPUT-PORT.  The statement is assumed to

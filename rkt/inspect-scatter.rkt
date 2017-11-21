@@ -21,9 +21,6 @@
          racket/match
          racket/math
          racket/string
-         math/statistics
-         racket/format
-         "activity-util.rkt"
          "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"

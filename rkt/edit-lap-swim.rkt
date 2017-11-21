@@ -14,8 +14,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui
+(require racket/gui/base
          racket/class
+         racket/format
+         racket/math
+         racket/match
+         racket/list
          db
          "sport-charms.rkt"
          "widgets.rkt"

@@ -23,7 +23,6 @@
          racket/list
          racket/match
          embedded-gui                   ; snip-width, snip-height
-         "activity-util.rkt"
          "utilities.rkt"
          "series-meta.rkt"
          "data-frame.rkt"
@@ -31,7 +30,6 @@
          "metrics.rkt"
          "plot-hack.rkt"
          "snip-canvas.rkt"
-         "spline-interpolation.rkt"
          "bavg-util.rkt"
          "pdmodel.rkt")
 

@@ -26,10 +26,8 @@
  "icon-resources.rkt"
  "database.rkt"
  "widgets.rkt"
- "al-widgets.rkt"
  "trends-chart.rkt"
- "sport-charms.rkt"
- "fmt-util.rkt")
+ "sport-charms.rkt")
 
 (provide trivol-trends-chart%)
 

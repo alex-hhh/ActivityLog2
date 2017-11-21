@@ -27,9 +27,7 @@
  "icon-resources.rkt"
  "database.rkt"
  "widgets.rkt"
- "al-widgets.rkt"
  "trends-chart.rkt"
- "sport-charms.rkt"
  "fmt-util.rkt"
  "color-theme.rkt")
 

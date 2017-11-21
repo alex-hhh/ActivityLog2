@@ -22,7 +22,6 @@
          racket/list
          "fmt-util.rkt"
          "icon-resources.rkt"
-         "sport-charms.rkt"
          "dbutil.rkt"
          "widgets.rkt")
 

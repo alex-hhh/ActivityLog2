@@ -23,16 +23,13 @@
  racket/match
  racket/gui/base
  racket/math
- racket/format
  racket/hash
  pict
  embedded-gui                           ; snip-width, snip-height
- "database.rkt"
  "trends-chart.rkt"
  "icon-resources.rkt"
  "widgets.rkt"
  "plot-hack.rkt"
- "sport-charms.rkt"
  "data-frame.rkt"
  "al-widgets.rkt"
  "series-meta.rkt"

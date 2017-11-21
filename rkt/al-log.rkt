@@ -14,12 +14,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require pict
+(require racket/string
          racket/class
          racket/gui/base
-         racket/string
-         racket/math
-         racket/gui
          "widgets.rkt"
          "utilities.rkt")
 

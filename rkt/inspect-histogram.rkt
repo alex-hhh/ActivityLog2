@@ -20,7 +20,6 @@
          racket/list
          racket/match
          racket/string
-         "activity-util.rkt"
          "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"

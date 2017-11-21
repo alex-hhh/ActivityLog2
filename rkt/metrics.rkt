@@ -32,7 +32,6 @@
          "data-frame.rkt"
          "series-meta.rkt"
          "session-df.rkt"
-         "fmt-util.rkt"
          "utilities.rkt")
 
 ;; WARNING: a best-avg set and a histogram in this file has a different

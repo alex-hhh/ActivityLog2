@@ -16,14 +16,12 @@
 
 (require racket/class
          racket/gui/base
-         racket/list
          racket/match
          racket/dict
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
          "map-widget.rkt"
-         "map-util.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
          "map-tiles.rkt"

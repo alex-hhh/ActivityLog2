@@ -19,9 +19,7 @@
          racket/gui/base
          "al-widgets.rkt"
          "dbutil.rkt"
-         "fmt-util.rkt"
          "icon-resources.rkt"
-         "utilities.rkt"
          "widgets.rkt")
 
 (provide get-edit-athlete-metrics-dialog)

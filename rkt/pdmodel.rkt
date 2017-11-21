@@ -15,7 +15,6 @@
 (require racket/match
          racket/contract
          racket/math
-         racket/format
          racket/flonum)
 
 

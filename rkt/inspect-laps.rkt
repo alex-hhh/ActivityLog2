@@ -16,11 +16,7 @@
 
 (require racket/class
          racket/gui/base
-         racket/match
-         "activity-util.rkt"
-         "al-widgets.rkt"
-         "utilities.rkt"
-         "intervals.rkt")
+         "al-widgets.rkt")
 
 (provide laps-panel%)
 

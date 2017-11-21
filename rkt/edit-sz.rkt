@@ -22,7 +22,6 @@
          racket/string
          racket/match
          racket/math
-         racket/date
          racket/format
          "fmt-util.rkt"
          "dbutil.rkt"

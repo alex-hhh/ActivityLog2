@@ -28,7 +28,6 @@
          "fmt-util.rkt"
          "map-util.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "weather.rkt"
          "data-frame.rkt")
 

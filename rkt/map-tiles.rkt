@@ -25,7 +25,6 @@
  net/url-connect
  racket/match
  racket/draw
- racket/list
  racket/class
  db
  "utilities.rkt"

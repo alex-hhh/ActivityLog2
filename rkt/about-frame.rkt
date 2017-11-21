@@ -17,8 +17,6 @@
 (require browser/external
          racket/class
          racket/gui/base
-         racket/string
-         racket/file
          racket/runtime-path
          "dbapp.rkt"
          "utilities.rkt")

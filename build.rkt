@@ -17,15 +17,12 @@
 ;; NOTE: Gracket instance used to run this might have to have "debugging"
 ;; disabled in the Language menu
 
-(require compiler/bundle-dist
-         compiler/distribute
+(require compiler/distribute
          compiler/embed
          compiler/cm
          file/ico
          images/icons/stickman
-         images/icons/style
          launcher/launcher
-         pict
          racket/draw)
 
 ;; Create an ICO file from the bitmap BMP.  The resulting icon will be square

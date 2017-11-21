@@ -23,11 +23,8 @@
          racket/match
          math/statistics
          racket/math
-         racket/sequence
-         racket/vector
          plot/utils
          racket/dict
-         "plot-hack.rkt"
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"

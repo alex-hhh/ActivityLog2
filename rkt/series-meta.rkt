@@ -21,10 +21,8 @@
          racket/draw
          racket/format
          pict
-         "activity-util.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "utilities.rkt"
          "pdmodel.rkt"
          (prefix-in ct: "color-theme.rkt"))
 

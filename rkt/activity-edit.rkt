@@ -17,9 +17,7 @@
 (require db
          racket/class
          racket/gui/base
-         racket/lazy-require
          "database.rkt"
-         "icon-resources.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "session-df.rkt"

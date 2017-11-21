@@ -56,7 +56,6 @@
 
          (for-syntax
           racket/base
-          racket/date
           racket/file
           racket/format
           racket/string))
