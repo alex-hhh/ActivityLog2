@@ -261,25 +261,31 @@
     ;; HINT: You might want to use the select method instead.
     (define/public (get-series name)
 
-      ;; NOTE: we check the lazy-series first, as this might result in a
-      ;; series being re-built.  This is used by session-df to adjust the
-      ;; power-phase series in cycling activities.  The adjustment will only
-      ;; happen when (if) the series are actually referenced.
+      (define should-unlock? #f)
 
+      ;; Only lock the semaphore if it wasn't already locked it in the current
+      ;; thread.  This is so 'get-series' can be recursively called in the
+      ;; current thread and the delayed series can be materialized (as they
+      ;; usually depend on other series.)
       (unless (eq? (current-thread) locking-thread)
         (semaphore-wait semaphore)
+        (set! should-unlock? #t)
         (set! locking-thread (current-thread)))
 
       (define (unlock)
-        (set! locking-thread #f)
-        (semaphore-post semaphore))
+        (when should-unlock?
+          (set! locking-thread #f)
+          (set! should-unlock? #f)
+          (semaphore-post semaphore)))
 
       (with-handlers
         (((lambda (e) #t)
           (lambda (e) (unlock) (raise e))))
+
+        ;; Check if we have to materialize a delayed series first.
         (let ((delayed (hash-ref lazy-series name #f)))
           (when delayed
-            (delayed)                     ; create the series now
+            (delayed)                   ; create the series now
             (hash-remove! lazy-series name)))
 
         (begin0
