@@ -654,15 +654,36 @@
                       [spacing 0] [border 0] [alignment '(left center)]))
 
     (new message% [parent pane] [label label] [min-width 70])
-    (new number-input-field%
-         [valid-value-cb (lambda (v) (set! low (if (eq? v 'empty) #f v)) (cb (cons low high)))]
-         [parent pane] [label ""]
-         [style '(single)] [stretchable-width #f] [min-width 1])
+
+    (define low-input
+      (new number-input-field%
+           [valid-value-cb (lambda (v) (set! low (if (eq? v 'empty) #f v)) (cb (cons low high)))]
+           [parent pane] [label ""]
+           [style '(single)] [stretchable-width #f] [min-width 1]))
     ;; (new message% [parent pane] [label "--"])
-    (new number-input-field%
-         [parent pane] [label "--"]
-         [valid-value-cb (lambda (v) (set! high (if (eq? v 'empty) #f v)) (cb (cons low high)))]
-         [style '(single)] [stretchable-width #f] [min-width 1])
+    (define high-input
+      (new number-input-field%
+           [parent pane] [label "--"]
+           [valid-value-cb (lambda (v) (set! high (if (eq? v 'empty) #f v)) (cb (cons low high)))]
+           [style '(single)] [stretchable-width #f] [min-width 1]))
+
+    (define/public (get-number-range) (cons low high))
+    (define/public (set-number-range l h)
+      (if (number? l)
+          (begin
+            (send low-input set-numeric-value l)
+            (set! low l))
+          (begin
+            (send low-input set-value "")
+            (set! low #f)))
+      (if (number? h)
+          (begin
+            (send high-input set-numeric-value h)
+            (set! high h))
+          (begin
+            (send high-input set-value "")
+            (set! high #f))))
+
     ))
 
 
@@ -1549,13 +1570,17 @@
                          snips)))))
 
     (define/public (set-contents tag-list)
-      (clear-contents)
-      (with-edit-sequence
-       (lambda ()
-         (map (lambda (tag)
-                (let ((snip (make-object tag-snip% tag)))
-                  (insert snip)))
-              tag-list))))
+      ;; NOTE: set contents-changed-cb to #f to avoid getting callbacks when
+      ;; we set the contents.  We restore it at the end.
+      (let ((cb contents-changed-cb))
+        (set! contents-changed-cb #f)
+        (clear-contents)
+        (with-edit-sequence
+          (lambda ()
+            (for ((tag (in-list tag-list)))
+              (let ((snip (make-object tag-snip% tag)))
+                (insert snip)))))
+        (set! contents-changed-cb cb)))
 
     (define/public (set-available-tags tag-list)
       (make-tag-insert-menu tag-list))

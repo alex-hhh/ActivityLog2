@@ -180,9 +180,14 @@ select X.session_id
     (define labels-filter '())
     (define equipment-filter '())
     (define text-filter #f)
-    (define label-input-field #f)
-    (define equipment-input-field #f)
-    (define date-range-field #f)
+
+    (define text-search-input #f)
+    (define distance-input #f)
+    (define duration-input #f)
+    (define sport-selector #f)
+    (define date-range-selector #f)
+    (define label-input #f)
+    (define equipment-input #f)
 
     (define change-notification-source (make-log-event-source))
 
@@ -196,20 +201,22 @@ select X.session_id
 
       (let ((q (new vertical-pane% [spacing 5] [parent sel-pane] [alignment '(left center)])))
 
-        (new validating-input-field%
-             [label "Search:"]
-             [validate-fn (lambda (v) #t)]
-             [convert-fn values]
-             [valid-value-cb (lambda (v) (set! text-filter v) (on-text-filter-changed))]
-             [parent q])
+        (set! text-search-input
+              (new validating-input-field%
+                   [label "Search:"]
+                   [validate-fn (lambda (v) #t)]
+                   [convert-fn values]
+                   [valid-value-cb (lambda (v) (set! text-filter v) (on-text-filter-changed))]
+                   [parent q]))
 
         (let ((q (new horizontal-pane% [parent q] [spacing 5] [alignment '(left center)])))
 
           (let ((p (new vertical-pane% [parent q] [alignment '(left top)] [stretchable-width #f])))
-            (new sport-selector% [parent p]
-                 [callback (lambda (s)
-                             (set! sport-filter s)
-                             (on-filter-changed))])
+            (set! sport-selector
+                  (new sport-selector% [parent p]
+                       [callback (lambda (s)
+                                   (set! sport-filter s)
+                                   (on-filter-changed))]))
             (let ((drs (new date-range-selector% [parent p]
                             [initial-selection 'last-30-days]
                             [callback (lambda (s)
@@ -218,16 +225,18 @@ select X.session_id
               (send drs set-seasons (db-get-seasons database))
               ;; Setup the date-range-filter to the selector's initial value
               (set! date-range-filter (send drs get-selection))
-              (set! date-range-field drs)))
+              (set! date-range-selector drs)))
 
           (let ((p (new vertical-pane% [parent q] [alignment '(left top)] [stretchable-width #f])))
-            (new number-range-selector% [parent p] [label "Distance (km)"]
-                 [callback (lambda (d) (set! distance-filter d) (on-filter-changed))])
-            (new number-range-selector% [parent p] [label "Time (hours)"]
-                 [callback (lambda (d) (set! duration-filter d) (on-filter-changed))]))
+            (set! distance-input
+                  (new number-range-selector% [parent p] [label "Distance (km)"]
+                       [callback (lambda (d) (set! distance-filter d) (on-filter-changed))]))
+            (set! duration-input
+                  (new number-range-selector% [parent p] [label "Time (hours)"]
+                       [callback (lambda (d) (set! duration-filter d) (on-filter-changed))])))
 
           (let ((p (new vertical-pane% [parent q] [alignment '(center top)] [stretchable-width #t])))
-            (set! label-input-field
+            (set! label-input
                   (new label-input-field%
                        [parent p]
                        [callback (lambda (o)
@@ -235,7 +244,7 @@ select X.session_id
                                    (on-filter-changed))])))
           
           (let ((p (new vertical-pane% [parent q] [alignment '(center top)] [stretchable-width #t])))
-            (set! equipment-input-field
+            (set! equipment-input
                   (new equipment-input-field%
                        [parent p]
                        [callback (lambda (o)
@@ -257,10 +266,47 @@ select X.session_id
 
     (send lb set-default-export-file-name "activities.csv")
 
-    ;; Restore visual layout
-    (let ((vdata (get-pref tag (lambda () #f))))
-      (when (and vdata (= (length vdata) 1))
-        (send date-range-field restore-from (first vdata))))
+    ;; This is called when the view is first activated.  This is done to make
+    ;; sure all items in this class are defined as callbacks will start to be
+    ;; when we set filters.
+    (define (restore-visual-layout)
+
+      (send label-input setup-for-session database #f)
+      (send equipment-input setup-for-session database #f)
+      (send date-range-selector set-seasons (db-get-seasons database))
+
+      (let ((data (get-pref tag (lambda () #f))))
+        (when (hash? data)
+          (let ((text (hash-ref data 'text-search "")))
+            (send text-search-input set-value text))
+          (let ((labels (hash-ref data 'labels '())))
+            ;; NOTE: set the contents even if they are empty, as this sets the
+            ;; available tags, allowing new ones to be added
+            (send label-input set-contents-from-tag-ids labels))
+          (let ((equipment (hash-ref data 'equipment '())))
+            ;; NOTE: set the contents even if they are empty, as this sets the
+            ;; available tags, allowing new ones to be added
+            (send equipment-input set-contents-from-tag-ids equipment))
+          (let ((dr (hash-ref data 'date-range #f)))
+            (when dr
+              (send date-range-selector restore-from dr)))
+          (let ((sp (hash-ref data 'sport #f)))
+            (when sp
+              (send sport-selector set-selected-sport (car sp) (cdr sp))))
+          (let ((dr (hash-ref data 'duration #f)))
+            (when (and dr (cons? dr))
+              (send duration-input set-number-range (car dr) (cdr dr))))
+          (let ((ds (hash-ref data 'distance #f)))
+            (when (and ds (cons? ds))
+              (send distance-input set-number-range (car ds) (cdr ds))))))
+      
+      (set! sport-filter (send sport-selector get-selection))
+      (set! date-range-filter (send date-range-selector get-selection))
+      (set! distance-filter (send distance-input get-number-range))
+      (set! duration-filter (send duration-input get-number-range))
+      (set! labels-filter (send label-input get-contents-as-tag-ids))
+      (set! equipment-filter (send equipment-input get-contents-as-tag-ids))
+      (set! text-filter (send text-search-input get-value)))
 
     (define *activity-list-display-columns*
       (list
@@ -576,13 +622,23 @@ select X.session_id
               (reverse ndata)))
           data))
 
+    (define inhibit-updates? #f)
+
+    (define (with-inhibit-updates thunk)
+      (set! inhibit-updates? #f)
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e) (set! inhibit-updates? #f) (raise e))))
+        (thunk)))
+
     (define (on-filter-changed)
-      (let ((result (get-activity-list
-                     database sport-filter date-range-filter
-                     distance-filter duration-filter labels-filter equipment-filter)))
-        (set! data (rows-result-rows result))
-        (set! headers (make-col-name->col-id-hash (rows-result-headers result))))
-      (on-text-filter-changed))
+      (unless inhibit-updates?
+        (let ((result (get-activity-list
+                       database sport-filter date-range-filter
+                       distance-filter duration-filter labels-filter equipment-filter)))
+          (set! data (rows-result-rows result))
+          (set! headers (make-col-name->col-id-hash (rows-result-headers result))))
+        (on-text-filter-changed)))
 
     (define (on-text-filter-changed)
       (let ((rows (get-text-filtered-data data text-filter)))
@@ -626,6 +682,7 @@ select X.session_id
       (define events (collect-events change-notification-source))
       (if first-time?
           (begin
+            (restore-visual-layout)
             (send lb setup-column-defs *activity-list-display-columns*)
             (refresh)
             (set! first-time? #f))
@@ -663,17 +720,36 @@ select X.session_id
               (make-activity-summary-label rows headers))))
  
     (define/public (refresh)
-      (send label-input-field setup-for-session database #f)
-      (send equipment-input-field setup-for-session database #f)
-      (send date-range-field set-seasons (db-get-seasons database))
-      ;; Refresh the date range (in case the selection is something like "last
-      ;; 30 days" and the date has changed.
-      (set! date-range-filter (send date-range-field get-selection))
-      (collect-events change-notification-source) ; discard the events
-      (on-filter-changed))
+      (with-inhibit-updates
+        (lambda ()
+          ;; NOTE: calling 'setup-for-session' on the tag-input-field% objects
+          ;; causes all tags to be erased and, via the callback, our own tag
+          ;; lists too.  The code below calls 'setup-for-session' while
+          ;; preserving any tags that are already set.
+          (let ((c (send label-input get-contents-as-tag-ids)))
+            (send label-input setup-for-session database #f)
+            (send label-input set-contents-from-tag-ids c)
+            (set! labels-filter c))
+          (let ((c (send equipment-input get-contents-as-tag-ids)))
+            (send equipment-input setup-for-session database #f)
+            (send equipment-input set-contents-from-tag-ids c)
+            (set! equipment-filter c))
+          (send date-range-selector set-seasons (db-get-seasons database))
+          ;; Refresh the date range (in case the selection is something like
+          ;; "last 30 days" and the date has changed.
+          (set! date-range-filter (send date-range-selector get-selection))
+          (collect-events change-notification-source) ; discard the events
+          (on-filter-changed))))
 
     (define/public (save-visual-layout)
-      (let ((data (list (send date-range-field get-restore-data))))
+      (let ((data (hash
+                   'sport (send sport-selector get-selection)
+                   'date-range (send date-range-selector get-restore-data)
+                   'distance (send distance-input get-number-range)
+                   'duration (send duration-input get-number-range)
+                   'labels (send label-input get-contents-as-tag-ids)
+                   'equipment (send equipment-input get-contents-as-tag-ids)
+                   'text-search (send text-search-input get-value))))
         (put-pref tag data))
       (send lb save-visual-layout))
 
