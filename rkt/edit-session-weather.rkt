@@ -197,7 +197,7 @@
 
           ((weather-station)
            (send wselection-pane change-children
-                 (lambda (old)(list wstation-field wobs-choice)))
+                 (lambda (old) (list wstation-field wobs-choice)))
            ;; Init the field based on the previous weather source
            (case weather-source
              ((nearby)
@@ -508,6 +508,7 @@ from SESSION_WEATHER where session_id =?" sid)))
           ;; setup.
           (setup-activity-info database sid)
           (setup-nearby-wstations database sid)
+          (send wsource-choice set-selection 0)
           (on-weather-source-changed 'nearby)
           ;; Retrieve previous weather data, if any, for this activity and
           ;; setup dialog mode accordingly.
