@@ -224,47 +224,45 @@ order by VSZFS.zone_metric_id" sid))
 ;; Insert the critical power (or velocity) information about the session SID
 ;; (a session id), SPORT is the sport type for the session.
 (define (insert-critical-power-info editor sid sport)
+
+  (insert-heading
+   editor
+   (cond
+     ((is-runnig? sport) "Critical Velocity")
+     ((is-cycling? sport) "Critical Power")
+     ((is-swimming? sport) "Critical Velocity")))
+    
   (let ((cp-info (get-critical-power-for-session (current-database) sid)))
-    (cond
-      ((is-runnig? sport)
-       (insert-heading editor "Critical Velocity")
-       (if cp-info
-           (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
-             (insert-validity-range editor valid-from valid-until)
-             (insert-newline editor)
-             (insert-paragraph
-              editor
-              (format "CV: ~a; D': ~a meters; Tau ~a seconds"
-                      (pace->string cp #t)
-                      (short-distance->string wprime)
-                      (exact-round tau))))
-           (insert-paragraph editor no-cp-text)))
-    ((is-cycling? sport)
-     (insert-heading editor "Critical Power")
-     (if cp-info
-         (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
-           (insert-validity-range editor valid-from valid-until)
-           (insert-newline editor)
-           (insert-paragraph
-            editor
-            (format "CP: ~a; D': ~a Joules; Tau ~a seconds"
-                    (power->string cp #t)
-                    (exact-round wprime)
-                    (exact-round tau))))
-         (insert-paragraph editor no-cp-text)))
-  ((is-lap-swimming? sport)
-   (insert-heading editor "Critical Velocity")
-   (if cp-info
-       (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
-         (insert-validity-range editor valid-from valid-until)
-         (insert-newline editor)
-         (insert-paragraph
-          editor
-          (format "CV: ~a; D': ~a meters; Tau ~a seconds"
-                  (swim-pace->string cp #t)
-                  (short-distance->string wprime)
-                  (exact-round tau))))
-       (insert-paragraph editor no-cp-text))))))
+    (if cp-info
+        (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
+          (let ((actual-tau (if (sql-null? tau) (/ wprime cp) tau))
+                (implicit-tau? (sql-null? tau)))
+            (cond
+              ((is-runnig? sport)
+               (insert-paragraph
+                editor
+                (format "CV: ~a; D': ~a meters; Tau ~a seconds~a"
+                        (pace->string cp #t)
+                        (short-distance->string wprime)
+                        (exact-round actual-tau)
+                        (if implicit-tau? " (implicit)" ""))))
+              ((is-cycling? sport)
+               (insert-paragraph
+                editor
+                (format "CP: ~a; D': ~a Joules; Tau ~a seconds~a"
+                        (power->string cp #t)
+                        (exact-round wprime)
+                        (exact-round actual-tau)
+                        (if implicit-tau? " (implicit)" ""))))
+              ((is-swimming? sport)
+               (insert-paragraph
+                editor
+                (format "CV: ~a; D': ~a meters; Tau ~a seconds~a"
+                        (swim-pace->string cp #t)
+                        (short-distance->string wprime)
+                        (exact-round actual-tau)
+                        (if implicit-tau? " (implicit)" "")))))))
+        (insert-paragraph editor no-cp-text))))
 
 ;; Insert a "remarks" section into the editor, instructing the user on how to
 ;; edit or add sport zones or CP data.

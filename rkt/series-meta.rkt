@@ -131,7 +131,10 @@
   (and (eqv? (sport-id sport) 5)
        (eqv? (sub-sport-id sport) 17)))
 
-(provide is-runnig? is-cycling? is-lap-swimming?)
+(define (is-swimming? sport)
+  (eqv? (sport-id sport) 5))
+
+(provide is-runnig? is-cycling? is-lap-swimming? is-swimming?)
 
 ;; Provides meta data information about a series in a data frame, mostly
 ;; related on how to plot values of this series.
