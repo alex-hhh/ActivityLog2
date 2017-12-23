@@ -347,7 +347,7 @@
                  (cond ((not np)
                         (send notice set-label "No Normalized Power available"))
                        ((not (number? ftp))
-                        (send notice set-lavel "FTP value is invalid/not set"))
+                        (send notice set-label "FTP value is invalid/not set"))
                        (#t
                         (set! computed-tss (np->tss ftp np duration))))))
               ((manual)
