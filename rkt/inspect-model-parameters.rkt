@@ -230,7 +230,8 @@ order by VSZFS.zone_metric_id" sid))
    (cond
      ((is-runnig? sport) "Critical Velocity")
      ((is-cycling? sport) "Critical Power")
-     ((is-swimming? sport) "Critical Velocity")))
+     ((is-swimming? sport) "Critical Velocity")
+     (#t "Critical Power")))
     
   (let ((cp-info (get-critical-power-for-session (current-database) sid)))
     (if cp-info

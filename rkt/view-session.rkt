@@ -37,7 +37,8 @@
          "sport-charms.rkt"
          "widgets.rkt"
          "utilities.rkt"
-         "session-df.rkt")
+         "session-df.rkt"
+         "series-meta.rkt")
 
 (provide view-session%)
 
@@ -327,6 +328,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define (set-session-df sdf)
       (set! data-frame sdf)
       (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
+      (define sport (send data-frame get-property 'sport))
 
       ;; The overview panel also uses the data frame, so tell it that it is
       ;; available now.
@@ -348,7 +350,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
           (set! tabs (cons laps tabs))
           (when (send data-frame contains? "lat" "lon")
             (set! tabs (cons maps tabs)))
-          (set! tabs (cons model-params tabs)))
+          ;; Display the "Model Parameters" tab only for Swim, Bike or Run
+          ;; activities, as these are the ones that we allow defining Sport
+          ;; Zones and Critical Power parameters -- note that the DB schema
+          ;; allows these to be defined for any activity, but the application
+          ;; does not support that.
+          (when (or (is-runnig? sport) (is-cycling? sport) (is-swimming? sport))
+            (set! tabs (cons model-params tabs))))
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs)))
