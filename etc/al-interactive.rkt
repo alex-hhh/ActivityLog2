@@ -34,8 +34,10 @@
 (provide/contract
  (sid->df (-> number? (is-a?/c data-frame%)))
  (hrv->df (-> number? (or/c (is-a?/c data-frame%) #f)))
- (df->csv (-> (is-a?/c data-frame%) path-string? any/c))
- (pp-stops (-> (is-a?/c data-frame%) any/c)))
+ (session-df->csv (-> (is-a?/c data-frame%) path-string? any/c))
+ (pp-stops (-> (is-a?/c data-frame%) any/c))
+ (df-generate-series (-> (is-a?/c data-frame%) string? (listof string?) procedure? any/c))
+ (df-add-series (-> (is-a?/c data-frame%) string? (or/c list? vector?) any/c)))
 
 (provide
  (all-from-out db)
@@ -66,12 +68,29 @@
  ;; Get a HRV data frame from a session id
 (define (hrv->df sid)
   (make-hrv-data-frame/db (current-database) sid))
-;; Write the contents of the data frame DF into FILE in CSV format.
 
-(define (df->csv df file-name)
+;; Write the contents of the data frame DF into FILE in CSV format.  This is
+;; useful for a session df, as it outputs the series in a nice ordered way.
+;; The generic `df-write/csv` function outputs series in a random order, or
+;; allows specifying the order explicitly.
+(define (session-df->csv df file-name)
   (let* ((sn (get-series/ordered df)))
     (call-with-output-file file-name (lambda (port) (apply df-write/csv port df sn))
       #:mode 'text #:exists 'truncate/replace )))
+
+;; Add a new series to DF by the name SERIES-NAME by applying GENERATOR-FN to
+;; BASE-SERIES
+(define (df-generate-series df series-name base-series generator-fn)
+  (send df add-derived-series
+        series-name
+        base-series
+        (lambda (data)
+          (and (for/and ((x (in-vector data))) x)
+               (apply generator-fn (vector->list data))))))
+
+;; Add a new series to DF from a name and a vector of values.
+(define (df-add-series df name data)
+  (send df add-series (new data-series% [name name] [data (list->vector data)])))
 
 
 ;...................................................... Other functions ....
