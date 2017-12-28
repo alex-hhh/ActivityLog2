@@ -34,8 +34,8 @@ while other parts of the application can attach additional properties:
   takes for 63% of W' to be recovered when the athlete stops exercising
   entirely.
   
-> For more information about the critical-power, wprime and tau properties,
-> see the implementation notes on [Critical Power](./critical-power.md)
+For more information about the critical-power, wprime and tau properties, see
+the implementation notes on [Critical Power](./critical-power.md)
 
 Properties can be accessed using the `get-property` method.  For example, this
 will return the session id for the session data:
@@ -100,6 +100,13 @@ method:
   Seconds/Km or Seconds/Mile, or, for swimming, Seconds/100m or
   Seconds/100yd).
 * **speed-zone** is the speed zone, of speed zones are defined for the sport.
+* **gap** is the Grade Adjusted Pace -- the equivalent pace that can be
+  maintained on flat ground for the same level of effort.
+* **gaspd** is the Grade Adjusted Speed (in meters/second) -- same idea as
+  *gap*, but for speed.
+  
+Grade Adjusted Pace is calculated using the model described
+[here][strava-gap-link].
 
 ### Heart Rate Series
 
@@ -148,10 +155,12 @@ method:
 ### W' Balance series
 
 * **wbal** is the W' Balance, calculated using the differential method based
-  on a method by Andy Froncioni and Dave Clarke
-  
-> For more information about the "wbal" series, see the implementation notes
-> on [Critical Power](./critical-power.md)
+  on a method by Andy Froncioni and Dave Clarke.  For cycle activities, the
+  *pwr* series is used as a base for effort, for running activities the *gap*
+  series is used.
+
+For more information about the "wbal" series, see the implementation notes on
+[Critical Power](./critical-power.md)
 
 ### Swim Specific Series
 
@@ -227,3 +236,4 @@ value):
 
     data <- read.csv("session.csv", header = TRUE, na.strings = c(""))
 
+[strava-gap-link]: https://medium.com/strava-engineering/an-improved-gap-model-8b07ae8886c3

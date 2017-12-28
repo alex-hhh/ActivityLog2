@@ -52,6 +52,7 @@
   (list
    axis-speed
    axis-pace
+   axis-gap
    axis-speed-zone
    axis-grade
    axis-hr-bpm

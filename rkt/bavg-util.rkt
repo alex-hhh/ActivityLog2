@@ -35,7 +35,7 @@
                                   (is-a?/c series-metadata%)
                                   (listof (vector/c (and/c real? positive?)
                                                     (and/c real? positive?))))))
- 
+
 ;; Return the best avg for the session in DF (a data-frame%) and AXIS.  See
 ;; `df-best-avg`.
 ;;
@@ -43,12 +43,13 @@
 ;; converted into pace.  See #17 and `get-aggregate-bavg` for details.
 (define (get-session-bavg df axis)
   (define is-pace? (eq? axis axis-pace))
+  (define is-gap? (eq? axis axis-gap))
   (define is-swim-pace? (eq? axis axis-swim-pace))
-    
-  (let* ((sname (if (or is-pace? is-swim-pace?)
-                    "spd"
-                    (send axis series-name)))
-         (inverted? (if  (or is-pace? is-swim-pace?)
+
+  (let* ((sname (cond (is-gap? "gaspd")
+                      ((or is-pace? is-swim-pace?) "spd")
+                      (#t (send axis series-name))))
+         (inverted? (if  (or is-gap? is-pace? is-swim-pace?)
                          #f
                          (send axis inverted-best-avg?)))
          (best-avg-fn (if (send df get-property 'is-lap-swim?)
@@ -57,17 +58,15 @@
          (data (and (send df contains? sname)
                     (best-avg-fn df sname #:inverted? inverted?))))
     (if data
-        (if (or is-pace? is-swim-pace?)
-            (for/list ((item data))
-              (match-define (vector duration value pos) item)
-              (vector duration
-                      (if value
-                          ((if is-pace? convert-m/s->pace convert-m/s->swim-pace) value)
-                          #f)
-                      pos))
+        (if (or is-gap? is-pace? is-swim-pace?)
+            (let ((convert-fn (if (or is-gap? is-pace?)
+                                  convert-m/s->pace
+                                  convert-m/s->swim-pace)))
+              (for/list ((item data))
+                (match-define (vector duration value pos) item)
+                (vector duration (and value (convert-fn value)) pos)))
             data)
         #f)))
- 
 
 ;; Return the aggregate best avg for CANDIDATES (a list of session ids) and
 ;; AXIS.  See `aggregate-bavg`
@@ -78,23 +77,26 @@
 ;; measurement specific pace values (metric or imperial)
 (define (get-aggregate-bavg candidates axis progress-callback)
   (define is-pace? (eq? axis axis-pace))
+  (define is-gap? (eq? axis axis-gap))
   (define is-swim-pace? (eq? axis axis-swim-pace))
-    
-  (let* ((sname (if (or is-pace? is-swim-pace?)
-                    "spd"
-                    (send axis series-name)))
-         (inverted? (if  (or is-pace? is-swim-pace?)
+
+  (let* ((sname (cond (is-gap? "gaspd")
+                      ((or is-pace? is-swim-pace?) "spd")
+                      (#t (send axis series-name))))
+         (inverted? (if  (or is-gap? is-pace? is-swim-pace?)
                          #f
                          (send axis inverted-best-avg?)))
          (data (aggregate-bavg
                 candidates sname
                 #:inverted? inverted?
                 #:progress-callback progress-callback)))
-    (if (or is-pace? is-swim-pace?)
-        (for/list ((item data))
-          (match-define (list sid timestamp duration value) item)
-          (list sid timestamp duration
-                ((if is-pace? convert-m/s->pace convert-m/s->swim-pace) value)))
+    (if (or is-gap? is-pace? is-swim-pace?)
+        (let ((convert-fn (if (or is-gap? is-pace?)
+                              convert-m/s->pace
+                              convert-m/s->swim-pace)))
+          (for/list ((item data))
+            (match-define (list sid timestamp duration value) item)
+            (list sid timestamp duration (convert-fn value))))
         data)))
 
 ;; Return the heat map for CANDIDATES (a list of session-ids) given a best-avg
@@ -106,22 +108,25 @@
 ;; The pace series is treated specially, see `get-aggregate-bavg` and #17 for
 ;; more details.
 (define (get-aggregate-bavg-heat-map candidates bavg pct axis)
+  (define is-gap? (eq? axis axis-gap))
   (define is-pace? (eq? axis axis-pace))
   (define is-swim-pace? (eq? axis axis-swim-pace))
-  
-  (let* ((sname (if (or is-pace? is-swim-pace?)
-                    "spd"
-                    (send axis series-name)))
+
+  (let* ((sname (cond (is-gap? "gaspd")
+                      ((or is-pace? is-swim-pace?) "spd")
+                      (#t (send axis series-name))))
          (inverted? (if  (or is-pace? is-swim-pace?)
                          #f
                          (send axis inverted-best-avg?)))
-         (data (if (or is-pace? is-swim-pace?)
+         (data (if (or is-gap? is-pace? is-swim-pace?)
                    ;; BAVG is in "pace" values, convert them back to speed
                    ;; (meters/second)
-                   (for/list ((item bavg))
-                     (match-define (list sid timestamp duration value) item)
-                     (list sid timestamp duration
-                           ((if is-pace? convert-pace->m/s convert-swim-pace->m/s) value)))
+                   (let ((convert-fn (if (or is-gap? is-pace?)
+                                         convert-m/s->pace
+                                         convert-m/s->swim-pace)))
+                     (for/list ((item bavg))
+                       (match-define (list sid timestamp duration value) item)
+                       (list sid timestamp duration (convert-fn value))))
                    bavg)))
     (aggregate-bavg-heat-map
      data pct candidates

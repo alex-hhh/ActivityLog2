@@ -34,7 +34,8 @@
          "sport-charms.rkt"
          "series-meta.rkt"
          "map-util.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "gap.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
@@ -211,6 +212,9 @@
   (add-pace-series df)
   (add-speed-zone-series df)
   (add-grade-series df)
+  (when (is-runnig? sport)
+    (add-gap-series df)             ; needs to be added after the grade series
+    (add-gaspd-series df))
   (add-hr-pct-series df)
   (add-hr-zone-series df)
   (add-stride-series df)
@@ -238,7 +242,7 @@
 
   (when cp-data
     (cond ((eqv? (vector-ref sport 0) 1) ; running
-           (add-wbald-series df "spd"))
+           (add-wbald-series/gap df))
           ((eqv? (vector-ref sport 0) 2) ; biking
            (add-wbald-series df "pwr"))))
 
@@ -811,6 +815,28 @@
                      (and (number? val) (or (zero? val) (zero? (- 100 val))))))
         (vector-set! data index #f)))))
 
+(define (add-gap-series df)
+  (define (pace-sec/km spd)
+    (if (and spd (> spd 0.6)) (m/s->sec/km spd)  #f))
+
+  (when (send df contains? "pace" "grade")
+    (send df add-derived-series/lazy
+          "gap"
+          '("pace" "grade")
+          (lambda (current)
+            (match-define (vector pace grade) current)
+            (and pace grade (adjust-pace-for-grade pace grade))))))
+
+(define (add-gaspd-series df)
+  (when (send df contains? "spd" "grade")
+    (send df add-derived-series/lazy
+          "gaspd"
+          '("spd" "grade")
+          (lambda (current)
+            (match-define (vector spd grade) current)
+            (and spd grade
+                 (* spd (grade->multiplier grade)))))))
+
 ;; Add the W'Bal series to the data frame using the differential method by
 ;; Andy Froncioni and Dave Clarke.  This is based off the GoldenCheetah
 ;; implementation, I could not find any reference to this formula on the web.
@@ -847,6 +873,40 @@
                       (let ((delta (- v cp)))
                         (set! wbal (- wbal (* delta dt))))))))
             wbal))))
+
+(define (add-wbald-series/gap df)
+
+  (define sid (send df get-property 'session-id))
+  (define cp (send df get-property 'critical-power))
+  (define wprime (send df get-property 'wprime))
+  (define tau (send df get-property 'tau))
+
+  (define tau-rate
+    (if tau (/ (/ wprime cp) tau) 1.0))
+
+  (cond
+    ((and (send df contains? "elapsed" "spd" "grade") cp wprime)
+     (define wbal wprime)
+     (send df add-derived-series/lazy
+           "wbal"
+           (list "elapsed" "spd" "grade")
+           (lambda (prev current)
+             (when (and prev current)
+               (match-define (vector t1 v1 g1) prev)
+               (match-define (vector t2 v2 g2) current)
+               (when (and t1 v1 t2 v2)
+                 (let* ((dt (- t2 t1))
+                        (m (grade->multiplier (* 0.5 (+ g1 g2))))
+                        (v (* m (* 0.5 (+ v1 v2)))))
+                   (if (< v cp)
+                       (let ((rate (/ (- wprime wbal) wprime))
+                             (delta (- cp v)))
+                         (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                       (let ((delta (- v cp)))
+                         (set! wbal (- wbal (* delta dt))))))))
+             wbal)))
+    (#t
+     (add-wbald-series df "spd"))))
 
 ;; Add the W'Bal series to the data frame using the integral method by
 ;; Dr. Phil Skiba.  This is based off the GoldenCheetah implementation, see

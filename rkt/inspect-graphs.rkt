@@ -825,7 +825,8 @@
     (define y-axis-items
       `(("Speed" ,axis-speed ,convert-m/s->speed ,speed->string)
 	("Pace" ,axis-pace ,convert-m/s->pace ,pace->string)
-        ("Zone" ,axis-speed-zone ,(lambda (x) (val->zone x zones)) ,(lambda (x y) (format-48 "~1,1F" x)))))
+        ("Zone" ,axis-speed-zone ,(lambda (x) (val->zone x zones)) ,(lambda (x y) (format-48 "~1,1F" x)))
+        ("GAP" ,axis-gap ,convert-m/s->pace ,pace->string)))
 
     (define/override (get-average-renderer)
       (let ((avg (get-avg-speed)))

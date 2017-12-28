@@ -299,132 +299,140 @@
          )))
 (provide axis-speed)
 
-(define axis-pace
-  (new (class series-metadata% (init) (super-new)
-         (define/override (plot-ticks) (time-ticks #:formats '("~M:~f")))
+(define axis-pace%
+  (class series-metadata% (init) (super-new)
+    (define/override (plot-ticks) (time-ticks #:formats '("~M:~f")))
+    (define/override (axis-label)
+      (if (eq? (al-pref-measurement-system) 'metric)
+          "Pace (min/km)" "Pace (min/mi)"))
+    (define/override (should-filter?) #t)
+    ;; (define/override (y-range) (cons 0 #f))
+    (define/override (inverted-best-avg?) #t)
+    (define/override (series-name) "pace")
+    ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
+    ;; to an integer).  When converting to pace, the minimum delta
+    ;; between two representable pace values is 0.09 (do the maths!) and
+    ;; this assumes that the device writes the speed values with 1 mm
+    ;; precision!  Realistically, precision for the pace values is at
+    ;; best 1 second / km
+    (define/override (histogram-bucket-slot) 1)
+    (define/override (factor-fn sport (sid #f))
+      (let ((zones (sport-zones sport sid 2)))
+        (if zones
+            ;; NOTE: value passed in is in sec/km or sec/mi (NOT
+            ;; minutes), we need to convert it back to meters/sec before
+            ;; we can find the zone.
+            (lambda (val)
+              (if (and (number? val) (> val 0))
+                  (let* ((val-mps (convert-pace->m/s val))
+                         (zone
+                          (val->zone val-mps zones)))
+                    (zone->label zone))
+                  ;; Put invalid values in zone 0
+                  (zone->label 0)))
+            #f)))
+
+    (define/override (factor-colors) (ct:zone-colors))
+
+    (define/override (have-cp-estimate?) #t)
+    
+    (define/override (cp-estimate bavg-fn params)
+      (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
+      ;; Check that the bavg function can provide values for the CP2
+      ;; search range.  The cp2search structure is already validated via
+      ;; a #:guard, so we only need to check that the bavg function is
+      ;; valid at the AEEND point.
+      (and (bavg-fn (cp2search-aeend params))
+           (search-best-cp/exhausive
+            afn params
+            #:cp-precision 3 #:wprime-precision 1)))
+
+    (define/override (pd-function cp-params)
+      (define fn (cp2-fn cp-params))
+      (lambda (t)
+        (let ((spd (fn t)))
+          (if spd (convert-m/s->pace spd) #f))))
+
+    (define/override (pd-data-as-pict cp-params bavgfn)
+      (define metric? (eq? (al-pref-measurement-system) 'metric))
+      (define fn (cp2-fn cp-params))
+      (define dfn
+        (lambda (t)
+          (let ((val (bavgfn t)))
+            (if val (convert-m/s->pace val) #f))))
+
+      (define title (text "Model" pd-title-face))
+      (define dprime (short-distance->string (round (cp2-wprime cp-params))))
+      (define cv (pace->string (cp2-cp cp-params)))
+      (define picts
+        (list (text "CV" pd-label-face)
+              (text cv pd-item-face)
+              (text (if metric? "min/km" "min/mile") pd-label-face)
+              (text "D'" pd-label-face)
+              (text dprime pd-item-face)
+              (text (if metric? "meters" "yards") pd-label-face)))
+      (define p1
+        (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
+
+      (define interval-estimates-time
+        (flatten
+         (for/list ([t '(("5 min" . 300)
+                         ("10 min" . 600)
+                         ("15 min" . 900)
+                         ("20 min" . 1200))])
+           (list (text (car t) pd-label-face)
+                 (text (pace->string (fn (cdr t))) pd-item-face)
+                 (text (let ((val (dfn (cdr t))))
+                         (if val (pace->string val) "N/A"))
+                       pd-item-face)))))
+
+      (define actual-max (find-actual-max dfn 7200))
+
+      (define interval-estimates-distance
+        (flatten
+         (for/list ([t '(("1 km" . 1000.0)
+                         ("1 mile" . 1610.0)
+                         ("5k" . 5000.0)
+                         ("10k" . 10000.0))])
+           (define model-pace (estimate-distance fn (cdr t) 10 actual-max))
+           (define data-pace (estimate-distance dfn (cdr t) 10 actual-max))
+           (list (text (car t) pd-label-face)
+                 (text (if model-pace (pace->string model-pace) "N/A") pd-item-face)
+                 (text (if data-pace (pace->string data-pace) "N/A") pd-item-face)))))
+
+      (define interval-estimates
+        (append
+         (list (text "" pd-label-face)
+               (text "model" pd-label-face)
+               (text "data" pd-label-face))
+         interval-estimates-time
+         interval-estimates-distance))
+
+      (define title2 (text "Estimates" pd-title-face))
+      (define p2
+        (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
+
+      (define p (vc-append 10 p1 p2))
+
+      (cc-superimpose
+       (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
+                                 #:draw-border? #f #:color pd-background)
+       p))
+
+    (define/override (value-formatter)
+      (lambda (p) (pace->string (convert-pace->m/s p))))
+    ))
+
+(define axis-pace (new axis-pace%))
+(provide axis-pace)
+
+(define axis-gap
+  (new (class axis-pace% (init) (super-new)
+         (define/override (series-name) "gap")
          (define/override (axis-label)
            (if (eq? (al-pref-measurement-system) 'metric)
-               "Pace (min/km)" "Pace (min/mi)"))
-         (define/override (should-filter?) #t)
-         ;; (define/override (y-range) (cons 0 #f))
-         (define/override (inverted-best-avg?) #t)
-         (define/override (series-name) "pace")
-         ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
-         ;; to an integer).  When converting to pace, the minimum delta
-         ;; between two representable pace values is 0.09 (do the maths!) and
-         ;; this assumes that the device writes the speed values with 1 mm
-         ;; precision!  Realistically, precision for the pace values is at
-         ;; best 1 second / km
-         (define/override (histogram-bucket-slot) 1)
-         (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 2)))
-             (if zones
-                 ;; NOTE: value passed in is in sec/km or sec/mi (NOT
-                 ;; minutes), we need to convert it back to meters/sec before
-                 ;; we can find the zone.
-                 (lambda (val)
-                   (if (and (number? val) (> val 0))
-                       (let* ((val-mps (convert-pace->m/s val))
-                              (zone
-                               (val->zone val-mps zones)))
-                         (zone->label zone))
-                       ;; Put invalid values in zone 0
-                       (zone->label 0)))
-                 #f)))
-
-         (define/override (factor-colors) (ct:zone-colors))
-
-         (define/override (have-cp-estimate?) #t)
-         
-         (define/override (cp-estimate bavg-fn params)
-           (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
-           ;; Check that the bavg function can provide values for the CP2
-           ;; search range.  The cp2search structure is already validated via
-           ;; a #:guard, so we only need to check that the bavg function is
-           ;; valid at the AEEND point.
-           (and (bavg-fn (cp2search-aeend params))
-                (search-best-cp/exhausive
-                 afn params
-                 #:cp-precision 3 #:wprime-precision 1)))
-
-         (define/override (pd-function cp-params)
-           (define fn (cp2-fn cp-params))
-           (lambda (t)
-             (let ((spd (fn t)))
-               (if spd (convert-m/s->pace spd) #f))))
-
-         (define/override (pd-data-as-pict cp-params bavgfn)
-           (define metric? (eq? (al-pref-measurement-system) 'metric))
-           (define fn (cp2-fn cp-params))
-           (define dfn
-             (lambda (t)
-               (let ((val (bavgfn t)))
-                 (if val (convert-m/s->pace val) #f))))
-
-           (define title (text "Model" pd-title-face))
-           (define dprime (short-distance->string (round (cp2-wprime cp-params))))
-           (define cv (pace->string (cp2-cp cp-params)))
-           (define picts
-             (list (text "CV" pd-label-face)
-                   (text cv pd-item-face)
-                   (text (if metric? "min/km" "min/mile") pd-label-face)
-                   (text "D'" pd-label-face)
-                   (text dprime pd-item-face)
-                   (text (if metric? "meters" "yards") pd-label-face)))
-           (define p1
-             (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
-
-           (define interval-estimates-time
-             (flatten
-              (for/list ([t '(("5 min" . 300)
-                              ("10 min" . 600)
-                              ("15 min" . 900)
-                              ("20 min" . 1200))])
-                (list (text (car t) pd-label-face)
-                      (text (pace->string (fn (cdr t))) pd-item-face)
-                      (text (let ((val (dfn (cdr t))))
-                              (if val (pace->string val) "N/A"))
-                            pd-item-face)))))
-
-           (define actual-max (find-actual-max dfn 7200))
-
-           (define interval-estimates-distance
-             (flatten
-              (for/list ([t '(("1 km" . 1000.0)
-                              ("1 mile" . 1610.0)
-                              ("5k" . 5000.0)
-                              ("10k" . 10000.0))])
-                (define model-pace (estimate-distance fn (cdr t) 10 actual-max))
-                (define data-pace (estimate-distance dfn (cdr t) 10 actual-max))
-                (list (text (car t) pd-label-face)
-                      (text (if model-pace (pace->string model-pace) "N/A") pd-item-face)
-                      (text (if data-pace (pace->string data-pace) "N/A") pd-item-face)))))
-
-           (define interval-estimates
-             (append
-              (list (text "" pd-label-face)
-                    (text "model" pd-label-face)
-                    (text "data" pd-label-face))
-              interval-estimates-time
-              interval-estimates-distance))
-
-           (define title2 (text "Estimates" pd-title-face))
-           (define p2
-             (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
-
-           (define p (vc-append 10 p1 p2))
-
-           (cc-superimpose
-            (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
-                                      #:draw-border? #f #:color pd-background)
-            p))
-
-         (define/override (value-formatter)
-           (lambda (p) (pace->string (convert-pace->m/s p))))
-
-
-         )))
-(provide axis-pace)
+               "Grade Adjusted Pace (min/km)" "Grade Adjusted Pace (min/mi)")))))
+(provide axis-gap)
 
 (define axis-speed-zone
   (new (class series-metadata% (init) (super-new)
