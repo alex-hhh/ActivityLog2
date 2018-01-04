@@ -22,6 +22,7 @@
          racket/list
          racket/math
          racket/string
+         racket/match
          "activity-edit.rkt"
          "fmt-util.rkt"
          "icon-resources.rkt"
@@ -80,11 +81,16 @@
 ;; the earliest and latest session recorded.  We use it to limit the range of
 ;; calendar movements only to these ranges.
 (define (get-calendar-date-range db)
-  (let ((row (query-maybe-row
+  (let ((row (query-row
               db "select min(S.start_time), max(S.start_time) from A_SESSION S")))
-    (if row
-        (values (vector-ref row 0) (vector-ref row 1))
-        (values #f #f))))
+    ;; NOTE: row will always exist, as we are selecting min() and max(),
+    ;; however they might be NULL if there are no sessions in the database
+    (match-define (vector start end) row)
+    (if (or (sql-null? start) (sql-null? end))
+        (let ((now (current-seconds)))
+          ;; Return the current year only...
+          (values now now))
+        (values start end))))
 
 
 ;;....................................................... date utilities ....
