@@ -173,6 +173,7 @@
     (when schema-file
       (maybe-create-schema database-file schema-file db progress-callback))
     (query-exec db "pragma foreign_keys = on")
+    (query-exec db "pragma cache_size = 4000")
     (when expected-version
       (let ((actual-version (query-value db "select version from SCHEMA_VERSION")))
         (unless (and (number? actual-version)
