@@ -751,13 +751,16 @@
         (let-values (([row col] (day-index->row-col cell)))
           (rebuild-totals row))))
 
-    (define/augment (after-move-to snip x y dragging?)
-      ;; put the snip being dragged in front, so it is de
-      (if dragging?
-          (set-before snip #f)
-          (let* ((start-time (send snip get-start-time))
-                 (cell (seconds->day-index start-time)))
-            (arrange-snips-in-cell cell))))
+    (define/augment (after-interactive-move event)
+      (let loop ((cells '())
+                 (snip (send this find-next-selected-snip #f)))
+        (if snip
+            (let* ((start-time (send snip get-start-time))
+                   (cell (seconds->day-index start-time)))
+              (loop (cons cell cells)
+                    (send this find-next-selected-snip snip)))
+            (for ((cell (remove-duplicates cells)))
+              (arrange-snips-in-cell cell)))))
 
     (define/augment (on-select snip on?)
       (send snip select on?)
