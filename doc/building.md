@@ -7,16 +7,15 @@ This can be downloaded from "http://racket-lang.org/".  ActivityLog2 is build
 and tested using the latest Racket version and previous versions may or may
 not work.
 
-To create a windows installer you will need to
-install [Inno Setup](http://www.jrsoftware.org/isinfo.php) and compile the
-"setup.iss" file.
+To create a windows installer you will need to install [Inno
+Setup](http://www.jrsoftware.org/isinfo.php) and compile the "setup.iss" file.
 
-## Weather and Map Tile API Keys
+## API Keys for web services
 
 ActivityLog2 uses web services for some of the functionality.  Currently two
 services are used: [Wunderground](https://www.wunderground.com/) is used to
-retrieve weather data for an activity
-and [Thunderforest](http://thunderforest.com/) is used for map tiles.  These
+retrieve weather data for an activity and
+[Thunderforest](http://thunderforest.com/) is used for map tiles.  These
 services require API keys to access them.  The built version of the
 applications has these API keys embedded, however the keys are kept separately
 from the code base.
@@ -72,22 +71,51 @@ encounter load errors when trying to run ActivityLog2.
 
 ## Debugging tips
 
+### Log messages and exceptions
+
 When ActivityLog2 throws an exception it can be logged in two places: the
-console or the log file.  The log file is located in
-"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log" (for other platforms, see
-`maybe-init-log-port` in "rkt/dbglog.rkt").  In particular, exceptions thrown
+console or the log file.  On a Windows machine, the log file is located in
+"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log", for other platforms, see
+`maybe-init-log-port` in "rkt/dbglog.rkt".  In particular, exceptions thrown
 from separate threads will be logged in the log file.
 
-To enable stack traces in exceptions, first remove all your compiled files
-from the "compiled" folders, than run (this will take a long time to load and
-will run slow):
+The `dbglog`, `dbglog-exception` and `thread/dbglog` functions, defined in
+"rtk/utilities.rkt" can also be used to add additional logging as needed.
+These log messages will go in the log file.
+
+### Stack traces for exceptions
+
+By default, the exceptions that are logged will not contain a stack trace --
+this makes it difficult to identify where an exception occurred.  To enable
+stack traces in exceptions, first remove all your compiled files from the
+"compiled" folders, than run the command below.  This will take a long time to
+load and will run slow:
 
     racket -l errortrace -t run.rkt
+
+### Tracing function calls
+
+The "rkt/al-profiler.rkt" module contain definitions which allow tracing
+individual function calls.  It is more practical than the "trace" module
+shipped with Racket, as it allows to explicitly specify which functions to
+trace.  To use it, require the "al-profiler.rkt" module and replace `define`
+calls with `define/trace` calls.  This also works for method names, where
+`define/public` can be replaced with `define/public/trace`.
+
+The "rkt/al-profiler.rkt" also contains a small profiler, see that file for
+more details.
+
+### Test suite
 
 ActivityLog2 has a small test suite.  Tests can be run using:
 
     raco test test/db-test.rkt
     raco test test/df-test.rkt
+
+### Database stuff
+
+    pragma integrity_check
+    pragma foreign_key_check
 
 ## Database management
 
