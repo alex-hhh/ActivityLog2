@@ -1333,6 +1333,15 @@
 
 (provide mk-inverse)
 
+(define (mk-invertible-function best-avg-aux best-avg zero-base?)
+  (let-values ([(smin smax tmin tmax)
+                (get-transform-params best-avg-aux best-avg zero-base?)])
+    (invertible-function
+     (lambda (v) (inv-transform v smin smax tmin tmax))
+     (lambda (v) (transform v smin smax tmin tmax)))))
+
+(provide mk-invertible-function)
+
 ;; Normalize (transform) the values in BEST-AVG-AUX so that they can be
 ;; displayed on the BEST-AVG plot.
 (define (normalize-aux best-avg-aux best-avg [zero-base? #t])

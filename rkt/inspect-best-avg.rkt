@@ -394,13 +394,15 @@
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
               (if best-avg-aux-data
-                  (let ((ivs (mk-inverse best-avg-aux-data best-avg-data zero-base?)))
+                  (let ((ivs (mk-invertible-function best-avg-aux-data best-avg-data zero-base?)))
                     (parameterize ([plot-x-ticks (best-avg-ticks)]
                                    [plot-x-label "Duration"]
                                    [plot-x-transform log-transform]
+                                   [plot-x-tick-label-anchor 'top-right]
+                                   [plot-x-tick-label-angle 30]
                                    [plot-y-ticks (send best-avg-axis plot-ticks)]
                                    [plot-y-label (send best-avg-axis axis-label)]
-                                   [plot-y-far-ticks (transform-ticks (send aux-axis plot-ticks) ivs)]
+                                   [plot-y-far-ticks (ticks-scale (send aux-axis plot-ticks) ivs)]
                                    [plot-y-far-label (send aux-axis axis-label)])
                       (plot-snip/hack plot-pb rt
                                       #:x-min min-x #:x-max max-x
@@ -409,6 +411,8 @@
                 (parameterize ([plot-x-ticks (best-avg-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
+                               [plot-x-tick-label-anchor 'top-right]
+                               [plot-x-tick-label-angle 30]
                                [plot-y-ticks (send best-avg-axis plot-ticks)]
                                [plot-y-label (send best-avg-axis axis-label)])
                   (plot-snip/hack plot-pb rt
