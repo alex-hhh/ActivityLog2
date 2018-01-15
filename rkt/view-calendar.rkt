@@ -989,21 +989,28 @@
                 (loop (send snip next)))
             #f)))
 
-    (define (maybe-update sid)
+    (define (maybe-update sid) 
       (let ((snip (find-snip-by-sid sid)))
         (when snip
-          (send snip refresh (get-session-by-id sid database)))))
+          (send snip refresh (get-session-by-id sid database))
+          ;; The refresh below forces the re-display of the totals column
+          (send (send the-calendar get-canvas) refresh))))
 
     (define (maybe-delete sid)
       (let ((snip (find-snip-by-sid sid)))
-        (send the-calendar please-delete snip)))
+        (when snip
+          (send the-calendar please-delete snip)
+          ;; The refresh below forces the re-display of the totals column
+          (send (send the-calendar get-canvas) refresh))))
 
     (define (maybe-add sid)
       (let* ((row (get-session-by-id sid database))
              (snip (new calendar-item-snip% [db-row row])))
         ;; Will silently fail if the new sid is outside the date range of the
         ;; calendar
-        (send the-calendar insert snip)))
+        (send the-calendar insert snip)
+        ;; The refresh below forces the re-display of the totals column
+        (send (send the-calendar get-canvas) refresh)))
 
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the calendar
