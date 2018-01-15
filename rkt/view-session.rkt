@@ -420,7 +420,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
                  (lambda ()
                    (when (eq? session-id data)
                      (set-session #f)))))
-               ((session-updated)
+               ((session-updated weather-data-changed)
                 (queue-callback
                  (lambda ()
                    (when (eq? session-id data)

@@ -690,7 +690,10 @@ select X.session_id
             ;; Process changes that happened while we were inactive
             (for ((sid (hash-ref events 'session-deleted '())))
               (maybe-delete sid))
-            (for ((sid (hash-ref events 'session-updated '())))
+            (for ((sid (remove-duplicates
+                        (append
+                         (hash-ref events 'session-updated '())
+                         (hash-ref events 'weather-data-changed '())))))
               (maybe-update sid))
             (let ((new-sids (hash-ref events 'session-created #f)))
               (when new-sids

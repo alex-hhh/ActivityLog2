@@ -23,7 +23,8 @@
          "sport-charms.rkt"
          "dbutil.rkt"
          "weather.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "utilities.rkt")
 
 (provide get-weather-editor)
 
@@ -439,7 +440,7 @@ from SESSION_WEATHER where session_id =?" sid)))
                                    (sql-column-ref row 6 0)
                                    (sql-column-ref row 7 0)
                                    (sql-column-ref row 8 0))))
-                     (setup-weather-fields wobs #f)))
+                     (setup-weather-fields wo #f)))
                   ((maybe-select-wstation wstation timestamp)
                    (on-weather-source-changed 'nearby)
                    (send wsource-choice set-selection 0))
@@ -516,7 +517,8 @@ from SESSION_WEATHER where session_id =?" sid)))
          
       (let ((result (send this do-edit parent)))
         (when (and result (has-valid-data?))
-          (save-weather-data database sid))
+          (save-weather-data database sid)
+          (log-event 'weather-data-changed sid))
         result))
 
     ))
