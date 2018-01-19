@@ -33,7 +33,8 @@
          "icon-resources.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "utilities.rkt")
 
 (provide view-reports%)
 
@@ -1075,6 +1076,8 @@
 
     (define date-range-field #f)
 
+    (define change-notification-source (make-log-event-source))
+
     (define the-reports
       (list
        (list "Volume by Week"
@@ -1273,12 +1276,25 @@
             (send (get-sql-export-dialog)
                   show-dialog (send the-pane get-top-level-window) query)))))
 
-    (define dirty? #t)
+    (define first-time? #t)
 
     (define/public (activated)
-      (when dirty?
+      ;; Get the full list of events, but we will discard them if the view is
+      ;; activated the first time and has to do a full refresh anyway
+      (define events (collect-events change-notification-source))
+      (when (or first-time?
+                ;; Check if anything changed that potentially affects the
+                ;; reports.  Currently sessions and athlete-metrics changes
+                ;; are in this list.  We don't check if a session actually
+                ;; affects a report, so we might refresh more than necessary.
+                (hash-ref events 'session-updated #f)
+                (hash-ref events 'session-created #f)
+                (hash-ref events 'session-deleted #f)
+                (hash-ref events 'athlete-metrics-updated #f)
+                (hash-ref events 'athlete-metrics-created #f)
+                (hash-ref events 'athlete-metrics-deleted #f))
         (refresh)
-        (set! dirty? #f)))
+        (set! first-time? #f)))
 
     (define/public (refresh)
       (send date-range-field set-seasons (db-get-seasons the-database))

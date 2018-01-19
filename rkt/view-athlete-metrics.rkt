@@ -35,6 +35,22 @@
   (let ((tail (member a (reverse b))))
     (if tail (length (cdr tail)) #f)))
 
+;; Helper SQL for GET-SESSIONS-FOR-ATHLETE-METRICS
+(define sessions-for-am
+  (virtual-statement
+   (lambda (dbsys)
+     "select distinct S.id
+  from ATHLETE_METRICS AM, A_SESSION S
+ where AM.id = ?
+   and S.start_time between AM.timestamp - 84600 and AM.timestamp + 86400")))
+
+;; Return the session IDs that are "linked" to an ATHLETE_METRICS entry
+;; ATHLETE-METRICS-ID.  Since there are no foreign key relationships for this,
+;; we look up sessions that are between + and - 24 hours of the athlete
+;; metrics entry.
+(define (get-sessions-for-athlete-metrics db athlete-metrics-id)
+  (query-list db sessions-for-am athlete-metrics-id))
+
 
 ;;........................................ athlete-metrics-operations<%> ....
 
@@ -78,6 +94,13 @@
           (error "athlete-metrics-operations-menu%/on-edit: bad id" id))
         (when (send (get-edit-athlete-metrics-dialog) show-dialog tl db id)
           (log-event 'athlete-metrics-updated id)
+          ;; Signal that sessions have changed as well.  This currently only
+          ;; affects the activity list view which lists body weight for a
+          ;; session, the session itself has technically not changed.  Also,
+          ;; since multiple metrics can be present, it is not a guarantee that
+          ;; the metrics we updated actually affect the sessions we signal.
+          (for ((sid (get-sessions-for-athlete-metrics db id)))
+            (log-event 'session-updated sid))
           (send target after-update id))))
 
     (define (on-new m e)
@@ -86,6 +109,9 @@
         (let ((id (send (get-edit-athlete-metrics-dialog) show-dialog tl db #f)))
           (when id
             (log-event 'athlete-metrics-created id)
+            ;; Same considerations as for updating athlete metrics.
+            (for ((sid (get-sessions-for-athlete-metrics db id)))
+              (log-event 'session-updated sid))
             (send target after-new id)))))
 
     (define (on-delete m e)
@@ -99,6 +125,11 @@
                         (format "Really delete metrics?~%This cannot be undone.")
                         #f "Delete" "Cancel" tl '(caution default=3))))
           (when (eqv? mresult 2)
+            ;; Do this first, after we delete the athlete metrics, we won't be
+            ;; able to retrieve the sessions that are affected by this.
+            ;; Otherwise, same considerations as for updating athlete metrics.
+            (for ((sid (get-sessions-for-athlete-metrics db id)))
+              (log-event 'session-updated sid))
             (delete-athlete-metrics db id)
             (log-event 'athlete-metrics-deleted id)
             (send target after-delete id)))))
