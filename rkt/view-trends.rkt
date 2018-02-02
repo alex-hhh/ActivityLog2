@@ -22,7 +22,7 @@
  racket/runtime-path
  "utilities.rkt"
  "widgets.rkt"
- "snip-canvas.rkt"
+ "plot-util.rkt"
  "icon-resources.rkt"
  "trends-bw.rkt"
  "trends-vol.rkt"

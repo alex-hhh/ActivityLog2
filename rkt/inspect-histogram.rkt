@@ -23,7 +23,7 @@
          "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"
-         "snip-canvas.rkt"
+         "plot-util.rkt"
          "data-frame.rkt"
          "widgets.rkt")
 

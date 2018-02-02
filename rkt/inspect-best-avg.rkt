@@ -29,7 +29,7 @@
          "dbapp.rkt"
          "metrics.rkt"
          "plot-hack.rkt"
-         "snip-canvas.rkt"
+         "plot-util.rkt"
          "bavg-util.rkt"
          "pdmodel.rkt")
 
@@ -288,32 +288,6 @@
     (define pd-model-snip #f)
     (define saved-pd-model-snip-location #f)
 
-    (define (get-location snip)
-      (if snip
-          (let* ((x (box 0))
-                 (y (box 0))
-                 (a (send snip get-admin))
-                 (e (if a (send a get-editor) #f)))
-            (if e
-                (if (send e get-snip-location snip x y #f)
-                    (cons (unbox x) (unbox y))
-                    #f)
-                #f))
-          #f))
-
-    (define (place-snip snip location)
-      (match-let (((cons x y) (or location
-                                  saved-pd-model-snip-location
-                                  (cons 50 50))))
-        (define editor (send (send snip get-admin) get-editor))
-        (define canvas (send editor get-canvas))
-        ;; Adjust the coordinates X Y such that the snip is placed inside the
-        ;; canvas.
-        (let-values (((width height) (send canvas get-size)))
-          (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
-                (adjusted-y (max 0 (min y (- height (snip-height snip))))))
-            (send editor move-to snip adjusted-x adjusted-y)))))
-
     (define (current-sport)
       (if data-frame (send data-frame get-property 'sport) #f))
 
@@ -389,7 +363,7 @@
                 (aux-axis (get-aux-axis))
                 ;; get the location of the pd-model-snip here, it will be lost
                 ;; once we insert a new plot in the canvas.
-                (saved-location (get-location pd-model-snip)))
+                (saved-location (get-snip-location pd-model-snip)))
             (let-values (((min-x max-x min-y max-y) (plot-bounds (get-series-axis) zero-base? best-avg-data bests-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
@@ -426,11 +400,11 @@
                        (pict (send best-avg-axis pd-data-as-pict cp-data fn)))
                   (set! pd-model-snip (new pict-snip% [pict pict]))
                   (send plot-pb set-floating-snip pd-model-snip)
-                  (place-snip pd-model-snip saved-location))))))))
+                  (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location)))))))))
 
     (define (refresh-plot)
       (set! saved-pd-model-snip-location
-            (or (get-location pd-model-snip)
+            (or (get-snip-location pd-model-snip)
                 saved-pd-model-snip-location))
       (set! plot-rt #f)
       (set! pd-model-snip #f)
@@ -568,7 +542,7 @@
             'aux-series-name (and aux-axis (send aux-axis series-name))
             'period-name (first period)
             'zero-base? zero-base?
-            'pd-model-snip-location (get-location pd-model-snip))))))
+            'pd-model-snip-location (get-snip-location pd-model-snip))))))
 
     (define (restore-params-for-series)
       (set! inhibit-refresh (add1 inhibit-refresh))

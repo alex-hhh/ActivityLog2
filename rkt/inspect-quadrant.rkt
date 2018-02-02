@@ -32,7 +32,7 @@
          racket/match
          plot
          "data-frame.rkt"
-         "snip-canvas.rkt"
+         "plot-util.rkt"
          "plot-hack.rkt"
          "series-meta.rkt"
          "sport-charms.rkt"

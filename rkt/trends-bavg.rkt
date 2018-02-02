@@ -35,7 +35,7 @@
  "series-meta.rkt"
  "metrics.rkt"
  "spline-interpolation.rkt"
- "snip-canvas.rkt"
+ "plot-util.rkt"
  "utilities.rkt"
  "pdmodel.rkt"
  "bavg-util.rkt")
@@ -513,29 +513,6 @@
     (define pd-model-snip #f)
     (define saved-pd-model-snip-location #f)
 
-    (define (get-location snip)
-      (if snip
-          (let ((x (box 0))
-                (y (box 0))
-                (e (send (send snip get-admin) get-editor)))
-            (if (send e get-snip-location snip x y #f)
-                (cons (unbox x) (unbox y))
-                #f))
-          #f))
-
-    (define (place-snip snip location)
-      (match-let (((cons x y) (or location
-                                  saved-pd-model-snip-location
-                                  (cons 50 50))))
-        (define editor (send (send snip get-admin) get-editor))
-        (define canvas (send editor get-canvas))
-        ;; Adjust the coordinates X Y such that the snip is placed inside the
-        ;; canvas.
-        (let-values (((width height) (send canvas get-size)))
-          (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
-                (adjusted-y (max 0 (min y (- height (snip-height snip))))))
-            (send editor move-to snip adjusted-x adjusted-y)))))
-
     (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
@@ -584,7 +561,7 @@
       (let ((previous-data cached-data)
             (params (send this get-params))
             (saved-generation generation)
-            (saved-location (get-location pd-model-snip)))
+            (saved-location (get-snip-location pd-model-snip)))
         (send canvas set-snip #f)
         (send canvas set-background-message "Working...")
         (if params
@@ -608,7 +585,7 @@
                     (when (tbavg-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tbavg-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)
-                      (place-snip pd-model-snip saved-location)))))))
+                      (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location))))))))
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))
@@ -627,7 +604,7 @@
     (define/override (get-restore-data)
       (define sdata (super get-restore-data))
       (if (hash? sdata)
-          (let ((location (or (get-location pd-model-snip)
+          (let ((location (or (get-snip-location pd-model-snip)
                               saved-pd-model-snip-location)))
             (if location
                 (hash-set sdata 'pd-model-location location)
