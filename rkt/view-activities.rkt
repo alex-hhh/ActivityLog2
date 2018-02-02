@@ -691,9 +691,18 @@ select X.session_id
             (for ((sid (hash-ref events 'session-deleted '())))
               (maybe-delete sid))
             (for ((sid (remove-duplicates
-                        (append
+                        (append*
                          (hash-ref events 'session-updated '())
-                         (hash-ref events 'weather-data-changed '())))))
+                         (hash-ref events 'weather-data-changed '())
+                         ;; Athlete metrics updates also list sessions which
+                         ;; might be affected by their change as part of their
+                         ;; data.
+                         (for/list ((aid
+                                     (append
+                                      (hash-ref events 'athlete-metrics-created '())
+                                      (hash-ref events 'athlete-metrics-updated '())
+                                      (hash-ref events 'athlete-metrics-deleted '()))))
+                           (if (null? aid) '() (cdr aid)))))))
               (maybe-update sid))
             (let ((new-sids (hash-ref events 'session-created #f)))
               (when new-sids

@@ -547,6 +547,11 @@
     (define/override (invalidate-data)
       (set! cached-data #f))
 
+    (define/override (is-invalidated-by-events? events)
+      (or (hash-ref events 'session-deleted #f)
+          (hash-ref events 'session-updated #f)
+          (hash-ref events 'session-created #f)))
+
     (define/override (export-data-to-file file formatted?)
       (when cached-data
         (call-with-output-file file export-data-as-csv

@@ -172,7 +172,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (send (get-weather-editor) begin-edit toplevel db sid)
-          (log-event 'session-updated sid)
+          ;; NOTE: weather-data-changed event is raised by the weather editor!
           (send target after-update sid))))
 
     (define (on-edit-lap-swim m e)

@@ -348,6 +348,11 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (is-invalidated-by-events? events)
+      (or (hash-ref events 'session-deleted #f)
+          (hash-ref events 'session-created #f)
+          (hash-ref events 'session-updated #f)))
+
     (define/override (export-data-to-file file formatted?)
       (when tt-data
         (call-with-output-file file

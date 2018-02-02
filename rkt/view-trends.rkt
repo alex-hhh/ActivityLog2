@@ -197,18 +197,21 @@
       (send trend-chart get-title))
 
     (define/public (activate)
-      (when first-activation?
-        (refresh-chart)))
-    
-    (define/public (refresh-chart)
-      (send trend-chart invalidate-data)
-      (send trend-chart put-plot-snip graph-pb)
+      (refresh-chart first-activation?)
       (set! first-activation? #f))
+
+    ;; Refresh the chart if the chart indicates that it needs to be refreshed
+    ;; (e.g. if the underlying data has changed).  If force? is #t, force a
+    ;; refresh.
+    (define/public (refresh-chart (force? #f))
+      (when (or force? (send trend-chart need-refresh?))
+        (send trend-chart invalidate-data)
+        (send trend-chart put-plot-snip graph-pb)))
 
     (define/public (interactive-setup parent)
       (if (send trend-chart interactive-setup parent)
           (begin
-            (refresh-chart)
+            (refresh-chart #t)
             #t)
           #f))
 
@@ -447,16 +450,21 @@
         
     (define first-activation #t)
 
-    (define/public (activated)
-      (when first-activation
-        (restore-previous-charts)
-        (set! first-activation #f)))
-
-    (define/public (refresh)
+    (define (refresh-current-trends-chart (force? #f))
       (let ((n (send trend-charts-panel get-selection)))
         (when n
           (let ((c (list-ref trend-charts n)))
-            (send c refresh-chart)))))
+            (when c
+              (send c refresh-chart force?))))))
+
+    (define/public (activated)
+      (if first-activation
+          (restore-previous-charts)
+          (refresh-current-trends-chart))
+      (set! first-activation #f))
+
+    (define/public (refresh)
+      (refresh-current-trends-chart #t))
 
     (define/public (save-visual-layout)
       ;; Charts for this view are loaded on first activation (see `activate'),

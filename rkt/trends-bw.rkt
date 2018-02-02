@@ -148,6 +148,11 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (is-invalidated-by-events? events)
+      (or (hash-ref events 'athlete-metrics-deleted #f)
+          (hash-ref events 'athlete-metrics-updated #f)
+          (hash-ref events 'athlete-metrics-created #f)))
+
     (define/override (export-data-to-file file formatted?)
       (when bw-data
         (call-with-output-file file export-data-as-csv

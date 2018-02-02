@@ -93,14 +93,13 @@
         (unless id
           (error "athlete-metrics-operations-menu%/on-edit: bad id" id))
         (when (send (get-edit-athlete-metrics-dialog) show-dialog tl db id)
-          (log-event 'athlete-metrics-updated id)
           ;; Signal that sessions have changed as well.  This currently only
           ;; affects the activity list view which lists body weight for a
           ;; session, the session itself has technically not changed.  Also,
           ;; since multiple metrics can be present, it is not a guarantee that
           ;; the metrics we updated actually affect the sessions we signal.
-          (for ((sid (get-sessions-for-athlete-metrics db id)))
-            (log-event 'session-updated sid))
+          (let ((sids (get-sessions-for-athlete-metrics db id)))
+            (log-event 'athlete-metrics-updated (cons id sids)))
           (send target after-update id))))
 
     (define (on-new m e)
@@ -108,10 +107,8 @@
             (tl (send target get-top-level-window)))
         (let ((id (send (get-edit-athlete-metrics-dialog) show-dialog tl db #f)))
           (when id
-            (log-event 'athlete-metrics-created id)
-            ;; Same considerations as for updating athlete metrics.
-            (for ((sid (get-sessions-for-athlete-metrics db id)))
-              (log-event 'session-updated sid))
+            (let ((sids (get-sessions-for-athlete-metrics db id)))
+              (log-event 'athlete-metrics-created (cons id sids)))
             (send target after-new id)))))
 
     (define (on-delete m e)
@@ -128,11 +125,10 @@
             ;; Do this first, after we delete the athlete metrics, we won't be
             ;; able to retrieve the sessions that are affected by this.
             ;; Otherwise, same considerations as for updating athlete metrics.
-            (for ((sid (get-sessions-for-athlete-metrics db id)))
-              (log-event 'session-updated sid))
-            (delete-athlete-metrics db id)
-            (log-event 'athlete-metrics-deleted id)
-            (send target after-delete id)))))
+            (let ((sids (get-sessions-for-athlete-metrics db id)))
+              (delete-athlete-metrics db id)
+              (log-event 'athlete-metrics-deleted (cons id sids))
+              (send target after-delete id))))))
 
     (define the-menu
       (if menu-bar
@@ -358,11 +354,15 @@
             (set! first-time? #f)
             (refresh))
           (begin
-            ;; Process changes that happened while we were inactive
+            ;; Process changes that happened while we were inactive.  NOTE
+            ;; that the data for these events is a list of ids.  The first one
+            ;; is the ID of the ATHLETE_METRICS entry, the remaining IDs are
+            ;; for the session ids that might be affected by this change.  We
+            ;; are only interested in the first ID, therefore the `(car aid)`
             (for ((aid (hash-ref events 'athlete-metrics-deleted '())))
-              (maybe-delete aid))
+              (maybe-delete (car aid)))
             (for ((aid (hash-ref events 'athlete-metrics-updated '())))
-              (maybe-update aid))
+              (maybe-update (car aid)))
              (let ((new-aids (hash-ref events 'athlete-metrics-created #f)))
                (when new-aids
                  ;; lazy way out.  We should really check if we need to

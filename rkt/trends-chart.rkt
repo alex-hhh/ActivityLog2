@@ -25,7 +25,8 @@
  racket/match
  "database.rkt"
  "widgets.rkt"
- "al-widgets.rkt")
+ "al-widgets.rkt"
+ "utilities.rkt")
 
 (provide
  (struct-out tc-params)
@@ -162,8 +163,11 @@
     ;; The parameters for the chart, a struct derived from tc-params
     (define params #f)
 
+    ;; Used to receive notifications about changed sessions, etc.
+    (define change-notification-source (make-log-event-source))
+
     ;; Create a new settings dialog for this class.  This needs to be
-    ;; overriden.
+    ;; overridden.
     (define/public (make-settings-dialog)
       #f)
 
@@ -171,6 +175,23 @@
     ;; chart will need to be updated.  This needs to be overriden.
     (define/public (invalidate-data)
       #f)
+
+    ;; Return #t if this trends chart needs to be refreshed because the
+    ;; underlying session data has changed.
+    (define/public (need-refresh?)
+      (define events (collect-events change-notification-source))
+      (is-invalidated-by-events? events))
+
+    ;; Return true if the data in this trend chart is invalidated by EVENTS as
+    ;; returned by 'collect-events'.  This method should not invalidate the
+    ;; data -- 'invalidate-data' is used for that.
+    ;;
+    ;; The default implementation will return true if anything has changed in
+    ;; the database.  Individual trends charts might override this method to
+    ;; return true only for a subset of the events (e.g. the body weight chart
+    ;; should only be updated if athlete metrics are changed).
+    (define/public (is-invalidated-by-events? events)
+      (> (hash-count events) 0))
 
     ;; Construct a new plot snip for the chart and insert it into CANVAS.  A
     ;; new plot snip needs to be constructed every time even if the data for

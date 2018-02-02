@@ -253,6 +253,11 @@
     (define/override (invalidate-data)
       (set! data-valid? #f))
 
+    (define/override (is-invalidated-by-events? events)
+      (or (hash-ref events 'session-deleted #f)
+          (hash-ref events 'session-created #f)
+          (hash-ref events 'session-updated #f)))
+
     (define (get-y-label)
       (let ((metric (trivol-params-metric (send this get-params))))
         (case metric
