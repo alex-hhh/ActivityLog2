@@ -238,7 +238,17 @@
 
     ;; Return a function (-> number? string?) which formats a value of this
     ;; series into a string.
-    (define/public (value-formatter) #f)
+    (define/public (value-formatter)
+      (lambda (p)
+        (if (rational? p)
+            (~r p #:precision (fractional-digits))
+            (~a p))))
+
+    ;; Return the name of the values in this series (e.g. "Pace", "Power",
+    ;; etc).
+    (define/public (name)
+      "Unnamed")
+
     ))
 
 (provide series-metadata%)
@@ -251,7 +261,9 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Distance (km)" "Distance (mi)"))
          (define/override (series-name) "distance")
-         (define/override (fractional-digits) 2))))
+         (define/override (fractional-digits) 2)
+         (define/override (name) "Distance")
+         )))
 
 (provide axis-distance)
 
@@ -261,7 +273,9 @@
          (define/override (has-stop-detection?) #t)
          (define/override (filter-width) 5.0) ; seconds
          (define/override (axis-label) "Elapsed Time (hour:min)")
-         (define/override (series-name) "elapsed"))))
+         (define/override (series-name) "elapsed")
+         (define/override (name) "Elapsed Time")
+         )))
 (provide axis-elapsed-time)
 
 (define axis-timer-time
@@ -270,6 +284,7 @@
          (define/override (has-stop-detection?) #f)
          (define/override (filter-width) 5.0)
          (define/override (axis-label) "Time (hour:min)")
+         (define/override (name) "Time")
          (define/override (series-name) "timer"))))
 (provide axis-timer-time)
 
@@ -281,6 +296,7 @@
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (series-name) "speed")
+         (define/override (name) "Speed")
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
@@ -309,6 +325,7 @@
     ;; (define/override (y-range) (cons 0 #f))
     (define/override (inverted-best-avg?) #t)
     (define/override (series-name) "pace")
+    (define/override (name) "Pace")
     ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
     ;; to an integer).  When converting to pace, the minimum delta
     ;; between two representable pace values is 0.09 (do the maths!) and
@@ -429,6 +446,7 @@
 (define axis-gap
   (new (class axis-pace% (init) (super-new)
          (define/override (series-name) "gap")
+         (define/override (name) "GAP")
          (define/override (axis-label)
            (if (eq? (al-pref-measurement-system) 'metric)
                "Grade Adjusted Pace (min/km)" "Grade Adjusted Pace (min/mi)")))))
@@ -441,6 +459,7 @@
          ;; (define/override (y-range) (cons 0 #f))
          (define/override (series-name) "speed-zone")
          (define/override (fractional-digits) 2)
+         (define/override (name) "Speed Zone")
 
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
@@ -456,6 +475,7 @@
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #t)
          (define/override (series-name) "alt")
+         (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
          )))
 (provide axis-elevation)
@@ -467,6 +487,7 @@
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #t)
          (define/override (series-name) "calt")
+         (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
          )))
 (provide axis-corrected-elevation)
@@ -477,6 +498,7 @@
          (define/override (axis-label) "Grade (%)")
          (define/override (series-name) "grade")
          (define/override (histogram-bucket-slot) 0.01)
+         (define/override (name) "Slope")
          (define/override (fractional-digits) 2)
          )))
 (provide axis-grade)
@@ -489,6 +511,7 @@
          (define/override (axis-label) "Descent (%)")
          (define/override (series-name) "grade")
          (define/override (fractional-digits) 1)
+         (define/override (name) "Slope")
          (define/override (inverted-best-avg?) #t))))
 (provide axis-grade-inverted)
 
@@ -497,6 +520,7 @@
          (define/override (axis-label) "Heart Rate (bpm)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "hr")
+         (define/override (name) "HR")
 
          (define/override (factor-fn sport (sid #f))
            (let ((zones (sport-zones sport sid 1)))
@@ -517,6 +541,7 @@
          (define/override (axis-label) "Heart Rate (% of max)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "hr-pct")
+         (define/override (name) "HR Percent")
          (define/override (fractional-digits) 1)
          )))
 (provide axis-hr-pct)
@@ -526,6 +551,7 @@
          (define/override (axis-label) "Heart Rate (zone)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "hr-zone")
+         (define/override (name) "HR Zone")
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
@@ -540,6 +566,7 @@
          (define/override (axis-label) "Cadence (spm)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "cad")
+         (define/override (name) "Cadence")
          (define/override (fractional-digits) 1)
          (define/override (histogram-bucket-slot) 0.1)
 
@@ -572,6 +599,7 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Stride (m)" "Stride (ft)"))
          (define/override (should-filter?) #t)
+         (define/override (name) "Stride")
          ;; NOTE: cadence is measured with a 0.5 step precision, so the
          ;; precision of the stride calculation is 0.5 / 60 = 0.00833 meters
          (define/override (histogram-bucket-slot) 0.001)
@@ -586,6 +614,7 @@
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (series-name) "vratio")
+         (define/override (name) "VRatio")
          (define/override (inverted-best-avg?) #t)
          (define/override (fractional-digits) 2)
 
@@ -611,6 +640,7 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "vosc")
+         (define/override (name) "VOsc")
          (define/override (fractional-digits) 1)
 
          (define (vosc-factor vosc)
@@ -632,6 +662,7 @@
          (define/override (should-filter?) #t)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "gct")
+         (define/override (name) "GCT")
 
          (define (gct-factor gct)
            (cond ((> gct 305) 'red)
@@ -653,6 +684,7 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (inverted-best-avg?) #t)
          (define/override (series-name) "pgct")
+         (define/override (name) "GCT percent")
          (define/override (fractional-digits) 1)
          )))
 (provide axis-stance-time-percent)
@@ -662,6 +694,7 @@
          (define/override (axis-label) "Power (watts)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "pwr")
+         (define/override (name) "Power")
 
          (define/override (factor-fn sport (sid #f))
            (let ((zones (sport-zones sport sid 3)))
@@ -739,6 +772,7 @@
          (define/override (axis-label) "Torque (N m)")
          (define/override (should-filter?) #t)
          (define/override (series-name) "torque")
+         (define/override (name) "Torque")
          )))
 (provide axis-torque)
 
@@ -747,6 +781,7 @@
          (define/override (axis-label) "W' Bal")
          (define/override (should-filter?) #f)
          (define/override (series-name) "wbal")
+         (define/override (name) "WBal")
          )))
 (provide axis-wbal)
 
@@ -755,6 +790,7 @@
          (define/override (axis-label) "W' Bal (integral)")
          (define/override (should-filter?) #f)
          (define/override (series-name) "wbali")
+         (define/override (name) "Wbali")
          )))
 (provide axis-wbali)
 
@@ -765,6 +801,7 @@
          (define/override (y-range) (cons 0 #f))
          (define/override (series-name) "pwr-zone")
          (define/override (fractional-digits) 1)
+         (define/override (name) "Power Zone")
 
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
@@ -780,6 +817,7 @@
          (define/override (series-name) "lrbal")
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (fractional-digits) 1)
+         (define/override (name) "Balance")
          ;; Y-Range for left-right balance only makes sense between 45% and
          ;; 55%, if the value is out of that range it is waaay off anyway.
          ;; Keep the chart centered around 50%.
@@ -807,6 +845,7 @@
          (define/override (y-range) (cons 0 100))
          (define/override (headline) "Torque Effectiveness, Left Pedal (%)")
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "TEff Left")
          (define/override (series-name) "lteff")
          (define/override (fractional-digits) 1)
          )))
@@ -817,6 +856,7 @@
          (define/override (axis-label) "Torque Effectiveness (%)")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 100))
+         (define/override (name) "TEff Right")
          (define/override (headline) "Torque Effectiveness, Right Pedal (%)")
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rteff")
@@ -828,6 +868,7 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (headline) "Pedal Smoothness, Left Pedal (%)")
          (define/override (axis-label) "Pedal Smoothness (%)")
+         (define/override (name) "PSmth Left")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 50))
          (define/override (plot-label) "Left Pedal")
@@ -840,6 +881,7 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (headline) "Pedal Smoothness, Right Pedal (%)")
          (define/override (axis-label) "Pedal Smoothness (%)")
+         (define/override (name) "PSmth Right")
          (define/override (should-filter?) #t)
          (define/override (y-range) (cons 0 50))
          (define/override (plot-label) "Right Pedal")
@@ -853,6 +895,7 @@
          (define/override (axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PCO Left")
          (define/override (series-name) "lpco"))))
 (provide axis-left-platform-centre-offset)
 
@@ -862,6 +905,7 @@
          (define/override (axis-label) "Platform Centre Offset (mm)")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PCO Right")
          (define/override (series-name) "rpco"))))
 (provide axis-right-platform-centre-offset)
 
@@ -871,6 +915,7 @@
          (define/override (axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PP Start Left")
          (define/override (series-name) "lpps")
          )))
 (provide axis-left-power-phase-start)
@@ -881,6 +926,7 @@
          (define/override (axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PP End Left")
          (define/override (series-name) "lppe"))))
 (provide axis-left-power-phase-end)
 
@@ -890,6 +936,7 @@
          (define/override (axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PP Left")
          (define/override (series-name) "lppa"))))
 (provide axis-left-power-phase-angle)
 
@@ -899,6 +946,7 @@
          (define/override (axis-label) "Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PP Start Right")
          (define/override (series-name) "rpps")
          )))
 (provide axis-right-power-phase-start)
@@ -909,6 +957,7 @@
          (define/override (axis-label) "Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PP End Right")
          (define/override (series-name) "rppe"))))
 (provide axis-right-power-phase-end)
 
@@ -918,6 +967,7 @@
          (define/override (axis-label) "Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PP Right")
          (define/override (series-name) "rppa"))))
 (provide axis-right-power-phase-angle)
 
@@ -927,6 +977,7 @@
          (define/override (axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PPP Start Left")
          (define/override (series-name) "lppps")
          )))
 (provide axis-left-peak-power-phase-start)
@@ -937,6 +988,7 @@
          (define/override (axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Left Pedal")
+         (define/override (name) "PPP End Left")
          (define/override (series-name) "lpppe"))))
 (provide axis-left-peak-power-phase-end)
 
@@ -945,6 +997,7 @@
          (define/override (headline) "Peak Power Phase Angle, Left Pedal")
          (define/override (axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
+         (define/override (name) "PPP Left")
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpppa"))))
 (provide axis-left-peak-power-phase-angle)
@@ -955,6 +1008,7 @@
          (define/override (axis-label) "Peak Power Phase Start")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PPP Start Right")
          (define/override (series-name) "rppps"))))
 (provide axis-right-peak-power-phase-start)
 
@@ -964,6 +1018,7 @@
          (define/override (axis-label) "Peak Power Phase End")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PPP End Right")
          (define/override (series-name) "rpppe"))))
 (provide axis-right-peak-power-phase-end)
 
@@ -973,6 +1028,7 @@
          (define/override (axis-label) "Peak Power Phase Angle")
          (define/override (should-filter?) #t)
          (define/override (plot-label) "Right Pedal")
+         (define/override (name) "PPP Right")
          (define/override (series-name) "rpppa"))))
 (provide axis-right-peak-power-phase-angle)
 
@@ -986,8 +1042,12 @@
          (define/override (plot-color-by-swim-stroke?) #t)
          (define/override (series-name) "pace")
          (define/override (inverted-best-avg?) #t)
+         (define/override (name) "Pace")
          (define/override (value-formatter)
-           (lambda (p) (swim-pace->string (convert-swim-pace->m/s p))))
+           (lambda (p)
+             (if (> p 0)
+                 (swim-pace->string (convert-swim-pace->m/s p))
+                 "")))
 
          (define/override (have-cp-estimate?) #t)
 
@@ -1084,6 +1144,7 @@
          (define/override (axis-label) "SWOLF")
          (define/override (y-range) (cons 0 #f))
          (define/override (series-name) "swolf")
+         (define/override (name) "SWOLF")
          )))
 (provide axis-swim-swolf)
 
@@ -1092,6 +1153,7 @@
          (define/override (axis-label) "Strokes / Length")
          (define/override (y-range) (cons 0 #f))
          (define/override (series-name) "strokes")
+         (define/override (name) "Strokes")
          )))
 (provide axis-swim-stroke-count)
 
@@ -1102,6 +1164,7 @@
          (define/override (series-name) "stride")
          (define/override (fractional-digits) 2)
          (define/override (histogram-bucket-slot) 0.01)
+         (define/override (name) "Stroke Length")
          )))
 (provide axis-swim-stroke-length)
 
@@ -1109,6 +1172,7 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Strokes / Min")
          (define/override (y-range) (cons 0 #f))
+         (define/override (name) "Cadence")
 
          (define color #f)
          (define/override (plot-color)
@@ -1130,6 +1194,7 @@
 
 (define axis-swim-distance
   (new (class series-metadata% (init) (super-new)
+         (define/override (name) "Distance")
          (define/override (axis-label)
            (if (eq? (al-pref-measurement-system) 'metric)
                "Distance (meters)" "Distance (yards)"))
@@ -1140,6 +1205,7 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
          (define/override (axis-label) "Time (hour:min)")
+         (define/override (name) "Time")
          (define/override (series-name) "elapsed"))))
 (provide axis-swim-time)
 
