@@ -187,6 +187,7 @@
     (define data-frame #f)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
     (define plot-rt #f)                 ; plot render tree
+    (define histogram-data #f)
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when one of the axis
     ;; changes.
@@ -320,11 +321,13 @@
                                           #:bucket-width bw #:include-zeroes? zeroes?
                                           #:as-percentage? as-pct? #:trim-outliers trim)
                             #f))
+                    (combined-histograms (if h2 (combine-histograms h1 h2) h1))
                     (rt (cond
-                          ((and axis2 h1 h2)
+                          ((and axis2 combined-histograms)
                            (make-histogram-renderer/dual
-                            h1 (send axis1 plot-label)
-                            h2 (send axis2 plot-label)
+                            combined-histograms
+                            (send axis1 plot-label)
+                            (send axis2 plot-label)
                             #:x-value-formatter (send axis1 value-formatter)
                             #:color1 (send axis1 plot-color)
                             #:color2 (send axis2 plot-color)))
@@ -343,6 +346,7 @@
                   (if rt
                       (begin
                         (set! plot-rt rt)
+                        (set! histogram-data (or combined-histograms h1))
                         (put-plot-snip))
                       (send plot-pb set-background-message "No data to plot"))))))))))
 

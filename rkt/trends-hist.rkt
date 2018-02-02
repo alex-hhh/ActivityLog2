@@ -27,6 +27,7 @@
  racket/list
  racket/string
  racket/hash
+ racket/format
  "trends-chart.rkt"
  "icon-resources.rkt"
  "widgets.rkt"
@@ -300,8 +301,10 @@
      (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hist-params-sport params))))
      (for/list ([s series]) (aggregate-hist candidates s #:progress-callback progress)))))
 
-(define (make-renderer-tree data params)
-  (define cbz? (hist-params-colors? params))
+;; Prepare a histogram ready for rendering or export based on histogram DATA
+;; and PARAMS.  The returned object is either a histogram/c or a
+;; combined-histogram/c
+(define (prepare-histogram data params)
   (define aspct? (hist-params-aspct? params))
   (define zeroes? (hist-params-zeroes? params))
 
@@ -317,8 +320,6 @@
     (and axis2
          (* (hist-params-bwidth params)
             (send axis2 histogram-bucket-slot))))
-  (define factor-fn (and cbz? (send axis1 factor-fn (hist-params-sport params))))
-  (define factor-colors (send axis1 factor-colors))
 
   (define h1 (expand-histogram hist1
                                #:include-zeroes? zeroes?
@@ -329,7 +330,7 @@
                                     #:include-zeroes? zeroes?
                                     #:bucket-width bwidth2
                                     #:as-percentage? aspct?)))
-
+  
   (when (> (hist-params-otrim params) 0)
     (let ((trim (/ (hist-params-otrim params) 100)))
       (when h1
@@ -337,26 +338,37 @@
       (when h2
         (set! h2 (trim-histogram-outliers h2 trim)))))
 
-  (if (or (not h1) (zero? (vector-length h1)))
-      #f
-      (list
-       (tick-grid)
-       (cond (dual?
-              (if (or (not h2) (zero? (vector-length h2)))
-                  #f
-                  (make-histogram-renderer/dual
-                   h1 (send axis1 plot-label)
-                   h2 (send axis2 plot-label)
-                   #:x-value-formatter (send axis1 value-formatter)
-                   #:color1 (send axis1 plot-color)
-                   #:color2 (send axis2 plot-color))))
-             (factor-fn
-              (make-histogram-renderer/factors
-               h1 factor-fn factor-colors
-               #:x-value-formatter (send axis1 value-formatter)))
+  (if h2 (combine-histograms h1 h2) h1))
+
+(define (make-renderer-tree histogram data params)
+  (define dual? (>= (length (hist-axis data)) 2))
+  (define axis1 (first (hist-axis data)))
+  (define axis2 (and dual? (second (hist-axis data))))
+  (define factor-fn (and (hist-params-colors? params)
+                         (send axis1 factor-fn (hist-params-sport params))))
+  (define factor-colors (send axis1 factor-colors))
+
+  (define (valid?)
+    (and histogram
+         (> (vector-length histogram) 0)
+         (or (not dual?) (= 3 (vector-length (vector-ref histogram 0))))))
+
+  (and (valid?)
+       (list
+        (tick-grid)
+        (cond (dual?
+               (make-histogram-renderer/dual
+                histogram (send axis1 plot-label) (send axis2 plot-label)
+                #:x-value-formatter (send axis1 value-formatter)
+                #:color1 (send axis1 plot-color)
+                #:color2 (send axis2 plot-color)))
+              (factor-fn
+               (make-histogram-renderer/factors
+                histogram factor-fn factor-colors
+                #:x-value-formatter (send axis1 value-formatter)))
              (#t
               (make-histogram-renderer
-               h1
+               histogram
                #:x-value-formatter (send axis1 value-formatter)
                #:color (send axis1 plot-color)))))))
 
@@ -380,7 +392,8 @@
        axis params renderer-tree)
       (begin
         (send canvas set-snip #f)
-        (send canvas set-background-message "No data to plot"))))
+        (send canvas set-background-message "No data to plot")
+        #f)))
 
 (define (save-plot-to-file file-name width height axis params renderer-tree)
   (generate-plot
@@ -393,6 +406,7 @@
     (init-field database) (super-new)
 
     (define cached-data #f)
+    (define histogram-data #f)
     (define generation 0)
 
     (define (get-generation) generation)
@@ -404,7 +418,8 @@
            [database database]))
 
     (define/override (invalidate-data)
-      (set! cached-data #f))
+      (set! cached-data #f)
+      (set! histogram-data #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -412,74 +427,36 @@
           (hash-ref events 'session-updated-data #f)))
 
     (define/override (export-data-to-file file formatted?)
-      (when cached-data
+      (when (and cached-data histogram-data)
         (call-with-output-file file export-data-as-csv
           #:mode 'text #:exists 'truncate)))
 
     (define (export-data-as-csv out)
-
       (define data cached-data)
       (define params (send this get-params))
-
-      ;; NOTE: this section is the same as MAKE-RENDERER-TREE, could use some
-      ;; refactoring.
-      (define aspct? (hist-params-aspct? params))
-      (define zeroes? (hist-params-zeroes? params))
+      (define histogram histogram-data)
 
       (define dual? (>= (length (hist-axis data)) 2))
       (define axis1 (first (hist-axis data)))
       (define axis2 (and dual? (second (hist-axis data))))
-      (define hist1 (first (hist-data data)))
-      (define hist2 (and dual? (second (hist-data data))))
-      (define bwidth1
-        (* (hist-params-bwidth params)
-           (send axis1 histogram-bucket-slot)))
-      (define bwidth2
-        (and axis2
-             (* (hist-params-bwidth params)
-                (send axis2 histogram-bucket-slot))))
 
-      (define h1 (expand-histogram hist1
-                                   #:include-zeroes? zeroes?
-                                   #:bucket-width bwidth1
-                                   #:as-percentage? aspct?))
-      (define h2 (and hist2
-                      (expand-histogram hist2
-                                        #:include-zeroes? zeroes?
-                                        #:bucket-width bwidth2
-                                        #:as-percentage? aspct?)))
+      (if dual?
+          (write-string
+           (format "Value, Rank ~a, Rank ~a~%"
+                   (send axis1 series-name)
+                   (send axis2 series-name))
+           out)
+          (write-string (format "Value, Rank ~a~%" (send axis1 series-name)) out))
 
-      (if (zero? (vector-length h1))
-          #f
-          (if h2
-              (let ((nbuckets (merge-lists (get-histogram-buckets h1) (get-histogram-buckets h2))))
-                (set! h1 (normalize-histogram h1 nbuckets))
-                (set! h2 (normalize-histogram h2 nbuckets))
-              
-                (write-string
-                 (format "Value, Rank ~a, Rank ~a~%"
-                         (send axis1 series-name)
-                         (send axis2 series-name))
-                 out)
-                (for ((item1 h1) (item2 h2))
-                  (match-define (vector v1 r1) item1)
-                  (match-define (vector v2 r2) item2)
-                  (write-string (format "~a, ~a, ~a~%"
-                                        v1
-                                        (exact->inexact r1)
-                                        (exact->inexact r2))
-                                out)))
-              (begin
-                (write-string
-                 (format "Value, Rank ~a~%"
-                         (send axis1 series-name))
-                 out)
-                (for ((item1 h1))
-                  (match-define (vector v1 r1) item1)
-                  (write-string (format "~a, ~a~%"
-                                        v1
-                                        (exact->inexact r1))
-                                out))))))
+      (define format-value (send axis1 value-formatter))
+      (define ndigits (if (hist-params-aspct? params)
+                          2
+                          (send axis1 fractional-digits)))
+      (for ((item (in-vector histogram)))
+        (write-string (format-value (vector-ref item 0)) out)
+        (for ((rank (in-vector item 1)))
+          (write-string ", " out)
+          (write-string (~r rank #:precision ndigits) out))))
 
     (define/override (put-plot-snip canvas)
       (send canvas set-snip #f)
@@ -499,11 +476,13 @@
                       (send canvas set-background-message
                             (format "Working (~a %)..." (exact-round (* p 100.0))))))))
                (define data (or previous-data (fetch-data database params report-progress)))
-               (define rt (make-renderer-tree data params))
+               (define hist (prepare-histogram data params))
+               (define rt (make-renderer-tree hist data params))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
+                    (set! histogram-data hist)
                     (insert-plot-snip canvas (first (hist-axis data)) params rt))))))
             (begin
               (send canvas set-snip #f)

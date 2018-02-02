@@ -850,28 +850,40 @@
 ;; done by adding buckets with 0 elements if needed.  This is used when
 ;; histograms for two data series need to be displayed on a single plot.
 (define (normalize-histogram histogram buckets)
-  (for/vector ([b buckets])
-    (or (for/first ([h histogram]
-                    #:when (eqv? b (vector-ref h 0)))
-          h)
+  (for/vector #:length (length buckets) ([b (in-list buckets)])
+    (or (for/first ([h (in-vector histogram)] #:when (eqv? b (vector-ref h 0))) h)
         (vector b 0))))
 
-(provide merge-lists get-histogram-buckets normalize-histogram)
+;; Combine two histograms H1, H2 into a single one.  The combined histogram is
+;; in the format (vectorof (vector slot value1 value2))
+(define (combine-histograms h1 h2)
+  (let* ((nbuckets (merge-lists (get-histogram-buckets h1) (get-histogram-buckets h2)))
+         (n1 (normalize-histogram h1 nbuckets))
+         (n2 (normalize-histogram h2 nbuckets)))
+    (unless (= (vector-length n1) (vector-length n2)) (error "bad length"))
+    (for/vector #:length (vector-length n1)
+        ([e1 (in-vector n1)]
+         [e2 (in-vector n2)])
+      (unless (equal? (vector-ref e1 0) (vector-ref e2 0))
+        (error "bad value"))
+      (vector (vector-ref e1 0) (vector-ref e1 1) (vector-ref e2 1)))))
 
 ;; Create a plot renderer with two histograms.
-(define (make-histogram-renderer/dual data1 label1
-                                      data2 label2
+(define (make-histogram-renderer/dual combined-histogram
+                                      label1 label2
                                       #:x-value-formatter [xfmt #f]
                                       #:color1 [color1 #f]
                                       #:color2 [color2 #f])
-  (let ((nbuckets (merge-lists (get-histogram-buckets data1) (get-histogram-buckets data2))))
-    (set! data1 (normalize-histogram data1 nbuckets))
-    (set! data2 (normalize-histogram data2 nbuckets))
-    (let ((h1 (make-histogram-renderer
-               data1 #:color color1 #:skip 2.5 #:x-min 0 #:label label1 #:x-value-formatter xfmt))
-          (h2 (make-histogram-renderer
-               data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2 #:x-value-formatter xfmt)))
-      (list h1 h2))))
+  (define data1 (make-vector (vector-length combined-histogram) #f))
+  (define data2 (make-vector (vector-length combined-histogram) #f))
+  (for ([(e index) (in-indexed (in-vector combined-histogram))])
+    (vector-set! data1 index (vector (vector-ref e 0) (vector-ref e 1)))
+    (vector-set! data2 index (vector (vector-ref e 0) (vector-ref e 2))))
+  (list
+   (make-histogram-renderer
+    data1 #:color color1 #:skip 2.5 #:x-min 0 #:label label1 #:x-value-formatter xfmt)
+   (make-histogram-renderer
+    data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2 #:x-value-formatter xfmt)))
 
 ;; Split the histogram HIST into sub-histograms using FACTOR-FN (which maps
 ;; the histogram value to a symbol).  Returns a list of (cons TAG SUB-HIST).
@@ -1618,6 +1630,7 @@
 (provide data-series% data-frame%)
 
 (define histogram/c (vectorof (vector/c (or/c real? string?) real?)))
+(define combined-histogram/c (vectorof (vector/c (or/c real? string?) real? real?)))
 (define best-avg-item/c (vector/c real? (or/c #f real?) (or/c #f real?)))
 (define best-avg/c (listof best-avg-item/c))
 
@@ -1664,6 +1677,7 @@
                      #:as-percentage? boolean?)
                     (or/c #f histogram/c)))
  (trim-histogram-outliers (->* (histogram/c) (real?) histogram/c))
+ (combine-histograms (-> histogram/c histogram/c combined-histogram/c))
  (make-histogram-renderer (->* (histogram/c)
                                (#:color any/c
                                 #:skip real?
@@ -1672,7 +1686,7 @@
                                 #:blank-some-labels boolean?
                                 #:x-value-formatter (or/c #f (-> number? string?)))
                                (treeof renderer2d?)))
- (make-histogram-renderer/dual (->* (histogram/c string? histogram/c string?)
+ (make-histogram-renderer/dual (->* (combined-histogram/c string?  string?)
                                     (#:color1 any/c
                                      #:color2 any/c
                                      #:x-value-formatter (or/c #f (-> number? string?)))
