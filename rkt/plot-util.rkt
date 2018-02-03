@@ -23,17 +23,146 @@
          pict
          pict/snip
          plot
-         embedded-gui)
+         embedded-gui
+         "utilities.rkt")
 
 (provide/contract
  ;; NOTE all these are actually instances of 2d-plot-snip%, but the plot
  ;; library does not export that type.
+ (set-mouse-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
+ (clear-plot-overlays (-> (is-a?/c snip%) any/c))
+ (refresh-plot-overlays (-> (is-a?/c snip%) any/c))
+ (add-vrule-overlay (-> (is-a?/c snip%) number? any/c))
+ (add-mark-overlay (->* ((is-a?/c snip%) number? number?) ((or/c #f string?)) any/c))
+ (add-label-overlay (-> (is-a?/c snip%) number? number? string? any/c))
+ (add-pict-overlay (-> (is-a?/c snip%) number? number? pict? any/c))
+ (add-vrange-overlay (-> (is-a?/c snip%) number? number? any/c any/c))
+ (make-hover-badge (-> (listof (listof (or/c #f string?))) pict?))
  (move-snip-to (-> (is-a?/c snip%) (or/c #f (cons/c number? number?)) any/c))
  (get-snip-location (-> (or/c #f (is-a?/c snip%)) (or/c #f (cons/c number? number?))))
- )
+ (xposition->histogram-slot (->* (number?) (number? number?)
+                                 (values (or/c #f exact-nonnegative-integer?)
+                                         (or/c #f exact-nonnegative-integer?)))))
 
 ;; NOTE: pict-snip% is from pict/snip
 (provide snip-canvas% pict-snip%)
+
+;; Resources for drawing overlays on the plots.  Defined in one place to
+;; ensure consistency across all the plots.
+
+(define hover-tag-background (make-object color% #xff #xf8 #xdc 0.8))
+(define hover-tag-item-color (make-object color% #x2f #x4f #x4f))
+(define hover-tag-label-color (make-object color% #x77 #x88 #x99))
+(define hover-tag-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define hover-tag-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define hover-tag-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+(define hover-tag-title-face (cons hover-tag-item-color hover-tag-title-font))
+(define hover-tag-item-face (cons hover-tag-item-color hover-tag-item-font))
+(define hover-tag-label-face (cons hover-tag-label-color hover-tag-label-font))
+
+;; Pen used to draw vertical line overlays on plots
+(define vrule-pen (send the-pen-list find-or-create-pen "black" 1.0 'short-dash))
+
+;; Pen used to draw the circle marker overlay on plots
+(define marker-pen (send the-pen-list find-or-create-pen "red" 3 'solid))
+
+;; Can we add overlays to plot-snip% instances? This functionality is only
+;; present in a development branch of the plot package, if that package is not
+;; installed, the method and the overlay functionality will not be available.
+(define have-plot-overlays? 'unknown)
+
+;; Test if we can use plot overlays or not, the check is done only once and
+;; the cached value is returned from than on.  If we cannot use overlays, log
+;; a message as well.
+(define (can-use-plot-overlays? plot-snip)
+  (when (eq? have-plot-overlays? 'unknown)
+    (set! have-plot-overlays?
+          (object-method-arity-includes? plot-snip 'set-mouse-callback 1))
+    (unless have-plot-overlays?
+      (dbglog "plot overlays disabled")))
+  have-plot-overlays?)
+
+;; Add CALLBACK as a mouse hover callback to PLOT-SNIP.  The plot snip is
+;; checked to see if it actually has that method (since this is only present
+;; in a development branch of the plot package).
+(define (set-mouse-callback plot-snip callback)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip set-mouse-callback callback)))
+
+(define (clear-plot-overlays plot-snip)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip clear-overlays)))
+
+(define (refresh-plot-overlays plot-snip)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip refresh-overlays)))
+
+;; Add a pict overlay on PLOT-SNIP at X, Y.
+(define (add-pict-overlay plot-snip x y pict)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip add-general-overlay x y
+          (lambda (dc x y) (draw-pict pict dc x y))
+          (pict-width pict)
+          (pict-height pict))))
+
+(define (add-vrule-overlay plot-snip x)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip add-vrule-overlay x #:pen vrule-pen)))
+
+(define (add-mark-overlay plot-snip x y (label #f))
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip add-mark-overlay x y
+          #:pen marker-pen
+          #:label label
+          #:label-font hover-tag-item-font
+          #:label-fg-color hover-tag-item-color
+          #:label-bg-color hover-tag-background)))
+
+(define (add-label-overlay plot-snip x y label)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip add-mark-overlay x y
+          #:pen marker-pen
+          #:radius 0                      ; won't draw a marker
+          #:label label
+          #:label-font hover-tag-item-font
+          #:label-fg-color hover-tag-item-color
+          #:label-bg-color hover-tag-background)))
+
+(define (add-vrange-overlay plot-snip xmin xmax color)
+  (when (can-use-plot-overlays? plot-snip)
+    (send plot-snip add-vrange-overlay xmin xmax
+          #:brush (send the-brush-list find-or-create-brush color 'solid))))
+
+;; Return a pict object representing a badge for displaying information on a
+;; plot.  The ITEMS is a list of key-value string pairs and these are arranged
+;; in a table format.
+;;
+;; As a special case, key can be #f, in which case only the value is rendered
+;; using the "key" font and color.  This can be used to display additional
+;; information about a value which will be shown underneath the value.
+;;
+;; NOTE: the returned pict object can be placed on a plot using
+;; `add-pict-overlay`.
+(define (make-hover-badge items)
+  (define column-count
+    (for/fold ((column-count 0)) ((item (in-list items)))
+      (max column-count (length item))))
+  (define picts '())
+  (for ((item (in-list items)))
+    (let* ((key (car item))
+           (vals (reverse (cdr item)))
+           (face (if key hover-tag-item-face hover-tag-label-face)))
+      (for ((dummy (in-range (- column-count (add1 (length vals))))))
+        (set! picts (cons (text "" face) picts)))
+      (for ((val (in-list vals)))
+        (set! picts (cons (text val face) picts)))
+      (set! picts (cons (text (or key "") hover-tag-label-face) picts))))
+  (let ((p0 (table column-count picts lc-superimpose cc-superimpose 15 3)))
+    (cc-superimpose
+     (filled-rounded-rectangle (+ (pict-width p0) 20) (+ (pict-height p0) 20) -0.1
+                               #:draw-border? #f
+                               #:color hover-tag-background)
+     p0)))
 
 ;; return the location of SNIP as a (cons X Y), or return #f if SNIP is not
 ;; shown inside an editor.
@@ -59,6 +188,22 @@
       (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
             (adjusted-y (max 0 (min y (- height (snip-height snip))))))
         (send editor move-to snip adjusted-x adjusted-y)))))
+
+;; Convert the X position received by the hover callback in a histogram plot
+;; back to the series and the slot withing that series.  SKIP and GAP are the
+;; #:skip and #:gap arguments passed to the histogram renderer, they default
+;; to DISCRETE-HISTOGRAM-GAP and DISCRETE-HISTOGRAM-SKIP parameters with
+;; values of 1 and 1/8 respectively.
+(define (xposition->histogram-slot xposition
+                                   (skip (discrete-histogram-skip))
+                                   (gap (discrete-histogram-gap)))
+  (let* ((slot (exact-floor (/ xposition skip)))
+         (offset (- xposition (* skip slot)))
+         (series (exact-floor offset))
+         (on-bar? (< (/ gap 2) (- offset series) (- 1 (/ gap 2)))))
+    (if on-bar?
+        (values series slot)
+        (values #f #f))))
 
 ;; Draw MSG using FONT in the center of DC
 (define (draw-centered-message dc msg font)

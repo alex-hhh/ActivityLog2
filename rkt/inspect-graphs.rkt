@@ -34,7 +34,9 @@
          "utilities.rkt"
          "widgets.rkt"
          "session-df.rkt"
-         "icon-resources.rkt")
+         "icon-resources.rkt"
+         "plot-hack.rkt"
+         "plot-util.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph%)
@@ -44,7 +46,6 @@
 
 (define graph-title-font
   (send the-font-list find-or-create-font 9 'default 'normal 'normal))
-
 
 
 ;;.............................................................. helpers ....
@@ -204,7 +205,7 @@
          fdata
          y-range
          plot-rt
-         hlivl-rt
+         hlivl
          struct-name)
   ;; (-> nonnegative-integer?
   ;;     (or/c #f ts-data/c)
@@ -212,7 +213,7 @@
   ;;     (or/c #f (listof (cons/c any/c ts-data/c)))
   ;;     (or/c #f y-range/c)
   ;;     (or/c #f (treeof renderer2d?))
-  ;;     (or/c #f (treeof renderer2d?))
+  ;;     (or/c #f (list number? number? (is-a?/c color%)))
   ;;     any/c
   ;;     any)
   (values
@@ -222,7 +223,7 @@
    fdata
    y-range
    plot-rt
-   hlivl-rt))
+   hlivl))
 
 ;; Plot Data, contains the data that is ready to plot, based on a
 ;; corresponding PS structure
@@ -245,13 +246,28 @@
    y-range
    ;; The plot renderer tree for the data
    plot-rt
-   ;; The highlighted interval renderer tree for the data.
-   hlivl-rt)
+   ;; The highlighted interval for the data.
+   hlivl)
   #:guard pd-guard
   #:transparent)
 
 ;; An empty plot data structure, for convenience.
 (define empty-pd (pd 0 #f #f #f #f #f #f))
+
+(define (find-y data x)
+  (cond
+    ((vector? data)
+     (let ((index (bsearch data x #:key (lambda (v) (vector-ref v 0)))))
+       (and index
+            (< index (vector-length data))
+            (vector-ref (vector-ref data index) 1))))
+    ((pair? data)
+     (for/or ((prev (in-list data))
+              (next (in-list (cdr data))))
+       (if (<= (vector-ref prev 0) x (vector-ref next 0))
+           (vector-ref prev 1)
+           #f)))
+    (#t #f)))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
@@ -289,20 +305,18 @@
            (error "plot-data-renderer-tree -- unexpected combination"))
           (#t #f))))
 
-;; Produce an highlight interval renderer tree from the data in the PD and PS
-;; structures.  We assume the PD structure is up-to date w.r.t PD structure.
-(define/contract (plot-highlight-interval-renderer-tree pd ps)
-  (-> pd? ps? (or/c #f (treeof renderer2d?)))
+;; Produce a highlight interval data structure from the PD and PS structures.
+;; We assume the PD structure is up-to date w.r.t PD structure.
+(define/contract (plot-highlight-interval pd ps)
+  (-> pd? ps? (or/c #f (list/c number? number? any/c)))
   (let ((df (ps-df ps))
         (y (ps-y-axis ps))
         (ivl (ps-ivl ps))
-        (sdata (pd-sdata pd))
-        (y-range (pd-y-range pd)))
-
-    (if (and (cons? ivl) df y sdata y-range)
+        (sdata (pd-sdata pd)))
+    (if (and (cons? ivl) df y sdata)
         (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
-          (make-box-renderer start end (car y-range) (cdr y-range)
-                             (send y plot-color)))
+          (let ((c (send y plot-color)))
+            (list start end (make-object color% (send c red) (send c green) (send c blue) 0.2))))
         #f)))
 
 ;; Produce a new PD structure given an old PD and PS structure and a new PS
@@ -425,22 +439,22 @@
            #f))
      ;; Calculate a new highlight interval renderer tree if needed, or reuse
      ;; the one from OLD-PD
-     (define hlivl-rt
+     (define hlivl
        (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
                    (and (ps-ivl new-ps)
                         (not (equal? (ps-ivl old-ps) (ps-ivl new-ps)))))
-               (plot-highlight-interval-renderer-tree tmp-pd new-ps)
-               (pd-hlivl-rt old-pd))
+               (plot-highlight-interval tmp-pd new-ps)
+               (pd-hlivl old-pd))
            #f))
 
      ;; Put the renderer tree in the structure and return the result.
-     (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl-rt hlivl-rt)))))
+     (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl hlivl)))))
 
 (define graph-view%
   (class object%
     (init parent)
-    (init-field text tag [min-height 250])
+    (init-field text tag [min-height 250] [hover-callback (lambda (x) (void))])
     (super-new)
 
     (define previous-plot-state empty-ps)
@@ -456,8 +470,6 @@
     ;; in one go.
     (define flush-suspended? #f)
 
-    ;; Bitmap containing the plot.
-    (define cached-bitmap #f)
     ;; Token corresponding to the PD instance that was used to generate the
     ;; CACHED-BITMAP.  If cached-bitmap-token is not the same as (ps-token
     ;; plot-state), the cached-bitmap is outdated.
@@ -555,8 +567,6 @@
 
       (define (full-render-tree)
         (let ((render-tree (list (pd-plot-rt pd))))
-          (when (pd-hlivl-rt pd)
-            (set! render-tree (cons (pd-hlivl-rt pd) render-tree)))
           (set! render-tree (cons (tick-grid) render-tree))
           (when (ps-avg? ps)
             (let ((avg (get-average-renderer)))
@@ -573,7 +583,7 @@
 
       (define x-axis (ps-x-axis ps))
       (define y-axis (ps-y-axis ps))
-      
+
       (define (get-x-axis-ticks)
         (let ((ticks (send x-axis plot-ticks))
               (ivl (ps-ivl ps))
@@ -590,13 +600,8 @@
                      [plot-y-label (send y-axis axis-label)])
         (output-fn (full-render-tree))))
 
-    (define (put-plot/dc dc pd ps)
-      ;; (-> (is-a? dc<%>)  pd? ps? any/c)
-      (put-plot
-       (lambda (renderer-tree)
-         (let-values (((width height) (send dc get-size)))
-           (plot/dc renderer-tree dc 0 0 width height)))
-       pd ps))
+    (define (put-plot/canvas canvas pd ps)
+      (put-plot (lambda (rt) (plot-snip/hack canvas rt)) pd ps))
 
     (define (put-plot/file file-name width height pd ps)
       ;; (-> path-string? exact-positive-integer? exact-positive-integer? pd? ps? any/c)
@@ -605,43 +610,8 @@
          (plot-file renderer-tree file-name #:width width #:height height))
        pd ps))
 
-    (define (on-canvas-paint canvas dc)
-      (cond
-        ((not (and (ps-df plot-state) (ps-x-axis plot-state) (ps-y-axis plot-state)))
-         (send dc clear)
-         (draw-centered-message dc "Graph not configured" message-font))
-
-        ;; If there's a cached-bitmap, draw it now, even if it is not the
-        ;; latest one.
-        (cached-bitmap
-         (send dc draw-bitmap cached-bitmap 0 0)
-         (unless (equal? cached-bitmap-token (ps-token plot-state))
-           (draw-centered-message dc "Working..." message-font)))
-
-        ((not (equal? (ps-token plot-state) (pd-token plot-data)))
-         ;; We're working on the first bitmap for this plot...
-         (send dc clear)
-         (draw-centered-message dc "Working..." message-font))
-
-        (#t
-         (send dc clear)
-         (draw-centered-message dc "No data for plot" message-font))))
-
-    (define (on-canvas-paint/wrapped canvas)
-      ;; The canvas will be left in an invalid state if exceptions are thrown
-      ;; while painting it.  We catch the exceptions, log them than discard
-      ;; them.
-      (with-handlers
-        (((lambda (e) #t)
-          (lambda (e) (dbglog-exception "graph-canvas%/on-canvas-paint-wrapped" e))))
-        (on-canvas-paint canvas (send canvas get-dc))))
-
     (define graph-canvas
-      (new (class canvas%
-             (init) (super-new)
-             (define/override (on-size w h) (refresh))
-             (define/override (on-paint) (on-canvas-paint/wrapped this)))
-           [parent panel]
+      (new snip-canvas% [parent panel]
            [min-height min-height]
            [style (if show-graph? '() '(deleted))]))
 
@@ -652,6 +622,29 @@
       (send graph-canvas resume-flush)
       (set! flush-suspended? #f))
 
+    (define the-plot-snip #f)
+
+    (define/public (draw-marker-at x)
+      (when (and the-plot-snip show-graph?)
+        (clear-plot-overlays the-plot-snip)
+        ;; Add the highlight overlay back in...
+        (when (pd-hlivl plot-data)
+          (match-define (list xmin xmax color) (pd-hlivl plot-data))
+          (add-vrange-overlay the-plot-snip xmin xmax color))
+        (when x
+          (let ((y1 (find-y (pd-sdata plot-data) x))
+                (format-value (send (ps-y-axis plot-state) value-formatter))
+                (y2 (and pd-sdata2 (find-y (pd-sdata2 plot-data) x))))
+            (when y1
+              (add-label-overlay the-plot-snip x y1 (format-value y1)))
+            (when y2
+              (add-label-overlay the-plot-snip x y2 (format-value y2))))
+          (add-vrule-overlay the-plot-snip x))
+        (refresh-plot-overlays the-plot-snip)))
+
+    (define (plot-hover-callback snip event x y)
+      (hover-callback x))
+
     (define (refresh-plot)
       (let ((pstate plot-state)
             (ppstate previous-plot-state)
@@ -659,27 +652,24 @@
         (queue-task
          "graph-view%/refresh-plot"
          (lambda ()
-           (let* ((npdata (update-plot-data pdata ppstate pstate))
-                  (bmp (let-values (((w h) (send graph-canvas get-size)))
-                         (send graph-canvas make-bitmap w h))))
-             (when (pd-plot-rt npdata)
-               (put-plot/dc (send bmp make-dc) npdata pstate))
+           (let ((npdata (update-plot-data pdata ppstate pstate)))
              (queue-callback
               (lambda ()
                 (if (= (pd-token npdata) (ps-token plot-state))
                     (begin
+                      (when (pd-plot-rt npdata)
+                        (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
+                        (set-mouse-callback the-plot-snip plot-hover-callback)
+                        (when (pd-hlivl npdata)
+                          (match-define (list xmin xmax color) (pd-hlivl npdata))
+                          (add-vrange-overlay the-plot-snip xmin xmax color)
+                          (refresh-plot-overlays the-plot-snip)))
                       (set! previous-plot-state pstate)
                       (set! plot-state pstate)
                       (set! plot-data npdata)
-                      (if (pd-plot-rt npdata)
-                          (set! cached-bitmap bmp)
-                          (set! cached-bitmap #f))
                       (set! cached-bitmap-token (pd-token npdata))
                       (send graph-canvas refresh))
-                    (begin
-                      ;; (printf "refresh-plot: discarding data ~a -- ~a~%"
-                      ;;         (pd-token npdata) (ps-token plot-state))
-                      (void))))))))))
+                    (void)))))))))
 
     (define (refresh-cached-bitmap)
       (let ((pstate plot-state)
@@ -688,20 +678,18 @@
          "graph-view%/refresh-cached-bitmap"
          (lambda ()
            (when (pd-plot-rt pdata)
-             (let ((bmp (let-values (((w h) (send graph-canvas get-size)))
-                          (send graph-canvas make-bitmap w h))))
-               (put-plot/dc (send bmp make-dc) pdata pstate)
-               (queue-callback
-                (lambda ()
-                  (if (= (pd-token pdata) cached-bitmap-token)
-                      (begin
-                        (set! cached-bitmap bmp)
-                        (send graph-canvas refresh))
-                      (begin
-                        ;; (printf "refresh-cached-bitmap: discarding data ~a -- ~a~%"
-                        ;;         (pd-token pdata) cached-bitmap-token)
-                        (void)))))))))))
-      
+             (queue-callback
+              (lambda ()
+                (if (= (pd-token pdata) cached-bitmap-token)
+                    (begin
+                      (set! the-plot-snip (put-plot/canvas graph-canvas pdata pstate))
+                      (set-mouse-callback the-plot-snip plot-hover-callback)
+                      (when (pd-hlivl pdata)
+                        (match-define (list xmin xmax color) (pd-hlivl pdata))
+                        (add-vrange-overlay the-plot-snip xmin xmax color)
+                        (refresh-plot-overlays the-plot-snip)))
+                    (void)))))))))
+
     (define (refresh)
       (when (and (not flush-suspended?) show-graph?)
         (if (equal? (pd-token plot-data) (ps-token plot-state))
@@ -763,7 +751,14 @@
 
     (define/public (highlight-interval start-timestamp end-timestamp)
       (set! plot-state (struct-copy ps plot-state [ivl (cons start-timestamp end-timestamp)]))
-      (refresh))
+      (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
+      (set! previous-plot-state plot-state)
+      (when the-plot-snip
+        (clear-plot-overlays the-plot-snip)
+        (when (pd-hlivl plot-data)
+          (match-define (list xmin xmax color) (pd-hlivl plot-data))
+          (add-vrange-overlay the-plot-snip xmin xmax color))
+        (refresh-plot-overlays the-plot-snip)))
 
     (define/public (get-data-frame) (ps-df plot-state))
 
@@ -1744,28 +1739,28 @@
   `(("Distance" . ,axis-swim-distance)
     ("Time" . ,axis-swim-time)))
 
-(define (make-default-graphs parent)
+(define (make-default-graphs parent hover-callback)
   (list
-   (new speed-graph% [parent parent])
-   (new elevation-graph% [parent parent])
-   (new heart-rate-graph% [parent parent])
-   (new cadence-graph% [parent parent])
-   (new vosc-vratio-graph% [parent parent])
-   (new gct-graph% [parent parent])
-   (new power-graph% [parent parent])
-   (new wbal-graph% [parent parent])
-   (new lrbal-graph% [parent parent])
-   (new teff-graph% [parent parent])
-   (new psmth-graph% [parent parent])
-   (new pco-graph% [parent parent])
-   (new power-phase-graph% [parent parent])))
+   (new speed-graph% [parent parent] [hover-callback hover-callback])
+   (new elevation-graph% [parent parent] [hover-callback hover-callback])
+   (new heart-rate-graph% [parent parent] [hover-callback hover-callback])
+   (new cadence-graph% [parent parent] [hover-callback hover-callback])
+   (new vosc-vratio-graph% [parent parent] [hover-callback hover-callback])
+   (new gct-graph% [parent parent] [hover-callback hover-callback])
+   (new power-graph% [parent parent] [hover-callback hover-callback])
+   (new wbal-graph% [parent parent] [hover-callback hover-callback])
+   (new lrbal-graph% [parent parent] [hover-callback hover-callback])
+   (new teff-graph% [parent parent] [hover-callback hover-callback])
+   (new psmth-graph% [parent parent] [hover-callback hover-callback])
+   (new pco-graph% [parent parent] [hover-callback hover-callback])
+   (new power-phase-graph% [parent parent] [hover-callback hover-callback])))
 
-(define (make-swim-graphs parent)
+(define (make-swim-graphs parent hover-callback)
   (list
-   (new swim-pace-graph% [parent parent])
-   (new swim-swolf-graph% [parent parent])
-   (new swim-stroke-count-graph% [parent parent])
-   (new swim-cadence-graph% [parent parent])))
+   (new swim-pace-graph% [parent parent] [hover-callback hover-callback])
+   (new swim-swolf-graph% [parent parent] [hover-callback hover-callback])
+   (new swim-stroke-count-graph% [parent parent] [hover-callback hover-callback])
+   (new swim-cadence-graph% [parent parent] [hover-callback hover-callback])))
 
 (define graph-panel%
   (class object%
@@ -1941,13 +1936,22 @@
     (define default-graphs-1 #f)
     (define (default-graphs)
       (unless default-graphs-1
-        (set! default-graphs-1 (make-default-graphs graphs-panel)))
+        (set! default-graphs-1 (make-default-graphs graphs-panel
+                                                    (lambda (y)
+                                                      (when default-graphs-1
+                                                        (for ((g (in-list default-graphs-1)))
+                                                          (send g draw-marker-at y)))))))
       default-graphs-1)
 
     (define swim-graphs-1 #f)
     (define (swim-graphs)
       (unless swim-graphs-1
-        (set! swim-graphs-1 (make-swim-graphs graphs-panel)))
+        (set! swim-graphs-1 (make-swim-graphs graphs-panel
+                                              (lambda (y)
+                                                (when swim-graphs-1
+                                                  (for ((g (in-list swim-graphs-1)))
+                                                    (send g draw-marker-at y))))
+                                              )))
       swim-graphs-1)
 
     (define sds-dialog #f)

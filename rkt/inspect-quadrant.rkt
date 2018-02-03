@@ -32,7 +32,6 @@
          racket/match
          plot
          "data-frame.rkt"
-         "plot-util.rkt"
          "plot-hack.rkt"
          "series-meta.rkt"
          "sport-charms.rkt"
@@ -40,7 +39,8 @@
          "session-df.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
-         "color-theme.rkt")
+         "color-theme.rkt"
+         "plot-util.rkt")
 
 (provide quadrant-plot-panel%)
 

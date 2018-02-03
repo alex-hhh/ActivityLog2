@@ -17,6 +17,7 @@
 
 (require db
          plot
+         pict
          racket/class
          racket/date
          racket/gui/base
@@ -29,9 +30,10 @@
          "dbapp.rkt"
          "metrics.rkt"
          "plot-hack.rkt"
-         "plot-util.rkt"
          "bavg-util.rkt"
-         "pdmodel.rkt")
+         "pdmodel.rkt"
+         "fmt-util.rkt"
+         "plot-util.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -201,7 +203,7 @@
 
     (define axis-choices '())
     (define period-choices '())
-    
+
     (define selected-axis 0)
     (define selected-aux-axis 0)
     (define selected-period 0)
@@ -271,11 +273,16 @@
     (define data-frame #f)
     (define cp-data #f)
     (define best-avg-data '())
+    (define best-avg-plot-fn #f)
     (define best-avg-aux-data '())
+    (define best-avg-aux-plot-fn #f)
+    (define best-avg-aux-invfn #f)
+    (define best-avg-pd-fn #f)
     (define inhibit-refresh 0)
     (define plot-rt #f)
     ;; The plot render tree for the "bests" plot
     (define best-rt #f)
+    (define best-fn #f)
     (define best-rt-generation 0)
     (define bests-data '())
     (define data-cache (make-hash))
@@ -354,6 +361,45 @@
         (set! zero-base? flag)
         (refresh-plot)))
 
+    (define (plot-hover-callback snip event x y)
+      (define info '())
+
+      (define (add-info tag value)
+        (set! info (cons (list tag value) info)))
+
+      (define (add-data-point name yfn format-fn)
+        (when yfn
+          (let ((py (yfn x)))
+            (when py
+              (add-info name (format-fn py))
+              (add-mark-overlay snip x py)))))
+
+      (send snip clear-overlays)
+      (when (and x y)
+        (add-vrule-overlay snip x)
+
+        ;; The aux values need special treatment: they are scaled to match the
+        ;; main axis coordinate system, this works for the plot itself, but we
+        ;; need to convert the value back for display.
+        (when (and best-avg-aux-plot-fn best-avg-aux-invfn)
+          (let* ((ay (best-avg-aux-plot-fn x))
+                 (aux-axis (get-aux-axis))
+                 (format-value (send aux-axis value-formatter)))
+            (when ay
+              (let ((actual-ay ((invertible-function-f best-avg-aux-invfn) ay)))
+                (add-info (send aux-axis name) (format-value actual-ay))
+                (add-mark-overlay snip x ay)))))
+
+        (define axis (get-series-axis))
+        (define format-value (send axis value-formatter))
+        (add-data-point "Model" best-avg-pd-fn format-value)
+        (add-data-point "Best" best-fn format-value)
+        (add-data-point (send axis name) best-avg-plot-fn format-value)
+        (add-info "Duration" (duration->string x))
+        (unless (empty? info)
+          (add-pict-overlay snip x y (make-hover-badge (reverse info)))))
+      (send snip refresh-overlays))
+
     (define (put-plot-snip)
       (when plot-rt
         (let ((rt (list (tick-grid) plot-rt)))
@@ -369,6 +415,7 @@
               ;; selected
               (if best-avg-aux-data
                   (let ((ivs (mk-invertible-function best-avg-aux-data best-avg-data zero-base?)))
+                    (set! best-avg-aux-invfn ivs)
                     (parameterize ([plot-x-ticks (best-avg-ticks)]
                                    [plot-x-label "Duration"]
                                    [plot-x-transform log-transform]
@@ -378,10 +425,11 @@
                                    [plot-y-label (send best-avg-axis axis-label)]
                                    [plot-y-far-ticks (ticks-scale (send aux-axis plot-ticks) ivs)]
                                    [plot-y-far-label (send aux-axis axis-label)])
-                      (plot-snip/hack plot-pb rt
-                                      #:x-min min-x #:x-max max-x
-                                      #:y-min min-y #:y-max max-y
-                                      )))
+                      (define snip (plot-snip/hack plot-pb rt
+                                                   #:x-min min-x #:x-max max-x
+                                                   #:y-min min-y #:y-max max-y
+                                                   ))
+                      (set-mouse-callback snip plot-hover-callback)))
                 (parameterize ([plot-x-ticks (best-avg-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
@@ -389,9 +437,10 @@
                                [plot-x-tick-label-angle 30]
                                [plot-y-ticks (send best-avg-axis plot-ticks)]
                                [plot-y-label (send best-avg-axis axis-label)])
-                  (plot-snip/hack plot-pb rt
-                                  #:x-min min-x #:x-max max-x
-                                  #:y-min min-y #:y-max max-y)))
+                  (define snip (plot-snip/hack plot-pb rt
+                                               #:x-min min-x #:x-max max-x
+                                               #:y-min min-y #:y-max max-y))
+                  (set-mouse-callback snip plot-hover-callback)))
               (when (and cp-data (send best-avg-axis have-cp-estimate?) best-avg-data)
                 ;; NOTE: this is inefficient, as the plot-fn is already
                 ;; computed in the `make-best-avg-renderer` and we are
@@ -434,23 +483,36 @@
                            (df-best-avg-aux df series data)))))
              (when data
                (set! renderer-tree
-                     (cons 
+                     (cons
                       (make-best-avg-renderer
                        data aux-data
                        #:color1 (send axis plot-color)
                        #:color2 (and aux-axis (send aux-axis plot-color))
                        #:zero-base? zerob?)
                       renderer-tree)))
-             (when (and cp (send axis have-cp-estimate?))
-               (let ((fn (send axis pd-function cp)))
-                 (set! renderer-tree
-                       (cons (function fn #:color "red" #:width 1.5 #:style 'long-dash)
-                             renderer-tree))))
+             (define pd-function
+               (if (and cp (send axis have-cp-estimate?))
+                   (send axis pd-function cp)
+                   #f))
+             (when pd-function
+               (set! renderer-tree
+                     (cons (function pd-function #:color "red" #:width 1.5 #:style 'long-dash)
+                           renderer-tree)))
+             ;; NOTE: these are already calculated in make-best-avg-renderer!
+             (define plot-fn
+               (if data (best-avg->plot-fn data) #f))
+             (define aux-plot-fn
+               (if (and data aux-data)
+                   (best-avg->plot-fn (normalize-aux aux-data data zerob?))
+                   #f))
              (queue-callback
               (lambda ()
                 (cond ((not (null? renderer-tree))
                        (set! best-avg-data data)
                        (set! best-avg-aux-data aux-data)
+                       (set! best-avg-plot-fn plot-fn)
+                       (set! best-avg-aux-plot-fn aux-plot-fn)
+                       (set! best-avg-pd-fn pd-function)
                        (set! plot-rt renderer-tree)
                        (set! cache data-cache)
                        (put-plot-snip))
@@ -477,31 +539,32 @@
              (define inverted? (send axis inverted-best-avg?))
              (define bavg (get-aggregate-bavg candidates axis #f))
 
-             (let ((fn (aggregate-bavg->spline-fn bavg)))
-               (define brt
-                 (and fn
-                      (function-interval
-                       ;; The bottom (or top) of the shaded area needs to
-                       ;; cover the entire plot and it is too difficult to
-                       ;; find out the true min/max X value of the plot, so we
-                       ;; just put what we hope are large enough values.  The
-                       ;; plot will be clipped at the right spot.
-                       (if inverted? (lambda (x) 10000) (lambda (x) -10000))
-                       fn
-                       #:color (send axis plot-color)
-                       #:alpha 0.1
-                       #:line2-color "black"
-                       #:line2-width 0.5
-                       #:line1-style 'transparent)))
-               (queue-callback
-                (lambda ()
-                  ;; Discard changes if there was a new request since ours was
-                  ;; submitted.
-                  (let ((current-generation (get-best-rt-generation)))
-                    (when (= generation current-generation)
-                      (set! best-rt brt)
-                      (set! bests-data bavg)
-                      (put-plot-snip)))))))))))
+             (define fn (aggregate-bavg->spline-fn bavg))
+             (define brt
+               (and fn
+                    (function-interval
+                     ;; The bottom (or top) of the shaded area needs to cover
+                     ;; the entire plot and it is too difficult to find out
+                     ;; the true min/max X value of the plot, so we just put
+                     ;; what we hope are large enough values.  The plot will
+                     ;; be clipped at the right spot.
+                     (if inverted? (lambda (x) 10000) (lambda (x) -10000))
+                     fn
+                     #:color (send axis plot-color)
+                     #:alpha 0.1
+                     #:line2-color "black"
+                     #:line2-width 0.5
+                     #:line1-style 'transparent)))
+             (queue-callback
+              (lambda ()
+                ;; Discard changes if there was a new request since ours was
+                ;; submitted.
+                (let ((current-generation (get-best-rt-generation)))
+                  (when (= generation current-generation)
+                    (set! best-rt brt)
+                    (set! best-fn fn)
+                    (set! bests-data bavg)
+                    (put-plot-snip))))))))))
 
     (define (save-params-for-sport)
       (when (current-sport)
@@ -510,7 +573,7 @@
           (hash-set! params-by-sport
                      (current-sport)
                      (list 'gen1 (send axis series-name) params-by-series)))))
-               
+
     (define (restore-params-for-sport)
       (set! inhibit-refresh (add1 inhibit-refresh))
       (let ((params (hash-ref params-by-sport (current-sport) #f)))
@@ -519,7 +582,7 @@
               (let ((selection 0))
                 (when series-name
                   (let ((index (find-axis series-name axis-choices)))
-                    
+
                     (set! selection (min (or index 0) (sub1 (length axis-choices))))))
                 (on-axis-changed selection #t)
                 (set! params-by-series (hash-copy pbs))))

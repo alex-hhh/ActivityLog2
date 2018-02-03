@@ -2,10 +2,24 @@
 
 ## Prerequisites
 
+### Racket
+
 Before you can build and run ActivityLog2 you will need to install Racket.
 This can be downloaded from "http://racket-lang.org/".  ActivityLog2 is build
 and tested using the latest Racket version and previous versions may or may
 not work.
+
+### Plot library
+
+The application makes use of features that are not yet (2 Feb 2018) present in
+the plot library that ships with Racket.  The application will work with the
+built in plot library, but it will be missing overlays on various plots.  To
+get that functionality, you will need to install the plot library from
+https://github.com/alex-hhh/plot and checkout the "ah/interactive-overlays"
+branch.  For more information on how to do that, see [this blog
+post](https://alex-hhh.github.io/2018/01/changing-built-in-racket-packages.html)
+
+### Inno Setup
 
 To create a windows installer you will need to install [Inno
 Setup](http://www.jrsoftware.org/isinfo.php) and compile the "setup.iss" file.

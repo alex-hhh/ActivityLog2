@@ -36,7 +36,9 @@
  "al-widgets.rkt"
  "series-meta.rkt"
  "metrics.rkt"
- "utilities.rkt")
+ "utilities.rkt"
+ "plot-util.rkt"
+ "fmt-util.rkt")
 
 (provide hist-trends-chart%)
 
@@ -458,6 +460,26 @@
           (write-string ", " out)
           (write-string (~r rank #:precision ndigits) out))))
 
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      (when (and x y cached-data histogram-data)
+        (define dual? (>= (length (hist-axis cached-data)) 2))
+        (define params (send this get-params))
+        (define skip (if dual? 2.5 1.0))
+        (define gap (if dual? 0.15 1/8))
+        (define-values (series slot) (xposition->histogram-slot x skip gap))
+        (when (and slot (< slot (vector-length histogram-data)))
+          (define item (vector-ref histogram-data slot))
+          (when (and series (< series (sub1 (vector-length item))))
+            ;; NOTE first item in the vector is the bucket name, not the value
+            (define value (vector-ref item (add1 series)))
+            (when (<= y value)
+              (let ((tag (if (hist-params-aspct? params)
+                             (format "~a %" (~r value #:precision 1))
+                             (duration->string value))))
+                (add-label-overlay snip x y tag))))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (send canvas set-snip #f)
       (send canvas set-background-message "Working...")
@@ -483,7 +505,8 @@
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (set! histogram-data hist)
-                    (insert-plot-snip canvas (first (hist-axis data)) params rt))))))
+                    (define snip (insert-plot-snip canvas (first (hist-axis data)) params rt))
+                    (when snip (set-mouse-callback snip plot-hover-callback)))))))
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))

@@ -13,7 +13,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-;;; Comentary
+;;; Commentary
 ;;
 ;; Staring from Racket 6.2 onwards, the plot package is written in typed
 ;; racket.  Since most of ActivityLog2 is untyped, the typed plot-snip%
@@ -67,7 +67,7 @@
          #:x-label (U String #f)
          #:y-label (U String #f)
          #:legend-anchor Anchor]
-        Void))
+        Any))
 (define (plot-snip/hack canvas
                         renderer-tree
                         #:x-min [x-min #f] #:x-max [x-max #f]
@@ -99,8 +99,8 @@
                             #:title title
                             #:x-label x-label #:y-label y-label
                             #:legend-anchor legend-anchor)])
-      (set-snip canvas snip)))
-  (void))
+      (set-snip canvas snip)
+      snip)))
 
 (: plot-to-bitmap/hack
    (-> (Treeof (U renderer2d nonrenderer))

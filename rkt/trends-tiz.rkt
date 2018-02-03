@@ -21,6 +21,7 @@
  racket/match
  racket/gui/base
  racket/list
+ racket/format
  db
  plot
  "plot-hack.rkt"
@@ -29,9 +30,12 @@
  "widgets.rkt"
  "trends-chart.rkt"
  "fmt-util.rkt"
- "color-theme.rkt")
+ "color-theme.rkt"
+ "plot-util.rkt")
 
 (provide tiz-trends-chart%)
+
+(define histogram-gap 0.5)
 
 (struct tiz-params tc-params (start-date end-date group-by sport zone-metric))
 
@@ -200,7 +204,7 @@
                       #:colors plot-colors
                       #:labels plot-labels
                       #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
-                      #:gap 0.5))
+                      #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
 (define (insert-plot-snip canvas data)
@@ -280,10 +284,42 @@
                      timestamp z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
          out)))
 
+    (define cached-hslot #f)
+    (define cached-badge #f)
+
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+
+      (define skip (discrete-histogram-skip))
+      (define gap histogram-gap)
+      
+      (when (and x y)
+        (define-values (series slot) (xposition->histogram-slot x skip gap))
+        (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
+          (let ((row (list-ref chart-data slot)))
+            (when (> (vector-length row) 1)
+              (match-define (vector timestamp z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10) row)
+              (define total (+ z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
+              (when (<= y total)
+                (unless (eq? cached-hslot slot)
+                  (set! cached-hslot slot)
+                  (set! cached-badge
+                        (make-hover-badge
+                         (append 
+                          (for/list (((duration index) (in-indexed (in-vector row 1))) #:when (> duration 0))
+                            (list (format "Zone ~a" index)
+                                  (duration->string (* duration 3600))
+                                  (string-append (~r (* 100 (/ duration total)) #:precision 1) " %")))
+                          (list (list "Total" (duration->string (* total 3600))))))))
+                (when cached-badge
+                  (add-pict-overlay snip x y cached-badge)))))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (insert-plot-snip canvas chart-data)
+          (let ((snip (insert-plot-snip canvas chart-data)))
+            (set-mouse-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

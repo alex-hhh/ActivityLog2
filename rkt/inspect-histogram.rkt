@@ -20,12 +20,15 @@
          racket/list
          racket/match
          racket/string
+         racket/math
+         racket/format
          "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"
-         "plot-util.rkt"
          "data-frame.rkt"
-         "widgets.rkt")
+         "widgets.rkt"
+         "plot-util.rkt"
+         "fmt-util.rkt")
 
 (provide histogram-plot-panel%)
 
@@ -262,6 +265,26 @@
         (set! outlier-trim trim)
         (refresh-plot)))
 
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      (when (and x y)
+        (define dual?
+          (list? (list-ref axis-choices y-axis-index)))
+        (define skip (if dual? 2.5 1.0))
+        (define gap (if dual? 0.15 1/8))
+        (define-values (series slot) (xposition->histogram-slot x skip gap))
+        (when (and slot histogram-data (< slot (vector-length histogram-data)))
+          (define item (vector-ref histogram-data slot))
+          (when (and series (< series (sub1 (vector-length item))))
+            ;; NOTE first item in the vector is the bucket name, not the value
+            (define value (vector-ref item (add1 series)))
+            (when (<= y value)
+              (let ((tag (if show-as-percentage?
+                             (format "~a %" (~r value #:precision 1))
+                             (duration->string value))))
+                (add-label-overlay snip x y tag))))))
+      (send snip refresh-overlays))
+
     ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
     ;; render tree is ready (if it is #f, there is no data for the plot).
     (define (put-plot-snip)
@@ -277,7 +300,8 @@
                                              (time-ticks))]
                            [plot-x-ticks (send y-axis plot-ticks)]
                            [plot-x-label (send y-axis axis-label)])
-              (plot-snip/hack plot-pb rt))))))
+              (define snip (plot-snip/hack plot-pb rt))
+              (set-mouse-callback snip plot-hover-callback))))))
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
     ;; that procesing happens in a separate task, and the render tree will

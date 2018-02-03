@@ -1377,6 +1377,7 @@
     (if value
         (vector duration (tr value) position)
         data)))
+(provide normalize-aux)
 
 ;; Return the plot bounds for BAVG (best average data).  4 values are
 ;; returned, min-x, max-x, min-y, max-y.  They can be #f if there are no valid

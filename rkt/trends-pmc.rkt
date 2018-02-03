@@ -29,7 +29,8 @@
  "database.rkt"
  "widgets.rkt"
  "trends-chart.rkt"
- "fmt-util.rkt")
+ "fmt-util.rkt"
+ "plot-util.rkt")
 
 (provide pmc-trends-chart%)
 
@@ -269,6 +270,13 @@
              ;; #:when (> (vector-ref e 3) 0))
     (vector (vector-ref e 0) (vector-ref e 3))))
 
+(define (get-entry-for-day pmc-data timestamp)
+  (for/or ((today pmc-data)
+           (tomorrow (cdr pmc-data)))
+    ;; (printf "today ~a; tomorrow ~a; timestamp ~a~%" today tomorrow timestamp)
+    (and (< (vector-ref today 0) timestamp (vector-ref tomorrow 0))
+         (cons today tomorrow))))
+
 (define (make-form-renderer data)
   (let ((fdata (get-form-data-series data))
         (zeroes (for/list ((e (in-list data)))
@@ -354,6 +362,8 @@
 
     (define data-valid? #f)
     (define pmc-data #f)
+    (define cached-day #f)
+    (define cached-badge #f)
 
     (define/override (make-settings-dialog)
       (new pmc-chart-settings%
@@ -362,7 +372,9 @@
            [database database]))
 
     (define/override (invalidate-data)
-      (set! data-valid? #f))
+      (set! data-valid? #f)
+      (set! cached-day #f)
+      (set! cached-badge #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -391,12 +403,40 @@
                    (fmt atl) (fmt ctl) (fmt (- ctl atl)) (fmt tss))
            out))))
 
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      (when (and x y)
+        (define info '())
+        (define (add-info tag val) (set! info (cons (list tag val) info)))
+        (let ((entry (get-entry-for-day pmc-data x))
+              (params (send this get-params)))
+          (when entry
+            (add-vrule-overlay snip x)
+            (match-define (vector today ctl atl tss) (car entry))
+            (match-define (vector tomorrow ctl2 atl2 tss2) (cdr entry))
+            (unless (eq? cached-day today)
+              (add-info "Date" (calendar-date->string today))
+              (when (pmc-params-show-form? params)
+                (add-info "Form" (~r (- ctl2 atl2) #:precision 1)))
+              (when (pmc-params-show-fitness? params)
+                (add-info "Fitness" (~r ctl #:precision 1)))
+              (when (pmc-params-show-fatigue? params)
+                (add-info "Fatigue" (~r atl #:precision 1)))
+              (when (pmc-params-show-daily-tss? params)
+                (add-info "Stress" (~r tss #:precision 1)))
+              (unless (null? info)
+                (set! cached-badge (make-hover-badge info))))
+            (when cached-badge
+              (add-pict-overlay snip x y cached-badge)))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
       (let ((params (send this get-params)))
         (if params
             (let ((rt (make-renderer-tree params pmc-data)))
-              (insert-plot-snip canvas params rt))
+              (let ((snip (insert-plot-snip canvas params rt)))
+                (set-mouse-callback snip plot-hover-callback)))
             #f)))
 
     (define/override (save-plot-image file-name width height)

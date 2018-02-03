@@ -19,6 +19,7 @@
  racket/class
  racket/match
  racket/gui/base
+ racket/math
  db
  plot
  "plot-hack.rkt"
@@ -26,9 +27,13 @@
  "database.rkt"
  "widgets.rkt"
  "al-widgets.rkt"
- "trends-chart.rkt")
+ "trends-chart.rkt"
+ "plot-util.rkt"
+ "fmt-util.rkt")
 
 (provide vol-trends-chart%)
+
+(define histogram-gap 0.5)
 
 ;; Metric: 0 - time, 1 - distance, 2 - session count, 3 - tss
 (struct vol-params tc-params (start-date end-date group-by sport sub-sport metric))
@@ -171,7 +176,7 @@
             #:y-max max-y
             #:color *sea-green*
             #:line-width 0
-            #:gap 0.5))
+            #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
 (define (insert-plot-snip canvas data y-label)
@@ -205,6 +210,8 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
+    (define cached-hslot #f)
+    (define cached-badge #f)
 
     (define/override (make-settings-dialog)
       (new vol-chart-settings%
@@ -213,7 +220,9 @@
            [database database]))
 
     (define/override (invalidate-data)
-      (set! data-valid? #f))
+      (set! data-valid? #f)
+      (set! cached-hslot #f)
+      (set! cached-badge #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -238,11 +247,51 @@
           ((1) "Distance (km)")
           ((2) "Session Count")
           ((3) "Trainning Stress"))))
+
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      
+      (define skip (discrete-histogram-skip))
+      (define gap histogram-gap)
+      
+      (when (and x y)
+        (define params (send this get-params))
+        (define metric (vol-params-metric params))
+        (define format-value
+          (case metric
+            ((0) (lambda (v) (duration->string (* v 3600))))
+            ((1) (lambda (v) (distance->string (* v 1000) #t)))
+            ((2) (lambda (v) (format "~a activities" (exact-round v))))
+            ((3) (lambda (v) (format "~a stress" (exact-round v))))))
+
+        (define label
+          (case metric
+            ((0) "Time")
+            ((1) "Distance")
+            ((2) "Activities")
+            ((3) "Stress")))
         
+        (define-values (series slot) (xposition->histogram-slot x skip gap))
+        (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
+          (let ((row (list-ref chart-data slot)))
+            (when (> (vector-length row) 1)
+              (match-define (vector timestamp val) row)
+              (when (<= y val)
+                ;; (add-mark-overlay snip x y (format "~a / ~a" series slot))
+                (unless (eq? cached-hslot slot)
+                  (set! cached-hslot slot)
+                  (set! cached-badge
+                        (make-hover-badge
+                         (list (list label (format-value val))))))
+                (when cached-badge
+                  (add-pict-overlay snip x y cached-badge)))))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (insert-plot-snip canvas chart-data (get-y-label))
+          (let ((snip (insert-plot-snip canvas chart-data (get-y-label))))
+            (set-mouse-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

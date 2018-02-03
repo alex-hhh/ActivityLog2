@@ -20,6 +20,8 @@
  racket/class
  racket/match
  racket/gui/base
+ racket/math
+ racket/format
  db
  plot
  "plot-hack.rkt"
@@ -27,9 +29,13 @@
  "database.rkt"
  "widgets.rkt"
  "trends-chart.rkt"
- "sport-charms.rkt")
+ "sport-charms.rkt"
+ "fmt-util.rkt"
+ "plot-util.rkt")
 
 (provide trivol-trends-chart%)
+
+(define histogram-gap 0.5)
 
 ;; Group-by: 0 - week, 1 - month, 2 - year
 ;; Metric: 0 - time, 1 - distance, 2 - session count
@@ -212,7 +218,7 @@
                   (get-sport-color 1 #f))
             #:labels '("Weights" "Swim" "Bike" "Run")
             #:line-widths '(0 0 0 0)
-            #:gap 0.5))
+            #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
 (define (insert-plot-snip canvas data y-label)
@@ -251,7 +257,9 @@
            [database database]))
 
     (define/override (invalidate-data)
-      (set! data-valid? #f))
+      (set! data-valid? #f)
+      (set! cached-hslot #f)
+      (set! cached-badge #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -266,10 +274,52 @@
           ((2) "Session Count")
           ((3) "Effort"))))
 
+    (define cached-hslot #f)
+    (define cached-badge #f)
+
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+
+      (define skip (discrete-histogram-skip))
+      (define gap histogram-gap)
+      
+      (when (and x y)
+        (define params (send this get-params))
+        (define metric (trivol-params-metric params))
+        (define format-value
+          (case metric
+            ((0) (lambda (v) (duration->string (* v 3600))))
+            ((1) (lambda (v) (distance->string (* v 1000) #t)))
+            ((2) (lambda (v) (format "~a activities" (exact-round v))))
+            ((3) (lambda (v) (format "~a stress" (exact-round v))))))
+        
+        (define-values (series slot) (xposition->histogram-slot x skip gap))
+        (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
+          (let ((row (list-ref chart-data slot)))
+            (when (> (vector-length row) 1)
+              (match-define (vector timestamp wtime stime btime rtime) row)
+              (define total (+ wtime stime btime rtime))
+              (define (->percent-str val)
+                (string-append (~r (* 100 (/ val total)) #:precision 1) " %"))
+              (when (<= y total)
+                (unless (eq? cached-hslot slot)
+                  (set! cached-hslot slot)
+                  (set! cached-badge
+                        (make-hover-badge
+                         (list (list "Weights" (format-value wtime) (->percent-str wtime))
+                               (list "Swim" (format-value stime) (->percent-str stime))
+                               (list "Bike" (format-value btime) (->percent-str btime))
+                               (list "Run" (format-value rtime) (->percent-str rtime))
+                               (list "Total" (format-value (+ wtime stime btime rtime)))))))
+                (when cached-badge
+                  (add-pict-overlay snip x y cached-badge)))))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (insert-plot-snip canvas chart-data (get-y-label))
+          (let ((snip (insert-plot-snip canvas chart-data (get-y-label))))
+            (set-mouse-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

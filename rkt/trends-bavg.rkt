@@ -24,6 +24,7 @@
  racket/gui/base
  racket/math
  racket/hash
+ racket/list
  pict
  embedded-gui                           ; snip-width, snip-height
  "trends-chart.rkt"
@@ -35,10 +36,11 @@
  "series-meta.rkt"
  "metrics.rkt"
  "spline-interpolation.rkt"
- "plot-util.rkt"
  "utilities.rkt"
  "pdmodel.rkt"
- "bavg-util.rkt")
+ "bavg-util.rkt"
+ "fmt-util.rkt"
+ "plot-util.rkt")
 
 
 (struct bavg-params tc-params
@@ -324,7 +326,7 @@
                'show-heat? show-heat?
                'heat-percent heat-pct))
             data))
-      
+
       (send session-filter restore-from hdata)
 
       (send name-field set-value (hash-ref hdata 'name "Bavg"))
@@ -513,6 +515,20 @@
     (define pd-model-snip #f)
     (define saved-pd-model-snip-location #f)
 
+    (define sid-timestamp-cache (make-hash))
+    (define sid-timestamp-query
+      (virtual-statement
+       (lambda (dbsys)
+         "select start_time from A_SESSION where id = ?")))
+
+    (define (get-timestamp sid)
+      (let ((ts (hash-ref sid-timestamp-cache sid #f)))
+        (unless ts
+          (set! ts (query-maybe-value database sid-timestamp-query sid)))
+        (when ts
+          (hash-set! sid-timestamp-cache sid ts))
+        ts))
+
     (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
@@ -556,6 +572,48 @@
             (write-string (format ", ~a" (vector-ref h 1)) out)))
         (newline out)))
 
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      (define info '())
+
+      (define (add-info tag value)
+        (set! info (cons (list tag value) info)))
+
+      (when (and x y cached-data)
+        (let ((params (send this get-params))
+              (format-value (send (tbavg-axis cached-data) value-formatter)))
+          (add-vrule-overlay snip x)
+          (let ((closest (lookup-duration (tbavg-data cached-data) x)))
+            (when closest
+              (match-define (cons
+                             (list sid1 ts1 duration1 value1)
+                             (list sid2 ts2 duration2 value2))
+                closest)
+              (add-mark-overlay snip duration1 value1)
+              (add-mark-overlay snip duration2 value2)
+              ;; (add-info "Data point timestamp" (date-time->string ts))
+
+              (add-info #f (date-time->string (get-timestamp sid2)))
+              (add-info "Point 2" (format "~a @ ~a" (format-value value2) (duration->string duration2)))
+              (add-info #f (date-time->string (get-timestamp sid1)))
+              (add-info "Point 1" (format "~a @ ~a" (format-value value1) (duration->string duration1)))
+
+              ))
+          (let ((cpfn (tbavg-cp-fn cached-data)))
+            (when cpfn
+              (let ((my (cpfn x)))
+                (when my
+                  (add-info "Model" (format-value my))))))
+          (let ((plotfn (tbavg-plot-fn cached-data)))
+            (when plotfn
+              (let ((dy (plotfn x)))
+                (when dy
+                  (add-info (send (tbavg-axis cached-data) name) (format-value dy))))))
+
+          (add-info "Duration" (duration->string x)))
+        (add-pict-overlay snip x y (make-hover-badge (reverse info))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
@@ -580,8 +638,9 @@
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
-                    (insert-plot-snip canvas (tbavg-axis data) rt
-                                      min-x max-x min-y max-y)
+                    (define snip (insert-plot-snip canvas (tbavg-axis data) rt
+                                                   min-x max-x min-y max-y))
+                    (set-mouse-callback snip plot-hover-callback)
                     (when (tbavg-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tbavg-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)

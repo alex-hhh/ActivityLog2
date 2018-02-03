@@ -25,7 +25,9 @@
  "trends-chart.rkt"
  "icon-resources.rkt"
  "widgets.rkt"
- "plot-hack.rkt")
+ "plot-hack.rkt"
+ "plot-util.rkt"
+ "fmt-util.rkt")
 
 (provide bw-trends-chart%)
 
@@ -100,6 +102,13 @@
     (for/list (([timestamp bw] (in-query db sql-query start-date end-date)))
       (filter (vector timestamp bw)))))
 
+(define (get-entry-for-day bw-data timestamp)
+  (for/or ((today bw-data)
+           (tomorrow (cdr bw-data)))
+    ;; (printf "today ~a; tomorrow ~a; timestamp ~a~%" today tomorrow timestamp)
+    (and (< (vector-ref today 0) timestamp (vector-ref tomorrow 0))
+         (cons today tomorrow))))
+
 (define *sea-green* '(#x2e #x8b #x57))
 
 (define (make-renderer-tree bw-data)
@@ -166,12 +175,30 @@
         (match-define (vector timestamp bw) datum)
         (write-string (format "~a, ~a~%" timestamp bw) out)))
 
+    (define (plot-hover-callback snip event x y)
+      (send snip clear-overlays)
+      (when (and x y)
+        (define info '())
+        (define (add-info tag val) (set! info (cons (list tag val) info)))
+        (let ((entry (get-entry-for-day bw-data x)))
+          (when entry
+            (add-vrule-overlay snip x)
+            (match-define (vector today bw1) (car entry))
+            (match-define (vector tomorrow bw2) (cdr entry))
+            (define bw (+ bw1 (* (- bw2 bw1) (/ (- x today) (- today tomorrow)))))
+            (add-info "Date" (calendar-date->string today))
+            (add-info "Bodyweight" (weight->string bw #t))
+            (unless (null? info)
+              (add-pict-overlay snip x y (make-hover-badge info))))))
+      (send snip refresh-overlays))
+
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (insert-plot-snip
-           canvas
-           (make-renderer-tree bw-data))
+          (let ((snip (insert-plot-snip
+                       canvas
+                       (make-renderer-tree bw-data))))
+            (set-mouse-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

@@ -825,7 +825,7 @@ select X.session_id
                            (or/c #f number?)))
 
 (provide
- aggregate-bavg/c)
+ aggregate-bavg/c aggregate-bavg-item/c)
 
 (provide/contract
  (fetch-candidate-sessions (->* (connection?
