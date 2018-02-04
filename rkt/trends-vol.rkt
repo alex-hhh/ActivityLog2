@@ -114,10 +114,10 @@
 
 (define (make-sql-query start-date end-date group-by sport sub-sport)
   (format "select ~a as period,
-           round(total(VAL.duration) / 3600.0, 2) as duration,
-           round(total(VAL.distance) / 1000.0, 2) as distance,
+           (total(VAL.duration) / 3600.0) as duration,
+           (total(VAL.distance) / 1000.0) as distance,
            count(VAL.session_id) as session_count,
-           round(total(VAL.tss)) as training_stress
+           total(VAL.tss) as training_stress
            from V_ACTIVITY_LIST VAL
            where VAL.start_time between ~a and ~a
              and ~a

@@ -111,10 +111,10 @@
 
 (define (make-sql-query/time start-date end-date group-by)
   (format "select ~a as period,
-           round(total(T.strength_time) / 3600.0, 2) as strength_time,
-           round(total(T.swim_time) / 3600.0, 2) as swim_time,
-           round(total(T.bike_time) / 3600.0, 2) as bike_time,
-           round(total(T.run_time) / 3600.0, 2) as run_time
+           (total(T.strength_time) / 3600.0) as strength_time,
+           (total(T.swim_time) / 3600.0) as swim_time,
+           (total(T.bike_time) / 3600.0) as bike_time,
+           (total(T.run_time) / 3600.0) as run_time
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
@@ -150,9 +150,9 @@
 (define (make-sql-query/distance start-date end-date group-by)
   (format "select ~a as period,
            0 as strength_distance,
-           round(total(T.swim_distance) / 1000.0, 2),
-           round(total(T.bike_distance) / 1000.0, 2),
-           round(total(T.run_distance) / 1000.0, 2)
+           (total(T.swim_distance) / 1000.0),
+           (total(T.bike_distance) / 1000.0),
+           (total(T.run_distance) / 1000.0)
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
@@ -168,10 +168,10 @@
 
 (define (make-sql-query/stress start-date end-date group-by)
   (format "select ~a as period,
-           round(total(T.strength_effort)),
-           round(total(T.swim_effort)),
-           round(total(T.bike_effort)),
-           round(total(T.run_effort))
+           total(T.strength_effort),
+           total(T.swim_effort),
+           total(T.bike_effort),
+           total(T.run_effort)
            from V_TRIATHLON_SESSIONS T
            where T.start_time between ~a and ~a group by period order by period"
           (cond ((eqv? group-by 0)       ; week
