@@ -33,7 +33,8 @@
          "bavg-util.rkt"
          "pdmodel.rkt"
          "fmt-util.rkt"
-         "plot-util.rkt")
+         "plot-util.rkt"
+         "database.rkt")
 
 (provide best-avg-plot-panel%)
 
@@ -393,6 +394,16 @@
         (define axis (get-series-axis))
         (define format-value (send axis value-formatter))
         (add-data-point "Model" best-avg-pd-fn format-value)
+
+        ;; Find the closest point on the bests plot and put the date on which
+        ;; it was achieved.  Technically, the hover will be between two such
+        ;; measurements, but for simplicity we show only the one that it is
+        ;; closest to the mouse.  The trends-bavg plot shows both points.
+        (when bests-data
+          (let ((closest (lookup-duration/closest bests-data x)))
+            (when closest
+              (define sid (car closest))
+              (add-info #f (date-time->string (get-session-start-time sid))))))
         (add-data-point "Best" best-fn format-value)
         (add-data-point (send axis name) best-avg-plot-fn format-value)
         (add-info "Duration" (duration->string x))

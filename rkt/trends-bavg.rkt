@@ -40,7 +40,8 @@
  "pdmodel.rkt"
  "bavg-util.rkt"
  "fmt-util.rkt"
- "plot-util.rkt")
+ "plot-util.rkt"
+ "database.rkt")
 
 
 (struct bavg-params tc-params
@@ -515,20 +516,6 @@
     (define pd-model-snip #f)
     (define saved-pd-model-snip-location #f)
 
-    (define sid-timestamp-cache (make-hash))
-    (define sid-timestamp-query
-      (virtual-statement
-       (lambda (dbsys)
-         "select start_time from A_SESSION where id = ?")))
-
-    (define (get-timestamp sid)
-      (let ((ts (hash-ref sid-timestamp-cache sid #f)))
-        (unless ts
-          (set! ts (query-maybe-value database sid-timestamp-query sid)))
-        (when ts
-          (hash-set! sid-timestamp-cache sid ts))
-        ts))
-
     (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
@@ -591,14 +578,10 @@
                 closest)
               (add-mark-overlay snip duration1 value1)
               (add-mark-overlay snip duration2 value2)
-              ;; (add-info "Data point timestamp" (date-time->string ts))
-
-              (add-info #f (date-time->string (get-timestamp sid2)))
+              (add-info #f (date-time->string (get-session-start-time sid2)))
               (add-info "Point 2" (format "~a @ ~a" (format-value value2) (duration->string duration2)))
-              (add-info #f (date-time->string (get-timestamp sid1)))
-              (add-info "Point 1" (format "~a @ ~a" (format-value value1) (duration->string duration1)))
-
-              ))
+              (add-info #f (date-time->string (get-session-start-time sid1)))
+              (add-info "Point 1" (format "~a @ ~a" (format-value value1) (duration->string duration1)))))
           (let ((cpfn (tbavg-cp-fn cached-data)))
             (when cpfn
               (let ((my (cpfn x)))

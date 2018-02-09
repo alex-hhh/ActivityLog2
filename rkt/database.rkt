@@ -21,10 +21,16 @@
          racket/file
          racket/list
          racket/dict
+         racket/contract
+         racket/match
+         racket/async-channel
          "dbutil.rkt"
+         "dbapp.rkt"
          "fit-defs.rkt"
          "fit-file.rkt"
-         "elevation-correction.rkt")
+         "elevation-correction.rkt"     ; for lat-lon->tile-code
+         "utilities.rkt"
+         )
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)
@@ -39,6 +45,9 @@
 (provide db-get-activity-id)
 (provide db-get-seasons)
 (provide db-extract-activity-raw-data)
+
+(provide/contract
+ (get-session-start-time (-> exact-nonnegative-integer? (or/c number? #f))))
 
 
 ;................................................... database utilities ....
@@ -1030,3 +1039,41 @@
 
 (define (db-get-seasons db)
   (query-rows db "select name, start_date, end_date from SEASON order by name"))
+
+
+;;............................................... get-session-start-time ....
+
+(define sid-timestamp-cache (make-hash))
+(define sid-timestamp-query
+  (virtual-statement
+   (lambda (dbsys)
+     "select start_time from A_SESSION where id = ?")))
+
+;; Clear the timestamp cache when the database changes
+(add-db-open-callback (lambda (c) (set! sid-timestamp-cache (make-hash))))
+
+;; Clear individual entries when sessions change or are deleted -- no need to
+;; handle session-created notifications, as they will be added to the cache
+;; when they are first requested.
+(define dummy
+  (let ((s (make-log-event-source)))
+    (thread/dbglog
+     #:name "session df change processor sid-timestamp-cache"
+     (lambda ()
+       (let loop ((item (async-channel-get s)))
+         (when item
+           (match-define (list tag data) item)
+           (when (member tag '(session-updated session-deleted))
+             (hash-remove! sid-timestamp-cache data))
+           (loop (async-channel-get s))))))))
+
+;; Return the start time of the session SID, of #f if no such session exists
+;; in the database.  This should be an efficient function to call, as the
+;; results are cached locally.
+(define (get-session-start-time sid)
+  (let ((ts (hash-ref sid-timestamp-cache sid #f)))
+    (unless ts
+      (set! ts (query-maybe-value (current-database) sid-timestamp-query sid)))
+    (when ts
+      (hash-set! sid-timestamp-cache sid ts))
+    ts))

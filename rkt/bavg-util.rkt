@@ -36,7 +36,9 @@
                                   (listof (vector/c (and/c real? positive?)
                                                     (and/c real? positive?)))))
  (lookup-duration (-> aggregate-bavg/c (and/c real? positive?)
-                      (or/c #f (cons/c aggregate-bavg-item/c aggregate-bavg-item/c)))))
+                      (or/c #f (cons/c aggregate-bavg-item/c aggregate-bavg-item/c))))
+ (lookup-duration/closest (-> aggregate-bavg/c (and/c real? positive?)
+                              (or/c #f aggregate-bavg-item/c))))
 
 ;; Return the best avg for the session in DF (a data-frame%) and AXIS.  See
 ;; `df-best-avg`.
@@ -138,10 +140,25 @@
 ;; entries between which DURATION lies. since the data contains entries at
 ;; discrete points). Returns #f if DURATION is outside the range of the data.
 (define (lookup-duration aggregate-bavg-data duration)
-  (for/or ((prev (in-list aggregate-bavg-data))
-           (next (in-list (cdr aggregate-bavg-data))))
-    (match-define (list sid1 ts1 duration1 value1) prev)
-    (match-define (list sid2 ts2 duration2 value2) next)
-    (if (<= duration1 duration duration2)
-        (cons prev next)
-        #f)))
+  (and (not (null? aggregate-bavg-data))
+       (for/or ((prev (in-list aggregate-bavg-data))
+                (next (in-list (cdr aggregate-bavg-data))))
+         (match-define (list sid1 ts1 duration1 value1) prev)
+         (match-define (list sid2 ts2 duration2 value2) next)
+         (if (<= duration1 duration duration2)
+             (cons prev next)
+             #f))))
+
+;; Lookup the closest entry for DURATION in AGGREGATE-BAVG-DATA. Since the
+;; data contains entries at discrete points, this function returns the closest
+;; point we have in the data.  To return both points use 'lookup-duration'.
+;; Returns #f if DURATION is outside the range of the data.
+(define (lookup-duration/closest aggregate-bavg-data duration)
+  (and (not (null? aggregate-bavg-data))
+       (for/or ((prev (in-list aggregate-bavg-data))
+                (next (in-list (cdr aggregate-bavg-data))))
+        (match-define (list sid1 ts1 duration1 value1) prev)
+        (match-define (list sid2 ts2 duration2 value2) next)
+        (if (<= duration1 duration duration2)
+            (if (< (- duration duration1) (- duration2 duration)) prev next)
+            #f))))

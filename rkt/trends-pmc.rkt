@@ -270,12 +270,31 @@
              ;; #:when (> (vector-ref e 3) 0))
     (vector (vector-ref e 0) (vector-ref e 3))))
 
-(define (get-entry-for-day pmc-data timestamp)
-  (for/or ((today pmc-data)
-           (tomorrow (cdr pmc-data)))
-    ;; (printf "today ~a; tomorrow ~a; timestamp ~a~%" today tomorrow timestamp)
-    (and (< (vector-ref today 0) timestamp (vector-ref tomorrow 0))
-         (cons today tomorrow))))
+;; Find the performance data corresponding to TIMESTAMP inside PMC-DATA.
+;; Returns a list of 5 values:
+;;
+;; timestamp -- the start of day timestamp,
+;;
+;; CTL -- form, or chronic training load for the day,
+;;
+;; ATL -- fatigue, or acute training load for the day,
+;;
+;; TSB -- fitness, or training stress balance, calculated as CTL - ATL on the
+;; *previous* day (see issue #2)
+;;
+;; TSS -- total training stress for the day
+;;
+;; NOTE that TSB or form is computed on yesterdays values.  I.e. form is shown
+;; at the beginning of the day, while ATL, CTL are shown at the end of the
+;; day.  See also issue #2
+(define (get-pmc-data-for-timestamp pmc-data timestamp)
+  (for/or ((yesterday pmc-data)
+           (today (cdr pmc-data)))
+    (match-define (vector ts ctl atl tss) today)
+    (and (> timestamp ts)
+         (< (- timestamp ts) (* 24 3600))
+         (match-let (((vector yts yctl yatl ytss) yesterday))
+           (list ts ctl atl (- yctl yatl) tss)))))
 
 (define (make-form-renderer data)
   (let ((fdata (get-form-data-series data))
@@ -290,6 +309,7 @@
      #:label "Form")))
 
 (define *sea-green* '(#x2e #x8b #x57))
+(define *sea-green-hl* (make-object color% #x2e #x8b #x57 0.2))
 
 (define (make-tss-renderer data)
   (let ((tdata (get-tss-data-series data)))
@@ -408,16 +428,17 @@
       (when (and x y)
         (define info '())
         (define (add-info tag val) (set! info (cons (list tag val) info)))
-        (let ((entry (get-entry-for-day pmc-data x))
+        (let ((entry (get-pmc-data-for-timestamp pmc-data x))
               (params (send this get-params)))
           (when entry
-            (add-vrule-overlay snip x)
-            (match-define (vector today ctl atl tss) (car entry))
-            (match-define (vector tomorrow ctl2 atl2 tss2) (cdr entry))
-            (unless (eq? cached-day today)
-              (add-info "Date" (calendar-date->string today))
+            (match-define (list ts ctl atl tsb tss) entry)
+            ;; Highlight the entire day -- while the plot is linear, values
+            ;; are only computed for an entire day.
+            (add-vrange-overlay snip ts (+ ts (* 24 3600)) *sea-green-hl*)
+            (unless (eq? cached-day ts)
+              (add-info "Date" (calendar-date->string ts))
               (when (pmc-params-show-form? params)
-                (add-info "Form" (~r (- ctl2 atl2) #:precision 1)))
+                (add-info "Form" (~r tsb #:precision 1)))
               (when (pmc-params-show-fitness? params)
                 (add-info "Fitness" (~r ctl #:precision 1)))
               (when (pmc-params-show-fatigue? params)
