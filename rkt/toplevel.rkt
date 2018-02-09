@@ -759,6 +759,7 @@
         (set! database #f))
 
       (when exit-application?
+        (shutdown-event-sink-listener-threads)
         (shutdown-workers)
         (shutdown-map-tile-workers)
         (exit 0)))

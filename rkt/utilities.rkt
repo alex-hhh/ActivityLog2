@@ -42,6 +42,7 @@
  (log-event (-> symbol? any/c any/c))
  (make-log-event-source (-> async-channel?))
  (collect-events (-> async-channel? (hash/c symbol? (listof any/c))))
+ (shutdown-event-sink-listener-threads (-> any/c))
 
  )
 
@@ -306,6 +307,13 @@
   (when have-gced-sinks?
     (set! the-event-sinks
           (for/list ([box the-event-sinks] #:unless (weak-box-value box)) box))))
+
+;; Send a #f value on all our sinks, any threads that listen on them will shut
+;; down (because that's how these threads should be written).
+(define (shutdown-event-sink-listener-threads)
+  (for ([sink-box the-event-sinks])
+    (let ((sink (weak-box-value sink-box)))
+      (when sink (async-channel-put sink #f)))))
 
 ;; Create a source of log-events.  This is an async channel that will receive
 ;; events logged with `log-event`
