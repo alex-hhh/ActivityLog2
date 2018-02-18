@@ -99,6 +99,13 @@
 (define (pu-vrule x)
   (vrule x #:width 1 #:style 'short-dash #:color "black"))
 
+;; `point-pict` is introduced recently (post Racket 6.12) in the plot package,
+;; might not be available.  This magic incantation avoids a compilation error
+;; -- this code would not be called anyway, as we check for
+;; `set-mouse-event-callback` and none of these functions are called unless
+;; that one is present.
+(define point-pict-1 (dynamic-require 'plot 'point-pict (λ () #f)))
+
 ;; Create a renderer that draws label, which can be either a string or a pict,
 ;; to be used as an overlay.  The label is drawn at position X, Y in plot
 ;; coordinates.
@@ -113,7 +120,8 @@
                                      #:draw-border? #f
                                      #:color hover-tag-background)
            p0))))
-    (point-pict (vector x y) p #:point-sym 'none #:anchor 'auto))
+  (when point-pict-1
+    (point-pict-1 (vector x y) p #:point-sym 'none #:anchor 'auto)))
 
 ;; Create a vertical rectangle overlay renderer between XMIN and XMAX using
 ;; COLOR.  The rectangle will cover the entire height of the plot between XMIN
