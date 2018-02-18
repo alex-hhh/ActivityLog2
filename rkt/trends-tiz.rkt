@@ -288,8 +288,9 @@
     (define cached-badge #f)
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
 
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
       
@@ -311,15 +312,14 @@
                                   (duration->string (* duration 3600))
                                   (string-append (~r (* 100 (/ duration total)) #:precision 1) " %")))
                           (list (list "Total" (duration->string (* total 3600))))))))
-                (when cached-badge
-                  (add-pict-overlay snip x y cached-badge)))))))
-      (send snip refresh-overlays))
+                (when cached-badge (add-renderer (pu-label x y cached-badge))))))))
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
           (let ((snip (insert-plot-snip canvas chart-data)))
-            (set-mouse-callback snip plot-hover-callback))
+            (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

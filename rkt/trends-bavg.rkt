@@ -560,42 +560,38 @@
         (newline out)))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
       (define info '())
+      (define (add-info tag value) (set! info (cons (list tag value) info)))
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
 
-      (define (add-info tag value)
-        (set! info (cons (list tag value) info)))
-
-      (when (and x y cached-data)
+      (when (and x y cached-data (eq? (send event get-event-type) 'motion))
         (let ((params (send this get-params))
-              (format-value (send (tbavg-axis cached-data) value-formatter)))
-          (add-vrule-overlay snip x)
+              (fmtval (send (tbavg-axis cached-data) value-formatter)))
+          (add-renderer (pu-vrule x))
           (let ((closest (lookup-duration (tbavg-data cached-data) x)))
             (when closest
-              (match-define (cons
-                             (list sid1 ts1 duration1 value1)
-                             (list sid2 ts2 duration2 value2))
-                closest)
-              (add-mark-overlay snip duration1 value1)
-              (add-mark-overlay snip duration2 value2)
+              (match-define (cons (list sid1 ts1 d1 v1) (list sid2 ts2 d2 v2)) closest)
+              (add-renderer (pu-markers (list (vector d1 v1) (vector d2 v2))))
               (add-info #f (date-time->string (get-session-start-time sid2)))
-              (add-info "Point 2" (format "~a @ ~a" (format-value value2) (duration->string duration2)))
+              (add-info "Point 2" (string-append (fmtval v2) " @ " (duration->string d2)))
               (add-info #f (date-time->string (get-session-start-time sid1)))
-              (add-info "Point 1" (format "~a @ ~a" (format-value value1) (duration->string duration1)))))
+              (add-info "Point 1" (string-append (fmtval v1) " @ " (duration->string d1)))))
           (let ((cpfn (tbavg-cp-fn cached-data)))
             (when cpfn
               (let ((my (cpfn x)))
                 (when my
-                  (add-info "Model" (format-value my))))))
+                  (add-info "Model" (fmtval my))))))
           (let ((plotfn (tbavg-plot-fn cached-data)))
             (when plotfn
               (let ((dy (plotfn x)))
                 (when dy
-                  (add-info (send (tbavg-axis cached-data) name) (format-value dy))))))
+                  (add-info (send (tbavg-axis cached-data) name) (fmtval dy)))))))
 
-          (add-info "Duration" (duration->string x)))
-        (add-pict-overlay snip x y (make-hover-badge (reverse info))))
-      (send snip refresh-overlays))
+        (add-info "Duration" (duration->string x))
+        (add-renderer (pu-label x y (make-hover-badge (reverse info)))))
+
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (set! generation (add1 generation))
@@ -623,7 +619,7 @@
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (define snip (insert-plot-snip canvas (tbavg-axis data) rt
                                                    min-x max-x min-y max-y))
-                    (set-mouse-callback snip plot-hover-callback)
+                    (set-mouse-event-callback snip plot-hover-callback)
                     (when (tbavg-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tbavg-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)

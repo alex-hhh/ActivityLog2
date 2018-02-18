@@ -23,20 +23,19 @@
          pict
          pict/snip
          plot
+         plot/utils
          embedded-gui
          "utilities.rkt")
 
 (provide/contract
  ;; NOTE all these are actually instances of 2d-plot-snip%, but the plot
  ;; library does not export that type.
- (set-mouse-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
- (clear-plot-overlays (-> (is-a?/c snip%) any/c))
- (refresh-plot-overlays (-> (is-a?/c snip%) any/c))
- (add-vrule-overlay (-> (is-a?/c snip%) number? any/c))
- (add-mark-overlay (->* ((is-a?/c snip%) number? number?) ((or/c #f string?)) any/c))
- (add-label-overlay (-> (is-a?/c snip%) number? number? string? any/c))
- (add-pict-overlay (-> (is-a?/c snip%) number? number? pict? any/c))
- (add-vrange-overlay (-> (is-a?/c snip%) number? number? any/c any/c))
+ (set-mouse-event-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
+ (set-overlay-renderers (-> (is-a?/c snip%) (or/c (treeof renderer2d?) #f null) any/c))
+ (pu-vrule (-> real? renderer2d?))
+ (pu-label (-> real? real? (or/c string? pict?) renderer2d?))
+ (pu-vrange (-> real? real? (is-a?/c color%) renderer2d?))
+ (pu-markers (-> (listof (vector/c real? real?)) renderer2d?))
  (make-hover-badge (-> (listof (listof (or/c #f string?))) pict?))
  (move-snip-to (-> (is-a?/c snip%) (or/c #f (cons/c number? number?)) any/c))
  (get-snip-location (-> (or/c #f (is-a?/c snip%)) (or/c #f (cons/c number? number?))))
@@ -77,7 +76,7 @@
 (define (can-use-plot-overlays? plot-snip)
   (when (eq? have-plot-overlays? 'unknown)
     (set! have-plot-overlays?
-          (object-method-arity-includes? plot-snip 'set-mouse-callback 1))
+          (object-method-arity-includes? plot-snip 'set-mouse-event-callback 1))
     (unless have-plot-overlays?
       (dbglog "plot overlays disabled")))
   have-plot-overlays?)
@@ -85,53 +84,52 @@
 ;; Add CALLBACK as a mouse hover callback to PLOT-SNIP.  The plot snip is
 ;; checked to see if it actually has that method (since this is only present
 ;; in a development branch of the plot package).
-(define (set-mouse-callback plot-snip callback)
+(define (set-mouse-event-callback plot-snip callback)
   (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip set-mouse-callback callback)))
+    (send plot-snip set-mouse-event-callback callback)))
 
-(define (clear-plot-overlays plot-snip)
+(define (set-overlay-renderers plot-snip renderer-tree)
   (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip clear-overlays)))
+    (send plot-snip set-overlay-renderers
+          (if (null? renderer-tree) #f renderer-tree))))
 
-(define (refresh-plot-overlays plot-snip)
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip refresh-overlays)))
+;; Create a vertical rule renderer at position X to be used as an overlay.
+;; This is the renderer used for all VRULES in our plots, ensuring
+;; consistency.
+(define (pu-vrule x)
+  (vrule x #:width 1 #:style 'short-dash #:color "black"))
 
-;; Add a pict overlay on PLOT-SNIP at X, Y.
-(define (add-pict-overlay plot-snip x y pict)
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip add-general-overlay x y
-          (lambda (dc x y) (draw-pict pict dc x y))
-          (pict-width pict)
-          (pict-height pict))))
+;; Create a renderer that draws label, which can be either a string or a pict,
+;; to be used as an overlay.  The label is drawn at position X, Y in plot
+;; coordinates.
+(define (pu-label x y label)
+  (define p
+    (if (pict? label)
+        label
+        (let ((p0 (text label hover-tag-item-font)))
+          (cc-superimpose
+           (filled-rounded-rectangle (+ (pict-width p0) 10)
+                                     (+ (pict-height p0) 10) -0.1
+                                     #:draw-border? #f
+                                     #:color hover-tag-background)
+           p0))))
+    (point-pict (vector x y) p #:point-sym 'none #:anchor 'auto))
 
-(define (add-vrule-overlay plot-snip x)
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip add-vrule-overlay x #:pen vrule-pen)))
+;; Create a vertical rectangle overlay renderer between XMIN and XMAX using
+;; COLOR.  The rectangle will cover the entire height of the plot between XMIN
+;; and XMAX. This can be used as an overlay to highlight a region, so COLOR
+;; should have an alpha channel to ensure it is transparent.
+(define (pu-vrange xmin xmax color)
+  (rectangles
+   (list (vector (ivl xmin xmax) (ivl -inf.0 +inf.0)))
+   #:line-style 'transparent
+   #:alpha (send color alpha)
+   #:color color))
 
-(define (add-mark-overlay plot-snip x y (label #f))
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip add-mark-overlay x y
-          #:pen marker-pen
-          #:label label
-          #:label-font hover-tag-item-font
-          #:label-fg-color hover-tag-item-color
-          #:label-bg-color hover-tag-background)))
-
-(define (add-label-overlay plot-snip x y label)
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip add-mark-overlay x y
-          #:pen marker-pen
-          #:radius 0                      ; won't draw a marker
-          #:label label
-          #:label-font hover-tag-item-font
-          #:label-fg-color hover-tag-item-color
-          #:label-bg-color hover-tag-background)))
-
-(define (add-vrange-overlay plot-snip xmin xmax color)
-  (when (can-use-plot-overlays? plot-snip)
-    (send plot-snip add-vrange-overlay xmin xmax
-          #:brush (send the-brush-list find-or-create-brush color 'solid))))
+;; Create a renderer that draws the MARKERS, which are a list of 2d positions.
+;; These can be used as overlays.
+(define (pu-markers markers)
+  (points markers #:sym 'circle #:size 10 #:color "red" #:line-width 3))
 
 ;; Return a pict object representing a badge for displaying information on a
 ;; plot.  The ITEMS is a list of key-value string pairs and these are arranged

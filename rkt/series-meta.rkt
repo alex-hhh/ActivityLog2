@@ -263,6 +263,11 @@
          (define/override (series-name) "distance")
          (define/override (fractional-digits) 2)
          (define/override (name) "Distance")
+         (define/override (value-formatter)
+           ;; Unfortunate hack!
+           (if (eq? (al-pref-measurement-system) 'metric)
+               (lambda (x) (distance->string (* x 1000) #t))
+               (lambda (x) (distance->string (* x 1609) #t))))
          )))
 
 (provide axis-distance)
@@ -275,6 +280,7 @@
          (define/override (axis-label) "Elapsed Time (hour:min)")
          (define/override (series-name) "elapsed")
          (define/override (name) "Elapsed Time")
+         (define/override (value-formatter) duration->string)
          )))
 (provide axis-elapsed-time)
 
@@ -285,7 +291,9 @@
          (define/override (filter-width) 5.0)
          (define/override (axis-label) "Time (hour:min)")
          (define/override (name) "Time")
-         (define/override (series-name) "timer"))))
+         (define/override (series-name) "timer")
+         (define/override (value-formatter) duration->string)
+         )))
 (provide axis-timer-time)
 
 (define axis-speed
@@ -1198,7 +1206,13 @@
          (define/override (axis-label)
            (if (eq? (al-pref-measurement-system) 'metric)
                "Distance (meters)" "Distance (yards)"))
-         (define/override (series-name) "distance"))))
+         (define/override (series-name) "distance")
+         (define/override (value-formatter)
+           ;; This is a hack!
+           (if (eq? (al-pref-measurement-system) 'metric)
+               (lambda (x) (short-distance->string x #t))
+               (lambda (x) (short-distance->string (* x 0.9144) #t))))
+         )))
 (provide axis-swim-distance)
 
 (define axis-swim-time
@@ -1206,7 +1220,9 @@
          (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
          (define/override (axis-label) "Time (hour:min)")
          (define/override (name) "Time")
-         (define/override (series-name) "elapsed"))))
+         (define/override (series-name) "elapsed")
+         (define/override (value-formatter) duration->string)
+         )))
 (provide axis-swim-time)
 
 (define all-series-meta

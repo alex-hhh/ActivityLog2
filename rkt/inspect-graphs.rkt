@@ -626,21 +626,32 @@
 
     (define/public (draw-marker-at x)
       (when (and the-plot-snip show-graph?)
-        (clear-plot-overlays the-plot-snip)
-        ;; Add the highlight overlay back in...
-        (when (pd-hlivl plot-data)
-          (match-define (list xmin xmax color) (pd-hlivl plot-data))
-          (add-vrange-overlay the-plot-snip xmin xmax color))
-        (when x
-          (let ((y1 (find-y (pd-sdata plot-data) x))
-                (format-value (send (ps-y-axis plot-state) value-formatter))
-                (y2 (and pd-sdata2 (find-y (pd-sdata2 plot-data) x))))
-            (when y1
-              (add-label-overlay the-plot-snip x y1 (format-value y1)))
-            (when y2
-              (add-label-overlay the-plot-snip x y2 (format-value y2))))
-          (add-vrule-overlay the-plot-snip x))
-        (refresh-plot-overlays the-plot-snip)))
+        (let ((rt '()))
+          (define (add-renderer r) (set! rt (cons r rt)))
+          ;; Add the highlight overlay back in...
+          (when (pd-hlivl plot-data)
+            (match-define (list xmin xmax color) (pd-hlivl plot-data))
+            (add-renderer (pu-vrange xmin xmax color)))
+          (when x
+            (let ((y1 (find-y (pd-sdata plot-data) x))
+                  (format-value (send (ps-y-axis plot-state) value-formatter))
+                  (x-format-value (send (ps-x-axis plot-state) value-formatter))
+                  (y2 (and pd-sdata2 (find-y (pd-sdata2 plot-data) x))))
+              (cond ((and y1 y2)
+                     (let ((label (string-append (format-value y1) "/"
+                                                 (format-value y2) " @ "
+                                                 (x-format-value x))))
+                       (add-renderer (pu-label x (max y1 y2) label))))
+                    (y1
+                     (let ((label (string-append (format-value y1) " @ "
+                                                 (x-format-value x))))
+                       (add-renderer (pu-label x y1 label))))
+                    (y2
+                     (let ((label (string-append (format-value y2) " @ "
+                                                 (x-format-value x))))
+                       (add-renderer (pu-label x y2 label))))))
+            (add-renderer (pu-vrule x)))
+          (set-overlay-renderers the-plot-snip rt))))
 
     (define (plot-hover-callback snip event x y)
       (hover-callback x))
@@ -659,11 +670,10 @@
                     (begin
                       (when (pd-plot-rt npdata)
                         (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
-                        (set-mouse-callback the-plot-snip plot-hover-callback)
+                        (set-mouse-event-callback the-plot-snip plot-hover-callback)
                         (when (pd-hlivl npdata)
                           (match-define (list xmin xmax color) (pd-hlivl npdata))
-                          (add-vrange-overlay the-plot-snip xmin xmax color)
-                          (refresh-plot-overlays the-plot-snip)))
+                          (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
                       (set! previous-plot-state pstate)
                       (set! plot-state pstate)
                       (set! plot-data npdata)
@@ -683,11 +693,10 @@
                 (if (= (pd-token pdata) cached-bitmap-token)
                     (begin
                       (set! the-plot-snip (put-plot/canvas graph-canvas pdata pstate))
-                      (set-mouse-callback the-plot-snip plot-hover-callback)
+                      (set-mouse-event-callback the-plot-snip plot-hover-callback)
                       (when (pd-hlivl pdata)
                         (match-define (list xmin xmax color) (pd-hlivl pdata))
-                        (add-vrange-overlay the-plot-snip xmin xmax color)
-                        (refresh-plot-overlays the-plot-snip)))
+                        (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
                     (void)))))))))
 
     (define (refresh)
@@ -751,14 +760,17 @@
 
     (define/public (highlight-interval start-timestamp end-timestamp)
       (set! plot-state (struct-copy ps plot-state [ivl (cons start-timestamp end-timestamp)]))
-      (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
-      (set! previous-plot-state plot-state)
-      (when the-plot-snip
-        (clear-plot-overlays the-plot-snip)
-        (when (pd-hlivl plot-data)
-          (match-define (list xmin xmax color) (pd-hlivl plot-data))
-          (add-vrange-overlay the-plot-snip xmin xmax color))
-        (refresh-plot-overlays the-plot-snip)))
+      ;; need full refresh if zoom to lap is set, as the actual plotted data will change.
+      (if (ps-zoom? plot-state)
+          (refresh)
+          (begin
+            (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
+            (set! previous-plot-state plot-state)
+            (when the-plot-snip
+              (if (pd-hlivl plot-data)
+                  (match-let (((list xmin xmax color) (pd-hlivl plot-data)))
+                    (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color))))
+                  (set-overlay-renderers #f))))))
 
     (define/public (get-data-frame) (ps-df plot-state))
 

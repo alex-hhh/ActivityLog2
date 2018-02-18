@@ -461,7 +461,9 @@
           (write-string (~r rank #:precision ndigits) out))))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
+      
       (when (and x y cached-data histogram-data)
         (define dual? (>= (length (hist-axis cached-data)) 2))
         (define params (send this get-params))
@@ -477,8 +479,9 @@
               (let ((tag (if (hist-params-aspct? params)
                              (format "~a %" (~r value #:precision 1))
                              (duration->string value))))
-                (add-label-overlay snip x y tag))))))
-      (send snip refresh-overlays))
+                (add-renderer (pu-label x y tag)))))))
+
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (send canvas set-snip #f)
@@ -506,7 +509,7 @@
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (set! histogram-data hist)
                     (define snip (insert-plot-snip canvas (first (hist-axis data)) params rt))
-                    (when snip (set-mouse-callback snip plot-hover-callback)))))))
+                    (when snip (set-mouse-event-callback snip plot-hover-callback)))))))
             (begin
               (send canvas set-snip #f)
               (send canvas set-background-message "No params for plot")))))

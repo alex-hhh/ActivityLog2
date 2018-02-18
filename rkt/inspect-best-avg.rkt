@@ -364,6 +364,9 @@
 
     (define (plot-hover-callback snip event x y)
       (define info '())
+      (define renderers '())
+      (define markers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
 
       (define (add-info tag value)
         (set! info (cons (list tag value) info)))
@@ -373,11 +376,10 @@
           (let ((py (yfn x)))
             (when py
               (add-info name (format-fn py))
-              (add-mark-overlay snip x py)))))
+              (set! markers (cons (vector x py) markers))))))
 
-      (send snip clear-overlays)
       (when (and x y)
-        (add-vrule-overlay snip x)
+        (add-renderer (pu-vrule x))
 
         ;; The aux values need special treatment: they are scaled to match the
         ;; main axis coordinate system, this works for the plot itself, but we
@@ -389,7 +391,7 @@
             (when ay
               (let ((actual-ay ((invertible-function-f best-avg-aux-invfn) ay)))
                 (add-info (send aux-axis name) (format-value actual-ay))
-                (add-mark-overlay snip x ay)))))
+                (set! markers (cons (vector x ay) markers))))))
 
         (define axis (get-series-axis))
         (define format-value (send axis value-formatter))
@@ -408,8 +410,11 @@
         (add-data-point (send axis name) best-avg-plot-fn format-value)
         (add-info "Duration" (duration->string x))
         (unless (empty? info)
-          (add-pict-overlay snip x y (make-hover-badge (reverse info)))))
-      (send snip refresh-overlays))
+          (add-renderer (pu-markers markers))
+          (add-renderer (pu-label x y (make-hover-badge (reverse info))))))
+
+      (set-overlay-renderers snip renderers))
+
 
     (define (put-plot-snip)
       (when plot-rt
@@ -440,7 +445,7 @@
                                                    #:x-min min-x #:x-max max-x
                                                    #:y-min min-y #:y-max max-y
                                                    ))
-                      (set-mouse-callback snip plot-hover-callback)))
+                      (set-mouse-event-callback snip plot-hover-callback)))
                 (parameterize ([plot-x-ticks (best-avg-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
@@ -451,7 +456,7 @@
                   (define snip (plot-snip/hack plot-pb rt
                                                #:x-min min-x #:x-max max-x
                                                #:y-min min-y #:y-max max-y))
-                  (set-mouse-callback snip plot-hover-callback)))
+                  (set-mouse-event-callback snip plot-hover-callback)))
               (when (and cp-data (send best-avg-axis have-cp-estimate?) best-avg-data)
                 ;; NOTE: this is inefficient, as the plot-fn is already
                 ;; computed in the `make-best-avg-renderer` and we are

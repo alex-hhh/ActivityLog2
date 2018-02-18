@@ -249,7 +249,8 @@
           ((3) "Trainning Stress"))))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
       
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
@@ -284,14 +285,14 @@
                         (make-hover-badge
                          (list (list label (format-value val))))))
                 (when cached-badge
-                  (add-pict-overlay snip x y cached-badge)))))))
-      (send snip refresh-overlays))
+                  (add-renderer (pu-label x y cached-badge))))))))
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
           (let ((snip (insert-plot-snip canvas chart-data (get-y-label))))
-            (set-mouse-callback snip plot-hover-callback))
+            (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

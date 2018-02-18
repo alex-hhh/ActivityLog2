@@ -176,21 +176,24 @@
         (write-string (format "~a, ~a~%" timestamp bw) out)))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
+      (define info '())
+      (define (add-info tag val) (set! info (cons (list tag val) info)))
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
+      
       (when (and x y)
-        (define info '())
-        (define (add-info tag val) (set! info (cons (list tag val) info)))
         (let ((entry (get-entry-for-day bw-data x)))
           (when entry
-            (add-vrule-overlay snip x)
+            (add-renderer (pu-vrule x))
             (match-define (vector today bw1) (car entry))
             (match-define (vector tomorrow bw2) (cdr entry))
             (define bw (+ bw1 (* (- bw2 bw1) (/ (- x today) (- today tomorrow)))))
             (add-info "Date" (calendar-date->string today))
             (add-info "Bodyweight" (weight->string bw #t))
             (unless (null? info)
-              (add-pict-overlay snip x y (make-hover-badge info))))))
-      (send snip refresh-overlays))
+              (add-renderer (pu-label x y (make-hover-badge info)))))))
+
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
@@ -198,7 +201,7 @@
           (let ((snip (insert-plot-snip
                        canvas
                        (make-renderer-tree bw-data))))
-            (set-mouse-callback snip plot-hover-callback))
+            (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))

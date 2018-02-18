@@ -424,17 +424,18 @@
            out))))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
+      (define info '())
+      (define (add-info tag val) (set! info (cons (list tag val) info)))
+      (define renderers '())
+      (define (add-renderer r) (set! renderers (cons r renderers)))
       (when (and x y)
-        (define info '())
-        (define (add-info tag val) (set! info (cons (list tag val) info)))
         (let ((entry (get-pmc-data-for-timestamp pmc-data x))
               (params (send this get-params)))
           (when entry
             (match-define (list ts ctl atl tsb tss) entry)
             ;; Highlight the entire day -- while the plot is linear, values
             ;; are only computed for an entire day.
-            (add-vrange-overlay snip ts (+ ts (* 24 3600)) *sea-green-hl*)
+            (add-renderer (pu-vrange ts (+ ts (* 24 3600)) *sea-green-hl*))
             (unless (eq? cached-day ts)
               (add-info "Date" (calendar-date->string ts))
               (when (pmc-params-show-form? params)
@@ -447,9 +448,8 @@
                 (add-info "Stress" (~r tss #:precision 1)))
               (unless (null? info)
                 (set! cached-badge (make-hover-badge info))))
-            (when cached-badge
-              (add-pict-overlay snip x y cached-badge)))))
-      (send snip refresh-overlays))
+            (when cached-badge (add-renderer (pu-label x y cached-badge))))))
+      (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
@@ -457,7 +457,7 @@
         (if params
             (let ((rt (make-renderer-tree params pmc-data)))
               (let ((snip (insert-plot-snip canvas params rt)))
-                (set-mouse-callback snip plot-hover-callback)))
+                (set-mouse-event-callback snip plot-hover-callback)))
             #f)))
 
     (define/override (save-plot-image file-name width height)

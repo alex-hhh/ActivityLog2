@@ -267,6 +267,7 @@
 
     (define (plot-hover-callback snip event x y)
       (send snip clear-overlays)
+      (define renderer #f)
       (when (and x y)
         (define dual?
           (list? (list-ref axis-choices y-axis-index)))
@@ -282,8 +283,8 @@
               (let ((tag (if show-as-percentage?
                              (format "~a %" (~r value #:precision 1))
                              (duration->string value))))
-                (add-label-overlay snip x y tag))))))
-      (send snip refresh-overlays))
+                (set! renderer (list (pu-label x y tag))))))))
+      (set-overlay-renderers snip renderer))
 
     ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
     ;; render tree is ready (if it is #f, there is no data for the plot).
@@ -301,7 +302,7 @@
                            [plot-x-ticks (send y-axis plot-ticks)]
                            [plot-x-label (send y-axis axis-label)])
               (define snip (plot-snip/hack plot-pb rt))
-              (set-mouse-callback snip plot-hover-callback))))))
+              (set-mouse-event-callback snip plot-hover-callback))))))
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
     ;; that procesing happens in a separate task, and the render tree will
