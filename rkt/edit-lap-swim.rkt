@@ -948,7 +948,7 @@ select SS.swim_stroke_id
 ;; Garmin watch will ask for the drill distance, if you get it wrong, you have
 ;; a chance to correct it here).
 (define (split-length/rebalance db pool-length lap-id)
-  (let ((lengths (query-value db "select id from A_LENGTH where lap_id = ?" lap-id))
+  (let ((lengths (query-list db "select id from A_LENGTH where lap_id = ?" lap-id))
         (row (query-row db "select P.start_time, SS.total_timer_time,
        SS.total_elapsed_time, SS.total_cycles, SS.swim_stroke_id
 from SECTION_SUMMARY SS, A_LAP P
@@ -959,7 +959,7 @@ where P.summary_id = SS.id and P.id = ?" lap-id)))
            (lduration (/ duration nlengths))
            (lelapsed (/ elapsed nlengths))
            (lstroke-count (/ stroke-count nlengths)))
-      (for ([idx (in-range (add1 (length lengths)))])
+      (for ([idx (in-range nlengths)])
         (insert-length db pool-length
                        (ldata lap-id #f
                               (exact-round (+ timestamp (* idx lduration)))
@@ -967,8 +967,7 @@ where P.summary_id = SS.id and P.id = ?" lap-id)))
                               lelapsed
                               lstroke-count
                               stroke-type)))))
-  ;; lap does not need update
-  #f)
+  lap-id)
 
 ;; Remove a length from LAP-ID and re-split the lap totals among the number of
 ;; lengts.  This is used for drill laps where only the total lap time is
@@ -979,18 +978,18 @@ where P.summary_id = SS.id and P.id = ?" lap-id)))
 ;; NOTE: this function is 99% identical to 'split-length/rebalance', and they
 ;; should be refactored.
 (define (join-lengths/rebalance db pool-length lap-id)
-  (let ((lengths (query-value db "select id from A_LENGTH where lap_id = ?" lap-id))
+  (let ((lengths (query-list db "select id from A_LENGTH where lap_id = ?" lap-id))
         (row (query-row db "select P.start_time, SS.total_timer_time,
        SS.total_elapsed_time, SS.total_cycles, SS.swim_stroke_id
 from SECTION_SUMMARY SS, A_LAP P
 where P.summary_id = SS.id and P.id = ?" lap-id)))
     (match-define (vector timestamp duration elapsed stroke-count stroke-type) row)
     (for ([l lengths]) (delete-length db l))
-    (let* ((nlengths (add1 (length lengths)))
+    (let* ((nlengths (sub1 (length lengths)))
            (lduration (/ duration nlengths))
            (lelapsed (/ elapsed nlengths))
            (lstroke-count (/ stroke-count nlengths)))
-      (for ([idx (in-range (sub1 (length lengths)))])
+      (for ([idx (in-range nlengths)])
         (insert-length db pool-length
                        (ldata lap-id #f
                               (exact-round (+ timestamp (* idx lduration)))
@@ -998,9 +997,7 @@ where P.summary_id = SS.id and P.id = ?" lap-id)))
                               lelapsed
                               lstroke-count
                               stroke-type)))))
-
-  ;; lap does not need update
-  #f)
+  lap-id)
 
 ;; After the lengths of a session have been modified, the trackpoints will
 ;; contain the wrong distance.  We fix the distance by updating each
@@ -1104,13 +1101,17 @@ delete from SECTION_SUMMARY
        (for ([step plan])
          (case (car step)
            ((split/rebalance)
-            (split-length/rebalance db pool-length (car (cdr step))))
+            (let ((lap-id (car (cdr step))))
+              (split-length/rebalance db pool-length lap-id)
+              (set! modified-laps (cons lap-id modified-laps))))
            ((split)
             (let ((lap-id (split-length db pool-length (car (cdr step)))))
               (when lap-id
                 (set! modified-laps (cons lap-id modified-laps)))))
            ((join/rebalance)
-            (join-lengths/rebalance db pool-length (car (cdr step))))
+            (let ((lap-id (car (cdr step))))
+              (join-lengths/rebalance db pool-length lap-id)
+              (set! modified-laps (cons lap-id modified-laps))))
            ((join)
             (let ((lap-id (join-lengths db pool-length (car (cdr step)) (car (cdr (cdr step))))))
               (when lap-id
