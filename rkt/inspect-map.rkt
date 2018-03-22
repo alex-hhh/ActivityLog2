@@ -18,10 +18,12 @@
          racket/gui/base
          racket/match
          racket/dict
+         racket/contract
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
          "map-widget.rkt"
+         "map-util.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
          "map-tiles.rkt"
@@ -41,6 +43,52 @@
 
 (define (extract-track* df start end)
   (send df select* "lat" "lon" #:filter valid-only #:start start #:end end))
+
+;; Add a map-point data series to the data frame DF.  map-points represent a
+;; location in normalized coordinates (0..1).  These are used to interpolate a
+;; position by `lookup-position`
+(define/contract (add-map-points df)
+  (-> (is-a?/c data-frame%) any/c)
+  (send df add-derived-series
+        "map-point"
+        '("lat" "lon")
+        (lambda (val)
+          (if val
+              (match-let (((vector lat lon) val))
+                (lat-lon->map-point lat lon))
+              #f))))
+
+;; Lookup a GPS position in the data frame DF at distance DST.  The data frame
+;; is assumed to have "lat", "lon", a "dst" and a "map-point" (see
+;; `add-map-points`) data series.  If DST does not fall on an exact item in
+;; the data series, a location is interpolated between two adjacent GPS
+;; positions.  If DST is outside the range if the dst series, the first or
+;; last position is returned.
+(define/contract (lookup-position df dst)
+  (-> (is-a?/c data-frame%) real? (vector/c real? real?))
+
+  (unless (send df contains? "map-point")
+    (add-map-points df))
+
+  (define index (send df get-index "distance" dst))
+
+  (cond ((<= index 0)
+         (send df ref* 0 "lat" "lon"))
+        ((>= index (send df get-row-count))
+         (send df ref* (sub1 (send df get-row-count)) "lat" "lon"))
+        (#t
+         (let* ((pdst (send df ref (sub1 index) "distance"))
+                (adst (send df ref index "distance"))
+                (prev-pos (send df ref (sub1 index) "map-point"))
+                (next-pos (send df ref index "map-point"))
+                (factor (/ (- dst pdst) (- adst pdst)))
+                (pos (map-point
+                      (+ (* factor (map-point-x next-pos))
+                         (* (- 1 factor) (map-point-x prev-pos)))
+                      (+ (* factor (map-point-y next-pos))
+                         (* (- 1 factor) (map-point-y prev-pos))))))
+           (let-values (((lat lon) (map-point->lat-lon pos)))
+             (vector lat lon))))))
 
 (define map-panel%
   (class object%
@@ -136,12 +184,20 @@
                (send zoom-slider set-value zl)))
            [parent map-panel]))
 
+    (send map-view set-track-current-location #t)
+
     (define elevation-graph
       (let ((p (new horizontal-pane% [parent map-panel] [stretchable-height #f])))
-        (new elevation-graph% [parent p] [min-height 150])))
+        (new elevation-graph% [parent p] [min-height 150]
+             [hover-callback (lambda (x) (on-hover x))])))
 
     (send elevation-graph zoom-to-lap zoom-to-lap?)
     (send elevation-graph set-filter-amount 1)
+
+    (define (on-hover x)
+      (send elevation-graph draw-marker-at x)
+      (send map-view set-current-location (and x (lookup-position data-frame x)))
+      )
 
     (define selected-lap #f)
     (define selected-lap-data #f)

@@ -1258,11 +1258,16 @@
     "hr" "hr-pct" "hr-zone"
     "cad" "stride"
     "vosc" "vratio" "gct" "pgct"
-    "pwr" "pwr-zone" "lrbal" "lteff" "rteff" "lpsmth" "rpsmth"
+    "pwr" "pwr-zone" "wbal" "lrbal" "lteff" "rteff" "lpsmth" "rpsmth"
     "lpco" "rpco"
     "lpps" "lppe" "rpps" "rppe" "lppa" "rppa"
     "lppps" "lpppe" "rppps" "rpppe" "lpppa" "rpppa"
     "swim_stroke" "strokes" "swolf"))
+
+;; Series names to skip when exporting
+(define skip-series
+  ;; map-point is used by the map view to speed up interpolated lookups
+  '("map-point"))
 
 ;; Return a list of data series names, by reordering the items in ALL such
 ;; that any PREFERRED items come first, and all remaining series come after.
@@ -1271,7 +1276,8 @@
     (for/list ([name (in-list preferred)] #:when (member name all))
       name))
   (define rest
-    (for/list ([name (in-list all)] #:unless (member name base-list))
+    (for/list ([name (in-list all)]
+               #:unless (or (member name skip-series) (member name base-list)))
       name))
   (append base-list rest))
 

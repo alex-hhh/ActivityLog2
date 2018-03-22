@@ -24,6 +24,7 @@
          map-bearing/degrees
          (struct-out map-point)
          lat-lon->map-point
+         map-point->lat-lon
          track-bbox
          bbox-center
          bbox-center/ndcs
@@ -108,6 +109,16 @@
       (let ((x-norm (/ (+ 1 (/ x pi)) 2))
             (y-norm (/ (- 1 (/ y pi)) 2)))
         (map-point x-norm y-norm)))))
+
+(: map-point->lat-lon (-> map-point (Values Float Float)))
+(define (map-point->lat-lon p)
+  (let ((x-norm (map-point-x p))
+        (y-norm (map-point-y p)))
+    (let ((x (* (- (* x-norm 2) 1) pi))
+          (y (* (- 1 (* y-norm 2)) pi)))
+      (values
+       (radians->degrees (atan (sinh y)))
+       (radians->degrees x)))))
 
 ;; Bounding box defines a rectangular region on the map.
 (struct: map-bbox
