@@ -792,6 +792,17 @@ select X.session_id
      ;; (clear-saved-metrics-for-series "vosc")
      (clear-metrics-cache))))
 
+;; Clear all saved and cached metrics for a session identified by SID.  This
+;; is done when the session data has been changed and therefore the metrics
+;; might become invalid.
+(define (clear-metrics-for-sid sid)
+  (query-exec (current-database) "delete from BAVG_CACHE where session_id = ?" sid)
+  (query-exec (current-database) "delete from HIST_CACHE where session_id = ?" sid)
+  (query-exec (current-database) "delete from SCATTER_CACHE where session_id = ?" sid)
+  (hash-remove! bavg-cache sid)
+  (hash-remove! hist-cache sid)
+  (hash-remove! scatter-cache sid))
+
 (define dummy
   (let ((s (make-log-event-source)))
     (thread/dbglog
@@ -801,8 +812,9 @@ select X.session_id
        (let loop ((item (async-channel-get s)))
          (when item
            (match-define (list tag data) item)
-           (when (eq? tag 'measurement-system-changed)
-             (clear-ms-dependent-metrics))
+           (case tag
+             ((measurement-system-changed) (clear-ms-dependent-metrics))
+             ((session-updated-data) (clear-metrics-for-sid data)))
            (loop (async-channel-get s))))))))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
