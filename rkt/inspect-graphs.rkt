@@ -269,6 +269,21 @@
            #f)))
     (#t #f)))
 
+;; Find the swim stroke name at the X value on the plot.  Returns #f if the
+;; PLOT-STATE is not for a swim activity or the y-axis is not supposed to
+;; color plots by swim stroke.  This means the function can be safely called
+;; for any data frame + x-axis + y-axis combination and will only return a
+;; swim stroke if appropriate.
+(define (find-swim-stroke plot-state x)
+  (define df (ps-df plot-state))
+  (define xseries (send (ps-x-axis plot-state) series-name))
+  (and
+   (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
+   (send df contains? xseries "swim_stroke")
+       (let* ((index (send df get-index xseries x))
+              (stroke (send df ref index "swim_stroke")))
+         (and stroke (get-swim-stroke-name stroke)))))
+
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
 (define/contract (plot-data-renderer-tree pd ps)
@@ -644,8 +659,9 @@
                        (add-renderer (pu-label x (max y1 y2) label))))
                     (y1
                      (let ((label (string-append (format-value y1) " @ "
-                                                 (x-format-value x))))
-                       (add-renderer (pu-label x y1 label))))
+                                                 (x-format-value x)))
+                           (swim-stroke (find-swim-stroke plot-state x)))
+                       (add-renderer (pu-label x y1 label swim-stroke))))
                     (y2
                      (let ((label (string-append (format-value y2) " @ "
                                                  (x-format-value x))))
@@ -654,8 +670,9 @@
           (set-overlay-renderers the-plot-snip rt))))
 
     (define (plot-hover-callback snip event x y)
-      (when (good-hover? x y event)
-        (hover-callback x)))
+      (if (good-hover? x y event)
+          (hover-callback x)
+          (hover-callback #f)))
 
     (define (refresh-plot)
       (let ((pstate plot-state)

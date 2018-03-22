@@ -33,7 +33,7 @@
  (set-mouse-event-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
  (set-overlay-renderers (-> (is-a?/c snip%) (or/c (treeof renderer2d?) #f null) any/c))
  (pu-vrule (-> real? renderer2d?))
- (pu-label (-> real? real? (or/c string? pict?) renderer2d?))
+ (pu-label (->* (real? real?) () #:rest (listof (or/c string? pict? #f)) renderer2d?))
  (pu-vrange (-> real? real? (is-a?/c color%) renderer2d?))
  (pu-markers (-> (listof (vector/c real? real?)) renderer2d?))
  (make-hover-badge (-> (listof (listof (or/c #f string?))) pict?))
@@ -106,22 +106,33 @@
 ;; that one is present.
 (define point-pict-1 (dynamic-require 'plot 'point-pict (λ () #f)))
 
-;; Create a renderer that draws label, which can be either a string or a pict,
-;; to be used as an overlay.  The label is drawn at position X, Y in plot
-;; coordinates.
-(define (pu-label x y label)
-  (define p
-    (if (pict? label)
-        label
-        (let ((p0 (text label hover-tag-item-font)))
-          (cc-superimpose
-           (filled-rounded-rectangle (+ (pict-width p0) 10)
-                                     (+ (pict-height p0) 10) -0.1
-                                     #:draw-border? #f
-                                     #:color hover-tag-background)
-           p0))))
+;; Create a renderer that draws label, which can be either a string, a pict or
+;; a list of them, to be used as an overlay.  The label is drawn at position
+;; X, Y in plot coordinates.
+;;
+;; NOTES: any #f values in LABELS are discarded (this makes the use of
+;; `pu-label` more convenient).  If multiple labels are provided they are
+;; stacked vertically using `vl-append`.
+(define (pu-label x y . labels)
   (when point-pict-1
-    (point-pict-1 (vector x y) p #:point-sym 'none #:anchor 'auto)))
+    (if (and (= (length labels) 1) (pict? (car labels)))
+        ;; Special case: a single pict passed in is displayed as is...
+        (point-pict-1 (vector x y) (car labels) #:point-sym 'none #:anchor 'auto)
+        ;; Otherwise create new picts and pack them into a final pict
+        (let* ((p0 (for/list ((label (in-list labels)) #:when label)
+                     (if (pict? label)
+                         label
+                         (text label hover-tag-item-font))))
+               (p1 (if (= (length p0) 1)
+                       (car p0)
+                       (apply vl-append 3 p0)))
+               (p2 (cc-superimpose
+                    (filled-rounded-rectangle (+ (pict-width p1) 10)
+                                              (+ (pict-height p1) 10) -0.1
+                                              #:draw-border? #f
+                                              #:color hover-tag-background)
+                    p1)))
+          (point-pict-1 (vector x y) p2 #:point-sym 'none #:anchor 'auto)))))
 
 ;; Create a vertical rectangle overlay renderer between XMIN and XMAX using
 ;; COLOR.  The rectangle will cover the entire height of the plot between XMIN
