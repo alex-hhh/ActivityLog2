@@ -279,9 +279,12 @@
             ;; NOTE first item in the vector is the bucket name, not the value
             (define value (vector-ref item (add1 series)))
             (when (<= y value)
-              (let ((tag (if show-as-percentage?
-                             (format "~a %" (~r value #:precision 1))
-                             (duration->string value))))
+              (let ((tag (cond (show-as-percentage?
+                                (format "~a %" (~r value #:precision 1)))
+                               ((lap-swimming?)
+                                (format "~a pool lengths" (~r value #:precision 1)))
+                               (#t
+                                (duration->string value)))))
                 (set! renderer (list (pu-label x y tag))))))))
       (set-overlay-renderers snip renderer))
 

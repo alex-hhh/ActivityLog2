@@ -476,9 +476,12 @@
             ;; NOTE first item in the vector is the bucket name, not the value
             (define value (vector-ref item (add1 series)))
             (when (<= y value)
-              (let ((tag (if (hist-params-aspct? params)
-                             (format "~a %" (~r value #:precision 1))
-                             (duration->string value))))
+              (let ((tag (cond ((hist-params-aspct? params)
+                                (format "~a %" (~r value #:precision 1)))
+                               ((is-lap-swimming? (hist-params-sport params))
+                                (format "~a pool lengths" (~r value #:precision 1)))
+                               (#t
+                                (duration->string value)))))
                 (add-renderer (pu-label x y tag)))))))
 
       (set-overlay-renderers snip renderers))
