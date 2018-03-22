@@ -283,7 +283,7 @@
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
       
-      (when (and x y)
+      (when (good-hover? x y event)
         (define params (send this get-params))
         (define metric (trivol-params-metric params))
         (define format-value

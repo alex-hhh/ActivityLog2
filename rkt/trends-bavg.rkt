@@ -565,7 +565,7 @@
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
 
-      (when (and x y cached-data (eq? (send event get-event-type) 'motion))
+      (when (and (good-hover? x y event) cached-data)
         (let ((params (send this get-params))
               (fmtval (send (tbavg-axis cached-data) value-formatter)))
           (add-renderer (pu-vrule x))

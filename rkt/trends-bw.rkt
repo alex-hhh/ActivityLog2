@@ -181,7 +181,7 @@
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
       
-      (when (and x y)
+      (when (good-hover? x y event)
         (let ((entry (get-entry-for-day bw-data x)))
           (when entry
             (add-renderer (pu-vrule x))

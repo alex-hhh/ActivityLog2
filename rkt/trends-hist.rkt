@@ -464,7 +464,7 @@
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
       
-      (when (and x y cached-data histogram-data)
+      (when (and (good-hover? x y event) cached-data histogram-data)
         (define dual? (>= (length (hist-axis cached-data)) 2))
         (define params (send this get-params))
         (define skip (if dual? 2.5 1.0))

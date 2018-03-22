@@ -654,7 +654,8 @@
           (set-overlay-renderers the-plot-snip rt))))
 
     (define (plot-hover-callback snip event x y)
-      (hover-callback x))
+      (when (good-hover? x y event)
+        (hover-callback x)))
 
     (define (refresh-plot)
       (let ((pstate plot-state)

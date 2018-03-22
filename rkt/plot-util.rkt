@@ -44,7 +44,7 @@
                                          (or/c #f exact-nonnegative-integer?)))))
 
 ;; NOTE: pict-snip% is from pict/snip
-(provide snip-canvas% pict-snip%)
+(provide snip-canvas% pict-snip% good-hover?)
 
 ;; Resources for drawing overlays on the plots.  Defined in one place to
 ;; ensure consistency across all the plots.
@@ -210,6 +210,16 @@
     (if on-bar?
         (values series slot)
         (values #f #f))))
+
+;; Return #t when the X, Y and EVENT passed on to a plot mouse callback are
+;; valid to display hover information.  They are valid when X and Y are not #f
+;; (they are #f when they are inside the plot snip but not on the plot itself,
+;; for example in the axes area).  The mouse event must also be a motion
+;; event.
+(define (good-hover? x y event)
+  (and (real? x) (real? y)
+       (is-a? event mouse-event%)
+       (eq? (send event get-event-type) 'motion)))
 
 ;; Draw MSG using FONT in the center of DC
 (define (draw-centered-message dc msg font)

@@ -266,9 +266,8 @@
         (refresh-plot)))
 
     (define (plot-hover-callback snip event x y)
-      (send snip clear-overlays)
       (define renderer #f)
-      (when (and x y)
+      (when (good-hover? x y event)
         (define dual?
           (list? (list-ref axis-choices y-axis-index)))
         (define skip (if dual? 2.5 1.0))
