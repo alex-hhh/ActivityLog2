@@ -21,6 +21,7 @@
          racket/match
          racket/math
          racket/string
+         math/statistics
          "utilities.rkt"
          "series-meta.rkt"
          "plot-hack.rkt"
@@ -150,27 +151,34 @@
        (good-or-false ymin)
        (good-or-false ymax))))
 
-(define (find-bounds/quantile df xseries yseries quantile)
+;; NOTE: this is almost (but not quite) like the find-bounds/quantile from
+;; inspect-quadrant.rkt, perhaps we could refactor it.
+(define (find-bounds/quantile data-series q)
   (define (good-or-false num)
     (and (number? num) (not (nan? num)) (not (infinite? num)) num))
-  (let ((xlimits (df-quantile df xseries quantile (- 1 quantile)))
-        (ylimits (df-quantile df yseries quantile (- 1 quantile))))
-    (when (and xlimits ylimits)
-      (match-define (list xmin xmax) xlimits)
-      (match-define (list ymin ymax) ylimits)
-    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
-    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
-    (when xrange
-      (when xmin (set! xmin (- xmin (* xrange 0.05))))
-      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
-    (when yrange
-      (when ymin (set! ymin (- ymin (* yrange 0.05))))
-      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
-      (vector
-       (good-or-false xmin)
-       (good-or-false xmax)
-       (good-or-false ymin)
-       (good-or-false ymax)))))
+  (define x-data (make-vector (vector-length data-series) 0))
+  (define y-data (make-vector (vector-length data-series) 0))
+  (for ([(item index) (in-indexed data-series)])
+    (match-define (vector x y _) item)
+    (vector-set! x-data index x)
+    (vector-set! y-data index y))
+  (define xmin (quantile q < x-data))
+  (define xmax (quantile (- 1 q) < x-data))
+  (define ymin (quantile q < y-data))
+  (define ymax (quantile (- 1 q) < y-data))
+  (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+  (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+  (when xrange
+    (when xmin (set! xmin (- xmin (* xrange 0.05))))
+    (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+  (when yrange
+    (when ymin (set! ymin (- ymin (* yrange 0.05))))
+    (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+  (vector
+   (good-or-false xmin)
+   (good-or-false xmax)
+   (good-or-false ymin)
+   (good-or-false ymax)))
 
 (define (extract-data data-frame x-axis y-axis)
   (let ((xnam (send x-axis series-name))
@@ -230,11 +238,7 @@
            (color (send yaxis plot-color))
            (bounds (find-bounds ds x-digits y-digits))
            (qbounds (if opct
-                        (find-bounds/quantile
-                         df
-                         (send xaxis series-name)
-                         (send yaxis series-name)
-                         opct)
+                        (find-bounds/quantile ds opct)
                         ;; use the default bounds, as they have a safety band
                         ;; around them!
                         bounds))

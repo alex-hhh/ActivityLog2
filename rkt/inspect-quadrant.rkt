@@ -31,6 +31,7 @@
          racket/string
          racket/match
          plot
+         math/statistics
          "data-frame.rkt"
          "plot-hack.rkt"
          "series-meta.rkt"
@@ -65,6 +66,12 @@
   ;; achieve this torque.
   (and cad torq (> cad 0) (< torq 150)))
 
+(define (filter-cadence val)
+  (match-define (vector cad stride) val)
+  (and cad stride (> cad 0) (> stride 0)
+       (not (eq? stride +inf.0))
+       (not (eq? stride +inf.f))))
+
 ;; NOTE: duplicated from inspect-scatter!
 (define (find-bounds data-series)
   (define (good-or-false num)
@@ -94,28 +101,32 @@
        (good-or-false ymin)
        (good-or-false ymax))))
 
-;; NOTE: duplicated from inspect-scatter!
-(define (find-bounds/quantile df xseries yseries quantile)
+(define (find-bounds/quantile data-series q)
   (define (good-or-false num)
     (and (number? num) (not (nan? num)) (not (infinite? num)) num))
-  (let ((xlimits (df-quantile df xseries quantile (- 1 quantile)))
-        (ylimits (df-quantile df yseries quantile (- 1 quantile))))
-    (when (and xlimits ylimits)
-      (match-define (list xmin xmax) xlimits)
-      (match-define (list ymin ymax) ylimits)
-    (define xrange (if (and xmin xmax) (- xmax xmin) #f))
-    (define yrange (if (and ymin ymax) (- ymax ymin) #f))
-    (when xrange
-      (when xmin (set! xmin (- xmin (* xrange 0.05))))
-      (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
-    (when yrange
-      (when ymin (set! ymin (- ymin (* yrange 0.05))))
-      (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
-      (vector
-       (good-or-false xmin)
-       (good-or-false xmax)
-       (good-or-false ymin)
-       (good-or-false ymax)))))
+  (define x-data (make-vector (vector-length data-series) 0))
+  (define y-data (make-vector (vector-length data-series) 0))
+  (for ([(item index) (in-indexed data-series)])
+    (match-define (vector x y) item)
+    (vector-set! x-data index x)
+    (vector-set! y-data index y))
+  (define xmin (quantile q < x-data))
+  (define xmax (quantile (- 1 q) < x-data))
+  (define ymin (quantile q < y-data))
+  (define ymax (quantile (- 1 q) < y-data))
+  (define xrange (if (and xmin xmax) (- xmax xmin) #f))
+  (define yrange (if (and ymin ymax) (- ymax ymin) #f))
+  (when xrange
+    (when xmin (set! xmin (- xmin (* xrange 0.05))))
+    (when xmax (set! xmax (+ xmax (* xrange 0.05)))))
+  (when yrange
+    (when ymin (set! ymin (- ymin (* yrange 0.05))))
+    (when ymax (set! ymax (+ ymax (* yrange 0.05)))))
+  (vector
+   (good-or-false xmin)
+   (good-or-false xmax)
+   (good-or-false ymin)
+   (good-or-false ymax)))
 
 (define zcolors (map cdr (zone-colors)))
 
@@ -264,11 +275,7 @@
             (let ((opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
               (set! quantile-bounds
                     (if opct
-                        (find-bounds/quantile
-                         data-frame
-                         (send x-axis series-name)
-                         (send y-axis series-name)
-                         opct)
+                        (find-bounds/quantile data-series opct)
                         (vector #f #f #f #f)))
               (put-plot-snip))
             ;; No data series, refresh entire plot to get one and compute the
@@ -304,7 +311,7 @@
     (define threshold-fn #f)
     ;; Filter function used to extract the data for the plot.  For bike, it
     ;; will filter our unrealistic torque values.
-    (define filter-fn valid-only)
+    (define filter-fn filter-cadence)
     (define plot-rt #f)                 ; plot render tree
     (define zone-rt #f)                 ; sport zone render tree
     (define inhibit-refresh #f)
@@ -380,11 +387,7 @@
              (define bounds (and ds (find-bounds ds)))
              (define qbounds
                (if opct
-                   (find-bounds/quantile
-                    df
-                    (send x series-name)
-                    (send y series-name)
-                    opct)
+                   (find-bounds/quantile ds opct)
                    (vector #f #f #f #f)))
              (define grouped
                (and ds
@@ -483,7 +486,7 @@
          (set! y-axis axis-stride)
          (set! zones (get-session-sport-zones session-id 2))
          (set! yval-fn cadence->stride)
-         (set! filter-fn valid-only)
+         (set! filter-fn filter-cadence)
          (send control-panel change-children
                (lambda (old) (list run-pace-field cadence-field
                                    show-zones-check-box
@@ -495,7 +498,7 @@
          ;; Add the torque series if not present
          (set! zones (get-session-sport-zones session-id 3))
          (set! yval-fn cadence->stride)
-         (set! filter-fn valid-only)
+         (set! filter-fn filter-cadence)
          (send control-panel change-children
                (lambda (old) (list swim-pace-field cadence-field
                                    show-zones-check-box
