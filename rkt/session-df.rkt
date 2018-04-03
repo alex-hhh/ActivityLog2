@@ -33,7 +33,7 @@
          "fmt-util.rkt"
          "sport-charms.rkt"
          "series-meta.rkt"
-         "map-util.rkt"
+         "widgets/map-widget/map-util.rkt"
          "utilities.rkt"
          "gap.rkt")
 

@@ -17,7 +17,7 @@
 (require racket/string
          racket/class
          racket/gui/base
-         "widgets.rkt"
+         "widgets/main.rkt"
          "utilities.rkt")
 
 (provide log-al-fatal

@@ -26,7 +26,7 @@
          "activity-util.rkt"
          "al-widgets.rkt"
          "fmt-util.rkt"
-         "map-util.rkt"
+         "widgets/map-widget/map-util.rkt"
          "sport-charms.rkt"
          "weather.rkt"
          "data-frame.rkt")

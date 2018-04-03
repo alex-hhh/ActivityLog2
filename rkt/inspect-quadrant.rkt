@@ -36,7 +36,7 @@
          "plot-hack.rkt"
          "series-meta.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "session-df.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
@@ -174,35 +174,15 @@
            [stretchable-height #f]))
 
     (define run-pace-field
-      (new validating-input-field% [parent control-panel]
+      (new pace-input-field% [parent control-panel]
            [label "Threshold Pace: "] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
-           [cue-text "min/km"]
-           [validate-fn (lambda (v)
-                          (let ((t (string-trim v)))
-                            (or (= (string-length t) 0)
-                                (run-pace-string->mps t))))]
-           [convert-fn (lambda (v)
-                         (let ((t (string-trim v)))
-                           (if (= (string-length t) 0)
-                               'empty
-                               (run-pace-string->mps t))))]
-           [valid-value-cb (lambda (v) (on-threshold-speed v))]))
+            [valid-value-cb (lambda (v) (on-threshold-speed v))]))
 
     (define swim-pace-field
-      (new validating-input-field% [parent control-panel]
+      (new swim-pace-input-field% [parent control-panel]
            [label "Threshold Pace: "] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
-           [cue-text "min/100m"]
-           [validate-fn (lambda (v)
-                          (let ((t (string-trim v)))
-                            (or (= (string-length t) 0)
-                                (swim-pace-string->mps t))))]
-           [convert-fn (lambda (v)
-                         (let ((t (string-trim v)))
-                           (if (= (string-length t) 0)
-                               'empty
-                               (swim-pace-string->mps t))))]
            [valid-value-cb (lambda (v) (on-threshold-speed v))]))
 
     (define power-field
@@ -425,9 +405,9 @@
           (match-define (list tspeed tpower tcad opct ohandling) data)
           (if tspeed
               (cond ((equal? (vector-ref sport 0) 1) ; running
-                     (send run-pace-field set-value (pace->string tspeed)))
+                     (send run-pace-field set-pace-value tspeed))
                     ((equal? (vector-ref sport 0) 5) ; swimming
-                     (send swim-pace-field set-value (swim-pace->string tspeed))))
+                     (send swim-pace-field set-pace-value tspeed)))
               (begin
                 (send run-pace-field set-value "")
                 (send swim-pace-field set-value "")))

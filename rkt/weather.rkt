@@ -27,7 +27,7 @@
          (rename-in srfi/48 (format format-48))
          "utilities.rkt"
          "dbutil.rkt"
-         "map-util.rkt")
+         "widgets/map-widget/map-util.rkt")
 (require (for-syntax racket/base))
 
 (provide (struct-out wstation)

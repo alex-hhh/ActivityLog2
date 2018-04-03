@@ -25,9 +25,8 @@
          racket/string
          "utilities.rkt"
          "fit-file.rkt"
-         "icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "color-theme.rkt")
 
 (provide get-export-settings-dialog zones-pp)
@@ -236,7 +235,7 @@ select body_weight
     #:exists 'replace))
 
 (define export-settings-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Export FIT Settings"]
                [icon (edit-icon)]

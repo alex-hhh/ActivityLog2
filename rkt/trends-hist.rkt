@@ -29,8 +29,8 @@
  racket/hash
  racket/format
  "trends-chart.rkt"
- "icon-resources.rkt"
- "widgets.rkt"
+ "widgets/icon-resources.rkt"
+ "widgets/main.rkt"
  "plot-hack.rkt"
  "data-frame.rkt"
  "al-widgets.rkt"
@@ -108,7 +108,7 @@
   #:transparent)
 
 (define hist-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Hist"]
                 [default-title "Histogram Chart"])

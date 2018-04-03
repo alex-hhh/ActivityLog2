@@ -33,8 +33,7 @@
          "edit-cp.rkt"
          "elevation-correction.rkt"
          "export-fit-settings.rkt"
-         "icon-resources.rkt"
-         "map-tiles.rkt"
+         "widgets/map-widget/map-tiles.rkt"
          "time-in-zone.rkt"
          "view-activities.rkt"
          "view-athlete-metrics.rkt"
@@ -44,7 +43,7 @@
          "view-reports.rkt"
          "view-session.rkt"
          "view-trends.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "import.rkt"
          "metrics.rkt"
          "session-df.rkt"
@@ -824,7 +823,7 @@
     (define/public (vacuum-database)
 
       (define progress-dialog
-        (new al-progress-dialog%
+        (new progress-dialog%
              [title "Optimize database (vacuum and analyze)"]
              [can-cancel? #f]
              [icon (sql-export-icon)]))

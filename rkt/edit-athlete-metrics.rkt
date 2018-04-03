@@ -19,8 +19,7 @@
          racket/gui/base
          "al-widgets.rkt"
          "dbutil.rkt"
-         "icon-resources.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide get-edit-athlete-metrics-dialog)
 
@@ -32,7 +31,7 @@
 ;;................................................ edit-athlete-metrics% ....
 
 (define edit-athlete-metrics%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Athlete Metrics"] [icon (wscale-icon)])
 

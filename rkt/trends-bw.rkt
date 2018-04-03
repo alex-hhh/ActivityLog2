@@ -23,8 +23,7 @@
  racket/gui/base
  "database.rkt"
  "trends-chart.rkt"
- "icon-resources.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "plot-hack.rkt"
  "plot-util.rkt"
  "fmt-util.rkt")
@@ -34,7 +33,7 @@
 (struct bw-params tc-params (start-date end-date group-by))
 
 (define bw-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Trends"]
                 [default-title "Trends Chart"])

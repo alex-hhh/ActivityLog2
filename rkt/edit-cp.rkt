@@ -19,8 +19,7 @@
          racket/gui/base
          racket/string
          racket/match
-         "icon-resources.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "fmt-util.rkt"
          "dbutil.rkt"
          "utilities.rkt")
@@ -46,85 +45,85 @@
 ;; editor for swimming (shows CV and D')
 (define (make-cp-columns-swim)
   (list
-   (column-info "Valid From"
-                (lambda (row) (date-time->string (cp-valid-from row)))
-                cp-valid-from)
-   (column-info "Valid Until"
-                (lambda (row) (date-time->string (cp-valid-until row)))
-                cp-valid-from)
-   (column-info "CV"
-                (lambda (row) (swim-pace->string (cp-cp row) #t))
-                cp-cp)
-   (column-info "D'"
-                (lambda (row) (short-distance->string (cp-wprime row) #t))
-                cp-wprime)
-   (column-info "Tau"
-                (lambda (row)
-                  (let ((tau (cp-tau row)))
-                    (if tau (number->string tau) "")))
-                (lambda (row) (or  (cp-tau row) 0)))
-   (column-info "Session Count"
-                (lambda (row)
-                  (let ((sc (cp-session-count row)))
-                    (if (sql-null? sc) "" (number->string sc))))
-                cp-session-count)))
+   (qcolumn "Valid From"
+            (lambda (row) (date-time->string (cp-valid-from row)))
+            cp-valid-from)
+   (qcolumn "Valid Until"
+            (lambda (row) (date-time->string (cp-valid-until row)))
+            cp-valid-from)
+   (qcolumn "CV"
+            (lambda (row) (swim-pace->string (cp-cp row) #t))
+            cp-cp)
+   (qcolumn "D'"
+            (lambda (row) (short-distance->string (cp-wprime row) #t))
+            cp-wprime)
+   (qcolumn "Tau"
+            (lambda (row)
+              (let ((tau (cp-tau row)))
+                (if tau (number->string tau) "")))
+            (lambda (row) (or  (cp-tau row) 0)))
+   (qcolumn "Session Count"
+            (lambda (row)
+              (let ((sc (cp-session-count row)))
+                (if (sql-null? sc) "" (number->string sc))))
+            cp-session-count)))
 
 ;; Column definitions for the qresults-list% object used by the critical power
 ;; editor for running (shows CV and D')
 (define (make-cp-columns-run)
   (list
-   (column-info "Valid From"
-                (lambda (row) (date-time->string (cp-valid-from row)))
-                cp-valid-from)
-   (column-info "Valid Until"
-                (lambda (row) (date-time->string (cp-valid-until row)))
-                cp-valid-from)
-   (column-info "CV"
-                (lambda (row) (pace->string (cp-cp row) #t))
-                cp-cp)
-   (column-info "D'"
-                (lambda (row) (short-distance->string (cp-wprime row) #t))
-                cp-wprime)
-   (column-info "Tau"
-                (lambda (row)
-                  (let ((tau (cp-tau row)))
-                    (if tau (number->string tau) "")))
-                (lambda (row) (or  (cp-tau row) 0)))
-   (column-info "Session Count"
-                (lambda (row)
-                  (let ((sc (cp-session-count row)))
-                    (if (sql-null? sc) "" (number->string sc))))
-                cp-session-count)))
+   (qcolumn "Valid From"
+            (lambda (row) (date-time->string (cp-valid-from row)))
+            cp-valid-from)
+   (qcolumn "Valid Until"
+            (lambda (row) (date-time->string (cp-valid-until row)))
+            cp-valid-from)
+   (qcolumn "CV"
+            (lambda (row) (pace->string (cp-cp row) #t))
+            cp-cp)
+   (qcolumn "D'"
+            (lambda (row) (short-distance->string (cp-wprime row) #t))
+            cp-wprime)
+   (qcolumn "Tau"
+            (lambda (row)
+              (let ((tau (cp-tau row)))
+                (if tau (number->string tau) "")))
+            (lambda (row) (or  (cp-tau row) 0)))
+   (qcolumn "Session Count"
+            (lambda (row)
+              (let ((sc (cp-session-count row)))
+                (if (sql-null? sc) "" (number->string sc))))
+            cp-session-count)))
 
 ;; Column definition for the qresults-list% object used by the critical power
 ;; editor for cycling (shows CP and W')
 (define (make-cp-columns-bike)
   (list
-   (column-info "Valid From"
-                (lambda (row) (date-time->string (cp-valid-from row)))
-                cp-valid-from)
-   (column-info "Valid Until"
-                (lambda (row) (date-time->string (cp-valid-until row)))
-                cp-valid-from)
-   (column-info "CP"
-                (lambda (row) (power->string (cp-cp row) #t))
-                cp-cp)
-   (column-info "W'"
-                (lambda (row) (work->string (cp-wprime row) #t))
-                cp-wprime)
-   (column-info "Tau"
-                (lambda (row)
-                  (let ((tau (cp-tau row)))
-                    (if tau (number->string tau) "")))
-                (lambda (row) (or  (cp-tau row) 0)))
-   (column-info "Session Count"
-                (lambda (row)
-                  (let ((sc (cp-session-count row)))
-                    (if (sql-null? sc) "" (number->string sc))))
-                cp-session-count)))
+   (qcolumn "Valid From"
+            (lambda (row) (date-time->string (cp-valid-from row)))
+            cp-valid-from)
+   (qcolumn "Valid Until"
+            (lambda (row) (date-time->string (cp-valid-until row)))
+            cp-valid-from)
+   (qcolumn "CP"
+            (lambda (row) (power->string (cp-cp row) #t))
+            cp-cp)
+   (qcolumn "W'"
+            (lambda (row) (work->string (cp-wprime row) #t))
+            cp-wprime)
+   (qcolumn "Tau"
+            (lambda (row)
+              (let ((tau (cp-tau row)))
+                (if tau (number->string tau) "")))
+            (lambda (row) (or  (cp-tau row) 0)))
+   (qcolumn "Session Count"
+            (lambda (row)
+              (let ((sc (cp-session-count row)))
+                (if (sql-null? sc) "" (number->string sc))))
+            cp-session-count)))
 
 (define edit-cp-value%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Edit Critical Power"] [icon (edit-icon)] [min-width 300] [min-height 200])
 
@@ -158,33 +157,15 @@
     (define cv-message
       (new message% [parent pane] [label "CV"] [style '(deleted)]))
     (define cv-field
-      (new validating-input-field% [parent pane]
+      (new pace-input-field% [parent pane]
            [label ""] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
-           [cue-text "min/km"] [allow-empty? #f]
-           [validate-fn (lambda (v)
-                          (let ((t (string-trim v)))
-                            (or (= (string-length t) 0)
-                                (run-pace-string->mps t))))]
-           [convert-fn (lambda (v)
-                         (let ((t (string-trim v)))
-                           (if (= (string-length t) 0)
-                               'empty
-                               (run-pace-string->mps t))))]))
+           [allow-empty? #f]))
     (define swim-cv-field
-      (new validating-input-field% [parent pane]
+      (new swim-pace-input-field% [parent pane]
            [label ""] [style '(single deleted)]
            [min-width 100] [stretchable-width #f]
-           [cue-text "min/100m"] [allow-empty? #f]
-           [validate-fn (lambda (v)
-                          (let ((t (string-trim v)))
-                            (or (= (string-length t) 0)
-                                (swim-pace-string->mps t))))]
-           [convert-fn (lambda (v)
-                         (let ((t (string-trim v)))
-                           (if (= (string-length t) 0)
-                               'empty
-                               (swim-pace-string->mps t))))]))
+           [allow-empty? #f]))
     (define dprime-message
       (new message% [parent pane] [label "D'"] [style '(deleted)]))
     (define dprime-field
@@ -229,7 +210,7 @@
                                        cv-message cv-field
                                        dprime-message dprime-field
                                        tau-message tau-field)))
-             (send cv-field set-value (if cp (pace->string cp) ""))
+             (send cv-field set-pace-value cp)
              (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
              (send tau-field set-value (if tau (format "~a" tau) ""))
              (if valid-from
@@ -241,7 +222,7 @@
                                        cv-message swim-cv-field
                                        dprime-message dprime-field
                                        tau-message tau-field)))
-             (send swim-cv-field set-value (if cp (swim-pace->string cp) ""))
+             (send swim-cv-field set-pace-value cp)
              (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
              (send tau-field set-value (if tau (format "~a" tau) ""))
              (if valid-from
@@ -287,7 +268,7 @@
     ))
 
 (define edit-cp-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Critical Power"] [icon (edit-icon)] [min-width 600] [min-height 400])
 
@@ -331,7 +312,7 @@
 
         (set! cplb
               (new qresults-list%
-                   [parent p1] [tag 'activity-log:cp-editor]))))
+                   [parent p1] [pref-tag 'activity-log:cp-editor]))))
 
     ;; Called when the sport selection has changed.  Populate the list box
     ;; with CP data for the relevant sport.

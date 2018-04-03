@@ -27,8 +27,8 @@
  racket/draw
  racket/class
  db
- "utilities.rkt"
- "dbutil.rkt"
+ "../../utilities.rkt"
+ "../../dbutil.rkt"
  "map-util.rkt")
 (require (for-syntax racket/base))
 

@@ -18,7 +18,7 @@
 (require racket/draw
          racket/runtime-path)
 
-(define-runtime-path weather-icon-file "../img/partly_cloudy_day-64.png")
+(define-runtime-path weather-icon-file "../../img/partly_cloudy_day-64.png")
 (define the-weather-icon #f)
 (define (weather-icon)
   (unless the-weather-icon
@@ -26,7 +26,7 @@
   the-weather-icon)
 (provide weather-icon)
 
-(define-runtime-path sql-export-icon-file "../img/data_configuration-64.png")
+(define-runtime-path sql-export-icon-file "../../img/data_configuration-64.png")
 (define the-sql-export-icon #f)
 (define (sql-export-icon)
   (unless the-sql-export-icon
@@ -34,7 +34,7 @@
   the-sql-export-icon)
 (provide sql-export-icon)
 
-(define-runtime-path wscale-icon-file "../img/scale-64.png")
+(define-runtime-path wscale-icon-file "../../img/scale-64.png")
 (define the-wscale-icon #f)
 (define (wscale-icon)
   (unless the-wscale-icon
@@ -42,7 +42,7 @@
   the-wscale-icon)
 (provide wscale-icon)
 
-(define-runtime-path edit-icon-file "../img/edit-64.png")
+(define-runtime-path edit-icon-file "../../img/edit-64.png")
 (define the-edit-icon #f)
 (define (edit-icon)
   (unless the-edit-icon
@@ -50,7 +50,7 @@
   the-edit-icon)
 (provide edit-icon)
 
-(define-runtime-path import-icon-file "../img/import-64.png")
+(define-runtime-path import-icon-file "../../img/import-64.png")
 (define the-import-icon #f)
 (define (import-icon)
   (unless the-import-icon
@@ -58,7 +58,7 @@
   the-import-icon)
 (provide import-icon)
 
-(define-runtime-path stopwatch-icon-file "../img/stopwatch-64.png")
+(define-runtime-path stopwatch-icon-file "../../img/stopwatch-64.png")
 (define the-stopwatch-icon #f)
 (define (stopwatch-icon)
   (unless the-stopwatch-icon
@@ -66,7 +66,7 @@
   the-stopwatch-icon)
 (provide stopwatch-icon)
 
-(define-runtime-path planner-icon-file "../img/planner-64.png")
+(define-runtime-path planner-icon-file "../../img/planner-64.png")
 (define the-planner-icon #f)
 (define (planner-icon)
   (unless the-planner-icon
@@ -74,7 +74,7 @@
   the-planner-icon)
 (provide planner-icon)
 
-(define-runtime-path equipment-icon-file "../img/robot-64.png")
+(define-runtime-path equipment-icon-file "../../img/robot-64.png")
 (define the-equipment-icon #f)
 (define (equipment-icon)
   (unless the-equipment-icon
@@ -82,7 +82,7 @@
   the-equipment-icon)
 (provide equipment-icon)
 
-(define-runtime-path pmc-icon-file "../img/statistics-64.png")
+(define-runtime-path pmc-icon-file "../../img/statistics-64.png")
 (define the-pmc-icon #f)
 (define (pmc-icon)
   (unless the-pmc-icon

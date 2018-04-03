@@ -17,16 +17,15 @@
 (require racket/class
          racket/gui/base
          "fmt-util.rkt"
-         "icon-resources.rkt"
-         "map-tiles.rkt"
+         "widgets/map-widget/map-tiles.rkt"
          "weather.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "al-widgets.rkt")
 
 (provide get-preferences-dialog)
 
 (define edit-preferences-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Preferences"]
                [icon (edit-icon)]

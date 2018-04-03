@@ -25,9 +25,9 @@
  db
  plot
  "plot-hack.rkt"
- "icon-resources.rkt"
+ "widgets/icon-resources.rkt"
  "database.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "trends-chart.rkt"
  "sport-charms.rkt"
  "fmt-util.rkt"
@@ -42,7 +42,7 @@
 (struct trivol-params tc-params (start-date end-date group-by metric))
 
 (define trivol-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Trends"]
                 [default-title "Trends Chart"])

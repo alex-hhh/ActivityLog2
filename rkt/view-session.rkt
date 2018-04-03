@@ -35,7 +35,7 @@
          "inspect-quadrant.rkt"
          "inspect-model-parameters.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "utilities.rkt"
          "session-df.rkt"
          "series-meta.rkt")

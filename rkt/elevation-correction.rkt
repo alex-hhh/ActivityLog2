@@ -34,9 +34,8 @@
          racket/list
          math/statistics
          "utilities.rkt"
-         "icon-resources.rkt"
-         "map-util.rkt"
-         "widgets.rkt"
+         "widgets/map-widget/map-util.rkt"
+         "widgets/main.rkt"
          "data-frame.rkt")
 
 (provide update-tile-codes)
@@ -540,7 +539,7 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
 (define (interactive-fixup-elevation database session-id [parent-window #f])
 
   (define progress-dialog
-    (new al-progress-dialog%
+    (new progress-dialog%
          [title "Update elevation data"]
          [icon (sql-export-icon)]))
 

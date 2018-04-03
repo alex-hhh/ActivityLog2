@@ -28,8 +28,7 @@
  pict
  embedded-gui                           ; snip-width, snip-height
  "trends-chart.rkt"
- "icon-resources.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "plot-hack.rkt"
  "data-frame.rkt"
  "al-widgets.rkt"
@@ -102,7 +101,7 @@
 
 (provide bavg-chart-settings%)
 (define bavg-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Bavg"]
                 [default-title "Best Avg Chart"])

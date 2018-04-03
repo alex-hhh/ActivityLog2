@@ -26,7 +26,7 @@
          "series-meta.rkt"
          "plot-hack.rkt"
          "data-frame.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "plot-util.rkt"
          "fmt-util.rkt")
 

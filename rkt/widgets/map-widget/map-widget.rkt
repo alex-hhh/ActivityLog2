@@ -24,8 +24,8 @@
          racket/list
          racket/sequence
          racket/stream
-         "utilities.rkt"
-         "fmt-util.rkt"
+         "../../utilities.rkt"
+         "../../fmt-util.rkt"
          "map-util.rkt"
          "map-tiles.rkt")
 

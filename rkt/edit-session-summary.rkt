@@ -22,12 +22,12 @@
          "edit-session-tss.rkt"
          "sport-charms.rkt"
          "session-df.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide get-edit-session-summary-dialog)
 
 (define edit-session-summary-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Session Summary"] 
                [icon (get-sport-bitmap-colorized #f #f)]

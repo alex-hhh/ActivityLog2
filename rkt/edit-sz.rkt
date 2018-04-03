@@ -25,9 +25,8 @@
          racket/format
          "fmt-util.rkt"
          "dbutil.rkt"
-         "icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "time-in-zone.rkt"
          "utilities.rkt")
 
@@ -75,7 +74,7 @@
 ;; Dialog for editing one set of sport zones (for a specific sport and zone
 ;; type).
 (define edit-one-sz-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Edit Sport Zones"] [icon (edit-icon)])
 
@@ -280,11 +279,11 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                       ((2) pace->string) ; NOTE: we don't bother with the speed, only pace
                       ((3) power->string)))
          (label (case zmetric
-                      ((1) "bpm ")
-                      ((2) (if (eq? (al-pref-measurement-system) 'metric)
-                               "min/km "
-                               "min/mile "))
-                      ((3) "watts ")))
+                  ((1) "bpm ")
+                  ((2) (if (eq? (al-pref-measurement-system) 'metric)
+                           "min/km "
+                           "min/mile "))
+                  ((3) "watts ")))
          (zones (get-sport-zone-values db zone-id)))
     (string-join (filter (lambda (x) (> (string-length x) 0))
                          (map formatter zones))
@@ -299,18 +298,18 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 
 (define (make-sz-columns)
   (list
-   (column-info "Valid From"
-                (lambda (row) (date-time->string (sz-valid-from row)))
-                sz-valid-from)
-   (column-info "Valid Until"
-                (lambda (row) (date-time->string (sz-valid-until row)))
-                sz-valid-from)
-   (column-info "Session Count"
-                (lambda (row)
-                  (let ((sc (sz-session-count row)))
-                    (if (sql-null? sc) "" (number->string sc))))
-                sz-session-count)
-   (column-info "Zones" sz-zones sz-zones)))
+   (qcolumn "Valid From"
+            (lambda (row) (date-time->string (sz-valid-from row)))
+            sz-valid-from)
+   (qcolumn "Valid Until"
+            (lambda (row) (date-time->string (sz-valid-until row)))
+            sz-valid-from)
+   (qcolumn "Session Count"
+            (lambda (row)
+              (let ((sc (sz-session-count row)))
+                (if (sql-null? sc) "" (number->string sc))))
+            sz-session-count)
+   (qcolumn "Zones" sz-zones sz-zones)))
 
 (define (delete-sport-zone db zone-id)
   (query-exec db "delete from TIME_IN_ZONE where sport_zone_id = ?" zone-id)
@@ -406,7 +405,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
   (void))
 
 (define edit-sz-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Sport Zones"] [icon (edit-icon)] [min-width 600] [min-height 500])
 
@@ -454,7 +453,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 
         (set! szlb
               (new qresults-list%
-                   [parent p1] [tag 'activity-log:sz-editor]))))
+                   [parent p1] [pref-tag 'activity-log:sz-editor]))))
 
     (define (selected-sport)
       (let ((index (send sport-choice get-selection)))

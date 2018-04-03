@@ -22,9 +22,8 @@
          racket/dict
          "activity-util.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "al-log.rkt"
          "intervals.rkt"
          "utilities.rkt")
@@ -422,8 +421,8 @@ values (?, ?)" session-id id))
 ;; from the lap) and a formatter which converts the value to a string for
 ;; display.
 
-(define (mk-column-info name extractor formatter)
-  (column-info
+(define (mk-qcolumn name extractor formatter)
+  (qcolumn
    name
    (lambda (lap) 
      (let ((value (extractor lap)))
@@ -442,156 +441,156 @@ values (?, ?)" session-id id))
 
 (define *run-lap-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Time of day" lap-start-time time-of-day->string)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Pace" lap-avg-speed pace->string)
-   (mk-column-info "Best Pace" lap-max-speed pace->string)
-   (mk-column-info "Speed" lap-avg-speed speed->string)
-   (mk-column-info "Max Speed" lap-max-speed speed->string)
-   (mk-column-info "HR" lap-avg-hr n->string)
-   (mk-column-info "Max HR" lap-max-hr n->string)
-   (mk-column-info "Pa:HR" lap-aerobic-decoupling pct->string)
-   (mk-column-info "Cadence" lap-avg-cadence n->string)
-   (mk-column-info "Max Cadence" lap-max-cadence n->string)
-   (mk-column-info "VOSC" lap-avg-vertical-oscillation vosc->string)
-   (mk-column-info "VRATIO" lap-avg-vratio pct->string)
-   (mk-column-info "GCT" lap-avg-stance-time n->string)
-   (mk-column-info "L-R Bal" lap-left-right-balance pct->string)
-   (mk-column-info "Stride" lap-avg-stride stride->string)
-   (mk-column-info "Calories" lap-calories n->string)
-   (mk-column-info "Ascent" lap-total-ascent n->string)
-   (mk-column-info "Descent" lap-total-descent n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Time of day" lap-start-time time-of-day->string)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Pace" lap-avg-speed pace->string)
+   (mk-qcolumn "Best Pace" lap-max-speed pace->string)
+   (mk-qcolumn "Speed" lap-avg-speed speed->string)
+   (mk-qcolumn "Max Speed" lap-max-speed speed->string)
+   (mk-qcolumn "HR" lap-avg-hr n->string)
+   (mk-qcolumn "Max HR" lap-max-hr n->string)
+   (mk-qcolumn "Pa:HR" lap-aerobic-decoupling pct->string)
+   (mk-qcolumn "Cadence" lap-avg-cadence n->string)
+   (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
+   (mk-qcolumn "VOSC" lap-avg-vertical-oscillation vosc->string)
+   (mk-qcolumn "VRATIO" lap-avg-vratio pct->string)
+   (mk-qcolumn "GCT" lap-avg-stance-time n->string)
+   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string)
+   (mk-qcolumn "Stride" lap-avg-stride stride->string)
+   (mk-qcolumn "Calories" lap-calories n->string)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string)
+   (mk-qcolumn "Descent" lap-total-descent n->string)))
 
 (define *run-mini-lap-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Pace" lap-avg-speed pace->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Pace" lap-avg-speed pace->string)))
 
 (define *run-mini-ascend-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Ascent" lap-total-ascent n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string)))
 
 (define *run-mini-descend-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Descent" lap-total-descent n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Descent" lap-total-descent n->string)))
 
 (define *bike-lap-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Time of day" lap-start-time time-of-day->string)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Speed" lap-avg-speed speed->string)
-   (mk-column-info "Max Speed" lap-max-speed speed->string)
-   (mk-column-info "HR" lap-avg-hr n->string)
-   (mk-column-info "Max HR" lap-max-hr n->string)
-   (mk-column-info "Pw:HR" lap-aerobic-decoupling pct->string)
-   (mk-column-info "Cadence" lap-avg-cadence n->string)
-   (mk-column-info "Max Cadence" lap-max-cadence n->string)
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Time of day" lap-start-time time-of-day->string)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Speed" lap-avg-speed speed->string)
+   (mk-qcolumn "Max Speed" lap-max-speed speed->string)
+   (mk-qcolumn "HR" lap-avg-hr n->string)
+   (mk-qcolumn "Max HR" lap-max-hr n->string)
+   (mk-qcolumn "Pw:HR" lap-aerobic-decoupling pct->string)
+   (mk-qcolumn "Cadence" lap-avg-cadence n->string)
+   (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
 
-   (mk-column-info "Power" lap-avg-power n->string)
-   (mk-column-info "Max Power" lap-max-power n->string)
-   (mk-column-info "Weighted Power" lap-normalized-power n->string)
+   (mk-qcolumn "Power" lap-avg-power n->string)
+   (mk-qcolumn "Max Power" lap-max-power n->string)
+   (mk-qcolumn "Weighted Power" lap-normalized-power n->string)
 
-   (mk-column-info "L-R Bal" lap-left-right-balance pct->string)
-   (mk-column-info "Left TEff" lap-avg-left-torque-effectiveness n->string)
-   (mk-column-info "Right TEff" lap-avg-right-torque-effectiveness n->string)
-   (mk-column-info "Left PSmth" lap-avg-left-pedal-smoothness n->string)
-   (mk-column-info "Right PSmth" lap-avg-right-pedal-smoothness n->string)
+   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string)
+   (mk-qcolumn "Left TEff" lap-avg-left-torque-effectiveness n->string)
+   (mk-qcolumn "Right TEff" lap-avg-right-torque-effectiveness n->string)
+   (mk-qcolumn "Left PSmth" lap-avg-left-pedal-smoothness n->string)
+   (mk-qcolumn "Right PSmth" lap-avg-right-pedal-smoothness n->string)
 
-   (mk-column-info "Left PCO" lap-avg-left-pco
+   (mk-qcolumn "Left PCO" lap-avg-left-pco
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Right PCO" lap-avg-right-pco
+   (mk-qcolumn "Right PCO" lap-avg-right-pco
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Left PP Start" lap-avg-left-pp-start
+   (mk-qcolumn "Left PP Start" lap-avg-left-pp-start
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Left PP End" lap-avg-left-pp-end
+   (mk-qcolumn "Left PP End" lap-avg-left-pp-end
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Right PP Start" lap-avg-right-pp-start
+   (mk-qcolumn "Right PP Start" lap-avg-right-pp-start
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Right PP End" lap-avg-right-pp-end
+   (mk-qcolumn "Right PP End" lap-avg-right-pp-end
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Left Peak PP Start" lap-avg-left-ppp-start
+   (mk-qcolumn "Left Peak PP Start" lap-avg-left-ppp-start
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Left Peak PP End" lap-avg-left-ppp-end
+   (mk-qcolumn "Left Peak PP End" lap-avg-left-ppp-end
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Right Peak PP Start" lap-avg-right-ppp-start
+   (mk-qcolumn "Right Peak PP Start" lap-avg-right-ppp-start
                    (lambda (val) (number->string (exact-round val))))
-   (mk-column-info "Right Peak PP End" lap-avg-right-ppp-end
+   (mk-qcolumn "Right Peak PP End" lap-avg-right-ppp-end
                    (lambda (val) (number->string (exact-round val))))
 
-   (mk-column-info "Calories" lap-calories n->string)
-   (mk-column-info "Ascent" lap-total-ascent n->string)
-   (mk-column-info "Descent" lap-total-descent n->string)))
+   (mk-qcolumn "Calories" lap-calories n->string)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string)
+   (mk-qcolumn "Descent" lap-total-descent n->string)))
 
 (define *bike-mini-lap-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Speed" lap-avg-speed speed->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Speed" lap-avg-speed speed->string)))
 
 (define *bike-mini-ascend-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Ascent" lap-total-ascent n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string)))
 
 (define *bike-mini-descend-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Descent" lap-total-descent n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Descent" lap-total-descent n->string)))
 
 (define *bike-mini-best-fields*
   (list
-   (mk-column-info "Lap" lap-num lap-num-fmt)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance distance->string)
-   (mk-column-info "Power" lap-avg-power n->string)))
+   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Power" lap-avg-power n->string)))
 
 (define *swim-lap-fields*
   (list
-   ;; (mk-column-info "Lap #" lap-num lap-num-fmt)
-   (column-info "Lap" lap-num-pretty lap-num)
-   (mk-column-info "Swim Stroke" lap-swim-stroke get-swim-stroke-name)
-   ;; (mk-column-info "Time of day" lap-start-time format-time-of-day)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Moving Time" lap-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Lengths" lap-num-lengths n->string)
-   (mk-column-info "Distance" lap-distance n->string)
-   (mk-column-info "Pace" lap-avg-speed swim-pace->string)
-   (mk-column-info "Best Pace" lap-max-speed swim-pace->string)
-   (mk-column-info "SWOLF" lap-avg-swolf n->string)
-   (mk-column-info "Best SWOLF" lap-best-swolf n->string)
-   (mk-column-info "Total Strokes" lap-total-cycles n->string)
-   (mk-column-info "Avg Strokes" lap-avg-strokes n->string)
-   (mk-column-info "Cadence" lap-avg-cadence n->string)
-   (mk-column-info "Max Cadence" lap-max-cadence n->string)
-   (mk-column-info "Calories" lap-calories n->string)))
+   ;; (mk-qcolumn "Lap #" lap-num lap-num-fmt)
+   (qcolumn "Lap" lap-num-pretty lap-num)
+   (mk-qcolumn "Swim Stroke" lap-swim-stroke get-swim-stroke-name)
+   ;; (mk-qcolumn "Time of day" lap-start-time format-time-of-day)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Lengths" lap-num-lengths n->string)
+   (mk-qcolumn "Distance" lap-distance n->string)
+   (mk-qcolumn "Pace" lap-avg-speed swim-pace->string)
+   (mk-qcolumn "Best Pace" lap-max-speed swim-pace->string)
+   (mk-qcolumn "SWOLF" lap-avg-swolf n->string)
+   (mk-qcolumn "Best SWOLF" lap-best-swolf n->string)
+   (mk-qcolumn "Total Strokes" lap-total-cycles n->string)
+   (mk-qcolumn "Avg Strokes" lap-avg-strokes n->string)
+   (mk-qcolumn "Cadence" lap-avg-cadence n->string)
+   (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
+   (mk-qcolumn "Calories" lap-calories n->string)))
 
 (define *swim-mini-lap-fields*
   (list
-   ;; (mk-column-info "Lap #" lap-num lap-num-fmt)
-   (column-info "Lap" lap-num-pretty lap-num)
-   ;; (mk-column-info "Time of day" lap-start-time format-time-of-day)
-   (mk-column-info "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Distance" lap-distance n->string)
-   (mk-column-info "Pace" lap-avg-speed swim-pace->string)))
+   ;; (mk-qcolumn "Lap #" lap-num lap-num-fmt)
+   (qcolumn "Lap" lap-num-pretty lap-num)
+   ;; (mk-qcolumn "Time of day" lap-start-time format-time-of-day)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance n->string)
+   (mk-qcolumn "Pace" lap-avg-speed swim-pace->string)))
 
 (define (length-num l)
   (dict-ref l 'length-num #f))
@@ -602,12 +601,12 @@ values (?, ?)" session-id id))
 ;; For swimming activitites, we display the lengths of the selected lap
 (define *swim-length-fields*
   (list
-   (mk-column-info "Length" length-num length-num-fmt)
-   (mk-column-info "Swim Stroke" length-swim-stroke get-swim-stroke-name)
-   (mk-column-info "Duration" length-time (lambda (v) (duration->string v #t)))
-   (mk-column-info "Strokes" length-total-cycles n->string)
-   (mk-column-info "SWOLF" length-swolf n->string)
-   (mk-column-info "Pace" length-avg-speed swim-pace->string)))
+   (mk-qcolumn "Length" length-num length-num-fmt)
+   (mk-qcolumn "Swim Stroke" length-swim-stroke get-swim-stroke-name)
+   (mk-qcolumn "Duration" length-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Strokes" length-total-cycles n->string)
+   (mk-qcolumn "SWOLF" length-swolf n->string)
+   (mk-qcolumn "Pace" length-avg-speed swim-pace->string)))
 
 (define *sport-lap-definitions*
   (list
@@ -677,7 +676,7 @@ values (?, ?)" session-id id))
              (define/override (on-select row-index row-data)
                (when callback
                  (callback row-index row-data))))
-           [tag tag]
+           [pref-tag tag]
            [parent parent]))
 
     (define/public (lap-field-definitions sport topic)
@@ -746,7 +745,7 @@ values (?, ?)" session-id id))
     (define deleted? #t)
 
     (define p (new horizontal-panel% [parent parent-panel] [style '(deleted)]))
-    (define lb (new qresults-list% [tag tag] [label "Lengths for lap"] [parent p]))
+    (define lb (new qresults-list% [pref-tag tag] [label "Lengths for lap"] [parent p]))
 
     (send lb setup-column-defs *swim-length-fields*)
 

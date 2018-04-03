@@ -30,10 +30,10 @@
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "utilities.rkt")
 
 (provide view-reports%)
@@ -140,51 +140,51 @@
 (define tvol-columns
   (list
    (let ((index 1))
-     (column-info "Count"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Count"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 2))
-     (column-info "Distance (km)"
-                  (lambda (row) (distance->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Distance (km)"
+              (lambda (row) (distance->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 3))
-     (column-info "Time"
-                  (lambda (row) (duration->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Time"
+              (lambda (row) (duration->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 4))
-     (column-info "Avg Speed (km/h)"
-                  (lambda (row) (speed->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Speed (km/h)"
+              (lambda (row) (speed->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Avg HR"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg HR"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Avg Cadence"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Cadence"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 7))
-     (column-info "Calories"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Calories"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 8))
-     (column-info "Total Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 9))
-     (column-info "Avg Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    ))
 
@@ -192,41 +192,41 @@
 (define tvol-columns-running
   (list
    (let ((index 1))
-     (column-info "Count"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Count"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 2))
-     (column-info "Distance (km)"
-                  (lambda (row) (distance->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Distance (km)"
+              (lambda (row) (distance->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 3))
-     (column-info "Time"
-                  (lambda (row) (duration->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Time"
+              (lambda (row) (duration->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 4))
-     (column-info "Avg Speed (min/km)"
-                  (lambda (row) (pace->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Speed (min/km)"
+              (lambda (row) (pace->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Avg HR"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg HR"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Avg Cadence"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Cadence"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 7))
-     (column-info "Calories"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Calories"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 8))
-     (column-info "Total Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 9))
-     (column-info "Avg Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((get-stride (lambda (row)
                        (let ((distance (vector-ref row 2))
@@ -235,20 +235,20 @@
                          (if (and (> time 0) (> avg-cadence 0))
                              (/ distance (* (/ time 60.0) (* 2 avg-cadence)))
                              0)))))
-     (column-info "Avg Stride"
-                  (lambda (row)
-                    (stride->string (get-stride row)))
-                  get-stride))
+     (qcolumn "Avg Stride"
+              (lambda (row)
+                (stride->string (get-stride row)))
+              get-stride))
 
    (let ((index 12))
-     (column-info "Avg Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
 
    ))
@@ -257,61 +257,61 @@
 (define tvol-columns-cycling
   (list
    (let ((index 1))
-     (column-info "Count"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Count"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 2))
-     (column-info "Distance (km)"
-                  (lambda (row) (distance->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Distance (km)"
+              (lambda (row) (distance->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 3))
-     (column-info "Time"
-                  (lambda (row) (duration->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Time"
+              (lambda (row) (duration->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 4))
-     (column-info "Avg Speed (km/h)"
-                  (lambda (row) (speed->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Speed (km/h)"
+              (lambda (row) (speed->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Avg HR"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg HR"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Avg Cadence"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Cadence"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 7))
-     (column-info "Calories"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Calories"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 8))
-     (column-info "Total Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 9))
-     (column-info "Avg Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 10))
-     (column-info "Avg Power"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Power"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 11))
-     (column-info "Avg Weighted Power"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Weighted Power"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    ))
 
@@ -319,43 +319,43 @@
 (define tvol-columns-swimming
   (list
    (let ((index 1))
-     (column-info "Count"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Count"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 2))
-     (column-info "Distance (km)"
-                  (lambda (row) (distance->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Distance (km)"
+              (lambda (row) (distance->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 3))
-     (column-info "Time"
-                  (lambda (row) (duration->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Time"
+              (lambda (row) (duration->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 4))
-     (column-info "Avg Speed (min/100m)"
-                  (lambda (row) (swim-pace->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Speed (min/100m)"
+              (lambda (row) (swim-pace->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Avg HR"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg HR"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Avg Cadence"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Cadence"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 7))
-     (column-info "Calories"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Calories"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 12))
-     (column-info "Avg Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total Effort"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Effort"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
 
    ))
 
@@ -407,16 +407,16 @@
 
   (let ((time-period-column
          (let ((index 0))
-           (column-info "Time Period"
-                        (lambda (row)
-                          (let ((date-string (vector-ref row index)))
-                            (cond ((eq? time-period 'month)
-                                   (fmt-month date-string))
-                                  ((eq? time-period 'year)
-                                   (fmt-year date-string))
-                                  (#t
-                                   (fmt-week date-string)))))
-                        (lambda (row) (str->date (vector-ref row index)))))))
+           (qcolumn "Time Period"
+                    (lambda (row)
+                      (let ((date-string (vector-ref row index)))
+                        (cond ((eq? time-period 'month)
+                               (fmt-month date-string))
+                              ((eq? time-period 'year)
+                               (fmt-year date-string))
+                              (#t
+                               (fmt-week date-string)))))
+                    (lambda (row) (str->date (vector-ref row index)))))))
     (cons time-period-column
           (cond ((assoc sport tvol-colums-by-sport) => cdr)
                 (#t tvol-columns)))))
@@ -492,159 +492,159 @@
 (define tri-tvol-columns
   (list
    (let ((index 1))
-     (column-info "Run Count"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (number->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Run Count"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (number->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 2))
-     (column-info "Run Distance (km)"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (distance->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Run Distance (km)"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (distance->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 3))
-     (column-info "Run Time"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (duration->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Run Time"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (duration->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((extract-pct (lambda (row)
                         (let ((total-time (vector-ref row 15))
                               (run-time (vector-ref row 3)))
                           (if (> total-time 0) (/ run-time total-time) 0)))))
-     (column-info "Run Pct"
-                  (lambda (row)
-                    (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                      (if (> v 0) (format-48 "~2,2F %" v) "")))
-                  extract-pct))
+     (qcolumn "Run Pct"
+              (lambda (row)
+                (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
+                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+              extract-pct))
    (let ((index 16))
-     (column-info "Run Effort"
-                  (lambda (row)
-                    (let ((v (exact-round (vector-ref row index))))
-                      (if (> v 0) (format "~a" v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Run Effort"
+              (lambda (row)
+                (let ((v (exact-round (vector-ref row index))))
+                  (if (> v 0) (format "~a" v) "")))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 4))
-     (column-info "Bike Count"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (number->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Bike Count"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (number->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Bike Distance (km)"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (distance->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Bike Distance (km)"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (distance->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Bike Time"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (duration->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Bike Time"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (duration->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((extract-pct (lambda (row)
                         (let ((total-time (vector-ref row 15))
                               (run-time (vector-ref row 6)))
                           (if (> total-time 0) (/ run-time total-time) 0)))))
-     (column-info "Bike Pct"
-                  (lambda (row)
-                    (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                      (if (> v 0) (format-48 "~2,2F %" v) "")))
-                  extract-pct))
+     (qcolumn "Bike Pct"
+              (lambda (row)
+                (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
+                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+              extract-pct))
    (let ((index 17))
-     (column-info "Bike Effort"
-                  (lambda (row)
-                    (let ((v (exact-round (vector-ref row index))))
-                      (if (> v 0) (format "~a" v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Bike Effort"
+              (lambda (row)
+                (let ((v (exact-round (vector-ref row index))))
+                  (if (> v 0) (format "~a" v) "")))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 7))
-     (column-info "Swim Count"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (number->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Swim Count"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (number->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 8))
-     (column-info "Swim Distance (km)"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (distance->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Swim Distance (km)"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (distance->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 9))
-     (column-info "Swim Time"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (duration->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Swim Time"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (duration->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((extract-pct (lambda (row)
                         (let ((total-time (vector-ref row 15))
                               (run-time (vector-ref row 9)))
                           (if (> total-time 0) (/ run-time total-time) 0)))))
-     (column-info "Swim Pct"
-                  (lambda (row)
-                    (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                      (if (> v 0) (format-48 "~2,2F %" v) "")))
-                  extract-pct))
+     (qcolumn "Swim Pct"
+              (lambda (row)
+                (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
+                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+              extract-pct))
    (let ((index 18))
-     (column-info "Swim Effort"
-                  (lambda (row)
-                    (let ((v (exact-round (vector-ref row index))))
-                      (if (> v 0) (format "~a" v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Swim Effort"
+              (lambda (row)
+                (let ((v (exact-round (vector-ref row index))))
+                  (if (> v 0) (format "~a" v) "")))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 10))
-     (column-info "Strength Count"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (number->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Strength Count"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (number->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 12))
-     (column-info "Strength Time"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (duration->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Strength Time"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (duration->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((extract-pct (lambda (row)
                         (let ((total-time (vector-ref row 15))
                               (run-time (vector-ref row 12)))
                           (if (> total-time 0) (/ run-time total-time) 0)))))
-     (column-info "Strength Pct"
-                  (lambda (row)
-                    (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                      (if (> v 0) (format-48 "~2,2F %" v) "")))
-                  extract-pct))
+     (qcolumn "Strength Pct"
+              (lambda (row)
+                (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
+                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+              extract-pct))
    (let ((index 19))
-     (column-info "Strength Effort"
-                  (lambda (row)
-                    (let ((v (exact-round (vector-ref row index))))
-                      (if (> v 0) (format "~a" v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Strength Effort"
+              (lambda (row)
+                (let ((v (exact-round (vector-ref row index))))
+                  (if (> v 0) (format "~a" v) "")))
+              (lambda (row) (vector-ref row index))))
 
    (let ((index 13))
-     (column-info "Total Count"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (number->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Count"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (number->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 14))
-     (column-info "Total Distance (km)"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (distance->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Distance (km)"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (distance->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 15))
-     (column-info "Total Time"
-                  (lambda (row)
-                    (let ((v (vector-ref row index)))
-                      (if (> v 0) (duration->string v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Time"
+              (lambda (row)
+                (let ((v (vector-ref row index)))
+                  (if (> v 0) (duration->string v) "")))
+              (lambda (row) (vector-ref row index))))
    (let ((index 20))
-     (column-info "Total Effort"
-                  (lambda (row)
-                    (let ((v (exact-round (vector-ref row index))))
-                      (if (> v 0) (format "~a" v) "")))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Effort"
+              (lambda (row)
+                (let ((v (exact-round (vector-ref row index))))
+                  (if (> v 0) (format "~a" v) "")))
+              (lambda (row) (vector-ref row index))))
    ))
 
 
@@ -688,16 +688,16 @@
 
   (let ((time-period-column
          (let ((index 0))
-           (column-info "Time Period"
-                        (lambda (row)
-                          (let ((date-string (vector-ref row index)))
-                            (cond ((eq? time-period 'month)
-                                   (fmt-month date-string))
-                                  ((eq? time-period 'year)
-                                   (fmt-year date-string))
-                                  (#t
-                                   (fmt-week date-string)))))
-                        (lambda (row) (str->date (vector-ref row index)))))))
+           (qcolumn "Time Period"
+                    (lambda (row)
+                      (let ((date-string (vector-ref row index)))
+                        (cond ((eq? time-period 'month)
+                               (fmt-month date-string))
+                              ((eq? time-period 'year)
+                               (fmt-year date-string))
+                              (#t
+                               (fmt-week date-string)))))
+                    (lambda (row) (str->date (vector-ref row index)))))))
     (cons time-period-column tri-tvol-columns)))
 
 
@@ -782,41 +782,41 @@
 (define adist-columns
   (list
    (let ((index 3))
-     (column-info "Count"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Count"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 4))
-     (column-info "Distance (km)"
-                  (lambda (row) (distance->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Distance (km)"
+              (lambda (row) (distance->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 5))
-     (column-info "Time"
-                  (lambda (row) (duration->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Time"
+              (lambda (row) (duration->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 6))
-     (column-info "Avg Speed (km/h)"
-                  (lambda (row) (speed->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Speed (km/h)"
+              (lambda (row) (speed->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 7))
-     (column-info "Avg HR"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg HR"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 8))
-     (column-info "Avg Cadence"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Avg Cadence"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 9))
-     (column-info "Calories"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Calories"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 10))
-     (column-info "Total Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Total Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((index 11))
-     (column-info "Avg Elevation Gain"
-                  (lambda (row) (n->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))))
+     (qcolumn "Avg Elevation Gain"
+              (lambda (row) (n->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))))
 
 (define (get-activity-distribution-columns sport type)
   (cons
@@ -826,7 +826,7 @@
                  (when (sql-null? sub-sport)
                    (set! sub-sport #f))
                  (get-sport-name sport (if (eq? type 'detailed) sub-sport #f))))))
-     (column-info "Sport" fn fn))
+     (qcolumn "Sport" fn fn))
    adist-columns))
 
 
@@ -903,30 +903,30 @@
 (define equse-columns
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
-     (column-info "Name" fn fn))
+     (qcolumn "Name" fn fn))
    (let ((fn (lambda (row) (vector-ref row 2))))
-     (column-info "Device Name" fn fn))
+     (qcolumn "Device Name" fn fn))
    (let ((fn (lambda (row)
                (let ((v (vector-ref row 3)))
                  (if (sql-null? v) 0 v)))))
-     (column-info "Serial Number"
-                  (lambda (row)
-                    ;; TODO: not sure why v is sometimes an empty string.  It
-                    ;; should be a number.
-                    (let ((v (fn row)))
-                      (if (string? v)
-                          v
-                          (number->string v))))
-                  fn))
-   (column-info "Use Count"
-                (lambda (row) (number->string (vector-ref row 4)))
-                (lambda (row) (vector-ref row 4)))
-   (column-info "Hours Used"
-                (lambda (row) (duration->string (vector-ref row 5)))
-                (lambda (row) (vector-ref row 5)))
-   (column-info "Total Distance"
-                (lambda (row) (distance->string (vector-ref row 6)))
-                (lambda (row) (vector-ref row 6)))))
+     (qcolumn "Serial Number"
+              (lambda (row)
+                ;; TODO: not sure why v is sometimes an empty string.  It
+                ;; should be a number.
+                (let ((v (fn row)))
+                  (if (string? v)
+                      v
+                      (number->string v))))
+              fn))
+   (qcolumn "Use Count"
+            (lambda (row) (number->string (vector-ref row 4)))
+            (lambda (row) (vector-ref row 4)))
+   (qcolumn "Hours Used"
+            (lambda (row) (duration->string (vector-ref row 5)))
+            (lambda (row) (vector-ref row 5)))
+   (qcolumn "Total Distance"
+            (lambda (row) (distance->string (vector-ref row 6)))
+            (lambda (row) (vector-ref row 6)))))
 
 (define (get-equipment-use-columns)
   equse-columns)
@@ -979,33 +979,33 @@
 (define am-columns
   (list
    (let ((index 1))
-     (column-info "Samples"
-                  (lambda (row) (number->string (vector-ref row index)))
-                  (lambda (row) (vector-ref row index))))
+     (qcolumn "Samples"
+              (lambda (row) (number->string (vector-ref row index)))
+              (lambda (row) (vector-ref row index))))
    (let ((fn (lambda (row) (sql-column-ref row 2 #f))))
-     (column-info "Body weight (avg)"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (weight->string v) "")))
-                  fn))
+     (qcolumn "Body weight (avg)"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (weight->string v) "")))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 3 #f))))
-     (column-info "Sleep Time (avg)"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (duration->string v) "")))
-                  fn))
+     (qcolumn "Sleep Time (avg)"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (duration->string v) "")))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 4 #f))))
-     (column-info "Sleep Quality (avg)"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (number->string v) "")))
-                  fn))
+     (qcolumn "Sleep Quality (avg)"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (number->string v) "")))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 5 #f))))
-     (column-info "Overall Feeling (avg)"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (number->string v) "")))
-                  fn))
+     (qcolumn "Overall Feeling (avg)"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (number->string v) "")))
+              fn))
    ))
 
 (define (get-am-columns time-period)
@@ -1048,16 +1048,16 @@
 
   (let ((time-period-column
          (let ((index 0))
-           (column-info "Time Period"
-                        (lambda (row)
-                          (let ((date-string (vector-ref row index)))
-                            (cond ((eq? time-period 'month)
-                                   (fmt-month date-string))
-                                  ((eq? time-period 'year)
-                                   (fmt-year date-string))
-                                  (#t
-                                   (fmt-week date-string)))))
-                        (lambda (row) (str->date (vector-ref row index)))))))
+           (qcolumn "Time Period"
+                    (lambda (row)
+                      (let ((date-string (vector-ref row index)))
+                        (cond ((eq? time-period 'month)
+                               (fmt-month date-string))
+                              ((eq? time-period 'year)
+                               (fmt-year date-string))
+                              (#t
+                               (fmt-week date-string)))))
+                    (lambda (row) (str->date (vector-ref row index)))))))
     (cons time-period-column am-columns)))
 
 
@@ -1254,10 +1254,10 @@
           (set! date-range-field drs)))
 
       (make-spacer sel-pane))
-        
+    
 
     (define the-list-box (new qresults-list% [parent the-pane]
-                              [tag 'activity-log:reports-view]))
+                              [pref-tag 'activity-log:reports-view]))
 
     (define (on-filter-changed)
       (when selected-report

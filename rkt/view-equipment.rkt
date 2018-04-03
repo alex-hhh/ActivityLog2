@@ -23,9 +23,9 @@
          "al-log.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "dbutil.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide view-equipment%)
 
@@ -33,7 +33,7 @@
 ;;...................................................... edit-equipment% ....
 
 (define edit-equipment%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Equipment"] [icon (equipment-icon)])
 
@@ -58,9 +58,9 @@
                                   [choices '("None")]
                                   [min-width 200])))
       (let ((p4 (make-horizontal-pane p #t)))
-          (set! desc-text-field
-                (new text-field% [parent p4] [label "Description: "]
-                     [style '(multiple)]))))
+        (set! desc-text-field
+              (new text-field% [parent p4] [label "Description: "]
+                   [style '(multiple)]))))
 
     (define (setup-part-of-choice db exclude)
       (let ((ids (list sql-null))
@@ -139,7 +139,7 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
       (if (send this do-edit parent)
           (save-to-database database equipment-id)
           #f))
-  ))
+    ))
 
 (define the-equipment-editor #f)
 
@@ -152,7 +152,7 @@ values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
 ;;............................................... edit-service-log% ....
 
 (define edit-service-log%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Service Reminder"] [icon (equipment-icon)])
 
@@ -518,14 +518,14 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
                         "Confirm delete"
                         "Really delete service log entry? Maybe it should be marked complete?"
                         "Mark Complete" "Delete" "Cancel" toplevel '(caution default=3))))
-                   (cond ((equal? mresult 1)
-                          (begin
-                            (mark-service-log-complete db svid #t)
-                            (send the-target after-update svid)))
-                         ((equal? mresult 2)
-                          (begin
-                            (delete-service-log db svid)
-                            (send the-target after-delete svid)))))))
+          (cond ((equal? mresult 1)
+                 (begin
+                   (mark-service-log-complete db svid #t)
+                   (send the-target after-update svid)))
+                ((equal? mresult 2)
+                 (begin
+                   (delete-service-log db svid)
+                   (send the-target after-delete svid)))))))
 
     (define the-menu
       (new popup-menu% [title "Service reminder"]
@@ -602,69 +602,69 @@ where EQ.id = ?" eqid))
 (define *equipment-display-columns*
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
-     (column-info "Name" fn fn))
+     (qcolumn "Name" fn fn))
    (let ((fn (lambda (row) (vector-ref row 2))))
-     (column-info "Device Name" fn fn))
+     (qcolumn "Device Name" fn fn))
    (let ((fn (lambda (row) (vector-ref row 3))))
-     (column-info "Serial Number"
-                  (lambda (row)
-                    (let ((sn (fn row)))
-                      (if (zero? sn) "" (number->string (fn row)))))
-                  fn))
+     (qcolumn "Serial Number"
+              (lambda (row)
+                (let ((sn (fn row)))
+                  (if (zero? sn) "" (number->string (fn row)))))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 4 0))))
-     (column-info "Retired?"
-                  (lambda (row) (if (equal? (fn row) 1) "Yes" ""))
-                  fn))
+     (qcolumn "Retired?"
+              (lambda (row) (if (equal? (fn row) 1) "Yes" ""))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 10 ""))))
-     (column-info "Part of" fn fn))
+     (qcolumn "Part of" fn fn))
    (let ((fn (lambda (row) (sql-column-ref row 5 0))))
-     (column-info "Use Count"
-                  (lambda (row) (number->string (fn row)))
-                  fn))
+     (qcolumn "Use Count"
+              (lambda (row) (number->string (fn row)))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 6 0))))
-     (column-info "Hours Used"
-                  (lambda (row) (duration->string (fn row)))
-                  fn))
+     (qcolumn "Hours Used"
+              (lambda (row) (duration->string (fn row)))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 7 0))))
-     (column-info "Total Distance"
-                  (lambda (row) (distance->string (fn row) #t))
-                  fn))
+     (qcolumn "Total Distance"
+              (lambda (row) (distance->string (fn row) #t))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 8 #f))))
-     (column-info "First Use"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (date-time->string v) "")))
-                  (lambda (row) (or (fn row) 0))))
+     (qcolumn "First Use"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (date-time->string v) "")))
+              (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row) (sql-column-ref row 9 #f))))
-     (column-info "Last Use"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (date-time->string v) "")))
-                  (lambda (row) (or (fn row) 0))))
+     (qcolumn "Last Use"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (date-time->string v) "")))
+              (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row) (sql-column-ref row 11))))
-     (column-info "Software Version"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (format "~a" v) "")))
-                  (lambda (row) (or (fn row) ""))))
+     (qcolumn "Software Version"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (format "~a" v) "")))
+              (lambda (row) (or (fn row) ""))))
    (let ((fn (lambda (row) (sql-column-ref row 12))))
-     (column-info "Hardware Version"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (format "~a" v) "")))
-                  (lambda (row) (or (fn row) ""))))
+     (qcolumn "Hardware Version"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (format "~a" v) "")))
+              (lambda (row) (or (fn row) ""))))
    (let ((fn (lambda (row) (sql-column-ref row 13))))
-     (column-info "Battery Voltage"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (format-48 "~1,2F" v) "")))
-                  (lambda (row) (or (fn row) ""))))
+     (qcolumn "Battery Voltage"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (format-48 "~1,2F" v) "")))
+              (lambda (row) (or (fn row) ""))))
    (let ((fn (lambda (row) (sql-column-ref row 14))))
-     (column-info "Battery Status"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (format "~a" v) "")))
-                  (lambda (row) (or (fn row) ""))))
+     (qcolumn "Battery Status"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (format "~a" v) "")))
+              (lambda (row) (or (fn row) ""))))
    ))
 
 
@@ -724,72 +724,72 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
 (define *service-log-display-columns*
   (list
    (let ((fn (lambda (row) (vector-ref row 2))))
-     (column-info "Equipment" fn fn))
+     (qcolumn "Equipment" fn fn))
    (let ((fn (lambda (row) (vector-ref row 5))))
-     (column-info "Description" fn fn))
+     (qcolumn "Description" fn fn))
    (let ((fn (lambda (row) (sql-column-ref row 3  #f))))
-     (column-info "Start date"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (calendar-date->string v) "")))
-                  (lambda (row) (or (fn row) 0))))
+     (qcolumn "Start date"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (calendar-date->string v) "")))
+              (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row) (sql-column-ref row 4  #f))))
-     (column-info "Completion date"
-                  (lambda (row)
-                    (let ((v (fn row)))
-                      (if v (calendar-date->string v) "")))
-                  (lambda (row) (or (fn row) 0))))
+     (qcolumn "Completion date"
+              (lambda (row)
+                (let ((v (fn row)))
+                  (if v (calendar-date->string v) "")))
+              (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row)
                (let ((v (vector-ref row 6)))
                  (cond ((equal? v 0) "Hours used")
                        ((equal? v 1) "Mileage")
                        ((equal? v 2) "Calendar days")
                        (#t (format "Unknown ~a" v)))))))
-     (column-info "Tracking" fn fn))
+     (qcolumn "Tracking" fn fn))
    (let ((fn (lambda (row) (sql-column-ref row 7 #f))))
-     (column-info "Target"
-                  (lambda (row)
-                    (let ((t (vector-ref row 6))
-                          (v (fn row)))
-                      (cond ((eq? v #f) "")
-                            ((equal? t 0) (duration->string v))
-                            ((equal? t 1) (distance->string v #t))
-                            ((equal? v 2) (format "~a days" v))
-                            (#t (format "~a" v)))))
-                  fn))
+     (qcolumn "Target"
+              (lambda (row)
+                (let ((t (vector-ref row 6))
+                      (v (fn row)))
+                  (cond ((eq? v #f) "")
+                        ((equal? t 0) (duration->string v))
+                        ((equal? t 1) (distance->string v #t))
+                        ((equal? v 2) (format "~a days" v))
+                        (#t (format "~a" v)))))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 8 #f))))
-     (column-info "Current"
-                  (lambda (row)
-                    (let ((t (vector-ref row 6))
-                          (v (fn row)))
-                      (cond ((eq? v #f) "")
-                            ((equal? t 0) (duration->string v))
-                            ((equal? t 1) (distance->string v #t))
-                            ((equal? v 2) (format "~a days" v))
-                            (#t (format "~a" v)))))
-                  fn))
+     (qcolumn "Current"
+              (lambda (row)
+                (let ((t (vector-ref row 6))
+                      (v (fn row)))
+                  (cond ((eq? v #f) "")
+                        ((equal? t 0) (duration->string v))
+                        ((equal? t 1) (distance->string v #t))
+                        ((equal? v 2) (format "~a days" v))
+                        (#t (format "~a" v)))))
+              fn))
    (let ((fn (lambda (row) (sql-column-ref row 9 #f))))
-     (column-info "Remaining"
-                  (lambda (row)
-                    (let ((t (vector-ref row 6))
-                          (v (fn row)))
-                      ;; don't dispay a remaining field if this is now overdue
-                      (cond ((or (eq? v #f) (< v 0)) "")
-                            ((equal? t 0) (duration->string v))
-                            ((equal? t 1) (distance->string v #t))
-                            ((equal? v 2) (format "~a days" v))
-                            (#t (format "~a" v)))))
-                  fn))
+     (qcolumn "Remaining"
+              (lambda (row)
+                (let ((t (vector-ref row 6))
+                      (v (fn row)))
+                  ;; don't dispay a remaining field if this is now overdue
+                  (cond ((or (eq? v #f) (< v 0)) "")
+                        ((equal? t 0) (duration->string v))
+                        ((equal? t 1) (distance->string v #t))
+                        ((equal? v 2) (format "~a days" v))
+                        (#t (format "~a" v)))))
+              fn))
    (let* ((target (lambda (row) (sql-column-ref row 7 #f)))
           (current (lambda (row) (sql-column-ref row 8 #f)))
           (fn (lambda (row)
                 (let ((t (target row))
                       (c (current row)))
                   (if (and t c (> t 0)) (/ c t) 0)))))
-     (column-info "Percent Complete"
-                  (lambda (row)
-                    (format-48 "~1,1F%" (* (fn row) 100)))
-                  fn))
+     (qcolumn "Percent Complete"
+              (lambda (row)
+                (format-48 "~1,1F%" (* (fn row) 100)))
+              fn))
    ))
 
 
@@ -898,14 +898,14 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
            [label "Equipment"])
       (new check-box% [parent p]
            [value show-retired-equipment?]
-             [label "Show retired"]
-             [stretchable-width #f]
-             [callback (lambda (b e)
-                         (set! show-retired-equipment? (not show-retired-equipment?))
-                         (on-filter-changed))]))
+           [label "Show retired"]
+           [stretchable-width #f]
+           [callback (lambda (b e)
+                       (set! show-retired-equipment? (not show-retired-equipment?))
+                       (on-filter-changed))]))
 
     (define lb (new qresults-list% [parent pane]
-                    [tag 'activity-log:equipment-list]
+                    [pref-tag 'activity-log:equipment-list]
                     [right-click-menu
                      (send (new equipment-operations-menu% [target eqop-target]) get-popup-menu)]))
 
@@ -938,7 +938,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
 
     (define service-log-lb
       (new qresults-list% [parent pane]
-           [tag 'activity-log:service-log]
+           [pref-tag 'activity-log:service-log]
            [right-click-menu
             (send (new service-log-operations-menu% [target svop-target]) get-popup-menu)]))
 

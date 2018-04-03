@@ -22,11 +22,11 @@
          "activity-util.rkt"
          "al-widgets.rkt"
          "inspect-graphs.rkt"
-         "map-widget.rkt"
-         "map-util.rkt"
+         "widgets/map-widget/map-widget.rkt"
+         "widgets/map-widget/map-util.rkt"
+         "widgets/map-widget/map-tiles.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
-         "map-tiles.rkt"
          "session-df.rkt")
 
 (provide map-panel%)

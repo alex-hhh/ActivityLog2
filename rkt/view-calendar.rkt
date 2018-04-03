@@ -25,9 +25,9 @@
          racket/match
          "activity-edit.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "utilities.rkt")
 
 (provide view-calendar%)

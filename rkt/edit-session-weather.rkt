@@ -18,12 +18,11 @@
          racket/class
          racket/gui/base
          "fmt-util.rkt"
-         "icon-resources.rkt"
-         "map-util.rkt"
+         "widgets/map-widget/map-util.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
          "weather.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "utilities.rkt")
 
 (provide get-weather-editor)
@@ -35,7 +34,7 @@
   (send the-font-list find-or-create-font 12 'default 'normal 'normal))
 
 (define weather-edit%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Session Weather"] [icon (weather-icon)])
 

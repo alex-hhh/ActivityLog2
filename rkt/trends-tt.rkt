@@ -26,8 +26,8 @@
  racket/format
  "database.rkt"
  "trends-chart.rkt"
- "icon-resources.rkt"
- "widgets.rkt"
+ "widgets/icon-resources.rkt"
+ "widgets/main.rkt"
  "plot-hack.rkt"
  "sport-charms.rkt"
  "data-frame.rkt"
@@ -38,7 +38,7 @@
 (struct tt-params tc-params (start-date end-date sport tri-activities?))
 
 (define tt-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Trends"]
                 [default-title "Trends Chart"])

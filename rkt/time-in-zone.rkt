@@ -20,10 +20,9 @@
          racket/math
          math/statistics
          "utilities.rkt"
-         "icon-resources.rkt"
          "data-frame.rkt"
          "session-df.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "hrv.rkt"
          "edit-session-tss.rkt")
 
@@ -188,7 +187,7 @@ select P.id
 (define (interactive-update-time-in-zone-data database [parent-window #f])
 
   (define progress-dialog
-    (new al-progress-dialog%
+    (new progress-dialog%
          [title "Update metrics"]
          [icon (sql-export-icon)]))
 

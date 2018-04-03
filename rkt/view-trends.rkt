@@ -21,9 +21,9 @@
  racket/list
  racket/runtime-path
  "utilities.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "plot-util.rkt"
- "icon-resources.rkt"
+ "widgets/icon-resources.rkt"
  "trends-bw.rkt"
  "trends-vol.rkt"
  "trends-trivol.rkt"
@@ -122,7 +122,7 @@
       icon)
 
 (define new-trend-chart-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (super-new [title "New Chart"]
                [icon (reports-icon)]
                [save-button-name "Select"]

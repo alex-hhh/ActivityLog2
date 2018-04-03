@@ -22,8 +22,7 @@
          racket/list
          db
          "sport-charms.rkt"
-         "widgets.rkt"
-         "icon-resources.rkt"
+         "widgets/main.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
          "dbutil.rkt")
@@ -582,7 +581,7 @@ select LE.start_time as timestamp,
   (send the-font-list find-or-create-font 12 'default 'normal 'normal))
 
 (define lap-swim-edit%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Edit Swim Lengths"] [icon (edit-icon)])
 

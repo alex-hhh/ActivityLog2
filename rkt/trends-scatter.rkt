@@ -25,8 +25,8 @@
  racket/list
  racket/hash
  "trends-chart.rkt"
- "icon-resources.rkt"
- "widgets.rkt"
+ "widgets/icon-resources.rkt"
+ "widgets/main.rkt"
  "plot-hack.rkt"
  "data-frame.rkt"
  "al-widgets.rkt"
@@ -110,7 +110,7 @@
 
 (provide scatter-chart-settings%)
 (define scatter-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database
                 [default-name "Scatter"]
                 [default-title "Scatter Plot"])

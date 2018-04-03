@@ -25,9 +25,9 @@
  db
  plot
  "plot-hack.rkt"
- "icon-resources.rkt"
+ "widgets/icon-resources.rkt"
  "database.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "trends-chart.rkt"
  "fmt-util.rkt"
  "color-theme.rkt"
@@ -40,7 +40,7 @@
 (struct tiz-params tc-params (start-date end-date group-by sport zone-metric))
 
 (define tiz-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database [default-name "TIZ"] [default-title "Time in Zone"])
     (super-new [title "Chart Settings"] [icon (edit-icon)] [min-height 10])
 

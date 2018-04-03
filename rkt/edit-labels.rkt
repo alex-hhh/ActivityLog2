@@ -17,8 +17,7 @@
 (require db
          racket/class
          racket/gui/base
-         "icon-resources.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide get-label-editor)
 
@@ -27,7 +26,7 @@
 
 ;; Dialog box for editing the name and description of a single label
 (define edit-one-label-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Edit Label"] [icon ""] [min-height 10])
     
@@ -70,11 +69,11 @@
 ;; Column definitions for the qresults-list% object used by the label editor.
 (define le-columns
   (list
-   (column-info "Label" label-name label-name)
-   (column-info "Use count" 
-                (lambda (row) (number->string (label-use-count row)))
-                label-use-count)
-   (column-info "Description" label-description label-description)))
+   (qcolumn "Label" label-name label-name)
+   (qcolumn "Use count" 
+            (lambda (row) (number->string (label-use-count row)))
+            label-use-count)
+   (qcolumn "Description" label-description label-description)))
 
 ;; Query to fetch all labels and their use count.
 (define le-query
@@ -87,7 +86,7 @@
      from LABEL L")
 
 (define edit-labels-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Labels"] [icon (edit-icon)] [min-width 600] [min-height 400])
     
@@ -117,7 +116,7 @@
 
         (set! label-lb
               (new qresults-list%
-                   [parent p1] [tag 'activity-log:label-editor]))))
+                   [parent p1] [pref-tag 'activity-log:label-editor]))))
 
     (send label-lb setup-column-defs le-columns)
     

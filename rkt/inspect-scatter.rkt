@@ -27,7 +27,7 @@
          "plot-hack.rkt"
          "plot-util.rkt"
          "data-frame.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide scatter-plot-panel%)
 

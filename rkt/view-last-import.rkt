@@ -20,10 +20,10 @@
          "activity-edit.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "import.rkt"
          "sport-charms.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "dbutil.rkt")
 
 (provide import-view%)
@@ -35,13 +35,13 @@
 ;; Column definitions for the qresults-list% object used by the import dialog.
 (define id-columns
   (list
-   (column-info "File name" import-data-file import-data-file)
-   (column-info "Status" import-data-status import-data-status)))
+   (qcolumn "File name" import-data-file import-data-file)
+   (qcolumn "Status" import-data-status import-data-status)))
 
 (define import-dialog%
   (class object%
     (init) (super-new)
-  
+    
     (define (make-toplevel-dialog parent)
       (new
        (class dialog% (init) (super-new)
@@ -76,7 +76,7 @@
 
         (set! import-list
               (new qresults-list% 
-                   [parent p] [tag 'activity-log:import-dialog]))
+                   [parent p] [pref-tag 'activity-log:import-dialog]))
 
         (send import-list set-default-export-file-name "import-list.csv")
         
@@ -163,38 +163,38 @@
 (define *display-columns*
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
-     (column-info "Activity Name" fn fn))
+     (qcolumn "Activity Name" fn fn))
    
    (let ((fn (lambda (row)
                (let ((sport (vector-ref row 5))
                      (sub-sport (vector-ref row 6)))
                  (get-sport-name sport sub-sport)))))
-     (column-info "Sport" fn fn))
-     
-   (column-info "Start Time" 
-                (lambda (row) (date-time->string (vector-ref row 2)))
-                (lambda (row) (vector-ref row 2)))
+     (qcolumn "Sport" fn fn))
+   
+   (qcolumn "Start Time" 
+            (lambda (row) (date-time->string (vector-ref row 2)))
+            (lambda (row) (vector-ref row 2)))
 
-   (column-info "Time" 
-                (lambda (row) (duration->string (vector-ref row 3)))
-                (lambda (row) (vector-ref row 3)))
+   (qcolumn "Time" 
+            (lambda (row) (duration->string (vector-ref row 3)))
+            (lambda (row) (vector-ref row 3)))
 
-   (column-info "Distance" 
-                (lambda (row) 
-                  (let ((sport (vector-ref row 5))
-                        (distance (vector-ref row 4)))
-                    (if (= sport 5)
-                        (short-distance->string distance #t)
-                        (distance->string distance #t))))
-                (lambda (row) (vector-ref row 4)))
+   (qcolumn "Distance" 
+            (lambda (row) 
+              (let ((sport (vector-ref row 5))
+                    (distance (vector-ref row 4)))
+                (if (= sport 5)
+                    (short-distance->string distance #t)
+                    (distance->string distance #t))))
+            (lambda (row) (vector-ref row 4)))
    
    (let ((fn (lambda (row) (vector-ref row 7))))
-     (column-info "Activity-Guid" fn fn))
+     (qcolumn "Activity-Guid" fn fn))
    
-   (column-info "Session-Id" 
-                (lambda (row) (format "~a" (vector-ref row 0)))
-                (lambda (row) (vector-ref row 0)))
-                
+   (qcolumn "Session-Id" 
+            (lambda (row) (format "~a" (vector-ref row 0)))
+            (lambda (row) (vector-ref row 0)))
+   
    ))
 
 (define (get-last-imported-activities db)
@@ -286,7 +286,7 @@
                (when the-inspect-callback
                  (the-inspect-callback (vector-ref row-data 0)))))
            [parent pane]
-           [tag 'activity-log:import-view]
+           [pref-tag 'activity-log:import-view]
            [right-click-menu 
             (send (new activity-operations-menu% [target this]) get-popup-menu)]))
 
@@ -351,8 +351,8 @@
     (define/public (refresh)
       (let* ((rows (get-last-imported-activities the-database))
              (status-label (make-import-summary-label rows)))
-      (send lb set-data (get-last-imported-activities the-database))
-      (send (send pane get-top-level-window) set-status-text status-label)))
+        (send lb set-data (get-last-imported-activities the-database))
+        (send (send pane get-top-level-window) set-status-text status-label)))
 
     (define/public (save-visual-layout)
       (send lb save-visual-layout))

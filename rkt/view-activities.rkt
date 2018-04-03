@@ -27,10 +27,10 @@
          "database.rkt"
          "fmt-util.rkt"
          "heatmap.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "sport-charms.rkt"
          "weather.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide view-activities%)
 
@@ -260,7 +260,7 @@ select X.session_id
                  (select-activity-callback
                   (db-row-ref row-data "session_id" headers "")))))
            [parent pane]
-           [tag 'activity-log:activity-list]
+           [pref-tag 'activity-log:activity-list]
            [right-click-menu
             (send (new activity-operations-menu% [target this]) get-popup-menu)]))
 
@@ -312,105 +312,105 @@ select X.session_id
       (list
 
        (let ((fn (lambda (row) (db-row-ref row "headline" headers ""))))
-         (column-info "Activity Name" fn fn))
+         (qcolumn "Activity Name" fn fn))
 
        (let ((fn (lambda (row)
                    (let ((sport (db-row-ref row "sport" headers 0))
                          (sub-sport (db-row-ref row "sub_sport" headers 0)))
                      (get-sport-name sport sub-sport)))))
-         (column-info "Sport" fn fn))
+         (qcolumn "Sport" fn fn))
 
        (let ((fn (lambda (row) (db-row-ref row "start_time" headers 0))))
-         (column-info "Start Time" (lambda (row) (date-time->string (fn row))) fn))
+         (qcolumn "Start Time" (lambda (row) (date-time->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "duration" headers 0))))
-         (column-info "Duration"
-                      (lambda (row) 
-                        (let ((v (fn row)))
-                          (if (> v 0) (duration->string v) "")))
-                      fn))
+         (qcolumn "Duration"
+                  (lambda (row) 
+                    (let ((v (fn row)))
+                      (if (> v 0) (duration->string v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "distance" headers 0))))
-         (column-info "Distance"
-                      (lambda (row)
-                        (let ((sport (db-row-ref row "sport" headers 0))
-                              (distance (fn row)))
-                          (if (> distance 100) ; meters
-                              (if (= sport 5)  ; swimming 
-                                  (short-distance->string distance #t)
-                                  (distance->string distance #t))
-                              "")))
-                      fn))
+         (qcolumn "Distance"
+                  (lambda (row)
+                    (let ((sport (db-row-ref row "sport" headers 0))
+                          (distance (fn row)))
+                      (if (> distance 100) ; meters
+                          (if (= sport 5)  ; swimming 
+                              (short-distance->string distance #t)
+                              (distance->string distance #t))
+                          "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "speed" headers 0))))
-         (column-info "Speed"
-                      (lambda (row)
-                        (let ((sport (db-row-ref row "sport" headers 0))
-                              (speed (fn row)))
-                          (cond ((< speed 0.00002) "") ; approx 0.1 km/h
-                                ((= sport 1) (pace->string speed #t))
-                                ((= sport 5) (swim-pace->string speed #t))
-                                (#t (speed->string speed #t)))))
-                      fn))
+         (qcolumn "Speed"
+                  (lambda (row)
+                    (let ((sport (db-row-ref row "sport" headers 0))
+                          (speed (fn row)))
+                      (cond ((< speed 0.00002) "") ; approx 0.1 km/h
+                            ((= sport 1) (pace->string speed #t))
+                            ((= sport 5) (swim-pace->string speed #t))
+                            (#t (speed->string speed #t)))))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "max_speed" headers 0))))
-         (column-info "Max Speed"
-                      (lambda (row)
-                        (let ((sport (db-row-ref row "sport" headers 0))
-                              (speed (fn row)))
-                          (cond ((< speed 0.00002) "") ; approx 0.1 km/h
-                                ((= sport 1) (pace->string speed #t))
-                                ((= sport 5) (swim-pace->string speed #t))
-                                (#t (speed->string speed #t)))))
-                      fn))
+         (qcolumn "Max Speed"
+                  (lambda (row)
+                    (let ((sport (db-row-ref row "sport" headers 0))
+                          (speed (fn row)))
+                      (cond ((< speed 0.00002) "") ; approx 0.1 km/h
+                            ((= sport 1) (pace->string speed #t))
+                            ((= sport 5) (swim-pace->string speed #t))
+                            (#t (speed->string speed #t)))))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "ascent" headers 0))))
-         (column-info "Ascent"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (vertical-distance->string v #t) "")))
-                      fn))
+         (qcolumn "Ascent"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (vertical-distance->string v #t) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "descent" headers 0))))
-         (column-info "Descent"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (vertical-distance->string v #t) "")))
-                      fn))
+         (qcolumn "Descent"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (vertical-distance->string v #t) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "hr" headers 0))))
-         (column-info "HR" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "HR" (lambda (row) (n->string (fn row))) fn))
        
        (let ((fn (lambda (row) (db-row-ref row "max_hr" headers 0))))
-         (column-info "Max HR" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "Max HR" (lambda (row) (n->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "hrv" headers 0))))
-         (column-info "HRV" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "HRV" (lambda (row) (n->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "adecl" headers #f))))
-         (column-info "A Decl"
-                      (lambda (row)
-                        (let ((val (fn row)))
-                          (if val (pct->string val) "")))
-                      fn))
+         (qcolumn "A Decl"
+                  (lambda (row)
+                    (let ((val (fn row)))
+                      (if val (pct->string val) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "cadence" headers 0))))
-         (column-info "Cadence" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "Cadence" (lambda (row) (n->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "max_cadence" headers 0))))
-         (column-info "Max Cadence" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "Max Cadence" (lambda (row) (n->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "stride" headers 0))))
-         (column-info "Stride"
-                      (lambda (row)
-                        (let ((val (fn row)))
-                          (if (= val 0) "" (stride->string val #t))))
-                      fn))
+         (qcolumn "Stride"
+                  (lambda (row)
+                    (let ((val (fn row)))
+                      (if (= val 0) "" (stride->string val #t))))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "vosc" headers 0))))
-         (column-info "VOSC"
-                      (lambda (row) (vosc->string (fn row) #t))
-                      fn))
+         (qcolumn "VOSC"
+                  (lambda (row) (vosc->string (fn row) #t))
+                  fn))
 
        (let ((fn (lambda (row)
                    (let ((st (db-row-ref row "stride" headers #f))
@@ -418,195 +418,195 @@ select X.session_id
                      (if (and st vosc (> st 0) (> vosc 0))
                          (* 100.0 (/ vosc (* st 1000)))
                          0)))))
-         (column-info "VRATIO"
-                      (lambda (row)
-                        (let ((vratio (fn row)))
-                          (if (> vratio 0) (pct->string (fn row)) "")))
-                      fn))
+         (qcolumn "VRATIO"
+                  (lambda (row)
+                    (let ((vratio (fn row)))
+                      (if (> vratio 0) (pct->string (fn row)) "")))
+                  fn))
 
        (let ((fn1 (lambda (row) (db-row-ref row "gct" headers 0)))
              (fn2 (lambda (row) (db-row-ref row "gct_pct" headers 0))))
-         (column-info "GCT"
-                      (lambda (row) (stance->string (fn1 row) (fn2 row)))
-                      fn1))
+         (qcolumn "GCT"
+                  (lambda (row) (stance->string (fn1 row) (fn2 row)))
+                  fn1))
 
        (let ((fn (lambda (row) (db-row-ref row "power" headers 0))))
-         (column-info "Power"
-                      (lambda (row) (let ((v (fn row))) (power->string v #t)))
-                      fn))
+         (qcolumn "Power"
+                  (lambda (row) (let ((v (fn row))) (power->string v #t)))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "max_power" headers 0))))
-         (column-info "Max Power"
-                      (lambda (row) (let ((v (fn row))) (power->string v #t)))
-                      fn))
+         (qcolumn "Max Power"
+                  (lambda (row) (let ((v (fn row))) (power->string v #t)))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "np" headers 0))))
-         (column-info "Weighted Power"
-                      (lambda (row) (let ((v (fn row))) (power->string v #t)))
-                      fn))
+         (qcolumn "Weighted Power"
+                  (lambda (row) (let ((v (fn row))) (power->string v #t)))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "lrbal" headers 0))))
-         (column-info "L-R Bal"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F%" v) "")))
-                      fn))
+         (qcolumn "L-R Bal"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "ltorqeff" headers 0))))
-         (column-info "Left TEff"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F%" v) "")))
-                      fn))
+         (qcolumn "Left TEff"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "rtorqeff" headers 0))))
-         (column-info "Right TEff"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F%" v) "")))
-                      fn))
+         (qcolumn "Right TEff"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "lpdlsmth" headers 0))))
-         (column-info "Left PSmth"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F%" v) "")))
-                      fn))
+         (qcolumn "Left PSmth"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                  fn))
        
        (let ((fn (lambda (row) (db-row-ref row "rpdlsmth" headers 0))))
-         (column-info "Right PSmth"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F%" v) "")))
-                      fn))
+         (qcolumn "Right PSmth"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "lpco" headers #f))))
-         (column-info "Left PCO"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if v (pco->string v #t) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn row) -1000))))
+         (qcolumn "Left PCO"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (pco->string v #t) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn row) -1000))))
 
        (let ((fn (lambda (row) (db-row-ref row "rpco" headers #f))))
-         (column-info "Right PCO"
-                      (lambda (row)
-                        (let ((v (fn row)))
-                          (if v (pco->string v #t) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn row) -1000))))
+         (qcolumn "Right PCO"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if v (pco->string v #t) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn row) -1000))))
 
        (let ((fn1 (lambda (row) (db-row-ref row "lppstart" headers #f)))
              (fn2 (lambda (row) (db-row-ref row "lppend" headers #f))))
-         (column-info "Left PP"
-                      (lambda (row)
-                        (let ((start (fn1 row))
-                              (end (fn2 row)))
-                          (if (and start end) (power-phase->string start end) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn1 row) -1000))))
+         (qcolumn "Left PP"
+                  (lambda (row)
+                    (let ((start (fn1 row))
+                          (end (fn2 row)))
+                      (if (and start end) (power-phase->string start end) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn1 row) -1000))))
 
        (let ((fn1 (lambda (row) (db-row-ref row "rppstart" headers #f)))
              (fn2 (lambda (row) (db-row-ref row "rppend" headers #f))))
-         (column-info "Right PP"
-                      (lambda (row)
-                        (let ((start (fn1 row))
-                              (end (fn2 row)))
-                          (if (and start end) (power-phase->string start end) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn1 row) -1000))))
+         (qcolumn "Right PP"
+                  (lambda (row)
+                    (let ((start (fn1 row))
+                          (end (fn2 row)))
+                      (if (and start end) (power-phase->string start end) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn1 row) -1000))))
 
        (let ((fn1 (lambda (row) (db-row-ref row "lpppstart" headers #f)))
              (fn2 (lambda (row) (db-row-ref row "lpppend" headers #f))))
-         (column-info "Left Peak PP"
-                      (lambda (row)
-                        (let ((start (fn1 row))
-                              (end (fn2 row)))
-                          (if (and start end) (power-phase->string start end) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn1 row) -1000))))
+         (qcolumn "Left Peak PP"
+                  (lambda (row)
+                    (let ((start (fn1 row))
+                          (end (fn2 row)))
+                      (if (and start end) (power-phase->string start end) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn1 row) -1000))))
 
        (let ((fn1 (lambda (row) (db-row-ref row "rpppstart" headers #f)))
              (fn2 (lambda (row) (db-row-ref row "rpppend" headers #f))))
-         (column-info "Right Peak PP"
-                      (lambda (row)
-                        (let ((start (fn1 row))
-                              (end (fn2 row)))
-                          (if (and start end) (power-phase->string start end) "")))
-                      ;; NOTE: sorting on #f is not nice :-)
-                      (lambda (row) (or (fn1 row) -1000))))
+         (qcolumn "Right Peak PP"
+                  (lambda (row)
+                    (let ((start (fn1 row))
+                          (end (fn2 row)))
+                      (if (and start end) (power-phase->string start end) "")))
+                  ;; NOTE: sorting on #f is not nice :-)
+                  (lambda (row) (or (fn1 row) -1000))))
 
        (let ((fn (lambda (row) (db-row-ref row "calories" headers 0))))
-         (column-info "Calories" (lambda (row) (n->string (fn row))) fn))
+         (qcolumn "Calories" (lambda (row) (n->string (fn row))) fn))
 
        (let ((fn (lambda (row) (db-row-ref row "te" headers 0))))
-         (column-info "Training Effect"
-                      (lambda (row) 
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F" v) "")))
-                      fn))
+         (qcolumn "Training Effect"
+                  (lambda (row) 
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                  fn))
        
        (let ((fn (lambda (row) (db-row-ref row "rpe" headers 0))))
-         (column-info "RPE"
-                      (lambda (row) 
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1F" v) "")))
-                      fn))
+         (qcolumn "RPE"
+                  (lambda (row) 
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1F" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "tss" headers 0))))
-         (column-info "Effort"
-                      (lambda (row) 
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F" v) "")))
-                      fn))
+         (qcolumn "Effort"
+                  (lambda (row) 
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                  fn))
        (let ((fn (lambda (row) (db-row-ref row "ifact" headers 0))))
-         (column-info "Intensity"
-                      (lambda (row) 
-                        (let ((v (fn row)))
-                          (if (> v 0) (format-48 "~1,1F" v) "")))
-                      fn))
+         (qcolumn "Intensity"
+                  (lambda (row) 
+                    (let ((v (fn row)))
+                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "body_weight" headers 0))))
-         (column-info "Body Weight"
-                      (lambda (row) (weight->string (fn row) #t))
-                      fn))
+         (qcolumn "Body Weight"
+                  (lambda (row) (weight->string (fn row) #t))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "temperature" headers -1000))))
-         (column-info "Temperature"
-                      (lambda (row) (temperature->string (fn row) #t))
-                      fn))
+         (qcolumn "Temperature"
+                  (lambda (row) (temperature->string (fn row) #t))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "dew_point" headers -1000))))
-         (column-info "Dew Point"
-                      (lambda (row) (temperature->string (fn row) #t))
-                      fn))
+         (qcolumn "Dew Point"
+                  (lambda (row) (temperature->string (fn row) #t))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "humidity" headers 0))))
-         (column-info "Humidity"
-                      (lambda (row) (humidity->string (fn row) #t))
-                      fn))
+         (qcolumn "Humidity"
+                  (lambda (row) (humidity->string (fn row) #t))
+                  fn))
        
        (let ((fn1 (lambda (row) (db-row-ref row "wind_speed" headers 0)))
              (fn2 (lambda (row) (db-row-ref row "wind_direction" headers 0))))
-         (column-info "Wind"
-                      (lambda (row) (wind->string (fn1 row) (fn2 row)))
-                      fn1))
+         (qcolumn "Wind"
+                  (lambda (row) (wind->string (fn1 row) (fn2 row)))
+                  fn1))
        
        (let ((fn (lambda (row) 
                    (let ((temp (db-row-ref row "temperature" headers #f))
                          (dewp (db-row-ref row "dew_point" headers #f)))
                      (if (and temp dewp) (humindex temp dewp) -1000)))))
-         (column-info "Humindex"
-                      (lambda (row) (temperature->string (fn row) #t))
-                      fn))
+         (qcolumn "Humindex"
+                  (lambda (row) (temperature->string (fn row) #t))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "activity_guid" headers ""))))
-         (column-info "Activity-Guid" fn fn))
+         (qcolumn "Activity-Guid" fn fn))
 
        (let ((fn (lambda (row) (db-row-ref row "session_id" headers 0))))
-         (column-info "Session-Id"
-                      (lambda (row) (format "~a" (fn row)))
-                      fn))
+         (qcolumn "Session-Id"
+                  (lambda (row) (format "~a" (fn row)))
+                  fn))
 
        ))
 
@@ -730,7 +730,7 @@ select X.session_id
         (send (send pane get-top-level-window) 
               set-status-text 
               (make-activity-summary-label rows headers))))
- 
+    
     (define/public (refresh)
       (with-inhibit-updates
         (lambda ()

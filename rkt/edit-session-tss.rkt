@@ -21,10 +21,9 @@
          racket/string
          racket/match
          "fmt-util.rkt"
-         "icon-resources.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "session-df.rkt")
 
 (provide get-edit-session-tss-dialog)
@@ -142,7 +141,7 @@
       #f))
 
 (define edit-session-tss-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Session Effort"] [icon (edit-icon)])
 
@@ -233,17 +232,9 @@
                    [callback (lambda (c e) (calculate-tss))]))
       
       (set! swim-tpace
-            (new validating-input-field% [parent tss-selection-pane] 
+            (new swim-pace-input-field% [parent tss-selection-pane] 
                  [label "Swim T-Pace: "] [style '(single deleted)]
                  [min-width 100] [stretchable-width #f]
-                 [cue-text "mm:ss / 100m"]
-                 [validate-fn (lambda (v) 
-                                (or (= (string-length (string-trim v)) 0)
-                                    (swim-pace-string->mps v)))]
-                 [convert-fn (lambda (v) 
-                               (if (= (string-length (string-trim v)) 0)
-                                   'empty
-                                   (swim-pace-string->mps v)))]
                  [valid-value-cb (lambda (v) (calculate-tss))]))
       
       (set! threshold-power
@@ -373,7 +364,7 @@
           (send threshold-power set-value (n->string ftp))))
       (let ((tpace (get-athlete-swim-tpace db)))
         (when tpace
-          (send swim-tpace set-value (swim-pace->string tpace))))
+          (send swim-tpace set-pace-value tpace)))
       
       (let ((row (query-row db "
 select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"

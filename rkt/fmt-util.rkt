@@ -39,7 +39,7 @@
          racket/math
          racket/string
          racket/format
-         "map-util.rkt")
+         "widgets/map-widget/map-util.rkt")
 
 (provide wind->string
          temperature->string

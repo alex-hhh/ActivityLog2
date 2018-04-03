@@ -24,7 +24,7 @@
  racket/contract
  racket/match
  "database.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "al-widgets.rkt"
  "utilities.rkt")
 

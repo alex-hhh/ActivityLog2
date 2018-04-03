@@ -32,9 +32,8 @@
          "sport-charms.rkt"
          "data-frame.rkt"
          "utilities.rkt"
-         "widgets.rkt"
+         "widgets/main.rkt"
          "session-df.rkt"
-         "icon-resources.rkt"
          "plot-hack.rkt"
          "plot-util.rkt")
 
@@ -1564,7 +1563,7 @@
 ;; A dialog box used to select the data series that are displayed in the
 ;; charts window.
 (define select-data-series-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Data Series"] [icon (edit-icon)]
                [min-width 600] [min-height 450])

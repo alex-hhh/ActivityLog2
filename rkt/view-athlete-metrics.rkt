@@ -21,10 +21,10 @@
          "database.rkt"
          "edit-athlete-metrics.rkt"
          "fmt-util.rkt"
-         "icon-resources.rkt"
+         "widgets/icon-resources.rkt"
          "dbutil.rkt"
          "utilities.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide athlete-metrics-operations<%>)
 (provide athlete-metrics-operations-menu%)
@@ -56,14 +56,14 @@
 
 (define athlete-metrics-operations<%>
   (interface ()
-             get-top-level-window
-             get-database
-             get-selected-id
-             after-update
-             after-delete
-             after-new
-             before-popup
-             after-popdown))
+    get-top-level-window
+    get-database
+    get-selected-id
+    after-update
+    after-delete
+    after-new
+    before-popup
+    after-popdown))
 
 
 ;;..................................... athlete-metrics-operations-menu% ....
@@ -171,12 +171,12 @@
   from ATHLETE_METRICS AM
  where ~a and ~a
  order by AM.timestamp desc"
-           (if (and date-range (car date-range))
-               (format "AM.timestamp >= ~a" (car date-range))
-               "1 = 1")
-           (if (and date-range (cdr date-range))
-               (format "AM.timestamp <= ~a" (cdr date-range))
-               "1 = 1")))
+          (if (and date-range (car date-range))
+              (format "AM.timestamp >= ~a" (car date-range))
+              "1 = 1")
+          (if (and date-range (cdr date-range))
+              (format "AM.timestamp <= ~a" (cdr date-range))
+              "1 = 1")))
 
 ;; Return data for the view.
 (define (get-athlete-metrics db date-range)
@@ -205,35 +205,35 @@
 (define athlete-metrics-display-columns
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
-     (column-info "Date/Time" (lambda (row) (date-time->string (fn row))) fn))
+     (qcolumn "Date/Time" (lambda (row) (date-time->string (fn row))) fn))
 
    (let ((fn (lambda (row) (sql-column-ref row 2 0))))
-     (column-info "Bodyweight"
-                  (lambda (row) (weight->string (fn row) #t))
-                  fn))
+     (qcolumn "Bodyweight"
+              (lambda (row) (weight->string (fn row) #t))
+              fn))
 
    (let ((fn (lambda (row) (sql-column-ref row 3 0))))
-     (column-info "Sleep duration"
-                  (lambda (row) (let ((v (fn row)))
-                                  (if (> v 0)
-                                      (duration->string v)
-                                      "")))
-                  fn))
+     (qcolumn "Sleep duration"
+              (lambda (row) (let ((v (fn row)))
+                              (if (> v 0)
+                                  (duration->string v)
+                                  "")))
+              fn))
 
    (let ((fn (lambda (row) (sql-column-ref row 4 ""))))
-     (column-info "Sleep quality"
-                  (lambda (row) (format "~a" (fn row)))
-                  fn))
+     (qcolumn "Sleep quality"
+              (lambda (row) (format "~a" (fn row)))
+              fn))
 
    (let ((fn (lambda (row) (sql-column-ref row 5 ""))))
-     (column-info "Overall feeling"
-                  (lambda (row) (format "~a" (fn row)))
-                  fn))
+     (qcolumn "Overall feeling"
+              (lambda (row) (format "~a" (fn row)))
+              fn))
 
    (let ((fn (lambda (row) (sql-column-ref row 6 ""))))
-     (column-info "Notes"
-                  (lambda (row) (format "~a" (fn row)))
-                  fn))))
+     (qcolumn "Notes"
+              (lambda (row) (format "~a" (fn row)))
+              fn))))
 
 (define (make-athlete-metrics-summary-label rows)
   (let ((nitems (length rows))
@@ -289,7 +289,7 @@
       (on-filter-changed))
 
     (let ((sel-pane (new horizontal-pane% [parent pane] 
-                        [spacing 20]
+                         [spacing 20]
                          [border 0]
                          [stretchable-height #f]
                          [stretchable-width #t]
@@ -309,7 +309,7 @@
       (make-spacer sel-pane))
 
     (define lb (new qresults-list% [parent pane]
-                    [tag 'activity-log:athlete-metrics]
+                    [pref-tag 'activity-log:athlete-metrics]
                     [right-click-menu
                      (send (new athlete-metrics-operations-menu% [target this]) get-popup-menu)]
                     ))
@@ -320,8 +320,8 @@
       (let ((rows (get-athlete-metrics database date-range)))
         (send lb set-data rows)
         (send (send pane get-top-level-window) 
-            set-status-text 
-            (make-athlete-metrics-summary-label rows))))
+              set-status-text 
+              (make-athlete-metrics-summary-label rows))))
 
 
     (define first-time? #t)
@@ -363,11 +363,11 @@
               (maybe-delete (car aid)))
             (for ((aid (hash-ref events 'athlete-metrics-updated '())))
               (maybe-update (car aid)))
-             (let ((new-aids (hash-ref events 'athlete-metrics-created #f)))
-               (when new-aids
-                 ;; lazy way out.  We should really check if we need to
-                 ;; display the new metrics.
-                 (on-filter-changed))))))
+            (let ((new-aids (hash-ref events 'athlete-metrics-created #f)))
+              (when new-aids
+                ;; lazy way out.  We should really check if we need to
+                ;; display the new metrics.
+                (on-filter-changed))))))
 
     (define/public (refresh)
       (send date-range-selector set-seasons (db-get-seasons database))

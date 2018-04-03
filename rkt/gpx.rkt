@@ -23,7 +23,7 @@
          (only-in srfi/19 string->date)
          "data-frame.rkt"
          "session-df.rkt"               ; for add-grade-series
-         "map-util.rkt"                 ; to calculate the "dst" series
+         "widgets/map-widget/map-util.rkt" ; to calculate the "dst" series
          )
 
 (provide/contract

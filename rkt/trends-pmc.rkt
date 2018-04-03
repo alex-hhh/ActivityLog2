@@ -25,9 +25,9 @@
  db
  plot
  "plot-hack.rkt"
- "icon-resources.rkt"
+ "widgets/icon-resources.rkt"
  "database.rkt"
- "widgets.rkt"
+ "widgets/main.rkt"
  "trends-chart.rkt"
  "fmt-util.rkt"
  "plot-util.rkt")
@@ -46,7 +46,7 @@
   (start-date end-date show-form? show-fitness? show-fatigue? show-daily-tss?))
 
 (define pmc-chart-settings%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init-field database [default-name "Trends"] [default-title "Trends Chart"])
     (super-new [title "Chart Settings"] [icon (edit-icon)] [min-height 10])
 

@@ -21,9 +21,8 @@
          racket/gui/base
          racket/list
          "fmt-util.rkt"
-         "icon-resources.rkt"
          "dbutil.rkt"
-         "widgets.rkt")
+         "widgets/main.rkt")
 
 (provide get-season-editor)
 
@@ -34,7 +33,7 @@
 ;; Dialog box for editing the name, description and date range of a single
 ;; season
 (define edit-one-season-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Edit Season"] [icon ""] [min-height 10])
 
@@ -109,16 +108,16 @@
 ;; Column definitions for the qresults-list% object used by the season editor.
 (define sn-columns
   (list
-   (column-info "Name" season-name season-name)
-   (column-info "Description"  season-description season-description)
-   (column-info "Start Date"
-                (lambda (row)
-                  (calendar-date->string (season-start-date row)))
-                season-start-date)
-   (column-info "End Date"
-                (lambda (row)
-                  (calendar-date->string (season-end-date row)))
-                season-end-date)
+   (qcolumn "Name" season-name season-name)
+   (qcolumn "Description"  season-description season-description)
+   (qcolumn "Start Date"
+            (lambda (row)
+              (calendar-date->string (season-start-date row)))
+            season-start-date)
+   (qcolumn "End Date"
+            (lambda (row)
+              (calendar-date->string (season-end-date row)))
+            season-end-date)
    ))
 
 ;; Query to fetch all labels and their use count.
@@ -131,7 +130,7 @@
      from SEASON SN")
 
 (define edit-seasons-dialog%
-  (class al-edit-dialog%
+  (class edit-dialog-base%
     (init)
     (super-new [title "Seasons"] [icon (edit-icon)] [min-width 600] [min-height 400])
 
@@ -161,7 +160,7 @@
 
         (set! season-lb
               (new qresults-list%
-                   [parent p1] [tag 'activity-log:season-editor]))))
+                   [parent p1] [pref-tag 'activity-log:season-editor]))))
 
     (send season-lb setup-column-defs sn-columns)
     
