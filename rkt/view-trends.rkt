@@ -184,16 +184,28 @@
 
 (define trend-chart-pane%
   (class panel%
-    (init-field parent info-tag trend-chart)
+    (init-field parent info-tag trend-chart-class database restore-data)
     (super-new [parent parent] [style '(deleted)])
 
+    (define trend-chart #f)
     (define first-activation? #t)
-    (define graph-pb (new snip-canvas% [parent this]))
+    (define graph-pb #f)
+
+    (define (maybe-initialize)
+      (unless trend-chart
+        (set! trend-chart (new trend-chart-class [database database]))
+        (send trend-chart restore-from restore-data)
+        (set! graph-pb (new snip-canvas% [parent this]))))
 
     (define/public (get-name)
-      (send trend-chart get-name))
+      (cond (trend-chart (send trend-chart get-name))
+            ;; These are a bit of a hack, but we want to get the name of the
+            ;; tab without creating the trend chart itself
+            ((list? restore-data) (first restore-data))
+            ((hash? restore-data) (hash-ref restore-data 'name))))
 
     (define/public (get-title)
+      (maybe-initialize)
       (send trend-chart get-title))
 
     (define/public (activate)
@@ -204,11 +216,13 @@
     ;; (e.g. if the underlying data has changed).  If force? is #t, force a
     ;; refresh.
     (define/public (refresh-chart (force? #f))
+      (maybe-initialize)
       (when (or force? (send trend-chart need-refresh?))
         (send trend-chart invalidate-data)
         (send trend-chart put-plot-snip graph-pb)))
 
     (define/public (interactive-setup parent)
+      (maybe-initialize)
       (if (send trend-chart interactive-setup parent)
           (begin
             (refresh-chart #t)
@@ -216,9 +230,14 @@
           #f))
 
     (define/public (get-restore-data)
-      (list info-tag (send trend-chart get-restore-data)))
+      ;; If the trend chart was not created, just return the previous restore
+      ;; data, to be saved again.
+      (if trend-chart
+          (list info-tag (send trend-chart get-restore-data))
+          (list info-tag restore-data)))
 
     (define/public (export-image file-name)
+      (maybe-initialize)
       ;; NOTE: we use individual image exports, because the snip-canvas%
       ;; export-image-to-file will scale the image and that results in a
       ;; blurry image...
@@ -227,6 +246,7 @@
       (send trend-chart save-plot-image file-name 800 400))
 
     (define/public (export-data file-name formatted?)
+      (maybe-initialize)
       (send trend-chart export-data-to-file file-name formatted?))
 
     ))
@@ -293,39 +313,29 @@
            [parent pane]))
 
     (define (restore-previous-charts)
-      (let ((data (get-pref tag (lambda () #f))))
 
-        (define (find-tdecl tag)
-          (let loop ((chart-types chart-types))
-            (if (null? chart-types)
-                #f
-                (if (eq? tag (tdecl-tag (car chart-types)))
-                    (car chart-types)
-                    (loop (cdr chart-types))))))
+      (define (find-tdecl tag)
+        (for/first ([chart (in-list chart-types)] #:when (eq? tag (tdecl-tag chart)))
+          chart))
 
-        (define (make-trends-chart chart-tag restore-data)
-          (define ci (find-tdecl chart-tag))
-          (when ci
-            (let ((pane (let ((tc (new (tdecl-class ci) [database database])))
-                          (send tc restore-from restore-data)
-                          (new trend-chart-pane%
-                               [parent trend-charts-panel]
-                               [info-tag (tdecl-tag ci)]
-                               [trend-chart tc]))))
-              (set! trend-charts (append trend-charts (list pane)))
-              (send trend-charts-panel append (send pane get-name)))))
+      (define (make-trends-chart chart-tag restore-data)
+        (define ci (find-tdecl chart-tag))
+        (when ci
+          (let ((pane (new trend-chart-pane%
+                           [parent trend-charts-panel]
+                           [info-tag (tdecl-tag ci)]
+                           [trend-chart-class (tdecl-class ci)]
+                           [database database]
+                           [restore-data restore-data])))
+            (set! trend-charts (append trend-charts (list pane)))
+            (send trend-charts-panel append (send pane get-name)))))
       
-        (when (and data (> (length data) 0))
-          (let ((first-chart (car data)))
-            (match-define (list chart-tag restore-data) first-chart)
-            (make-trends-chart chart-tag restore-data))
-          (switch-tabs 0)
-          (for ([chart-data (cdr data)])
+      (let ((data (get-pref tag (lambda () '()))))
+        (when (> (length data) 0)
+          (for ([chart-data (in-list data)])
             (match-define (list chart-tag restore-data) chart-data)
-            (queue-callback
-             (lambda ()
-               (make-trends-chart chart-tag restore-data))
-             #f)))))
+            (make-trends-chart chart-tag restore-data))
+          (switch-tabs 0))))
           
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
