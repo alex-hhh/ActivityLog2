@@ -76,7 +76,7 @@
 
 ;.................................................. tile cache database ....
 
-(define-runtime-path tcache-schema-file "../sql/osmtc-schema.sql")
+(define-runtime-path tcache-schema-file "../../../sql/osmtc-schema.sql")
 
 (define (open-tcache-database database-file)
   (db-open
