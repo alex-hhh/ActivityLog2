@@ -46,9 +46,10 @@
 (define-runtime-path p25-file "../sql/p25-index.sql")
 (define-runtime-path p26-file "../sql/p26-vsz.sql")
 (define-runtime-path p27-file "../sql/p27-tile-code-index.sql")
+(define-runtime-path p28-file "../sql/p28-equipment.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 27)
+(define (schema-version) 28)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -61,7 +62,8 @@
    23 p24-file
    24 p25-file
    25 p26-file
-   26 p27-file))
+   26 p27-file
+   27 p28-file))
 
 ;; List of function to call after a new database was sucesfully opened.
 (define db-open-callbacks '())

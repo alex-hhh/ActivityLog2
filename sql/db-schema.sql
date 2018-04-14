@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(27);
+insert into SCHEMA_VERSION(version) values(28);
 
 
 --........................................................ Enumerations ....
@@ -620,7 +620,7 @@ create table EQUIPMENT_USE (
   foreign key (session_id) references A_SESSION(id)
   );
 
-create index IX0_EQIPMENT_USE on EQUIPMENT_USE(equipment_id);
+create index IX0_EQIPMENT_USE on EQUIPMENT_USE(equipment_id, session_id);
 create unique index IX1_EQIPMENT_USE on EQUIPMENT_USE(session_id, equipment_id);
 
 create table E_SERVICE_TYPE (
@@ -653,20 +653,19 @@ create index IX0_EQIPMENT_SERVICE_LOG on EQUIPMENT_SERVICE_LOG(equipment_id);
 -- View that determines usage level for each piece of equipment.  Note that
 -- equipment which has no sessions referenced will not be listed here.
 create view V_EQUIPMENT_USE as
-select EQ.id as equipment_id,
+select EU.equipment_id as equipment_id,
        ifnull(count(EU.session_id), 0) as use_count,
        ifnull(sum(SS.total_timer_time), 0) as hours_used,
        ifnull(sum(SS.total_distance), 0) as kms_used,
        ifnull(min(S.start_time), 0) as first_use,
        ifnull(max(S.start_time), 0) as last_use
-  from EQUIPMENT EQ,
-       EQUIPMENT_USE EU,
+  from EQUIPMENT_USE EU,
        A_SESSION S,
        SECTION_SUMMARY SS
- where EQ.id = EU.equipment_id
-   and EU.session_id = S.id
+ where EU.session_id = S.id
    and S.summary_id = SS.id
- group by EQ.id;
+ group by EU.equipment_id;
+
 
 -- View that contains the current usage count for service log entries.  Note
 -- that completed entries (the ones that have a non-null end_date) only count
@@ -675,19 +674,17 @@ create view V_EQUIPMENT_SLOG_CURRENT as
 select ESL.id as service_log_id,
        round(case ESL.service_type
        when 0 then (select total(SS1.total_timer_time)
-                      from EQUIPMENT EQ1, EQUIPMENT_USE EU1, A_SESSION S1, SECTION_SUMMARY SS1
-                     where EQ1.id = EU1.equipment_id
+                      from EQUIPMENT_USE EU1, A_SESSION S1, SECTION_SUMMARY SS1
+                     where ESL.equipment_id = EU1.equipment_id
                        and EU1.session_id = S1.id
                        and S1.summary_id = SS1.id
-                       and EQ1.id = ESL.equipment_id
                        and S1.start_time > ESL.start_date
                        and S1.start_time < ifnull(ESL.end_date, 3600 + strftime('%s','now')))
        when 1 then (select total(SS2.total_distance)
-                      from EQUIPMENT EQ2, EQUIPMENT_USE EU2, A_SESSION S2, SECTION_SUMMARY SS2
-                     where EQ2.id = EU2.equipment_id
+                      from EQUIPMENT_USE EU2, A_SESSION S2, SECTION_SUMMARY SS2
+                     where ESL.equipment_id = EU2.equipment_id
                        and EU2.session_id = S2.id
                        and S2.summary_id = SS2.id
-                       and EQ2.id = ESL.equipment_id
                        and S2.start_time > ESL.start_date
                        and S2.start_time < ifnull(ESL.end_date, 3600 + strftime('%s','now')))
        when 2 then ((ifnull(ESL.end_date, strftime('%s','now')) - ESL.start_date) / (24 * 3600))
