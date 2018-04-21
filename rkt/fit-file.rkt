@@ -545,6 +545,7 @@
     (define/public (on-hrv data) #f)
     (define/public (on-developer-data-id data) #f)
     (define/public (on-field-description data) #f)
+    (define/public (on-training-file data) #f)
 
     ;; NOTE: on-activity and on-session are also events, so the user could
     ;; call on-event for those as well if needed.  this could be important if
@@ -576,6 +577,7 @@
               ((eq? message-type 'hrv) (on-hrv record))
               ((eq? message-type 'developer-data-id) (on-developer-data-id record))
               ((eq? message-type 'field-description) (on-field-description record))
+              ((eq? message-type 'training-file) (on-training-file record))
               (#t (on-other message-type record)))))
 
     ))
@@ -602,6 +604,7 @@
     (define records '())
     (define devices '())
     (define sport '())
+    (define training-file '())
     
     ;; FIT 2.0 allows "developer" fields, these hold the definitions, for
     ;; referencing the dev fields in trackpoint data.
@@ -854,6 +857,9 @@
       (set! devices (cons device-info devices))
       #t)
 
+    (define/override (on-training-file tf)
+      (set! training-file (cons tf training-file)))
+
     (define/override (on-sport data)
       (set! sport data))
 
@@ -938,6 +944,7 @@
          (cons 'guid activity-guid)
          (cons 'developer-data-ids developer-data-ids)
          (cons 'field-descriptions field-descriptions)
+         (cons 'training-file training-file)
          (cons 'sessions (reverse sessions)))))
 
     ))

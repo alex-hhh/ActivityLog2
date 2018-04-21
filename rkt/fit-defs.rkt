@@ -80,7 +80,7 @@
     (78 . hrv)
     (206 . field-description)
     (207 . developer-data-id)
-    ))
+    (72 . training-file)))
 
 (provide *global-message-number*)
 
@@ -481,6 +481,14 @@
     (5 . hr-calculation-type)
     (7 . power-calculation-type)))
 
+(define *training-file-fields*
+  '((253 . timestamp)
+    (0 . type)
+    (1 . manufacturer)
+    (2 . product)
+    (3 . serial-number)
+    (4 . time-created)))
+
 (define *user-profile-fields*
   '((254 . message_index)
     (0 . friendly-name)
@@ -549,6 +557,7 @@
     (speed-zone . ,*speed-zone-fields*)
     (power-zone . ,*power-zone-fields*)
     (zones-target . ,*zones-target-fields*)
+    (training-file . ,*training-file-fields*)
     (user-profile . ,*user-profile-fields*)
     (developer-data-id . ,*developer-id-fields*)
     (field-description . ,*field-description-fields*)))
@@ -1129,6 +1138,11 @@
   `((hr-calculation-type . ,(make-enum-lookup *hr-zone-calc*))
     (power-calculation-type . ,(make-enum-lookup *power-zone-calc*))))
 
+(define *training-file-conversions*
+  `((timestamp    . ,fit-time->unix-time)
+    (time-created . ,fit-time->unix-time)
+    (type         . ,(make-enum-lookup *file-type*))))
+
 (define *user-profile-conversions*
   `((hr-setting . ,(make-enum-lookup *display-heart*))
     (speed-setting . ,(make-enum-lookup *display-measure*))
@@ -1155,6 +1169,7 @@
     (workout-step . ,*workout-step-conversions*)
     (sport        . ,*sport-conversions*)
     (zones-target . ,*zones-target-conversions*)
+    (training-file . ,*training-file-conversions*)
     (user-profile . ,*user-profile-conversions*)))
 
 (provide *field-conversion-db*)
