@@ -63,7 +63,8 @@
     after-delete
     after-new
     before-popup
-    after-popdown))
+    after-popdown
+    switch-to-view))
 
 
 ;;..................................... athlete-metrics-operations-menu% ....
@@ -130,6 +131,9 @@
               (log-event 'athlete-metrics-deleted (cons id sids))
               (send target after-delete id))))))
 
+    (define (switch-to-view m e)
+      (send target switch-to-view))
+
     (define the-menu
       (if menu-bar
           (new menu% [parent menu-bar] [label "Athlete"]
@@ -137,7 +141,15 @@
           (new popup-menu% [title "Athlete"]
                [demand-callback on-demand]
                [popdown-callback on-popdown])))
-    
+
+    (define switch-to-view-menu-item
+      (if menu-bar
+          (new menu-item% [parent the-menu]
+               [label "Switch to Athlete View"] [callback switch-to-view])
+          #f))
+    (when menu-bar
+      (new separator-menu-item% [parent the-menu]))
+
     (define edit-menu-item
       (new menu-item% [parent the-menu]
            [label "Edit athlete metrics ..."] [callback on-edit]))
@@ -403,6 +415,11 @@
 
     (define/public (after-delete id)
       (activated))
+
+    (define/public (switch-to-view)
+      ;; this method is actually implemented in the forwarder in toplevel.rkt,
+      ;; and the call never reaches us.
+      #f)
 
     (define/public (on-interactive-export-sql-query)
       (let ((query (get-athlete-metrics-sql-query date-range)))

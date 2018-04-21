@@ -438,7 +438,12 @@
 
     (define/public (after-popdown)
       (let ((aop (get-aop-section)))
-        (if aop (send aop before-popup) #f)))))
+        (if aop (send aop before-popup) #f)))
+
+    (define/public (switch-to-view)
+      (send toplevel-application select-section 'activity-list))
+
+    ))
 
 
 ;;........................................... athlete-metrics-forwarder% ....
@@ -490,7 +495,10 @@
 
     (define/public (after-popdown)
       (let ((amop (get-amop-section)))
-        (if amop (send amop before-popup) #f)))))
+        (if amop (send amop before-popup) #f)))
+
+    (define/public (switch-to-view)
+      (send toplevel-application select-section 'athlete-metrics))))
 
 
 ;;....................................................... Open db dialog ....

@@ -289,6 +289,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame"
                              toplevel '(ok stop)))))))
 
+    (define (switch-to-view m e)
+      (send target switch-to-view))
+
     (define the-menu
       (if menu-bar
           (new menu% [parent menu-bar] [label "&Activity"]
@@ -301,6 +304,12 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (new menu-item% [parent the-menu] [label label]
            [callback callback] [shortcut shortcut]))
 
+    (define switch-to-view-menu-item
+      (if menu-bar
+          (make-menu-item "Switch to Activity View" switch-to-view)
+          #f))
+    (when menu-bar
+      (new separator-menu-item% [parent the-menu]))
     (define inspect-menu-item
       (make-menu-item "Inspect ..." on-inspect))
     (define edit-menu-item
