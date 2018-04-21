@@ -27,6 +27,8 @@
 (require "../rkt/import.rkt")
 (require "../rkt/session-df.rkt")
 (require "../rkt/intervals.rkt")
+(require "../rkt/workout-editor/wkstep.rkt")
+(require "../rkt/workout-editor/wk-db.rkt")
 
 
 ;;............................................................ test data ....
@@ -54,9 +56,11 @@
   (let ((db (open-activity-log 'memory)))
     (set-current-database db)
     (clear-session-df-cache)
-    ;; NOTE: cannot really catch errors as error trace will loose context
-    (thunk db)
-    (disconnect db)))
+    (dynamic-wind
+      (lambda () (void))
+      ;; NOTE: cannot really catch errors as error trace will loose context
+      (lambda () (thunk db))
+      (lambda () (disconnect db)))))
 
 (define (aid->sid aid db)
   ;; NOTE: there might be multiple session ID's for each activity ID
@@ -362,14 +366,120 @@ where S.id = CPFS.session_id
   and S.sub_sport_id is null")))
 
          )))))
-     
+
+
+;;............................................................. workouts ....
+
+(define (check-steps-match steps1 steps2)
+  (check = (length steps1) (length steps2) "check-steps-match: length mismatch")
+  (for ([s1 (in-list steps1)] [s2 (in-list steps2)])
+    (cond
+      ((wkstep? s1)
+       (check-pred wkstep? s2 "check-steps-match: not a wkstep")
+       (match-define (wkstep type1 duration1 dval1 target1 tlow1 thigh1 ramp1?) s1)
+       (match-define (wkstep type2 duration2 dval2 target2 tlow2 thigh2 ramp2?) s1)
+       (check eq? type1 type2 "check-steps-match: type mismatch")
+       (check eq? duration1 duration2 "check-steps-match: duration type mismatch")
+       (check eqv? dval1 dval2 "check-steps-match: duration value mismatch")
+       (check eq? target1 target2 "check-steps-match: target type mismatch")
+       (if (eq? target1 'open)
+           (begin
+             (check eqv? dval1 dval2 "check-steps-match: tlow mismatch")
+             (check eqv? dval1 dval2 "check-steps-match: thigh mismatch"))
+           (begin
+             (check < (abs (- tlow1 tlow2)) 0.001 "check-steps-match: tlow A mismatch")
+             (check < (abs (- thigh1 thigh2)) 0.001 "check-steps-match: tlow A mismatch"))))
+      ((wkrepeat? s1)
+       (check-pred wkrepeat? s2 "check-steps-match: not a repeat")
+       (match-define (wkrepeat times1 steps1) s1)
+       (match-define (wkrepeat times2 steps2) s2)
+       (check eqv? times1 times2 "check-steps-match: times mismatch")
+       (check-steps-match steps1 steps2)))))
+
+(define (check-workout-store-fetch-delete db)
+
+  (define wk
+    (workout
+     "sample workout"
+     "sample description"
+     'running
+     #f                            ; serial number will be created when stored
+     #f                            ; timestamp will be created when stored
+     (list
+      (wkstep 'warmup 'distance 1000 'open #f #f #f)
+      (wkrepeat
+       5
+       (list
+        (wkstep 'active 'time 120 'heart-rate 100 160 #f)
+        (wkstep 'recover 'open #f 'speed 4.2 4.6 #f)
+        (wkstep 'rest 'time 180 'power 200 300 #f)))
+      (wkstep 'cooldown 'distance 2000 'power-ftp-pct 10 150 #f))))
+
+  (define-values (workout-id version-id)
+    ;; NOTE: library-id 1 is created by the db-schema.sql
+    (store-workout db wk 1))
+
+  (define-values (workout-id1 version-id1)
+    ;; another workout will be stored, since we don't have a serial number.
+    (store-workout db wk 1))
+
+  ;; two workouts in the database
+  (check = 2 (query-value db "select count(*) from WORKOUT") "check #1")
+
+  (define wk2 (fetch-workout db workout-id))
+
+  (match-define (workout name1 desc1 sport1 serial1 timestamp1 steps1) wk)
+  (match-define (workout name2 desc2 sport2 serial2 timestamp2 steps2) wk2)
+
+  ;; The workout should have a serial number and a timestamp
+  (check-pred number? serial2 "Expecting a workout serial number")
+  (check-pred number? timestamp2 "Expecting a workout timestamp")
+
+  (check string=? name1 name2 "Workout names mismatch")
+  (check string=? desc1 desc2 "Workout description mismatch")
+  (check-steps-match steps1 steps2)
+
+  ;; mark the first version of this workout as exported
+  (query-exec
+   db
+   "update WORKOUT_VERSION set is_exported = 1 where id = ?"
+   version-id)
+
+  (define wk3 (struct-copy workout wk2 [timestamp (+ (current-seconds) 10)]))
+  ;; will create a new version of the workout
+  (store-workout db wk3 1)
+
+  ;; still two workouts in the database
+  (check = 2 (query-value db "select count(*) from WORKOUT") "check #2")
+  ;; .. but the first workout has two versions
+  (let ((nversions (query-value db "select count(*) from WORKOUT_VERSION where workout_id = ?" workout-id)))
+    (check = 2 nversions "check #3"))
+  ;; second workout still has a version, we did not delete it by mistake...
+  (check = 1 (query-value
+              db "select count(*) from WORKOUT_VERSION where workout_id = ?"
+              workout-id1)
+         "check #4")
+
+  ;; Store this as a new workout
+  (store-workout db wk3 1 #:may-replace-serial? #t)
+  (check = 3 (query-value db "select count(*) from WORKOUT") "check #5")
+  ;; wk2 has two versions, the other 2 just one
+  (check = 4 (query-value db "select count(*) from WORKOUT_VERSION") "check #6")
+  (delete-workout db workout-id)
+
+  ;; two workouts left
+  (check = 2 (query-value db "select count(*) from WORKOUT") "check #7")
+  ;; ... with one version each 
+  (check = 2 (query-value db "select count(*) from WORKOUT_VERSION") "check #8")
+  
+  )
 
 
 ;;.....................................................................  ....
 
 (define db-tests
   (test-suite
-   "Basic database tests"
+   "Database tests"
 
    (test-case
     "Create fresh database"
@@ -416,12 +526,18 @@ where S.id = CPFS.session_id
              ;; No Sport zones are defined
              (check-false (get-sport-zones sport sub-sport 1)))))))
 
+   (test-case "Workout store-fetch-delete"
+     (with-database
+       (lambda (db)
+         (check-not-exn
+          (lambda ()
+            (check-workout-store-fetch-delete db))))))
    
    db-patch-26-tests
    cyd-tests
    ))
 
 (module+ test
- (run-tests db-tests))
+  (run-tests db-tests 'verbose))
 
-;; (test/gui db-tests)
+;;(test/gui db-tests)
