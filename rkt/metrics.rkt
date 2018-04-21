@@ -14,10 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require json
-         db
-         file/gzip
-         file/gunzip
+(require db
          racket/class
          racket/match
          racket/math
@@ -28,6 +25,7 @@
          racket/async-channel
          math/statistics
          "dbapp.rkt"                    ; TODO: don't use (current-database)
+         "dbutil.rkt"
          "spline-interpolation.rkt"
          "data-frame.rkt"
          "series-meta.rkt"
@@ -37,23 +35,6 @@
 ;; WARNING: a best-avg set and a histogram in this file has a different
 ;; structure than the one produced by df-best-avg and df-histogram from
 ;; data-frame.rkt.
-
-;; Take a JSEXPR and return a compressed string from it.  It is intended to be
-;; stored in the database.
-(define (jsexpr->compressed-string jsexpr)
-  (let* ((str (jsexpr->string jsexpr))
-         (in (open-input-bytes (string->bytes/utf-8 str)))
-         (out (open-output-bytes)))
-    (gzip-through-ports in out #f 0)
-    (get-output-bytes out)))
-
-;; Convert a compressed string back into a JSEXPR
-(define (compressed-string->jsexpr data)
-  (let ((in (open-input-bytes data))
-        (out (open-output-bytes)))
-    (gunzip-through-ports in out)
-    (let ((str (bytes->string/utf-8 (get-output-bytes out))))
-      (string->jsexpr str))))
 
 
 ;;................................................................. bavg ....

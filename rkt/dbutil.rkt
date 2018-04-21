@@ -15,7 +15,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/contract)
+(require racket/contract
+         file/gzip
+         file/gunzip
+         json)
 
 ;; Contract for the progress callback passed to db-open
 (define progress-callback/c
@@ -37,7 +40,14 @@
                   connection?)]
  [maybe-backup-database (->* (path-string?) (boolean?) any/c)]
  [db-get-last-pk (-> string? connection? number?)]
- [sql-column-ref (->* (vector? exact-nonnegative-integer?) (any/c) any/c)])
+ [sql-column-ref (->* (vector? exact-nonnegative-integer?) (any/c) any/c)]
+
+ ;; NOTE: jsexpr? performs a deep check on its argument and might be too
+ ;; expensive as a contract, especially since we use it in metrics.rkt
+ [jsexpr->compressed-string (-> jsexpr? bytes?)]
+ [compressed-string->jsexpr (-> bytes? jsexpr?)]
+
+ )
 
 (require db
          "utilities.rkt"
@@ -295,3 +305,24 @@
 (define (sql-column-ref row col [if-null #f])
   (let ((v (vector-ref row col)))
     (if (sql-null? v) if-null v)))
+
+
+;....................................................... json utilities ....
+
+;; Take a JSEXPR and return a compressed string from it.  It is intended to be
+;; stored in the database.
+(define (jsexpr->compressed-string jsexpr)
+  (let* ((str (jsexpr->string jsexpr))
+         (in (open-input-bytes (string->bytes/utf-8 str)))
+         (out (open-output-bytes)))
+    (gzip-through-ports in out #f 0)
+    (get-output-bytes out)))
+
+;; Convert a compressed string back into a JSEXPR
+(define (compressed-string->jsexpr data)
+  (let ((in (open-input-bytes data))
+        (out (open-output-bytes)))
+    (gunzip-through-ports in out)
+    (let ((str (bytes->string/utf-8 (get-output-bytes out))))
+      (string->jsexpr str))))
+
