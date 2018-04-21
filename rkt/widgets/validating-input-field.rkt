@@ -40,7 +40,7 @@
      [label ""])
     (super-new [label label])
 
-    (inherit get-value get-field-background set-field-background get-editor)
+    (inherit get-field-background set-field-background get-editor)
 
     (define (vfn data)
       (let ((t (string-trim data)))
@@ -84,7 +84,7 @@
 
     ;; Insert the cue text if the input field is empty
     (define (maybe-insert-cue-text)
-      (unless (or showing-cue? (> (string-length (get-value)) 0))
+      (unless (or showing-cue? (> (string-length (super get-value)) 0))
         (let ([editor (get-editor)])
           (send editor change-style cue-fg 'start 'end #f)
           (send editor insert cue-text)
@@ -98,7 +98,7 @@
     ;; Note that this is public and it allows the user to write validation
     ;; functions that depend on some external factors.
     (define/public (validate [report-valid-value? #t])
-      (let* ((value (if showing-cue? "" (get-value)))
+      (let* ((value (send this get-value))
              (valid? (and (vfn value) (not global-invalid))))
         (set-field-background (if valid? good-bg bad-bg))
         (if (and report-valid-value? valid?)
@@ -124,7 +124,7 @@
     (define cb-timer
       (new timer% [notify-callback
                    (lambda ()
-                     (let ((value (get-value)))
+                     (let ((value (send this get-value)))
                        (unless (equal? old-value value)
                          (when valid-value-cb
                            (valid-value-cb (convert-fn value)))
@@ -149,16 +149,19 @@
       (validate #f)         ; dont report valid values for externally set data
       (maybe-insert-cue-text))
 
+    (define/override (get-value)
+      (if showing-cue? "" (super get-value)))
+
     (define/public (has-valid-value?)
       ;; NOTE: the empty value might be valid, let vfn decide
-      (vfn (if showing-cue? "" (get-value))))
+      (vfn (send this get-value)))
 
     (define/public (has-changed?)
-      (let ((new-value (if showing-cue? "" (get-value))))
+      (let ((new-value (send this get-value)))
         (not (string=? new-value original-value))))
 
     (define/public (get-converted-value)
-      (let ((v (if showing-cue? "" (get-value))))
+      (let ((v (send this get-value)))
         (if (vfn v) (convert-fn v) #f)))
 
     (define/public (set-cue-text text)

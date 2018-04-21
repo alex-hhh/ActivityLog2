@@ -513,6 +513,11 @@
         (send the-list-box set-selection row-index)
         (send the-list-box set-first-visible-item row-index)))
 
+    ;; Select the row at ROW-INDEX and make sure it is visible
+    (define/public (select-row row-index)
+      (send the-list-box set-selection row-index)
+      (send the-list-box set-first-visible-item row-index))
+
     ;; Add a new row to the end of the list.
     (define/public (add-row data)
       (send the-list-box append "")

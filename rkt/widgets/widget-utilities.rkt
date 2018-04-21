@@ -32,13 +32,21 @@
        [border 0] [spacing 5]
        [stretchable-width stretchable-width?]))
 
-(define (make-group-box-panel parent (label ""))
+(define (make-group-box-panel parent
+                              (label "")
+                              (stretchable-width? #t)
+                              (stretchable-height? #t))
   (let ((gb (new group-box-panel%
                  [parent parent] [label label] [alignment '(left center)]
+                 [stretchable-width stretchable-width?]
+                 [stretchable-height stretchable-height?]
                  [spacing 10] [border 5])))
     ;; The group box panel seems to ignore the internal border, so we create
     ;; an inner vertical pane and return that.
-    (new vertical-pane% [parent gb] [spacing 10] [alignment '(left center)])))
+    (new vertical-pane% [parent gb] [spacing 10]
+         [alignment '(left center)]
+         [stretchable-width stretchable-width?]
+         [stretchable-height stretchable-height?])))
 
 ;; Create a spacer widget, with a fixed width.
 (define (make-spacer parent (witdh 5) (stretchable? #f))
