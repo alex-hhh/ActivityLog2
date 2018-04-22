@@ -311,7 +311,7 @@
   (let ([data (cond ((bytes? source) source)
                     ((or (path? source) (string? source))
                      (file->bytes source #:mode 'binary))
-                    ((port? source)
+                    ((input-port? source)
                      (port->bytes source)))])
     (new fit-data-stream% [data data])))
 
@@ -496,6 +496,14 @@
   ;; track of the current time in the FIT message and expands
   ;; 'compresset-timestamp' fields.  An object derived from this class can be
   ;; passed to `read-fit-records'
+  ;;
+  ;; During FIT file parsing, `read-fit-records` will pass the decoded FIT
+  ;; file messages to a builder, an object derived from fit-event-dispatcher%
+  ;; using various "on-" methods, one for each message type.  The builder
+  ;; object will collect the messages and construct a Racket structure that is
+  ;; suitable for the application.  Understanding the various messages
+  ;; requires familiarity with the FIT file format and its messages.  These
+  ;; are available in the FitSDK, in the Profile Excel document in it.
   
   (class object% (init) (super-new)
 

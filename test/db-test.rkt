@@ -29,6 +29,7 @@
 (require "../rkt/intervals.rkt")
 (require "../rkt/workout-editor/wkstep.rkt")
 (require "../rkt/workout-editor/wk-db.rkt")
+(require "../rkt/workout-editor/wk-fit.rkt")
 
 
 ;;............................................................ test data ....
@@ -396,39 +397,39 @@ where S.id = CPFS.session_id
        (check eqv? times1 times2 "check-steps-match: times mismatch")
        (check-steps-match steps1 steps2)))))
 
-(define (check-workout-store-fetch-delete db)
-
-  (define wk
-    (workout
-     "sample workout"
-     "sample description"
-     'running
-     #f                            ; serial number will be created when stored
-     #f                            ; timestamp will be created when stored
+(define sample-wk
+  (workout
+   "sample workout"
+   "sample description"
+   'running
+   #f                            ; serial number will be created when stored
+   #f                            ; timestamp will be created when stored
+   (list
+    (wkstep 'warmup 'distance 1000 'open #f #f #f)
+    (wkrepeat
+     5
      (list
-      (wkstep 'warmup 'distance 1000 'open #f #f #f)
-      (wkrepeat
-       5
-       (list
-        (wkstep 'active 'time 120 'heart-rate 100 160 #f)
-        (wkstep 'recover 'open #f 'speed 4.2 4.6 #f)
-        (wkstep 'rest 'time 180 'power 200 300 #f)))
-      (wkstep 'cooldown 'distance 2000 'power-ftp-pct 10 150 #f))))
+      (wkstep 'active 'time 120 'heart-rate 100 160 #f)
+      (wkstep 'recover 'open #f 'speed 4.2 4.6 #f)
+      (wkstep 'rest 'time 180 'power 200 300 #f)))
+    (wkstep 'cooldown 'distance 2000 'power-ftp-pct 10 150 #f))))
+
+(define (check-workout-store-fetch-delete db)
 
   (define-values (workout-id version-id)
     ;; NOTE: library-id 1 is created by the db-schema.sql
-    (store-workout db wk 1))
+    (store-workout db sample-wk 1))
 
   (define-values (workout-id1 version-id1)
     ;; another workout will be stored, since we don't have a serial number.
-    (store-workout db wk 1))
+    (store-workout db sample-wk 1))
 
   ;; two workouts in the database
   (check = 2 (query-value db "select count(*) from WORKOUT") "check #1")
 
   (define wk2 (fetch-workout db workout-id))
 
-  (match-define (workout name1 desc1 sport1 serial1 timestamp1 steps1) wk)
+  (match-define (workout name1 desc1 sport1 serial1 timestamp1 steps1) sample-wk)
   (match-define (workout name2 desc2 sport2 serial2 timestamp2 steps2) wk2)
 
   ;; The workout should have a serial number and a timestamp
@@ -473,6 +474,37 @@ where S.id = CPFS.session_id
   (check = 2 (query-value db "select count(*) from WORKOUT_VERSION") "check #8")
   
   )
+
+(define (check-workout-fit-generation)
+
+  (define wk (struct-copy workout sample-wk
+                          [serial 100]
+                          [timestamp (current-seconds)]))
+  (define data (workout->fit wk))
+  (define wk1 (fit->workout data))
+
+  (match-define (workout name1 desc1 sport1 serial1 timestamp1 steps1) wk)
+  (match-define (workout name2 desc2 sport2 serial2 timestamp2 steps2) wk1)
+
+  (check string=? name1 name2)
+  ;; note: description is not stored in the FIT file and as such it is lost.
+  (check eq? sport1 sport2)
+  (check eqv? serial1 serial2)
+  (check eqv? timestamp1 timestamp1)
+  (check-steps-match steps1 steps2))
+
+(define workouts-tests-suite
+  (test-suite
+   "Workouts"
+   (test-case "Workout store-fetch-delete"
+     (with-database
+       (lambda (db)
+         (check-not-exn
+          (lambda ()
+            (check-workout-store-fetch-delete db))))))
+   (test-case "FIT file serialize / deserialize"
+     (check-not-exn
+      check-workout-fit-generation))))
 
 
 ;;.....................................................................  ....
@@ -526,15 +558,9 @@ where S.id = CPFS.session_id
              ;; No Sport zones are defined
              (check-false (get-sport-zones sport sub-sport 1)))))))
 
-   (test-case "Workout store-fetch-delete"
-     (with-database
-       (lambda (db)
-         (check-not-exn
-          (lambda ()
-            (check-workout-store-fetch-delete db))))))
-   
    db-patch-26-tests
    cyd-tests
+   workouts-tests-suite
    ))
 
 (module+ test
