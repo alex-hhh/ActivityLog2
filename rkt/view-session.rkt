@@ -241,7 +241,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define/public (set-database db)
       (set! database db))
 
-    (define/public (has-unsaved-edits?) is-editing?)
+    (define/public (unsaved-edits?) is-editing?)
 
     ))
 
@@ -447,9 +447,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (send (tdata-contents quadrant) save-visual-layout)
       (send (tdata-contents maps) save-visual-layout))
 
-    (define/public (has-unsaved-edits?)
-      (or (send (tdata-contents overview) has-unsaved-edits?)
-          (send header has-unsaved-edits?)))
+    (define/public (unsaved-edits?)
+      (or (send (tdata-contents overview) unsaved-edits?)
+          (send header unsaved-edits?)))
 
     ;; Activity operations interface implementation
 

@@ -14,23 +14,24 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "widget-utilities.rkt"
-         "grid-pane.rkt"
-         "notification-banner.rkt"
-         "tab-selector.rkt"
-         "progress-dialog.rkt"
-         "edit-dialog-base.rkt"
-         "validating-input-field.rkt"
-         "number-input-field.rkt"
-         "date-input-field.rkt"
-         "time-of-day-input-field.rkt"
-         "duration-input-field.rkt"
-         "pace-input-field.rkt"
+(require "date-input-field.rkt"
          "date-range-selector.rkt"
+         "duration-input-field.rkt"
+         "edit-dialog-base.rkt"
+         "grid-pane.rkt"
+         "icon-resources.rkt"
+         "notes-input-field.rkt"
+         "notification-banner.rkt"
+         "number-input-field.rkt"
          "number-range-selector.rkt"
-         "tag-input-field.rkt"
+         "pace-input-field.rkt"
+         "progress-dialog.rkt"
          "qresults-list.rkt"
-         "icon-resources.rkt")
+         "tab-selector.rkt"
+         "tag-input-field.rkt"
+         "time-of-day-input-field.rkt"
+         "validating-input-field.rkt"
+         "widget-utilities.rkt")
 
 (provide (all-from-out "widget-utilities.rkt")
          (all-from-out "grid-pane.rkt")
@@ -38,6 +39,7 @@
          (all-from-out "tab-selector.rkt")
          (all-from-out "progress-dialog.rkt")
          (all-from-out "edit-dialog-base.rkt")
+         (all-from-out "notes-input-field.rkt")
          (all-from-out "validating-input-field.rkt")
          (all-from-out "number-input-field.rkt")
          (all-from-out "date-input-field.rkt")

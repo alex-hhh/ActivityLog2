@@ -715,7 +715,7 @@
     ;; care about them (and therefore can be discarded)
     (define (check-unsaved-edits)
       (define section (get-section-by-tag 'session-view))
-      (define unsaved-edits? (send (tl-section-content section) has-unsaved-edits?))
+      (define unsaved-edits? (send (tl-section-content section) unsaved-edits?))
       (if unsaved-edits?
           (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
                                              "Review" "Discard" #f

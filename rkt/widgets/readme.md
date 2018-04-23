@@ -3,6 +3,10 @@ This directory contains GUI widgets built on top of the racket GUI library.
 * `map-widget%` -- implements a widget that displays a map, based on Open
   Street Map tiles.  It can also display a track on this map, plus markers.
   Supports normal panning and zooming functionality.
+  
+* `notes-input-field%` -- implements a widget that allows editing nodes or a
+  description text.  The widget displays "Save"/"Revert" buttons only when the
+  text is actually modified, making the GUI less cluttered.
 
 * `validating-input-field%` a text input field that allows specifying a
   validation function to restrict the text that can be entered.  This can be

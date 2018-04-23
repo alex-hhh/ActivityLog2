@@ -29,7 +29,8 @@
          "widgets/map-widget/map-util.rkt"
          "sport-charms.rkt"
          "weather.rkt"
-         "data-frame.rkt")
+         "data-frame.rkt"
+         "widgets/main.rkt")
 
 (provide inspect-overview-panel%)
 
@@ -693,83 +694,10 @@
       (new equipment-input-field% [parent desc-panel]
            [callback (lambda (x) (update-session-equipment))]))
 
-    (define description-bar
-      (new horizontal-pane% [parent desc-panel] [stretchable-height #f]
-           [alignment '(left center)]))
-
-    (define description-label
-      (new message%
-           [parent description-bar]
-           [stretchable-height #f]
-           [stretchable-width #t]
-           [font headline-font]
-           [label "Notes / Description"]))
-
-    (define save-button
-      (new button%
-           [parent description-bar]
-           [label "Save"]
-           [callback (lambda (b e) (on-save-description))]
-           [style '(deleted)]))
-
-    (define revert-button
-      (new button%
-           [parent description-bar]
-           [label "Revert"]
-           [callback (lambda (b e) (on-revert-description))]
-           [style '(deleted)]))
-
-    (define description-canvas
-      (new editor-canvas% [parent desc-panel] [style '(no-hscroll)]))
-
     (define description-field
-      (new (class text%
-             (init)
-             (super-new)
-             (define/augride (on-change)
-               ;; Use queue-callback so on-edit-description is called outside
-               ;; the on-change method which has the editor locked, so it
-               ;; interacts badly with the auto-wrap feature.
-               (queue-callback on-edit-description)))
-           [line-spacing 1.5]))
-
-    (send description-canvas set-editor description-field)
-    (send description-field set-max-undo-history 100)
-
-    (define last-description #f)
-    (define is-editing? #f)
-
-    (define (on-edit-description)
-      ;; If the editor is modified, put on the save/revert buttons, otherwise
-      ;; remove them (for example when the user has undo-ed all changes)
-      (if (send description-field is-modified?)
-          (unless is-editing?
-            (set! is-editing? #t)
-            (send description-bar change-children
-                  (lambda (old) (list description-label save-button revert-button))))
-          (when is-editing?
-            (set! is-editing? #f)
-            (send description-bar change-children
-                  (lambda (old) (list description-label))))))
-
-    (define (on-save-description)
-      (update-session-description)
-      (send description-field set-modified #f)
-      (send description-bar change-children
-            (lambda (old) (list description-label)))
-      (set! is-editing? #f))
-
-    (define (on-revert-description)
-      (send description-field begin-edit-sequence)
-      (send description-field select-all)
-      (send description-field clear)
-      (send description-field insert last-description)
-      (send description-field set-modified #f)
-      (send description-field end-edit-sequence)
-      (send description-bar change-children
-            (lambda (old) (list description-label)))
-      (set! is-editing? #f))
-
+      (new notes-input-field% [parent desc-panel]
+           [on-save-callback (lambda (text) (update-session-description text))]))
+      
     (define (update-session-labels)
       (when the-session
         (let ((sid (dict-ref the-session 'database-id #f)))
@@ -785,19 +713,16 @@
     ;; WARNING: the description text is currently saved when the description
     ;; field looses focus.  This might result in unwanted changes and
     ;; potential loss of information.  Maybe we can do better?
-    (define (update-session-description)
+    (define (update-session-description description)
       (when the-session
         (let ((sid (dict-ref the-session 'database-id #f)))
           (when sid
-            (let ((text (send description-field get-text 0 'eof #t)))
-              (unless (equal? last-description text)
-                (set! last-description text)
-                (call-with-transaction
-                 the-database
-                 (lambda ()
-                   (query-exec the-database
-                               "update A_SESSION set description = ? where id = ?"
-                               text sid)))))))))
+            (call-with-transaction
+             the-database
+             (lambda ()
+               (query-exec the-database
+                           "update A_SESSION set description = ? where id = ?"
+                           description sid)))))))
 
     (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
@@ -807,23 +732,10 @@
           (send labels-field setup-for-session the-database session-id)
           (send equipment-field setup-for-session the-database session-id)
           (let ((desc (dict-ref session 'description #f)))
-            (set! last-description (or desc ""))
-            (send description-field begin-edit-sequence)
-            (send description-field select-all)
-            (send description-field clear)
-            (send description-field insert last-description)
-            (send description-field clear-undos)
-            (send description-field move-position 'home)
-            (send description-field set-modified #f)
-            (send description-field end-edit-sequence)
-            (set! is-editing? #f)
-            (send description-bar change-children
-                  (lambda (old) (list description-label)))))
+            (send description-field set-contents desc)))
         (set! the-session session)))
 
-    (define/public (has-unsaved-edits?) is-editing?)
+    (define/public (unsaved-edits?)
+      (send description-field unsaved-edits?))
 
-    ;; Do this last, as it will invoke the on-change method which will try to
-    ;; call on-edit-description.
-    (send description-field auto-wrap #t)
     ))
