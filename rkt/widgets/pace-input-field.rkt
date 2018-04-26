@@ -39,7 +39,7 @@
     (inherit set-value)
 
     (define/public (set-pace-value value)
-      (if value (pace->string value) ""))
+      (set-value (if value (pace->string value) "")))
 
     ))
 
@@ -64,6 +64,6 @@
     (inherit set-value)
 
     (define/public (set-pace-value value)
-      (if value (swim-pace->string value) ""))
+      (set-value (if value (swim-pace->string value) "")))
 
     ))
