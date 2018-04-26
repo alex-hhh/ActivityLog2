@@ -496,7 +496,8 @@
        axis rt)
       (begin
         (send canvas set-snip #f)
-        (send canvas set-background-message "No data to plot"))))
+        (send canvas set-background-message "No data to plot")
+        #f)))
 
 (define (save-plot-to-file file-name width height axis rt min-x max-x min-y max-y)
   (generate-plot
@@ -619,7 +620,7 @@
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (define snip (insert-plot-snip canvas (tbavg-axis data) rt
                                                    min-x max-x min-y max-y))
-                    (set-mouse-event-callback snip plot-hover-callback)
+                    (when snip (set-mouse-event-callback snip plot-hover-callback))
                     (when (tbavg-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tbavg-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)
