@@ -43,6 +43,7 @@
          "view-reports.rkt"
          "view-session.rkt"
          "view-trends.rkt"
+         "view-workouts.rkt"
          "widgets/main.rkt"
          "import.rkt"
          "metrics.rkt"
@@ -297,13 +298,11 @@
 
 ;;.................................................... make-athlete-menu ....
 
-(define (make-athlete-menu menu-bar toplevel)
+(define (make-athlete-menu menu-bar target)
 
   (define operations-menu
-    (new athlete-metrics-operations-menu%
-         [target (send toplevel get-athlete-metrics-forwarder)]
-         [menu-bar menu-bar]))
-
+    (new athlete-metrics-operations-menu% [menu-bar menu-bar] [target target]))
+  
   (let ((menu (send operations-menu get-popup-menu)))
     (new separator-menu-item% [parent menu])
     (new menu-item%
@@ -311,33 +310,39 @@
          [callback
           (lambda (m e)
             (send (get-sz-editor) show-dialog
-                  (send toplevel get-frame)
-                  (send toplevel get-database)))])
+                  (send target get-top-level-window)
+                  (send target get-database)))])
     (new menu-item%
          [parent menu] [label "Edit Critical Power..."]
          [callback
           (lambda (m e)
             (send (get-cp-editor) show-dialog
-                  (send toplevel get-frame)
-                  (send toplevel get-database)))])
+                  (send target get-top-level-window)
+                  (send target get-database)))])
     (new menu-item%
          [parent menu] [label "Export Settings to Device..."]
          [callback
           (lambda (m e)
             (send (get-export-settings-dialog) show-dialog
-                  (send toplevel get-frame)
-                  (send toplevel get-database)))])
+                  (send target get-top-level-window)
+                  (send target get-database)))])
     menu))
 
 
 ;;................................................... make-activtiy-menu ....
 
-(define (make-activtiy-menu menu-bar toplevel)
+(define (make-activtiy-menu menu-bar target)
   (define activity-menu
-    (new activity-operations-menu%
-         [menu-bar menu-bar]
-         [target (send toplevel get-activity-operations-forwarder)]))
+    (new activity-operations-menu% [menu-bar menu-bar] [target target]))
   (send activity-menu get-popup-menu))
+
+
+;;.................................................... make-workout-menu ....
+
+(define (make-workout-menu menu-bar target)
+  (define workout-menu
+    (new workout-operations-menu% [menu-bar menu-bar] [target target]))
+  (send workout-menu get-popup-menu))
 
 
 ;;...................................................... make-tools-menu ....
@@ -398,47 +403,47 @@
     ;; activity-operations<%> interface, return #f otherwise.  The activity
     ;; menus will be disabled if the selected section does not support
     ;; activity operations.
-    (define (get-aop-section)
+    (define (get-target-section)
       (let ((section (send toplevel-application get-selected-section)))
         (if (and section (is-a? section activity-operations<%>))
             section
             #f)))
 
     (define/public (get-selected-sid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop get-selected-sid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-sid))))
 
     (define/public (get-selected-sport)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop get-selected-sport) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-sport))))
 
     (define/public (get-selected-guid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop get-selected-guid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-guid))))
 
     (define/public (after-update sid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop after-update sid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-update sid))))
 
     (define/public (after-new sid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop after-new sid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-new sid))))
 
     (define/public (can-delete? sid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop can-delete? sid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target can-delete? sid))))
 
     (define/public (after-delete sid)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop after-delete sid) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-delete sid))))
 
     (define/public (before-popup)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop before-popup) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
 
     (define/public (after-popdown)
-      (let ((aop (get-aop-section)))
-        (if aop (send aop before-popup) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
 
     (define/public (switch-to-view)
       (send toplevel-application select-section 'activity-list))
@@ -448,6 +453,9 @@
 
 ;;........................................... athlete-metrics-forwarder% ....
 
+;; Forward methods from the athlete-metrics-operations<%> interface to the
+;; athlete view, if it is the selected section.  This acts as a "glue" between
+;; the Athlete menu and the view-athlete-metrics% object instance.
 (define athlete-metrics-forwarder%
   (class* object% (athlete-metrics-operations<%>)
     (init-field toplevel-application)
@@ -463,42 +471,123 @@
     ;; athlete-metrics-operations<%> interface, return #f otherwise.  The
     ;; activity menus will be disabled if the selected section does not
     ;; support activity operations.
-    (define (get-amop-section)
+    (define (get-target-section)
       (let ((section (send toplevel-application get-selected-section)))
         (if (and section (is-a? section athlete-metrics-operations<%>))
             section
             #f)))
 
     (define/public (get-selected-id)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop get-selected-id) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-id))))
 
     (define/public (after-update id)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop after-update id) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-update id))))
 
     (define/public (after-new id)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop after-new id) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-new id))))
 
     (define/public (can-delete? id)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop can-delete? id) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target can-delete? id))))
 
     (define/public (after-delete id)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop after-delete id) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target after-delete id))))
 
     (define/public (before-popup)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop before-popup) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
 
     (define/public (after-popdown)
-      (let ((amop (get-amop-section)))
-        (if amop (send amop before-popup) #f)))
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
 
     (define/public (switch-to-view)
       (send toplevel-application select-section 'athlete-metrics))))
+
+
+;;.................................................. workouts-forwarder% ....
+
+;; Forward methods from the workout-operations<%> interface to the workout
+;; view, if it is the selected section.  This acts as a "glue" between the
+;; Workout menu and the view-workouts% object instance.
+(define workout-forwarder%
+  (class* object% (workout-operations<%>)
+    (init-field toplevel-application)
+    (super-new)
+
+    (define/public (get-top-level-window)
+      (send toplevel-application get-frame))
+
+    (define/public (get-database)
+      (send toplevel-application get-database))
+
+    ;; Return the selected section, but only if it implements the
+    ;; workout-operations<%> interface, return #f otherwise.  The workout menu
+    ;; items will be disabled if the selected section does not support workout
+    ;; operations.
+    (define (get-target-section)
+      (let ((section (send toplevel-application get-selected-section)))
+        (if (and section (is-a? section workout-operations<%>))
+            section
+            #f)))
+    
+    (define/public (before-popup)
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
+    
+    (define/public (after-popdown)
+      (let ((target (get-target-section)))
+        (and target (send target after-popdown))))
+
+    (define/public (switch-to-view)
+      (send toplevel-application select-section 'workouts))
+
+    (define/public (get-selected-library-id)
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-library-id))))
+
+    (define/public (get-selected-workout-id)
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-workout-id))))
+      
+    (define/public (after-new-library library-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-new-library library-id))))
+      
+    (define/public (after-update-library library-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-update-library library-id))))
+
+    (define/public (can-delete-library? library-id)
+      (let ((target (get-target-section)))
+        (and target (send target can-delete-library? library-id))))
+
+    (define/public (after-delete-library library-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-delete-library library-id))))
+
+    (define/public (after-new-workout workout-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-new-workout workout-id))))
+      
+    (define/public (after-update-workout workout-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-update-workout workout-id))))
+
+    (define/public (can-delete-workout? workout-id)
+      (let ((target (get-target-section)))
+        (and target (send target can-delete-workout? workout-id))))
+
+    (define/public (after-delete-workout workout-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-delete-workout workout-id))))
+
+    ))
+
 
 
 ;;....................................................... Open db dialog ....
@@ -626,15 +715,6 @@
     (define the-sections '())
     (define the-selected-section #f)
 
-    (define aop-forwarder
-      (new activity-operations-forwarder% [toplevel-application this]))
-
-    (define amop-forwarer
-      (new athlete-metrics-forwarder% [toplevel-application this]))
-
-    (define/public (get-activity-operations-forwarder) aop-forwarder)
-    (define/public (get-athlete-metrics-forwarder) amop-forwarer)
-
     (define section-selector
       (new tab-selector%
            [parent left-panel]
@@ -661,6 +741,10 @@
       (add-section "Equipment" 'equipment
                    (lambda (parent)
                      (new view-equipment% [parent parent] [database database])))
+
+      (add-section "Workouts" 'workouts
+                   (lambda (parent)
+                     (new view-workouts% [parent parent] [database database])))
 
       (add-section "Trends" 'trends
                    (lambda (parent)
@@ -698,17 +782,27 @@
 
     ;;; Construct the toplevel menu bar
 
-    (let ((mb (new menu-bar% [parent tl-frame])))
+    (let ((mb (new menu-bar% [parent tl-frame]))
+          (aop (new activity-operations-forwarder% [toplevel-application this]))
+          (amop (new athlete-metrics-forwarder% [toplevel-application this]))
+          (wop (new workout-forwarder% [toplevel-application this])))
       (make-file-menu mb this)
       (make-edit-menu mb this)
       (make-view-menu mb this the-sections)
-      (make-athlete-menu mb this)
-      (make-activtiy-menu mb this)
+      (make-athlete-menu mb amop)
+      (make-activtiy-menu mb aop)
+      (make-workout-menu mb wop)
       (make-tools-menu mb this)
       (make-help-menu mb this))
 
     (define (can-close-toplevel?)
-      (check-unsaved-edits))
+      (and (check-unsaved-edits)
+           (let* ((section (get-section-by-tag 'workouts))
+                  (result (send (tl-section-content section) can-exit?)))
+             (unless result
+               (switch-to-section section)
+               (send section-selector select (get-section-index 'workouts) #t))
+             result)))
 
     ;; Check if there are any unsaved edits, and prompts the user if there
     ;; are.  Returns #t if there are no unsaved edits, or the user does not
