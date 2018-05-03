@@ -53,10 +53,11 @@
         "map-point"
         '("lat" "lon")
         (lambda (val)
-          (if val
-              (match-let (((vector lat lon) val))
-                (lat-lon->map-point lat lon))
-              #f))))
+          (and val
+               (match-let (((vector lat lon) val))
+                 (and (real? lat)
+                      (real? lon)
+                      (lat-lon->map-point lat lon)))))))
 
 ;; Lookup a GPS position in the data frame DF at distance DST.  The data frame
 ;; is assumed to have "lat", "lon", a "dst" and a "map-point" (see
