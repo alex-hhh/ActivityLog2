@@ -1,9 +1,5 @@
 ![Logo](img/logo/ActivityLog2.png)
 
-The bike-trainer prototype is on a separate
-branch
-[https://github.com/alex-hhh/ActivityLog2/tree/bike-trainer](https://github.com/alex-hhh/ActivityLog2/tree/bike-trainer)
-
 # ActivityLog2 - analyze data from swim, bike and run activities
 
 [![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)
@@ -19,7 +15,7 @@ see [doc/building.md](doc/building.md) for how to build your own.
 <p align="center">
 <img align="center" width="800" 
      alt="session view" 
-     src="https://drive.google.com/uc?export=download&id=0B5h4XOdkim72VmxOOWhYeVN5TGs" />
+     src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs4ffy8" />
 </p>
 
 ## Features
