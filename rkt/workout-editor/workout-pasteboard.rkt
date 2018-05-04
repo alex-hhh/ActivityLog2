@@ -458,10 +458,9 @@
       (when (and (null? undo-stack) undo-available-callback)
         (undo-available-callback #t))
       (set! undo-stack (cons undoer undo-stack))
-      (unless is-modified?
-        (set! is-modified? #t)
-        (when contents-modified-callback
-          (contents-modified-callback is-modified?))))
+      (set! is-modified? #t)
+      (when contents-modified-callback
+        (contents-modified-callback is-modified?)))
 
     (define/public (x-undo)
       (unless (null? undo-stack)

@@ -26,6 +26,7 @@
  (struct-out wkrepeat)
  (struct-out workout)
  wkstep-type->string
+ wkstep-type->color
  wkstep-color
  wkstep-dtype->string
  wkstep-dvalue->string
@@ -111,6 +112,9 @@
 
 (define (wkstep-type->string step)
   (dict-ref wkstep-type-names (wkstep-type step)))
+
+(define (wkstep-type->color type)
+  (dict-ref wkstep-type-colors type))
 
 (define (wkstep-color step)
   (dict-ref wkstep-type-colors (wkstep-type step)))

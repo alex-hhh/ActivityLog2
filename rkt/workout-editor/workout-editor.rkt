@@ -23,7 +23,8 @@
          "workout-editor-headline.rkt"
          "workout-pasteboard.rkt"
          "wk-fit.rkt"
-         "wk-json.rkt")
+         "wk-json.rkt"
+         "wk-estimate.rkt")
 
 (provide workout-editor%)
 
@@ -58,7 +59,10 @@
     (define wkpb
       (new workout-pasteboard%
            [undo-available-callback (lambda (flag) (on-undo-available flag))]
-           [contents-modified-callback (lambda (flag) (on-contents-modified flag))]))
+           [contents-modified-callback (lambda (flag)
+                                         (queue-callback
+                                          (lambda ()
+                                            (on-contents-modified flag))))]))
     (define editor (new editor-canvas%
                         [parent steps-box]
                         [stretchable-width #t]
@@ -91,6 +95,13 @@
       (new button% [parent control-panel] [label "Revert"]
            [callback (lambda (b e) (on-revert-workout-steps))]
            [style '(deleted)]))
+
+    (define estimate-canvas
+      (new canvas% [parent desc-panel]
+           [stretchable-width #t]
+           [stretchable-height #f]
+           [min-height 300]
+           [paint-callback (lambda (c dc) (on-estimate-canvas-paint c dc))]))
 
     (define description-field
       (new notes-input-field% [parent desc-panel]
@@ -140,13 +151,20 @@
     (define (on-undo-available flag)
       (send undo-button enable flag))
 
+    (define epict #f)
+
     (define (on-contents-modified flag)
       (send control-panel change-children
             (lambda (old)
               (if flag
                   (list add-step-button add-repeat-button undo-button
                         spacer save-workout-button revert-workout-button)
-                  (list add-step-button add-repeat-button undo-button spacer)))))
+                  (list add-step-button add-repeat-button undo-button spacer))))
+      (define wk (struct-copy workout current-workout
+                              [timestamp (current-seconds)]
+                              [steps (send wkpb get-workout-steps)]))
+      (set! epict (estimate-workout/pict wk))
+      (send estimate-canvas refresh))
 
     (define (on-add-step)
       (send wkpb add-new-step))
@@ -157,11 +175,23 @@
     (define (on-undo)
       (send wkpb x-undo))
 
+    (define (on-estimate-canvas-paint canvas dc)
+      (send dc clear)
+      (when epict
+        (send dc set-smoothing 'smoothed)
+        (let-values (((cw ch) (send canvas get-size)))
+          (let ((x (* 0.5 (- cw (pict-width epict))))
+                (y (* 0.5 (- ch (pict-height epict)))))
+            (draw-pict epict dc x y)))))
+
     (define/public (set-workout wk)
       (set! current-workout wk)
       (send headline set-workout wk)
       (if current-workout
-          (send wkpb put-workout-steps (workout-steps current-workout))
+          (begin
+            (send wkpb put-workout-steps (workout-steps current-workout))
+            (set! epict (estimate-workout/pict wk))
+            (send estimate-canvas refresh))
           (send wkpb clear-steps))
       (send description-field set-contents
             (if current-workout
