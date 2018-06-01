@@ -30,6 +30,9 @@
 (require "../rkt/workout-editor/wkstep.rkt")
 (require "../rkt/workout-editor/wk-db.rkt")
 (require "../rkt/workout-editor/wk-fit.rkt")
+(require "../rkt/weather.rkt")
+
+(set-allow-weather-download #f)        ; don't download weather for unit tests
 
 
 ;;............................................................ test data ....

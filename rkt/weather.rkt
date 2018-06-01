@@ -24,6 +24,7 @@
          racket/runtime-path
          racket/string
          racket/contract
+         racket/format
          (rename-in srfi/48 (format format-48))
          "utilities.rkt"
          "dbutil.rkt"
@@ -163,13 +164,19 @@
 (define (make-request-limiter num-requests time-period)
   (let ((past-requests '()))
     (lambda ()
-      (let ((prq (let ((ts (- (current-seconds) time-period)))
-                   (takef past-requests (lambda (t) (> t ts))))))
-        (when (> (+ 1 (length prq)) num-requests)
-          (let ((s (- time-period (- (current-seconds) (last prq)))))
-            (sleep s)))
-        (let ((ts (current-seconds)))
-          (set! past-requests (cons ts prq)))))))
+      (define now (current-inexact-milliseconds))
+      (define old-timestamp (- now (* time-period 1000)))
+      (define trimed-requests (takef past-requests (lambda (t) (> t old-timestamp))))
+      (when (>= (length trimed-requests) num-requests)
+        (define sleep-time (/ (- (last trimed-requests) old-timestamp) 1000))
+        ;; Put something in the log when we are about to sleep for long
+        ;; periods of time -- this will happen if large amounts of activities
+        ;; are imported, or unit tests are run...
+        (when (> sleep-time 10)
+          (dbglog "weather request limiter, about to sleep for ~a seconds"
+                  (~r sleep-time #:precision 2)))
+        (sleep sleep-time))
+      (set! past-requests (cons now trimed-requests)))))
 
 ;; Weather requests not work if the internet access needs to be done via a
 ;; proxy or there is no internet connnection.  This will prevent the
