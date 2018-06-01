@@ -230,7 +230,7 @@
       (let* ((db (send target get-database))
              (toplevel (send target get-top-level-window))
              (workout-id (send target get-selected-workout-id))
-             (wk (fetch-workout db workout-id))
+             (wk (fetch-workout db workout-id #:for-export? #t))
              (proposed-file (format "~a.fit" (workout-name wk))))
         (define file-name
           (put-file "Export workout as FIT file" toplevel
@@ -429,15 +429,15 @@ select id, name, sport_id, sub_sport_id, serial, library_id
              [selected-workout-id #f])
       (set! workout-libraries (get-workout-libraries database))
       (send library-choice clear)
-      (define selected-index #f)
+      (define selected-index 0)
+      (set! selected-library-index #f)
       (for (([lib index] (in-indexed (in-list workout-libraries))))
         (match-define (vector id name) lib)
         (send library-choice append name)
         (when (eqv? id selected-library-id)
           (set! selected-index index)))
-      (when selected-index
-        (send library-choice set-selection selected-index)
-        (on-library-selected selected-index selected-workout-id)))
+      (send library-choice set-selection selected-index)
+      (on-library-selected selected-index selected-workout-id))
 
     (define first-activation? #t)
 
@@ -542,6 +542,7 @@ select id, name, sport_id, sub_sport_id, serial, library_id
       (if (eqv? (get-selected-workout-id) workout-id)
           ;; if the current workout was deleted, just remove the entry
           (let ((index (send workouts-list get-selected-row-index)))
+            (send workout-editor set-workout #f) ; close any unsaved edits
             (send workouts-list delete-row index)
             ;; Select the next workout
             (let* ((nindex (min index (sub1 (send workouts-list get-row-count))))

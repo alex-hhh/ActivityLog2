@@ -1,3 +1,9 @@
+# Release 1.5.0
+
+* A new [workout
+  editor](https://alex-hhh.github.io/2018/05/running-and-cycling-workout-editor.html)
+* General bug-fixes
+
 # Release 1.4.0
 
 In addition to general bug-fixes, the following improvements were made in this

@@ -190,9 +190,11 @@
       (if current-workout
           (begin
             (send wkpb put-workout-steps (workout-steps current-workout))
-            (set! epict (estimate-workout/pict wk))
-            (send estimate-canvas refresh))
-          (send wkpb clear-steps))
+            (set! epict (estimate-workout/pict wk)))
+          (begin
+            (set! epict #f)
+            (send wkpb clear-steps)))
+      (send estimate-canvas refresh)
       (send description-field set-contents
             (if current-workout
                 (or (workout-description wk) "")

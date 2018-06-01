@@ -204,10 +204,6 @@
         ((2) 'cycling)
         (else #f)))
 
-    (define/public (close-unsaved-edits)
-      (when is-editing?
-        (on-save-headline)))
-
     (define/public (unsaved-edits?) is-editing?)
 
     (define/public (enable flag)

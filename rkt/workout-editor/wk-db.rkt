@@ -24,7 +24,9 @@
  (store-workout (->* (connection? workout? number?)
                      (#:may-replace-serial? boolean?)
                      (values number? number?)))
- (fetch-workout (->* (connection? number?) ((or/c #f number?)) workout?))
+ (fetch-workout (->* (connection? number?)
+                     (#:workout-version-id (or/c #f number?) #:for-export? boolean?)
+                     workout?))
  (delete-workout (-> connection? number? any/c)))
 
 (define (get-workout-id db serial)
@@ -107,8 +109,12 @@ values (?, ?, ?)" id timestamp data)
 
 ;; Fetch a workout from the database.  The workout is identified by
 ;; WORKOUT-ID.  When WORKOUT-VERSION-ID is #f, the latest version is
-;; retrieved, otherwise, the specified version.
-(define (fetch-workout db workout-id (workout-version-id #f))
+;; retrieved, otherwise, the specified version.  When for-export? is #t, the
+;; is_exported field in the database will be updated to 1, to mark this
+;; workout as exported
+(define (fetch-workout db workout-id
+                       #:workout-version-id (workout-version-id #f)
+                       #:for-export? (for-export? #f))
   (define row
     (query-maybe-row db "
 select name, sport_id, sub_sport_id, serial from WORKOUT where id = ?" workout-id))
@@ -126,6 +132,10 @@ select id from WORKOUT_VERSION
     
   (unless version-id
     (error (format "could not find workout ~a/~a" workout-id workout-version-id)))
+
+  ;; If this workout will be exported, mark it as such
+  (when for-export?
+    (query-exec db "update WORKOUT_VERSION set is_exported = 1 where id = ?" version-id))
 
   (define data (query-value db "select data from WORKOUT_VERSION where id = ?" version-id))
   (define wk (jsexpr->workout (compressed-string->jsexpr data)))

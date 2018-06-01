@@ -475,6 +475,22 @@ where S.id = CPFS.session_id
   (check = 2 (query-value db "select count(*) from WORKOUT") "check #7")
   ;; ... with one version each 
   (check = 2 (query-value db "select count(*) from WORKOUT_VERSION") "check #8")
+
+  (define-values (workout-id2 version-id2)
+    ;; a fresh workout will be stored, since we don't have a serial number.
+    (store-workout db sample-wk 1))
+
+  ;; Workout is not marked as exported
+  (check = 0 (query-value db "select is_exported from WORKOUT_VERSION where id = ?"
+                          version-id2))
+  ;; Simply fetching the workout will not cause it to become exported...
+  (fetch-workout db workout-id2)
+  (check = 0 (query-value db "select is_exported from WORKOUT_VERSION where id = ?"
+                          version-id2))
+  ;; ... unless we explicitly ask for it.
+  (fetch-workout db workout-id2 #:for-export? #t)
+  (check = 1 (query-value db "select is_exported from WORKOUT_VERSION where id = ?"
+                          version-id2))
   
   )
 

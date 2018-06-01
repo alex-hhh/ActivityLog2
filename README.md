@@ -38,9 +38,8 @@ see [doc/building.md](doc/building.md) for how to build your own.
   Cadence sensor), displays a warning on low battery.
 * Track body weight, and other metrics
 * Estimate [Critical Power](./doc/critical-power.md)
-* Generate workout files for downloading to the Garmin device (requires Racket
-  experience)
-
+* [Generate workout files](https://alex-hhh.github.io/2018/05/running-and-cycling-workout-editor.html)
+  for downloading to the Garmin device.
 
 ## License
 
