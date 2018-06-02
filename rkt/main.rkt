@@ -18,7 +18,7 @@
          framework/splash
          "utilities.rkt"
          "dbutil.rkt"
-         "first-run.rkt"
+         "dialogs/first-run.rkt"
          "toplevel.rkt")
 
 (provide main)

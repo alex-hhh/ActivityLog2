@@ -17,7 +17,7 @@
 (require db
          racket/class
          racket/gui/base
-         "activity-edit.rkt"
+         "dialogs/activity-edit.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
          "widgets/icon-resources.rkt"

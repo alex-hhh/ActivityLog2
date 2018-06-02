@@ -31,7 +31,7 @@
  math/statistics
  db
  "data-frame.rkt"
- "fit-file.rkt"
+ "fit-file/fit-file.rkt"
  "database.rkt"
  )
 

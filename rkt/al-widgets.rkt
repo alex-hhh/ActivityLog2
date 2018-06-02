@@ -20,7 +20,7 @@
          racket/math
          racket/match
          racket/dict
-         "activity-util.rkt"
+         "fit-file/activity-util.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
          "widgets/main.rkt"

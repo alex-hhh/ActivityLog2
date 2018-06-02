@@ -21,7 +21,7 @@
          racket/list
          racket/string
          racket/format
-         "activity-edit.rkt"
+         "dialogs/activity-edit.rkt"
          "utilities.rkt"
          "al-widgets.rkt"
          "database.rkt"

@@ -19,7 +19,7 @@
          racket/gui/base
          "al-widgets.rkt"
          "database.rkt"
-         "edit-athlete-metrics.rkt"
+         "dialogs/edit-athlete-metrics.rkt"
          "fmt-util.rkt"
          "widgets/icon-resources.rkt"
          "dbutil.rkt"

@@ -24,7 +24,7 @@
          "session-df.rkt"
          "widgets/main.rkt"
          "hrv.rkt"
-         "edit-session-tss.rkt")
+         "dialogs/edit-session-tss.rkt")
 
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)

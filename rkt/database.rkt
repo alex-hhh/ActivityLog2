@@ -26,8 +26,8 @@
          racket/async-channel
          "dbutil.rkt"
          "dbapp.rkt"
-         "fit-defs.rkt"
-         "fit-file.rkt"
+         "fit-file/fit-defs.rkt"
+         "fit-file/fit-file.rkt"
          "elevation-correction.rkt"     ; for lat-lon->tile-code
          "utilities.rkt"
          )

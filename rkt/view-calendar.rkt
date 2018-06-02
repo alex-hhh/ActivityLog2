@@ -23,7 +23,7 @@
          racket/math
          racket/string
          racket/match
-         "activity-edit.rkt"
+         "dialogs/activity-edit.rkt"
          "fmt-util.rkt"
          "widgets/icon-resources.rkt"
          "sport-charms.rkt"
