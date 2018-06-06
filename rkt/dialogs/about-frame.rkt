@@ -18,10 +18,10 @@
          racket/class
          racket/gui/base
          racket/runtime-path
-         "dbapp.rkt"
-         "utilities.rkt")
+         "../dbapp.rkt"
+         "../utilities.rkt")
 
-(define-runtime-path logo-file "../img/logo/ActivityLog2.png")
+(define-runtime-path logo-file "../../img/logo/ActivityLog2.png")
 
 (define hyperlink-style
   (let ([delta (new style-delta%)])

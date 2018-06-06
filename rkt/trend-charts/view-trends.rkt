@@ -39,15 +39,15 @@
 
 ;;......................................................... view-trends% ....
 
-(define-runtime-path trends-bw-file "../img/trends/trends-bw.png")
-(define-runtime-path trends-trivol-file "../img/trends/trends-trivol.png")
-(define-runtime-path trends-pmc-file "../img/trends/trends-pmc.png")
-(define-runtime-path trends-vol-file "../img/trends/trends-vol.png")
-(define-runtime-path trends-tiz-file "../img/trends/trends-tiz.png")
-(define-runtime-path trends-tt-file "../img/trends/trends-tt.png")
-(define-runtime-path trends-bavg-file "../img/trends/trends-bavg.png")
-(define-runtime-path trends-hist-file "../img/trends/trends-hist.png")
-(define-runtime-path trends-scatter-file "../img/trends/trends-scatter.png")
+(define-runtime-path trends-bw-file "../../img/trends/trends-bw.png")
+(define-runtime-path trends-trivol-file "../../img/trends/trends-trivol.png")
+(define-runtime-path trends-pmc-file "../../img/trends/trends-pmc.png")
+(define-runtime-path trends-vol-file "../../img/trends/trends-vol.png")
+(define-runtime-path trends-tiz-file "../../img/trends/trends-tiz.png")
+(define-runtime-path trends-tt-file "../../img/trends/trends-tt.png")
+(define-runtime-path trends-bavg-file "../../img/trends/trends-bavg.png")
+(define-runtime-path trends-hist-file "../../img/trends/trends-hist.png")
+(define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
 
 ;; A trends chart declaration.  Contains some description and a sample image,
 ;; plus the class to be instantiated for the actual trends chart.

@@ -25,9 +25,9 @@
 
 (provide first-run-dialog%)
 
-(define-runtime-path swimming-icon-file "../img/swimming-64.png")
-(define-runtime-path biking-icon-file "../img/regular_biking-64.png")
-(define-runtime-path running-icon-file "../img/running-64.png")
+(define-runtime-path swimming-icon-file "../../img/swimming-64.png")
+(define-runtime-path biking-icon-file "../../img/regular_biking-64.png")
+(define-runtime-path running-icon-file "../../img/running-64.png")
 
 ;; Display a dialog when the application is run for the first time, presenting
 ;; the user with the opportunity to create a new database, open an existing
