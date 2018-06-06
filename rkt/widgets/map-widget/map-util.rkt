@@ -33,7 +33,13 @@
          (struct-out map-bbox)
          (struct-out map-tile)
          map-tile-equal?
-         degrees->wind-rose)
+         degrees->wind-rose
+         map-widget-logger)
+
+;; Logger used by the map widget to send various notification messages.  The
+;; application should define a log-receiver to receive and display the
+;; messages.
+(define map-widget-logger (make-logger 'map-widget (current-logger)))
 
 
 ;;.................................... distance and bearing calculations ....
@@ -98,7 +104,9 @@
            (if (and (>= x 0.0) (<= x 1.0)
                     (>= y 0.0) (<= y 1.0))
                (values x y)
-               (error (format "~a - bad coordinates: ~a ~a" name x y)))))
+               (let ((msg (format "~a - bad coordinates: ~a ~a" name x y)))
+                 (log-message map-widget-logger 'error #f msg #f #t)
+                 (error msg)))))
 
 (: lat-lon->map-point (-> Float Float map-point))
 (define (lat-lon->map-point lat lon)
@@ -205,12 +213,18 @@
   #:guard
   (lambda (zoom x y name)
     (unless (valid-zoom-level? zoom)
-      (error (format "Invalid zoom level (~a): ~a" name zoom)))
+      (define msg (format "invalid zoom level (~a): ~a" name zoom))
+      (log-message map-widget-logger 'error #f msg #f #t)
+      (error msg))
     (let ((max-val (expt 2 zoom)))
       (unless (and (>= x 0) (< x max-val))
-        (error (format "~a - bad x: ~a (valid range 0..~a)" name x max-val)))
+        (define msg (format "~a - bad x: ~a (valid range 0..~a)" name x max-val))
+        (log-message map-widget-logger 'error #f msg #f #t)  
+        (error msg))
       (unless (and (>= y 0) (< y max-val))
-        (error (format "~a - bad y: ~a (valid range 0..~a)" name y max-val))))
+        (define msg (format "~a - bad y: ~a (valid range 0..~a)" name y max-val))
+        (log-message map-widget-logger 'error #f msg #f #t)
+        (error msg)))
     (values zoom x y)))
 
 (: map-tile-equal? (-> map-tile map-tile Boolean))

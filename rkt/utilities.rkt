@@ -44,7 +44,9 @@
  (collect-events (-> async-channel? (hash/c symbol? (listof any/c))))
  (shutdown-event-sink-listener-threads (-> any/c))
 
- )
+ (notify-user (->* (symbol? string?) () #:rest (listof any/c) any/c)))
+
+(provide user-notification-logger)
 
 (require errortrace/errortrace-lib
          racket/async-channel
@@ -337,3 +339,16 @@
         (loop (async-channel-try-get source))))
     (for/hash (((k v) (in-hash result)))
       (values k (remove-duplicates v)))))
+
+;; A logger where user notifications can be sent, for example by
+;; `notify-user`.  The application will need to create a receiver for this
+;; logger and do something with the messages (like display them on the screen)
+(define user-notification-logger (make-logger 'user-notification (current-logger)))
+
+;; Log a message with the intent of displaying it to the user.  The
+;; application will create a log sink for this logger that displays messages
+;; in a notification banner.
+(define (notify-user level format-string . args)
+  (define msg (apply format format-string args))
+  (log-message user-notification-logger level #f msg #f #f))
+

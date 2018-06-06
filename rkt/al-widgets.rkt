@@ -24,7 +24,6 @@
          "fmt-util.rkt"
          "sport-charms.rkt"
          "widgets/main.rkt"
-         "al-log.rkt"
          "intervals.rkt"
          "utilities.rkt")
 
@@ -47,7 +46,7 @@
      (lambda (new-val)
        ;; Write the value back to the store
        (put-pref tag new-val)
-       (log-al-info "restart application for tablet friendly setting to take effect")
+       (notify-user 'info "restart application for tablet friendly setting to take effect")
        new-val))))
 (provide al-pref-tablet-friendly?)
 

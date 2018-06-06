@@ -645,7 +645,12 @@ select X.session_id
         (send lb set-data rows)
         (send (send pane get-top-level-window) 
               set-status-text 
-              (make-activity-summary-label rows headers))))
+              (make-activity-summary-label rows headers))
+        (when (null? rows)
+          (let ((nsessions (query-value database "select count(*) from A_SESSION")))
+            (unless (or (sql-null? nsessions) (zero? nsessions))
+              (notify-user 'info "current filter does not select any activities (there are ~a activities in the database)"
+                           nsessions))))))
 
     (define first-time? #t)
 

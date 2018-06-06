@@ -18,6 +18,7 @@
 
 
 (require
+ errortrace/errortrace-lib              ; for print-error-trace
  racket/runtime-path
  racket/async-channel
  racket/port
@@ -27,7 +28,7 @@
  racket/draw
  racket/class
  db
- "../../utilities.rkt"
+ "../../utilities.rkt"                  ; for get-pref
  "../../dbutil.rkt"
  "map-util.rkt")
 (require (for-syntax racket/base))
@@ -53,6 +54,29 @@
   (when print-dbg-messages
     (apply printf args)))
 
+(define (log level format-string . args)
+  (define msg (apply format format-string args))
+  (log-message map-widget-logger level #f msg #f #t))
+
+(define (log-exception who e)
+  ;; NOTE: 'print-error-trace' will only print a stack trace if the error
+  ;; trace library is used.  To use it, remove all .zo files and run "racket
+  ;; -l errortrace -t run.rkt"
+  (let ((message (if (exn? e) (exn-message e) e))
+        (call-stack (if (exn? e)
+                        (call-with-output-string
+                         (lambda (o) (print-error-trace o e)))
+                        "#<no call stack>")))
+    (log 'fatal "~a: ~a ~a" who message call-stack)))
+
+(define (thread/log thunk #:name [name "*unnamed*"])
+  (thread
+   (lambda ()
+     (with-handlers
+       (((lambda (e) #t)
+         (lambda (e) (log 'fatal "thread <~a>: ~a" name e))))
+       (thunk)))))
+
 
 ;.................................................... global parameters ....
 
@@ -70,8 +94,8 @@
   (put-pref allow-tile-download-tag new-val)
   (set! allow-tile-download-val new-val)
   (if new-val
-      (dbglog "map tile download enabled")
-      (dbglog "map tile download disabled")))
+      (log-message map-widget-logger 'info "map tile download enabled" #f #t)
+      (log-message map-widget-logger 'info "map tile download disabled" #f #t)))
 
 
 ;.................................................. tile cache database ....
@@ -248,7 +272,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; found in the database or it is too old, a download request is enqueued on
 ;; NET-FETCH-REQUEST.
 (define (make-tile-fetch-store-thread db request reply)
-  (thread/dbglog
+  (thread/log
    #:name "tile db fbetch-store thread"
    (lambda ()
      (let loop ((work-item (async-channel-get request)))
@@ -426,7 +450,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (with-handlers
    (((lambda (e) #t)
      (lambda (e)
-       (dbglog-exception "net-fetch-tile" e)
+       (log-exception "net-fetch-tile" e)
        (dbg-printf "Failed to download tile ~a~%" e)
        #f)))
    (if (allow-tile-download)
@@ -445,7 +469,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; tile is also stored in the database by adding a request to
 ;; DB-REQUEST-CHANNEL.
 (define (make-tile-download-thread reply db-request-channel)
-  (thread/dbglog
+  (thread/log
    #:name "tile net fetch thread"
    (lambda ()
      (let ((connection (make-http-connection)))
@@ -558,7 +582,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   (with-handlers
    (((lambda (e) #t)
      (lambda (e)
-       (dbglog-exception (format "get-tile-bitmap(~a)" tile) e)
+       (log-exception (format "get-tile-bitmap(~a)" tile) e)
        (dbg-printf "get-tile-bitmap(~a): ~a~%" tile e)
        #f)))
 

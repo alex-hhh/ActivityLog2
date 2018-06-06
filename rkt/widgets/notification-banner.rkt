@@ -202,8 +202,11 @@
     ;; message will be displayed immediately, otherwise, the message will be
     ;; queued up and displayed once all previous messages have been dismissed.
     (define/public (notify message)
-      (let ((empty? (null? queued-messages)))
-        (set! queued-messages (reverse (cons message (reverse queued-messages))))
-        (when empty? (on-timer))))
+      ;; NOTE: avoid duplicate messages in the message queue (not sure if this
+      ;; is the right thing to do, but it looks nicer.
+      (unless (member message queued-messages)
+        (let ((empty? (null? queued-messages)))
+          (set! queued-messages (reverse (cons message (reverse queued-messages))))
+          (when empty? (on-timer)))))
 
     ))

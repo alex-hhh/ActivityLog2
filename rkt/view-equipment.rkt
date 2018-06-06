@@ -20,7 +20,6 @@
          (rename-in srfi/48 (format format-48))
          racket/string
          racket/match
-         "al-log.rkt"
          "utilities.rkt"
          "fmt-util.rkt"
          "widgets/icon-resources.rkt"
@@ -969,9 +968,9 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
         (for ((i (in-list items)))
           (let ((equipment (vector-ref i 2))
                 (description (vector-ref i 5)))
-            (log-al-warning (format "~a: ~a" equipment description)))))
+            (notify-user 'info "~a: ~a" equipment description))))
       (for ([item (get-low-battery-devices the-database)])
         (match-define (vector name status voltage status-name) item)
         (define msg (format-48 "~a: battery status is ~a (~1,2F V)" name status-name voltage))
-        (if (> status 4) (log-al-error msg) (log-al-warning msg))))
+        (notify-user (if (> status 4) 'error 'warning) msg)))
     ))

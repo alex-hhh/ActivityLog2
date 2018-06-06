@@ -19,9 +19,8 @@
          racket/gui/base
          racket/math
          framework/splash
-         "about-frame.rkt"
+         "dialogs/about-frame.rkt"
          "dialogs/activity-edit.rkt"
-         "al-log.rkt"
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
@@ -34,6 +33,7 @@
          "elevation-correction.rkt"
          "dialogs/export-fit-settings.rkt"
          "widgets/map-widget/map-tiles.rkt"
+         "widgets/map-widget/map-util.rkt"
          "time-in-zone.rkt"
          "view-activities.rkt"
          "view-athlete-metrics.rkt"
@@ -51,6 +51,38 @@
          "weather.rkt")
 
 (provide toplevel-window%)
+
+(define (make-dbglog-sink . loggers)
+  (define sources (for/list ([logger loggers])
+                    (make-log-receiver logger 'info)))
+  (define (do-logging)
+    (let* ((log-item (apply sync sources))
+           (level (vector-ref log-item 0))
+           (message (vector-ref log-item 1)))
+      (dbglog "~a: ~a" level message))
+    (do-logging))
+  (thread do-logging)
+  (void))
+
+;; notifications from our loggers go do the dbglog sink
+(make-dbglog-sink map-widget-logger user-notification-logger)
+
+;; Create a notification banner
+(define (make-log-output-window parent)
+
+  (define banner (new notification-banner% [parent parent]))
+
+  (define (insert-log-messages source)
+    (let* ((log-item (sync source))
+           (level (vector-ref log-item 0))
+           (message (vector-ref log-item 1)))
+      (queue-callback
+       (lambda () (send banner notify message)))
+      (insert-log-messages source)))
+
+  (define receiver (make-log-receiver user-notification-logger 'info))
+  (thread (lambda () (insert-log-messages receiver)))
+  (void))
 
 
 ;;....................................................... make-file-menu ....
@@ -302,7 +334,7 @@
 
   (define operations-menu
     (new athlete-metrics-operations-menu% [menu-bar menu-bar] [target target]))
-  
+
   (let ((menu (send operations-menu get-popup-menu)))
     (new separator-menu-item% [parent menu])
     (new menu-item%
@@ -534,11 +566,11 @@
         (if (and section (is-a? section workout-operations<%>))
             section
             #f)))
-    
+
     (define/public (before-popup)
       (let ((target (get-target-section)))
         (and target (send target before-popup))))
-    
+
     (define/public (after-popdown)
       (let ((target (get-target-section)))
         (and target (send target after-popdown))))
@@ -553,11 +585,11 @@
     (define/public (get-selected-workout-id)
       (let ((target (get-target-section)))
         (and target (send target get-selected-workout-id))))
-      
+
     (define/public (after-new-library library-id)
       (let ((target (get-target-section)))
         (and target (send target after-new-library library-id))))
-      
+
     (define/public (after-update-library library-id)
       (let ((target (get-target-section)))
         (and target (send target after-update-library library-id))))
@@ -573,7 +605,7 @@
     (define/public (after-new-workout workout-id)
       (let ((target (get-target-section)))
         (and target (send target after-new-workout workout-id))))
-      
+
     (define/public (after-update-workout workout-id)
       (let ((target (get-target-section)))
         (and target (send target after-update-workout workout-id))))
@@ -652,7 +684,7 @@
             (message-box "Database open error" msg frame '(ok stop))))))
       (let ((db (open-activity-log database-path cb)))
         (set! database db))))
-  
+
   (yield
    (thread/dbglog
     #:name "interactive-open-database-dialog%/interactive-open-database"
@@ -776,9 +808,6 @@
     (send section-selector clear)
     (for ((section the-sections))
       (send section-selector append (tl-section-name section)))
-
-    ;; all banner notifications also go to the debug log
-    (make-dbglog-sink)
 
     ;;; Construct the toplevel menu bar
 
@@ -972,9 +1001,9 @@
         (send (tl-section-content equipment) log-due-items))
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (when (or (sql-null? nsessions) (zero? nsessions))
-          (log-al-info "There are no activities in the database.  Import some using the \"File\" menu.")))
+          (notify-user 'info "There are no activities in the database.  Import some using the \"File\" menu.")))
       (collect-garbage 'major))
-    
+
     (define (open-another-activity-log file)
       (dbglog "open-another-activity-log: will try to open ~a" file)
       (with-handlers
@@ -1085,7 +1114,7 @@
         #f))
 
     (define about-frame #f)
-    
+
     (define/public (on-show-about)
       (unless about-frame
         (set! about-frame (make-about-frame)))

@@ -24,7 +24,7 @@
          racket/list
          racket/sequence
          racket/stream
-         "../../utilities.rkt"
+         "../../utilities.rkt"          ; for get-pref
          "../../fmt-util.rkt"
          "map-util.rkt"
          "map-tiles.rkt")
