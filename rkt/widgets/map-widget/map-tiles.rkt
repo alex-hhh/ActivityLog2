@@ -24,6 +24,7 @@
  racket/port
  net/url
  net/url-connect
+ net/head
  racket/match
  racket/draw
  racket/class
@@ -117,12 +118,9 @@ select data, timestamp
 
 ;; Fetch a tile from the database. Return a (vector data timestamp) for the
 ;; TILE, or #f if the tile is not found
-(define (db-fetch-tile tile db)
-  (let* ((zoom (map-tile-zoom tile))
-         (x (map-tile-x tile))
-         (y (map-tile-y tile))
-         (data (query-maybe-row db fetch-tile-sql zoom x y)))
-    data))
+(define (db-fetch-tile t db)
+  (match-define (map-tile zoom x y) t)
+  (query-maybe-row db fetch-tile-sql zoom x y))
 
 (define tile-exists-sql
   (virtual-statement
@@ -145,17 +143,15 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 
 ;; Store the image (PNG) for a tile in the database.  Does an INSERT or UPDATE
 ;; as needed.
-(define (db-store-tile tile url data db)
+(define (db-store-tile t url data db)
   (call-with-transaction
    db
    (lambda ()
-     (let ((zoom (map-tile-zoom tile))
-           (x (map-tile-x tile))
-           (y (map-tile-y tile))
-           (timestamp (current-seconds)))
-       (if (query-maybe-value db tile-exists-sql zoom x y)
-           (query-exec db update-tile-sql "" timestamp data zoom x y)
-           (query-exec db insert-tile-sql "" timestamp data zoom x y))))))
+     (match-define (map-tile zoom x y) t)
+     (define timestamp (current-seconds))
+     (if (query-maybe-value db tile-exists-sql zoom x y)
+         (query-exec db update-tile-sql "" timestamp data zoom x y)
+         (query-exec db insert-tile-sql "" timestamp data zoom x y)))))
 
 
 ;......................................................... tile backlog ....
@@ -185,6 +181,11 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
     ;; Contains a list of TILE objects that are being downloaded.
     (define downloading '())
     
+    ;; Contains a list of TILE objects that failed their first download.
+    ;; Objects in this list will be downloaded again, but they will be added
+    ;; to the end of the backlog (will have the lowest priority)
+    (define problems '())
+    
     ;; counts number of elements in the backlog list
     (define sem-nitems (make-semaphore 0))
 
@@ -200,14 +201,15 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
        (lambda ()
          (when backlog
            (unless (member tile downloading map-tile-equal?)
-             (if (member tile backlog map-tile-equal?)
-                 ;; Move it to front
-                 (begin
-                   (set! backlog (cons tile (remove* (list tile) backlog map-tile-equal?))))
-                 (begin
-                   (set! backlog (cons tile backlog))
-                   ;; Tell GET that there are items in the backlog
-                   (semaphore-post sem-nitems))))))))
+             (define nitems (length backlog))
+             ;; Remove it from the backlog (we will add it again below)
+             (set! backlog (remove* (list tile) backlog map-tile-equal?))
+             (if (member tile problems map-tile-equal?)
+                 (set! backlog (append backlog (list tile)))
+                 (set! backlog (cons tile backlog)))
+             (when (> (length backlog) nitems)
+               ;; Tell GET that there are items in the backlog
+               (semaphore-post sem-nitems)))))))
     
     ;; Get the next tile to be downloaded.  Will block until a tile is
     ;; available.  The tile is added to the DOWNLOADING list and will need to
@@ -224,10 +226,13 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
                 (set! backlog (cdr backlog)))))))
 
     ;; Mark TILE as being downloaded and remove it from the DOWNLOADING list.
-    (define/public (clear tile)
+    (define/public (clear tile good?)
       (call-with-semaphore
        sem-acces
        (lambda ()
+         (if good?
+             (set! problems (remove* (list tile) problems map-tile-equal?))
+             (set! problems (cons tile problems)))
          (set! downloading (remove* (list tile) downloading map-tile-equal?)))))
 
     ;; Remove all items from the backlog.
@@ -261,7 +266,9 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
     ))
 
 (define tbmanager (new tile-backlog-manager%))
-    
+
+;; Return the number of tiles that are pending download.  This value is
+;; displayed on the map canvas.
 (define (get-download-backlog)
   (send tbmanager num-items))
 
@@ -329,20 +336,16 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 (define user-agent "User-Agent: ActivityLog2 http://alex-hhh.github.io/ActivityLog2/")
 
 ;; Return the URL string for fetching the bitmap for TILE from OpenStreetMap
-(define (tile->osm-url tile)
-  (let ((zoom (map-tile-zoom tile))
-        (x (map-tile-x tile))
-        (y (map-tile-y tile)))
-    (format "https://tile.openstreetmap.org/~a/~a/~a.png" zoom x y)))
+(define (tile->osm-url t)
+  (match-define (map-tile zoom x y) t)
+  (format "https://tile.openstreetmap.org/~a/~a/~a.png" zoom x y))
 
 ;; Return the URL string from fetching the bitmap for TILE from Thunderforest.
 ;; KIND determines the type of the map used (e.g. cycle, outdoors, etc)
-(define (tile->tf-url kind tile)
-  (let ((zoom (map-tile-zoom tile))
-        (x (map-tile-x tile))
-        (y (map-tile-y tile)))
-    (format "https://tile.thunderforest.com/~a/~a/~a/~a.png?apikey=~a"
-            kind zoom x y (tf-api-key))))
+(define (tile->tf-url kind t)
+  (match-define (map-tile zoom x y) t)
+  (format "https://tile.thunderforest.com/~a/~a/~a/~a.png?apikey=~a"
+          kind zoom x y (tf-api-key)))
 
 ;; Hold information about a map tile bitmap provider
 (struct tile-provider (name tag cache-file url-fn copyright))
@@ -448,21 +451,23 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; AL-PREF-ALLOW-TILE-DOWNLOAD is #f.
 (define (net-fetch-tile tile connection)
   (with-handlers
-   (((lambda (e) #t)
-     (lambda (e)
-       (log-exception "net-fetch-tile" e)
-       (dbg-printf "Failed to download tile ~a~%" e)
-       #f)))
-   (if (allow-tile-download)
-       (parameterize ((current-https-protocol 'secure))
-         (let ((url (tile->url tile)))
-           (let-values (((port headers)
-                         (get-pure-port/headers url
-                                                (list user-agent)
-                                                #:connection connection)))
-             (let ((data (port->bytes port)))
-               (list tile url data)))))
-       #f)))
+    (((lambda (e) #t)
+      (lambda (e)
+        (log-exception "net-fetch-tile" e)
+        (dbg-printf "Failed to download tile ~a~%" e)
+        #f)))
+    (if (allow-tile-download)
+        (parameterize ((current-https-protocol 'secure))
+          (let ((url (tile->url tile)))
+            (let-values (((port headers)
+                          (get-pure-port/headers url
+                                                 (list user-agent)
+                                                 #:connection connection)))
+              (define content-type (extract-field "Content-Type" headers))
+              (and (equal? content-type "image/png")
+                   (let ((data (port->bytes port)))
+                     (list tile url data))))))
+        #f)))
 
 ;; Create a thread to download tiles from the network.  Requests are received
 ;; on REQUEST channel and replies are sent on REPLY channel.  Every downloaded
@@ -477,7 +482,7 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
          (if work-item
              (let* ([tile work-item]
                     [data (net-fetch-tile tile connection)])
-               (send tbmanager clear tile)
+               (send tbmanager clear tile (not (eq? data #f)))
                (when data
                  (match-define (list tile url blob) data)
                  (dbg-printf "NET Downloaded tile ~a~%" tile)
@@ -580,32 +585,32 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
   ;; This is called from the map widget paint method, and if we throw an
   ;; exception from that,the whole thing locks up.
   (with-handlers
-   (((lambda (e) #t)
-     (lambda (e)
-       (log-exception (format "get-tile-bitmap(~a)" tile) e)
-       (dbg-printf "get-tile-bitmap(~a): ~a~%" tile e)
-       #f)))
+    (((lambda (e) #t)
+      (lambda (e)
+        (log-exception (format "get-tile-bitmap(~a)" tile) e)
+        (dbg-printf "get-tile-bitmap(~a): ~a~%" tile e)
+        #f)))
 
-   (maybe-setup)
-   (process-some-replies reply-channel bitmap-cache #f)
+    (maybe-setup)
+    (process-some-replies reply-channel bitmap-cache #f)
 
-   ;; If the tile count in the bitmap cache has reached the threshold, discard
-   ;; the secondary-bitmap-cache and rotate it. This way, we discard old
-   ;; unused tiles, trying to keep the memory down.
-   (when (> (hash-count bitmap-cache) cache-threshold)
-     (dbg-printf "Rotating tile cache~%")
-     (set! secondary-bitmap-cache bitmap-cache)
-     (set! bitmap-cache (make-hash)))
+    ;; If the tile count in the bitmap cache has reached the threshold, discard
+    ;; the secondary-bitmap-cache and rotate it. This way, we discard old
+    ;; unused tiles, trying to keep the memory down.
+    (when (> (hash-count bitmap-cache) cache-threshold)
+      (dbg-printf "Rotating tile cache~%")
+      (set! secondary-bitmap-cache bitmap-cache)
+      (set! bitmap-cache (make-hash)))
 
-   (cond ((hash-ref bitmap-cache tile #f))
-         ;; Check if this value is in the secondary bitmap cache.  If it is,
-         ;; move it back into the main cache, as it looks like it is in use.
-         ((hash-ref secondary-bitmap-cache tile #f)
-          => (lambda (v)
-               (hash-set! bitmap-cache tile v)
-               (hash-remove! secondary-bitmap-cache tile)
-               v))
-         (#t (fetch-tile tile db-request-channel) #f))))
+    (cond ((hash-ref bitmap-cache tile #f))
+          ;; Check if this value is in the secondary bitmap cache.  If it is,
+          ;; move it back into the main cache, as it looks like it is in use.
+          ((hash-ref secondary-bitmap-cache tile #f)
+           => (lambda (v)
+                (hash-set! bitmap-cache tile v)
+                (hash-remove! secondary-bitmap-cache tile)
+                v))
+          (#t (fetch-tile tile db-request-channel) #f))))
 
 (define (vacuum-tile-cache-database)
   (maybe-setup)

@@ -30,6 +30,7 @@
          bbox-center/ndcs
          bbox-size
          bbox-merge
+         bbox-extend
          (struct-out map-bbox)
          (struct-out map-tile)
          map-tile-equal?
@@ -188,6 +189,11 @@
    (max (map-bbox-max-lon bb1) (map-bbox-max-lon bb2))
    (min (map-bbox-min-lat bb1) (map-bbox-min-lat bb2))
    (min (map-bbox-min-lon bb1) (map-bbox-min-lon bb2))))
+
+(: bbox-extend (-> map-bbox Coord map-bbox))
+(define (bbox-extend bb pos)
+  (bbox-merge bb (map-bbox (point-lat pos) (point-lon pos)
+                           (point-lat pos) (point-lon pos))))
 
 (: wind-rose (Vectorof String))
 (define wind-rose

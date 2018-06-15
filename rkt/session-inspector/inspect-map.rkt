@@ -224,14 +224,14 @@
     (define (highlight-lap lap)
       ;; Remove custom any lap and set all other tracks to default pen and
       ;; z-order (effectively un-highlights any highlighted lap).
-      (send map-view delete-track-group 'custom)
-      (send map-view set-track-group-pen #f
+      (send map-view delete-group 'custom)
+      (send map-view set-group-pen #f
             (send the-pen-list find-or-create-pen
                   (make-object color% 226 34 62)
                   3
                   (if show-selected-lap-only? 'transparent 'solid)
                   'round 'round))
-      (send map-view set-track-group-zorder #f 0.5)
+      (send map-view set-group-zorder #f 0.5)
 
       (let ((lap-num (dict-ref lap 'lap-num #f))
             (custom-lap? (dict-ref lap 'custom-lap #f))
@@ -252,12 +252,12 @@
       
       ;; Highlight current lap by setting a thicker pen of a different color
       ;; and putting the track on top.
-      (send map-view set-track-group-pen selected-lap
+      (send map-view set-group-pen selected-lap
             (send the-pen-list find-or-create-pen
                   (make-object color% 24 60 165)
                   7
                   'solid 'round 'round))
-      (send map-view set-track-group-zorder selected-lap 0.1)
+      (send map-view set-group-zorder selected-lap 0.1)
 
       ;; Zoom canvas to current lap (if needed)
       (when zoom-to-lap?
@@ -328,7 +328,7 @@
           ;; Make sure lap tracks are joined
           (set! start-idx (sub1 end-idx))))
 
-      (send map-view set-track-group-pen #f
+      (send map-view set-group-pen #f
             (send the-pen-list find-or-create-pen
                   (make-object color% 226 34 62)
                   3 'solid 'round 'round))

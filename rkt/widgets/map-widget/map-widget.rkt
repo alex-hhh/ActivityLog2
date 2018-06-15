@@ -25,7 +25,6 @@
          racket/sequence
          racket/stream
          "../../utilities.rkt"          ; for get-pref
-         "../../fmt-util.rkt"
          "map-util.rkt"
          "map-tiles.rkt")
 
@@ -183,30 +182,30 @@
     (let* ((max-coord (* tile-size (expt 2 zoom-level)))
            (x (* (map-point-x pos) max-coord))
            (y (* (map-point-y pos) max-coord)))
-    (let-values (([w h b e] (send dc get-text-extent label)))
-      (let ((arrow-length 30)
-            (text-spacing 2))
-        (let ((label-baseline-x (+ x (* direction arrow-length)))
-              (label-baseline-y (+ y (- arrow-length)))
-              (label-length (+ w text-spacing text-spacing))
-              (label-height (+ h text-spacing text-spacing)))
-        (send dc draw-line x y label-baseline-x label-baseline-y)
-        (send dc draw-line
-              label-baseline-x label-baseline-y
-              (+ label-baseline-x (* direction label-length))
-              label-baseline-y)
-        (send dc set-pen
-              (send the-pen-list find-or-create-pen "black" 1 'transparent))
-        (let ((rectangle-y (- label-baseline-y label-height))
-              (rectangle-x (if (> direction 0)
-                               label-baseline-x
-                               (- label-baseline-x label-length))))
-          (send dc draw-rectangle
-                rectangle-x rectangle-y
-                label-length label-height)
-          (send dc draw-text label
-                (+ rectangle-x text-spacing)
-                (+ rectangle-y text-spacing)))))))))
+      (let-values (([w h b e] (send dc get-text-extent label)))
+        (let ((arrow-length 30)
+              (text-spacing 2))
+          (let ((label-baseline-x (+ x (* direction arrow-length)))
+                (label-baseline-y (+ y (- arrow-length)))
+                (label-length (+ w text-spacing text-spacing))
+                (label-height (+ h text-spacing text-spacing)))
+            (send dc draw-line x y label-baseline-x label-baseline-y)
+            (send dc draw-line
+                  label-baseline-x label-baseline-y
+                  (+ label-baseline-x (* direction label-length))
+                  label-baseline-y)
+            (send dc set-pen
+                  (send the-pen-list find-or-create-pen "black" 1 'transparent))
+            (let ((rectangle-y (- label-baseline-y label-height))
+                  (rectangle-x (if (> direction 0)
+                                   label-baseline-x
+                                   (- label-baseline-x label-length))))
+              (send dc draw-rectangle
+                    rectangle-x rectangle-y
+                    label-length label-height)
+              (send dc draw-text label
+                    (+ rectangle-x text-spacing)
+                    (+ rectangle-y text-spacing)))))))))
 
 (define (with-draw-context dc origin-x origin-y thunk)
   (let-values (([ox oy] (send dc get-origin)))
@@ -222,14 +221,7 @@
     (init-field track group)
     (super-new)
 
-    (define zorder 0.5)
-    (define bbox (track-bbox track))
-    (define pen
-      (send the-pen-list find-or-create-pen
-            (make-object color% 226 34 62)
-            3 'solid 'round 'round))
-    (define brush
-      (send the-brush-list find-or-create-brush "black" 'transparent))
+    (define bbox #f)
     (define debug?
       (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
     (define debug-pen
@@ -245,7 +237,7 @@
             (hash-set! paths-by-zoom-level zoom-level dc-path)))
         dc-path))
 
-    (define/public (draw dc zoom-level)
+    (define/public (draw dc zoom-level pen brush)
       (let ((path (get-dc-path zoom-level)))
         (send dc set-pen pen)
         (send dc set-brush brush)
@@ -255,10 +247,10 @@
         (send dc set-brush brush)
         (draw-bounding-box dc bbox zoom-level)))
 
-    (define/public (set-pen p) (set! pen p))
-    (define/public (set-zorder z) (set! zorder z))
-    (define/public (get-zorder) zorder)
-    (define/public (get-bbox) bbox)
+    (define/public (get-bounding-box)
+      (unless bbox
+        (set! bbox (track-bbox track)))
+      bbox)
     (define/public (get-group) group)
 
     ))
@@ -271,6 +263,9 @@
     (define/public (draw dc zoom-level)
       (define point (lat-lon->map-point (point-lat pos) (point-long pos)))
       (draw-label dc point zoom-level text direction color))
+    
+    (define/public (get-position)
+      pos)
     
     ))
 
@@ -325,43 +320,61 @@
    (list 17    91.44 "100 yd")
    (list 18    45.72 "50 yd")))
 
-(define (legend-distance)
-  (if (eq? (al-pref-measurement-system) 'metric)
-      legend-distance-metric
-      legend-distance-statute))
-
 (define (draw-map-legend canvas dc zoom-level)
-  (let* ((entry (assq zoom-level (legend-distance)))
-         (distance (if entry (second entry) 1000))
-         (label (if entry (third entry) "1 km")))
-    (let ((km-dist (/ distance (zoom-level->mpp zoom-level)))
-          (label (format "~a  (ZL ~a; BL ~a)" label zoom-level (get-download-backlog)))
-          (ox 10)
-          (oy 10))
-      (let-values (([cw ch] (send canvas get-size)))
-        (send dc set-brush
-              (send the-brush-list find-or-create-brush
-                    (make-color 255 255 255 0.7) 'solid))
-        (send dc set-pen
-              (send the-pen-list find-or-create-pen "white" 1 'transparent))
-        (send dc set-font legend-font)
-        (send dc set-text-foreground legend-color)
+  (define-values (metric-distance metric-label)
+    (let ((entry (assq zoom-level legend-distance-metric)))
+      (if entry
+          (values (second entry) (third entry))
+          (values 1000 "1 km"))))
+  (define-values (statute-distance statute-label)
+    (let ((entry (assq zoom-level legend-distance-statute)))
+      (if entry
+          (values (second entry) (third entry))
+          (values 1609.344 "1 mi"))))
+  (define mlabel
+    (let ((backlog-size (get-download-backlog)))
+      (if (> backlog-size 0)
+          (format "~a  (ZL ~a; BL ~a)" metric-label zoom-level backlog-size)
+          (format "~a  (ZL ~a)" metric-label zoom-level))))
+  (define slabel statute-label)
+  (define mdist (/ metric-distance (zoom-level->mpp zoom-level)))
+  (define sdist (/ statute-distance (zoom-level->mpp zoom-level)))
+  (define-values (ox oy) (values 10 10))
+  (define-values (cw ch) (send canvas get-size))
+  (send dc set-brush
+        (send the-brush-list find-or-create-brush
+              (make-color 255 255 255 0.7) 'solid))
+  (send dc set-pen
+        (send the-pen-list find-or-create-pen "white" 1 'transparent))
+  (send dc set-font legend-font)
+  (send dc set-text-foreground legend-color)
 
-        (let-values (((w h x y) (send dc get-text-extent (tile-copyright-string) legend-font #t)))
-          (send dc draw-rectangle (- cw ox 5 w) (- ch oy 5 h) (+ w 5 5) (+ h 5 5))
-          (send dc draw-text (tile-copyright-string) (- cw ox w) (- ch oy h)))
+  (let-values (((w h x y) (send dc get-text-extent (tile-copyright-string) legend-font #t)))
+    (send dc draw-rectangle (- cw ox 5 w) (- ch oy 5 h) (+ w 5 5) (+ h 5 5))
+    (send dc draw-text (tile-copyright-string) (- cw ox w) (- ch oy h))
 
-        (send dc draw-rectangle (- ox 5) (- ch oy 20) (+ km-dist 5 5) 25)
-        (send dc set-pen legend-pen)
+    ;; use the height of the copyright string to determine the height of the
+    ;; legend rectangle.
+    (send dc draw-rectangle (- ox 5) (- ch oy 30)
+          (+ (max mdist sdist) 5 5) (+ (* 2 (+ h 3)) 5)))
 
-        (send dc draw-line ox (- ch oy) (+ ox km-dist) (- ch oy))
-        (send dc draw-line ox (- ch oy) ox (- ch oy 3))
-        (send dc draw-line (+ ox km-dist) (- ch oy) (+ ox km-dist) (- ch oy 3))
+  (send dc set-pen legend-pen)
 
-        (let-values (([w h b e] (send dc get-text-extent label)))
-          (let ((tx (+ ox (/ (- km-dist w) 2)))
-                (ty (- ch oy 3 h)))
-            (send dc draw-text label tx ty)))))))
+  (send dc draw-line ox (- ch oy 10) (+ ox (max mdist sdist)) (- ch oy 10))
+  (send dc draw-line ox (- ch oy 10) ox (- ch oy 10 10))
+  (send dc draw-line ox (- ch oy 10) ox (+ (- ch oy 10) 10))
+  (send dc draw-line (+ ox mdist) (- ch oy 10) (+ ox mdist) (- ch oy 10 10))
+  (send dc draw-line (+ ox sdist) (- ch oy 10) (+ ox sdist) (+ (- ch oy 10) 10))
+
+  (let-values (([w h b e] (send dc get-text-extent mlabel)))
+    (let ((tx (+ ox 3))
+          (ty (- ch oy 10 3 h)))
+      (send dc draw-text mlabel tx ty)))
+
+  (let-values (([w h b e] (send dc get-text-extent slabel)))
+    (let ((tx (+ ox 3))
+          (ty (+ (- ch oy 10) 3)))
+      (send dc draw-text slabel tx ty))))
 
 (define debug-track-colors
   (vector (make-object color% #xad #xd8 #xe6) ; light blue
@@ -394,6 +407,14 @@
 
     ;;; data to display on the map
     (define tracks '())
+    (define group-pens (make-hash))
+    (define group-zorder (make-hash))
+    (define default-pen
+      (send the-pen-list find-or-create-pen
+            (make-object color% 226 34 62)
+            3 'solid 'round 'round))
+    (define default-zorder 0.5)
+    
     (define markers '())
     ;; A (vector lat lon) where we draw a marker
     (define current-location #f)
@@ -405,7 +426,7 @@
     (define last-current-location-x #f)
     (define last-current-location-y #f)
     
-    (define zoom-level 1)
+    (define zoom-level 12)
     (define max-tile-num (expt 2 zoom-level))
     (define max-coord (* tile-size max-tile-num))
 
@@ -439,13 +460,17 @@
 
     (define last-mouse-x #f)
     (define last-mouse-y #f)
+    (define hand-cursor (make-object cursor% 'hand))
+    (define arrow-cursor (make-object cursor% 'arrow))
 
     (define (on-mouse-event canvas event)
       ;; Implement map panning by dragging the mouse
       (cond ((send event button-down? 'left)
+             (send canvas set-cursor hand-cursor)
              (set! last-mouse-x (send event get-x))
              (set! last-mouse-y (send event get-y)))
             ((send event button-up? 'left)
+             (send canvas set-cursor arrow-cursor)
              (set! last-mouse-x #f)
              (set! last-mouse-y #f))
             ((send event dragging?)
@@ -463,18 +488,34 @@
       ;; Implement map zoom-in and out using the mouse wheel.  Mouse wheel
       ;; zoom is handled by the key event
       (let ((key-code (send event get-key-code)))
-        (cond ((and (eq? key-code 'wheel-up) (< zoom-level 18))
-               (set-zoom-level (+ zoom-level 1)))
-              ((and (eq? key-code 'wheel-down) (> zoom-level 3))
-               (set-zoom-level (- zoom-level 1))))))
+        (cond ((and (eq? key-code 'wheel-up) (< zoom-level (get-max-zoom-level)))
+               (set-zoom-level (add1 zoom-level)))
+              ((and (eq? key-code 'wheel-down) (> zoom-level (get-min-zoom-level)))
+               (set-zoom-level (sub1 zoom-level))))))
+
+    (define first-paint? #t)
 
     (define (on-canvas-paint canvas dc)
+      (when first-paint?
+        (before-first-paint)
+        (set! first-paint? #f))
       (draw-map-tiles canvas dc)
       (with-draw-context
         dc origin-x origin-y
         (lambda ()
-          (for ([track (sort tracks > #:key (lambda (t) (send t get-zorder)))])
-            (send track draw dc zoom-level))
+          (define sorted-groups
+            (sort
+             (remove-duplicates (for/list ([t tracks]) (send t get-group)))
+             >
+             #:key (lambda (group)
+                     (hash-ref group-zorder group default-zorder))))
+          (define brush
+            (send the-brush-list find-or-create-brush "black" 'transparent))
+          (for ([group sorted-groups])
+            (define pen (hash-ref group-pens group default-pen))
+            (for ([track (in-list tracks)] #:when (equal? (send track get-group) group))
+              (send track draw dc zoom-level pen brush)))
+          
           (for ([marker markers])
             (send marker draw dc zoom-level))
           ;; Draw the current location marker, as set by
@@ -487,6 +528,11 @@
                   (- last-current-location-y 12)
                   24 24))))
       (draw-map-legend canvas dc zoom-level))
+
+    (define (before-first-paint)
+      ;; The canvas has no proper size before it is shown, so we need this
+      ;; method for things that rely on the canvas size...
+      (center-map))
 
     ;; Bitmap to draw when we don't receive a tile
     (define empty-bmp (make-bitmap tile-size tile-size #f))
@@ -521,14 +567,14 @@
         (let-values (((w h) (send canvas get-size)))
           (for* ((x (in-range 0 (+ 1 (exact-ceiling (/ w tile-size)))))
                  (y (in-range 0 (+ 1 (exact-ceiling (/ h tile-size))))))
-                (let ((tile-x (+ tile0-x x))
-                      (tile-y (+ tile0-y y)))
-                  (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
-                    (let ((bmp (or (get-tile-bitmap (map-tile zoom-level tile-x tile-y))
-                                   (begin (set! request-redraw? #t) empty-bmp))))
-                      (send dc draw-bitmap bmp
-                            (- (* x tile-size) xofs)
-                            (- (* y tile-size) yofs)))))))
+            (let ((tile-x (+ tile0-x x))
+                  (tile-y (+ tile0-y y)))
+              (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
+                (let ((bmp (or (get-tile-bitmap (map-tile zoom-level tile-x tile-y))
+                               (begin (set! request-redraw? #t) empty-bmp))))
+                  (send dc draw-bitmap bmp
+                        (- (* x tile-size) xofs)
+                        (- (* y tile-size) yofs)))))))
 
         (when (or request-redraw? (> (get-download-backlog) 0))
           (send redraw-timer start 100))))
@@ -557,8 +603,8 @@
 
     (define/public (set-zoom-level zl)
       ;; Ensure the zoom level is in the valid range
-      (when (> zl max-zoom-level) (set! zl max-zoom-level))
-      (when (< zl min-zoom-level) (set! zl min-zoom-level))
+      (when (> zl (get-max-zoom-level)) (set! zl (get-max-zoom-level)))
+      (when (< zl (get-min-zoom-level)) (set! zl (get-min-zoom-level)))
 
       ;; Don't do anything unless the zoom level actually changes
       (unless (eq? zl zoom-level)
@@ -624,7 +670,7 @@
         (set! last-current-location-x #f)
         (set! last-current-location-x #f)
         (request-refresh))
-     
+      
       (when current-location
         (let-values (([w h] (send canvas get-size)))
           (let* ((point (lat-lon->map-point
@@ -673,43 +719,58 @@
 
     ;; Set the pen used to draw a certain track group.  If GROUP is #f, all
     ;; the tracks will use this pen.
-    (define/public (set-track-group-pen group pen)
-      (for ([track tracks]
-            #:when (or (not group)
-                       (equal? group (send track get-group))))
-        (send track set-pen pen))
+    (define/public (set-group-pen group pen)
+      (if group
+          (hash-set! group-pens group pen)
+          (begin
+            ; silly way in which inspect-map uses the widget.
+            (set! group-pens (make-hash))
+            (set! default-pen pen)))
       (request-refresh))
 
     ;; Set the Z-ORDER used to draw a track group.  If GROUP is #f, al the
     ;; tracks will use this Z-ORDER and the tracks are drawn in the order they
     ;; were added.  Tracks are drawn back to front, biggest Z-ORDER first.
     ;; This way, tracks with smaller Z-ORDER will be "on top".
-    (define/public (set-track-group-zorder group zorder)
-      (for ([track tracks]
-            #:when (or (not group)
-                       (equal? group (send track get-group))))
-        (send track set-zorder zorder))
+    (define/public (set-group-zorder group zorder)
+      (if group
+          (hash-set! group-zorder group zorder)
+          (begin
+            ; silly way in which inspect-map uses the widget.
+            (set! group-zorder (make-hash))
+            (set! default-zorder zorder)))
       (request-refresh))
 
     ;; Delete all tracks in GROUP, or delete all tracks if GROUP is #f.
-    (define/public (delete-track-group group)
+    (define/public (delete-group group)
       (define ntracks
         (for/list ([track tracks]
                    #:unless (or (not group) (equal? group (send track get-group))))
           track))
       (set! tracks ntracks)
       (request-refresh))
-          
-    (define (get-bbox [group #f])
-      (for/fold ([bbox #f])
-                ([track tracks]
-                 #:when (or (not group)
-                            (equal? group (send track get-group))))
-        (let ((bb1 (send track get-bbox)))
-          (if bbox (bbox-merge bbox bb1) bb1))))
+    
+    (define (get-bounding-box [group #f])
+      (define bb
+        (for/fold ([bb #f])
+                  ([track tracks]
+                   #:when (or (not group)
+                              (equal? group (send track get-group))))
+          (let ((bb1 (send track get-bounding-box)))
+            (if bb (bbox-merge bb bb1) bb1))))
+      (if group
+          bb
+          ;; If no group is specified, include the markers as well
+          (for/fold ([bb bb])
+                    ([marker markers])
+            (if bb
+                (bbox-extend bb (send marker get-position))
+                (let ((pos (send marker get-position)))
+                  (map-bbox (point-lat pos) (point-long pos)
+                            (point-lat pos) (point-long pos)))))))
 
     (define (get-center [group #f])
-      (let ([bbox (get-bbox group)])
+      (let ([bbox (get-bounding-box group)])
         (if bbox
             (let ([cp/ndcs (bbox-center/ndcs bbox)])
               (values (* (map-point-x cp/ndcs) max-coord)
@@ -724,16 +785,14 @@
     (define/public (center-map [group #f])
       (let-values (([cx cy] (get-center group))
                    ([cwidth cheight] (send canvas get-size)))
-        (let ((actual-center-x (+ origin-x (/ cwidth 2)))
-              (actual-center-y (+ origin-y (/ cheight 2))))
-          (set! origin-x (+ origin-x (- cx actual-center-x)))
-          (set! origin-y (+ origin-y (- cy actual-center-y)))))
+        (set! origin-x (- cx (/ cwidth 2)))
+        (set! origin-y (- cy (/ cheight 2))))
       (limit-origin canvas)
       (request-refresh))
 
     (define/public (resize-to-fit [group #f])
       (let-values (((cwidth cheight) (send canvas get-size)))
-        (let ((bbox (get-bbox group)))
+        (let ((bbox (get-bounding-box group)))
           (when bbox
             (set-zoom-level (select-zoom-level bbox cwidth cheight))))
         (center-map group)
