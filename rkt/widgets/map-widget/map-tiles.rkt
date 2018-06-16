@@ -95,8 +95,8 @@
   (put-pref allow-tile-download-tag new-val)
   (set! allow-tile-download-val new-val)
   (if new-val
-      (log-message map-widget-logger 'info "map tile download enabled" #f #t)
-      (log-message map-widget-logger 'info "map tile download disabled" #f #t)))
+      (log-message map-widget-logger 'info #f "map tile download enabled" #f #t)
+      (log-message map-widget-logger 'info #f "map tile download disabled" #f #t)))
 
 
 ;.................................................. tile cache database ....
