@@ -85,7 +85,8 @@
     [_ #`(quote #,(with-handlers
                     (((lambda (x) #t)
                       (lambda (x)
-                        (printf "*** (embedded-commit-id): ~a~%" (exn-message x))
+                        ;; Silently ignore errors.  This file will be missing
+                        ;; if build.rkt was not run first.
                         "no commit id")))
                     ;; NOTE: build-id.txt is loaded from the current directory
                     ;; of the compilation, which is the toplevel directory.
