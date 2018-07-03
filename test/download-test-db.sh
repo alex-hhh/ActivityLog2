@@ -1,9 +1,18 @@
 #!/bin/bash
 
+set -e
+
+# The decryption password does not seem to be set on builds that don't run off
+# master. This is probably a good idea, however we need to make sure the build
+# can handle this.
+if [ -z $TESTDBPW ]; then
+    echo "Not downloading test databases, database upgrade tests will not run"
+    exit 0
+fi
+
 # NOTE: this script runs from the root of the repository.  This needs to be
 # accounted for in the file paths
 
-set -e
 file_id=0B5h4XOdkim72cDJ4Z2RZR05UOFE
 file_name=test-db.tar.gz.enc
 file_name2=test-db.tar.gz

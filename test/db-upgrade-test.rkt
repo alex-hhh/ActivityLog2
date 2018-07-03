@@ -21,6 +21,9 @@
 (define test-dir "./test-db")
 
 (define (candidate-databases)
+  ;; Ensure that test-db directory exists (in case the download database
+  ;; script failed to run
+  (make-directory* test-dir)
   (for/list ([path (in-directory test-dir)]
              #:when (let-values (([base name _] (split-path path)))
                       (regexp-match #rx"^al2-v[0-9]+\\.db$" name)))
