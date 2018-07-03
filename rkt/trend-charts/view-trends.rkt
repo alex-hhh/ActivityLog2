@@ -341,12 +341,11 @@
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
         (when ct
-          (let ((pane (let ((tc (new (tdecl-class ct) [database database])))
-                        (new trend-chart-pane%
-                             [parent trend-charts-panel]
-                             [info-tag (tdecl-tag ct)]
-                             [trend-chart-class (tdecl-class ct)]
-                             [database database]))))
+          (let ((pane (new trend-chart-pane%
+                           [parent trend-charts-panel]
+                           [info-tag (tdecl-tag ct)]
+                           [trend-chart-class (tdecl-class ct)]
+                           [database database])))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name))
