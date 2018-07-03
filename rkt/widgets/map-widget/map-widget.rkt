@@ -24,6 +24,7 @@
          racket/list
          racket/sequence
          racket/stream
+         racket/match
          "../../utilities.rkt"          ; for get-pref
          "map-util.rkt"
          "map-tiles.rkt")
@@ -152,9 +153,11 @@
 
   (let-values (([cx cy] (get-center zoom-level)))
     (send dc draw-ellipse (+ cx -10) (+ cy -10) 20 20))
+
+  (match-define (map-bbox max-lat max-lon min-lat min-lon) bounding-box)
   (let ((max-coord (* tile-size (expt 2 zoom-level)))
-        (map1 (lat-lon->map-point (car (first bounding-box)) (cdr (first bounding-box))))
-        (map2 (lat-lon->map-point (car (second bounding-box)) (cdr (second bounding-box)))))
+        (map1 (lat-lon->map-point max-lat min-lon))
+        (map2 (lat-lon->map-point min-lat max-lon)))
     (let ((x1 (* (map-point-x map1) max-coord))
           (y1 (* (map-point-y map1) max-coord))
           (x2 (* (map-point-x map2) max-coord))
@@ -222,8 +225,8 @@
     (super-new)
 
     (define bbox #f)
-    (define debug?
-      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+    (define debug? #f)
+      ;; (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
     (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
     (define paths-by-zoom-level (make-hash))
@@ -405,6 +408,11 @@
   (class object%
     (init parent) (super-new)
 
+    (define debug?
+      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+    (define debug-pen
+      (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
+
     ;;; data to display on the map
     (define tracks '())
     (define group-pens (make-hash))
@@ -526,7 +534,14 @@
             (send dc draw-ellipse
                   (- last-current-location-x 12)
                   (- last-current-location-y 12)
-                  24 24))))
+                  24 24))
+
+          (when debug?
+            (send dc set-pen debug-pen)
+            (send dc set-brush brush)
+            (define bbox (get-bounding-box))
+            (draw-bounding-box dc bbox zoom-level))))
+
       (draw-map-legend canvas dc zoom-level))
 
     (define (before-first-paint)
