@@ -64,38 +64,38 @@
     "Body Weight" 'bw bw-trends-chart%
     trends-bw-file
     "Plot body weight over time")
-   
+
    (tdecl
     "Traning Volume (multisport)" 'trivol trivol-trends-chart%
     trends-trivol-file
     "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength)")
-   
+
    (tdecl
     "Traning Volume" 'vol vol-trends-chart%
     trends-vol-file
     "Show training volume (time, distance, or number of activities) over time for an activity type"
     )
-   
+
    (tdecl
     "Time in Zone" 'tiz tiz-trends-chart%
     trends-tiz-file
     "Show time spent in each heart rate zone for a selected activity type over time")
-   
+
    (tdecl
     "Performance" 'pmc pmc-trends-chart%
     trends-pmc-file
     "Plot form, fitness and fatigue over time.")
-   
+
    (tdecl
     "Training Times" 'tt tt-trends-chart%
     trends-tt-file
     "Plot the time of day over weekday when each activity occured.")
-   
+
    (tdecl
     "Best Avg" 'bavg bavg-trends-chart%
     trends-bavg-file
     "Plot the best-average (mean maximal) for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
-   
+
    (tdecl
     "Histogram" 'hist hist-trends-chart%
     trends-hist-file
@@ -241,7 +241,7 @@
       ;; NOTE: we use individual image exports, because the snip-canvas%
       ;; export-image-to-file will scale the image and that results in a
       ;; blurry image...
-      
+
       ;; (send graph-pb export-image-to-file file-name 800 400)
       (send trend-chart save-plot-image file-name 800 400))
 
@@ -258,7 +258,7 @@
 
     (define tag 'activity-log:view-trends)
 
-    (define pane 
+    (define pane
       (new (class vertical-panel%
              (init)
              (super-new)
@@ -273,7 +273,7 @@
     (define move-left-button #f)
     (define move-right-button #f)
 
-    (let ((sel-pane (new horizontal-pane% [parent pane] 
+    (let ((sel-pane (new horizontal-pane% [parent pane]
                          [spacing 20]
                          [border 0]
                          [stretchable-height #f]
@@ -329,14 +329,14 @@
                            [restore-data restore-data])))
             (set! trend-charts (append trend-charts (list pane)))
             (send trend-charts-panel append (send pane get-name)))))
-      
+
       (let ((data (get-pref tag (lambda () '()))))
         (when (> (length data) 0)
           (for ([chart-data (in-list data)])
             (match-define (list chart-tag restore-data) chart-data)
             (make-trends-chart chart-tag restore-data))
           (switch-tabs 0))))
-          
+
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
         (when ct
@@ -344,12 +344,14 @@
                         (new trend-chart-pane%
                              [parent trend-charts-panel]
                              [info-tag (tdecl-tag ct)]
-                             [trend-chart tc]))))
+                             [trend-chart-class (tdecl-class ct)]
+                             [database database]
+                             [restore-data (send tc get-restore-data)]))))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name))
               (switch-tabs (- (length trend-charts) 1)))))))
-    
+
     (define (on-delete-chart)
       (let ((n (send trend-charts-panel get-selection)))
         (when n
@@ -372,7 +374,7 @@
                        (switch-tabs (- (length trend-charts) 1)))
                       (#t
                        (send trend-charts-panel change-children (lambda (old) (list)))))))))))
-    
+
     (define (on-setup-chart)
       (let ((n (send trend-charts-panel get-selection)))
         (when n
@@ -389,7 +391,7 @@
         (let-values (((head tail) (split-at trend-charts (sub1 sel))))
           (set! trend-charts (append head (list (car (cdr tail))) (list (car tail)) (cdr (cdr tail)))))
         (after-move (sub1 sel))))
-        
+
     (define (on-move-right)
       (define sel (send trend-charts-panel get-selection))
       (when (and sel (< sel (sub1 (length trend-charts))))
@@ -403,7 +405,7 @@
       (send trend-charts-panel set-selection new-sel)
       (send move-left-button enable (not (zero? new-sel)))
       (send move-right-button enable (< new-sel (sub1 (length trend-charts)))))
-    
+
     (define (switch-tabs n)
       (send trend-charts-panel set-selection n)
       (let ((chart (list-ref trend-charts n)))
@@ -429,7 +431,7 @@
                            (send parent get-top-level-window)
                            '(ok stop))))))
         (thunk)))
-    
+
     (define (on-interactive-export-image)
       (with-exn-handling
         "on-interactive-export-image"
@@ -443,7 +445,7 @@
                                      '(("PNG Files" "*.png") ("Any" "*.*")))))
                 (when fname
                   (send c export-image fname))))))))
-        
+
     (define (on-interactive-export-data formatted?)
       (with-exn-handling
         "on-interactive-export-data"
@@ -457,7 +459,7 @@
                                      '(("CSV Files" "*.csv") ("Any" "*.*")))))
                 (when fname
                   (send c export-data fname formatted?))))))))
-        
+
     (define first-activation #t)
 
     (define (refresh-current-trends-chart (force? #f))
@@ -483,5 +485,5 @@
       (unless first-activation
         (let ((data (for/list ([tc trend-charts]) (send tc get-restore-data))))
           (put-pref tag data))))
-    
+
     ))
