@@ -61,7 +61,11 @@
           racket/base
           racket/file
           racket/format
-          racket/string))
+          racket/string
+          racket/runtime-path))
+
+(begin-for-syntax
+  (define-runtime-path version-id-file "../version.txt"))
 
 ;; Evaluate to a string containing the version as stored in the ../version.txt
 ;; file.
@@ -74,8 +78,11 @@
                         "no version")))
                     ;; NOTE: version.txt is loaded from the current directory
                     ;; of the compilation, which is the toplevel directory.
-                    (let ((version (string-trim (file->string "./version.txt" #:mode 'text))))
+                    (let ((version (string-trim (file->string version-id-file #:mode 'text))))
                       version)))]))
+
+(begin-for-syntax
+  (define-runtime-path build-id-file "../build-id.txt"))
 
 ;; Evaluate to a string containing the commit id as stored in the
 ;; ../build-id.txt file.  This file is created by the build process (see
@@ -90,7 +97,7 @@
                         "no commit id")))
                     ;; NOTE: build-id.txt is loaded from the current directory
                     ;; of the compilation, which is the toplevel directory.
-                    (string-trim (file->string "./build-id.txt" #:mode 'text))))]))
+                    (string-trim (file->string build-id-file #:mode 'text))))]))
 
 ;; Evaluate to a string containing the current timestamp (at the time the
 ;; macro is evaluated.
