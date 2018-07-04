@@ -184,7 +184,7 @@
 
 (define trend-chart-pane%
   (class panel%
-    (init-field parent info-tag trend-chart-class database restore-data)
+    (init-field parent info-tag trend-chart-class database [restore-data #f])
     (super-new [parent parent] [style '(deleted)])
 
     (define trend-chart #f)
@@ -194,7 +194,8 @@
     (define (maybe-initialize)
       (unless trend-chart
         (set! trend-chart (new trend-chart-class [database database]))
-        (send trend-chart restore-from restore-data)
+        (when restore-data
+          (send trend-chart restore-from restore-data))
         (set! graph-pb (new snip-canvas% [parent this]))))
 
     (define/public (get-name)
@@ -340,11 +341,11 @@
     (define (on-new-chart)
       (let ((ct (send (new new-trend-chart-dialog%) show-dialog parent)))
         (when ct
-          (let ((pane (let ((tc (new (tdecl-class ct) [database database])))
-                        (new trend-chart-pane%
-                             [parent trend-charts-panel]
-                             [info-tag (tdecl-tag ct)]
-                             [trend-chart tc]))))
+          (let ((pane (new trend-chart-pane%
+                           [parent trend-charts-panel]
+                           [info-tag (tdecl-tag ct)]
+                           [trend-chart-class (tdecl-class ct)]
+                           [database database])))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name))
