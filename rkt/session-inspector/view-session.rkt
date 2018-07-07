@@ -341,7 +341,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
         ;; data.
-        (when (df-row-count data-frame)
+        (when (> (df-row-count data-frame) 0)
           (set! tabs (cons charts tabs))
           (set! tabs (cons scatter tabs))
           (set! tabs (cons histogram tabs))

@@ -363,11 +363,12 @@
                (and x y
                     (let ((xnam (send x series-name))
                           (ynam (send y series-name)))
-                      (and  (df-contains? df xnam ynam)
-                            (df-select* df xnam ynam #:filter filter-fn)))))
+                      (if (df-contains? df xnam ynam)
+                          (df-select* df xnam ynam #:filter filter-fn)
+                          (error (format "data-frame is missing ~a+~a" xnam ynam))))))
              (define bounds (and ds (find-bounds ds)))
              (define qbounds
-               (if opct
+               (if (and ds opct)
                    (find-bounds/quantile ds opct)
                    (vector #f #f #f #f)))
              (define grouped

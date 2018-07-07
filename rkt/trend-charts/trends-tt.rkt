@@ -407,6 +407,6 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
                                               start end sport-id))
                                 (#t
                                  (df-read/sql database tt-sport-stmt-3 start end))))))
-              (set! data-valid? (df-row-count tt-data)))))))
+              (set! data-valid? (> (df-row-count tt-data) 0)))))))
 
     ))

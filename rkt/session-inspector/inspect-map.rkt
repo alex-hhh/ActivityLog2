@@ -338,11 +338,11 @@
         ;; search the first valid point from both ends, rather than just
         ;; assuming that the first and last points are valid.
         (for*/first ((index (in-range 0 nitems))
-                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     (position (in-value (df-ref* data-frame index "lat" "lon")))
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "Start" 1 (make-color 0 135 36)))
         (for*/first ((index (in-range (sub1 nitems) 0 -1))
-                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     (position (in-value (df-ref* data-frame index "lat" "lon")))
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)

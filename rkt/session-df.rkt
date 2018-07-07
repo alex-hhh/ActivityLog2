@@ -246,6 +246,7 @@
   (add-rppa-series df)
   (add-rpppa-series df)
   (fixup-lrbal-series df)
+  (add-torque-series df)
 
   (when is-lap-swim?
     (add-swolf-series df))
@@ -362,10 +363,8 @@
         (when (or (not current-point) (< current-point prev-point))
           (vector-set! distance idx prev-point))))
 
-    (let ((series (make-series "distance" #:data distance)))
-      (df-add-series df series)
-      (unless (df-count-na df "distance")
-        (df-set-sorted df "distance" <=)))))
+    (let ((series (make-series "distance" #:data distance #:cmpfn <=)))
+      (df-add-series df series))))
 
 (define (add-speed-series df)
 
@@ -404,14 +403,15 @@
               (* alpha val))))))
   
   (when (df-contains? df series-name "elapsed")
-    (let* ((limit (df-row-count df))
-           (index (df-index-of df "elapsed" limit))
-           (limit-val (if (< index limit) (df-ref df index series-name) #f)))
+    (let* ((limit-index (df-index-of df "elapsed" limit))
+           (limit-val (if (< limit-index (df-row-count df))
+                          (df-ref df limit-index series-name)
+                          #f)))
       ;; If we have no value at INDEX, don't do any smoothing.  We could
       ;; improve this by searching further forward for a valid value, but it
       ;; is not needed for now.
       (when limit-val
-        (for ([idx (in-range index)])
+        (for ([idx (in-range limit-index)])
           (define val (df-ref df idx series-name))
           (define e (df-ref df idx "elapsed"))
           (define nval (combine val limit-val e))
@@ -464,7 +464,7 @@
         (let* ((limit 120)              ; seconds
                (pace-fn (if (eq? (al-pref-measurement-system) 'metric)
                             pace-sec/km pace-sec/mi))
-               (pace-limit (df-lookup df "elapsed" "spd" limit)))
+               (pace-limit (pace-fn (df-lookup df "elapsed" "spd" limit))))
           (df-add-lazy
            df
            "pace"
