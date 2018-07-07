@@ -213,7 +213,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
    df
    (list "dow" "time" count-series)
    (lambda (val)
-     (match-define (vector dow time count) val)
+     (match-define (list dow time count) val)
      (when (> count 0)
        (hash-update! group count (lambda (prev) (cons (vector dow time) prev)) '()))))
   group)
@@ -224,7 +224,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
    df
    (list "dow" "time" count-series)
    (lambda (val)
-     (match-define (vector dow time count) val)
+     (match-define (list dow time count) val)
      (when (> count 0)
        (let ((item (vector dow time)))
          (for ([x (in-range count)])
@@ -237,7 +237,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
    df
    '("dow" "time" "sport_id" "sub_sport_id" "ntotal")
    (lambda (val)
-     (match-define (vector dow time sport sub-sport count) val)
+     (match-define (list dow time sport sub-sport count) val)
      (when (> count 0)
             (let ((group (hash-ref result (cons sport sub-sport) '()))
                   (item (vector dow time)))
