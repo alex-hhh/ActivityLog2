@@ -16,7 +16,8 @@
 
 (require racket/class
          racket/gui/base
-         "../al-widgets.rkt")
+         "../al-widgets.rkt"
+         "../data-frame/df.rkt")
 
 (provide laps-panel%)
 
@@ -42,7 +43,7 @@
     (define interval-choice (new interval-choice% [tag 'interval-choice-laps] [parent control-panel]))
 
     (define (is-lap-swim?)
-      (and data-frame (send data-frame get-property 'is-lap-swim?)))
+      (and data-frame (df-get-property data-frame 'is-lap-swim?)))
 
     (define (on-lap-selected n lap)
       (when (is-lap-swim?)

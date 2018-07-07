@@ -29,7 +29,8 @@
          "../widgets/map-widget/map-util.rkt"
          "../sport-charms.rkt"
          "../weather.rkt"
-         "../data-frame.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/statistics.rkt"
          "../widgets/main.rkt")
 
 (provide inspect-overview-panel%)
@@ -101,13 +102,13 @@
 ;; recalculated while the data frame is in the cache.
 (define (setup-min-max-elevation df)
   (define series
-    (cond ((send df contains? "calt") "calt")
-          ((send df contains? "alt") "alt")
+    (cond ((df-contains? df "calt") "calt")
+          ((df-contains? df "alt") "alt")
           (#t #f)))
   (when series
     (let ((stats (df-statistics df series)))
-      (send df put-property 'min-elevation (statistics-min stats))
-      (send df put-property 'max-elevation (statistics-max stats)))))
+      (df-put-property df 'min-elevation (statistics-min stats))
+      (df-put-property df 'max-elevation (statistics-max stats)))))
 
 ;; Return the min-elevation for the session (as retrieved from the data frame
 ;; DF).  SESSION is not used, and it is present just to satisfy the signature
@@ -116,20 +117,20 @@
 ;; snips are displayed.
 (define (session-min-elevation session df)
   (if df
-      (or (send df get-property 'min-elevation)
+      (or (df-get-property df 'min-elevation)
           (begin
             (setup-min-max-elevation df)
-            (send df get-property 'min-elevation)))
+            (df-get-property df 'min-elevation)))
       #f))
 
 ;; Return the max-elevation for the session, see remarks for
 ;; `session-min-elevation`
 (define (session-max-elevation session df)
   (if df
-      (or (send df get-property 'max-elevation)
+      (or (df-get-property df 'max-elevation)
           (begin
             (setup-min-max-elevation df)
-            (send df get-property 'max-elevation)))
+            (df-get-property df 'max-elevation)))
       #f))
 
 (define *elevation-fields*

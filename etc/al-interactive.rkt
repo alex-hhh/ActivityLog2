@@ -99,9 +99,9 @@
 ;; stops that are very long)
 (define (pp-stops df)
   (for ((sp (in-list (send df get-property 'stop-points))))
-    (let* ((index (send df get-index "timestamp" sp))
-           (ts1 (send df ref index "timestamp"))
-           (ts2 (send df ref (add1 index) "timestamp")))
+    (let* ((index (df-index-of df "timestamp" sp))
+           (ts1 (df-ref df index "timestamp"))
+           (ts2 (df-ref df (add1 index) "timestamp")))
       (printf "timestamp ~a, index ~a: ~a~%" sp index (duration->string (- ts2 ts1))))))
 
 ;; Export the list of activities to OUT-DIR.  NOTE that ACTIVITY-IDs are
@@ -117,7 +117,7 @@
   (match-define (list q01 q25 q50 q75 q99) (df-quantile df series 0 0.25 0.5 0.75 0.99))
   (define stats (df-statistics df series))
   (list
-   (density (send df select series) #:x-min q01 #:x-max q99 #:width 2 #:color "red")
+   (density (df-select df series) #:x-min q01 #:x-max q99 #:width 2 #:color "red")
    (tick-grid)
    (vrule q25 #:label "25%" #:color "blue" #:style 'long-dash)
    (vrule q50 #:label "50%" #:color "green" #:style 'long-dash)

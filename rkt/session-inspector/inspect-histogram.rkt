@@ -25,7 +25,8 @@
          "../utilities.rkt"
          "../series-meta.rkt"
          "../plot-hack.rkt"
-         "../data-frame.rkt"
+         "../data-frame/histogram.rkt"
+         "../data-frame/df.rkt"
          "../widgets/main.rkt"
          "../plot-util.rkt"
          "../fmt-util.rkt")
@@ -41,10 +42,8 @@
                (if (list? axis)
                    (let ()
                      (match-define (list name a1 a2) axis)
-                     (send df contains?
-                           (send a1 series-name)
-                           (send a2 series-name)))
-                   (send df contains? (send axis series-name))))
+                     (df-contains? df (send a1 series-name) (send a2 series-name)))
+                   (df-contains? df (send axis series-name))))
       axis))
   (sort al string<?
         #:key (lambda (a) (if (list? a) (first a) (send a headline)))))
@@ -197,10 +196,10 @@
     (define export-file-name #f)
 
     (define (current-sport)
-      (if data-frame (send data-frame get-property 'sport) #f))
+      (if data-frame (df-get-property data-frame 'sport) #f))
 
     (define (lap-swimming?)
-      (if data-frame (send data-frame get-property 'is-lap-swim?) #f))
+      (if data-frame (df-get-property data-frame 'is-lap-swim?) #f))
 
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
@@ -225,8 +224,8 @@
     ;; function.
     (define (maybe-enable-color-by-zone-checkbox)
       (let ((y-axis (list-ref axis-choices y-axis-index))
-            (sport (and data-frame (send data-frame get-property 'sport)))
-            (sid (and data-frame (send data-frame get-property 'session-id))))
+            (sport (and data-frame (df-get-property data-frame 'sport)))
+            (sid (and data-frame (df-get-property data-frame 'session-id))))
         (when (list? y-axis) (set! y-axis (second y-axis)))
         (send color-by-zone-check-box enable
               (send y-axis factor-fn sport sid))))
@@ -313,8 +312,8 @@
     (define (refresh-plot)
 
       (define (get-factor-fn axis df)
-        (let ((sport (send df get-property 'sport))
-              (sid (send df get-property 'session-id)))
+        (let ((sport (df-get-property df 'sport))
+              (sid (df-get-property df 'session-id)))
           (send axis factor-fn sport sid)))
 
       (unless inhibit-refresh
@@ -351,7 +350,7 @@
                     (combined-histograms (if h2 (combine-histograms h1 h2) h1))
                     (rt (cond
                           ((and axis2 combined-histograms)
-                           (make-histogram-renderer/dual
+                           (histogram-renderer/dual
                             combined-histograms
                             (send axis1 plot-label)
                             (send axis2 plot-label)
@@ -360,10 +359,10 @@
                             #:color2 (send axis2 plot-color)))
                           (h1
                            (if factor-fn
-                               (make-histogram-renderer/factors
+                               (histogram-renderer/factors
                                 h1 factor-fn factor-colors
                                 #:x-value-formatter (send axis1 value-formatter))
-                               (list (make-histogram-renderer
+                               (list (histogram-renderer
                                       h1
                                       #:x-value-formatter (send axis1 value-formatter)
                                       #:color (send axis1 plot-color)))))
@@ -452,7 +451,7 @@
     ;; name from the session id and axis names of the plot.
     (define (get-default-export-file-name)
       (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id))
+          (let ((sid (df-get-property data-frame 'session-id))
                 (axis (list-ref axis-choices y-axis-index)))
             (cond ((and sid (list? axis))
                    (format "histogram-~a-~a-~a.png" sid

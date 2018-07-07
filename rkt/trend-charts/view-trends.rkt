@@ -45,7 +45,7 @@
 (define-runtime-path trends-vol-file "../../img/trends/trends-vol.png")
 (define-runtime-path trends-tiz-file "../../img/trends/trends-tiz.png")
 (define-runtime-path trends-tt-file "../../img/trends/trends-tt.png")
-(define-runtime-path trends-bavg-file "../../img/trends/trends-bavg.png")
+(define-runtime-path trends-mmax-file "../../img/trends/trends-mmax.png")
 (define-runtime-path trends-hist-file "../../img/trends/trends-hist.png")
 (define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
 
@@ -92,8 +92,8 @@
     "Plot the time of day over weekday when each activity occured.")
 
    (tdecl
-    "Best Avg" 'bavg bavg-trends-chart%
-    trends-bavg-file
+    "Best Avg" 'mmax mmax-trends-chart%
+    trends-mmax-file
     "Plot the best-average (mean maximal) for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
 
    (tdecl

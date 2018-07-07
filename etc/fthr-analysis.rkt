@@ -79,7 +79,7 @@
 ;; https://www.trainingpeaks.com/blog/joe-friel-s-quick-guide-to-setting-zones/
 (define (fthr/run sid)
   (define df (sid->df sid))
-  (unless (send df contains? "hr" "timer" "spd")
+  (unless (df-contains? df "hr" "timer" "spd")
     (error "series missing required data (hr, timer, spd)"))
   (pp-session-info df)
   ;; HR is the best 20 min of the session
@@ -99,9 +99,9 @@
           (pace->string spd #t)
           (duration->string pos2))
   (match-define (list start mid end)
-    (send df get-index* "timer" pos2 (+ pos2 (* 0.5 duration2)) (+ pos2 duration2)))
-  (define stats-first-half (df-statistics df "spd" #:start start #:end mid))
-  (define stats-second-half (df-statistics df "spd" #:start mid #:end end))
+    (df-index-of* "timer" pos2 (+ pos2 (* 0.5 duration2)) (+ pos2 duration2)))
+  (define stats-first-half (df-statistics df "spd" #:start start #:stop mid))
+  (define stats-second-half (df-statistics df "spd" #:start mid #:stop end))
   (let* ((spd1 (statistics-mean stats-first-half))
          (spd2 (statistics-mean stats-second-half))
          (split (* 100.0 (sub1 (/ spd1 spd2)))))
@@ -113,7 +113,7 @@
 
 (define (ftp/bike sid)
   (define df (sid->df sid))
-  (unless (send df contains? "hr" "timer" "pwr")
+  (unless (df-contains? df "hr" "timer" "pwr")
     (error "series missing required data (hr, timer, spd)"))
   (pp-session-info df)
   ;; HR is the best 20 min of the session

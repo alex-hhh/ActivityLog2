@@ -38,7 +38,8 @@
          "../widgets/main.rkt"
          "../utilities.rkt"
          "../session-df.rkt"
-         "../series-meta.rkt")
+         "../series-meta.rkt"
+         "../data-frame/df.rkt")
 
 (provide view-session%)
 
@@ -295,9 +296,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
     (define histogram
       (make-tdata "Histogram" detail-panel
                   (lambda (panel) (new histogram-plot-panel% [parent panel]))))
-    (define best-avg
-      (make-tdata "Best Avg" detail-panel
-                  (lambda (panel) (new best-avg-plot-panel% [parent panel]))))
+    (define mean-max
+      (make-tdata "Mean Max Curves" detail-panel
+                  (lambda (panel) (new mean-max-plot-panel% [parent panel]))))
     (define quadrant
       (make-tdata "Quadrant" detail-panel
                   (lambda (panel) (new quadrant-plot-panel% [parent panel]))))
@@ -327,8 +328,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
     (define (set-session-df sdf)
       (set! data-frame sdf)
-      (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
-      (define sport (send data-frame get-property 'sport))
+      (define is-lap-swim? (df-get-property data-frame 'is-lap-swim?))
+      (define sport (df-get-property data-frame 'sport))
 
       ;; The overview panel also uses the data frame, so tell it that it is
       ;; available now.
@@ -340,15 +341,15 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
 
         ;; Graphs, Scatter, Histogram and Laps panels exist if we have some
         ;; data.
-        (when (send data-frame get-row-count)
+        (when (df-row-count data-frame)
           (set! tabs (cons charts tabs))
           (set! tabs (cons scatter tabs))
           (set! tabs (cons histogram tabs))
-          (set! tabs (cons best-avg tabs))
+          (set! tabs (cons mean-max tabs))
           (when (send (tdata-contents quadrant) should-display-for-data-frame? data-frame)
             (set! tabs (cons quadrant tabs)))
           (set! tabs (cons laps tabs))
-          (when (send data-frame contains? "lat" "lon")
+          (when (df-contains? data-frame "lat" "lon")
             (set! tabs (cons maps tabs)))
           ;; Display the "Model Parameters" tab only for Swim, Bike or Run
           ;; activities, as these are the ones that we allow defining Sport
@@ -443,7 +444,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (send (tdata-contents charts) save-visual-layout)
       (send (tdata-contents scatter) save-visual-layout)
       (send (tdata-contents histogram) save-visual-layout)
-      (send (tdata-contents best-avg) save-visual-layout)
+      (send (tdata-contents mean-max) save-visual-layout)
       (send (tdata-contents quadrant) save-visual-layout)
       (send (tdata-contents maps) save-visual-layout))
 

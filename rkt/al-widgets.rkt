@@ -25,7 +25,8 @@
          "sport-charms.rkt"
          "widgets/main.rkt"
          "intervals.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "data-frame/df.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -304,34 +305,34 @@ values (?, ?)" session-id id))
 
     ;; Switch the interval view to display splits by 1 km
     (define (on-km-splits)
-      (define km-splits (send data-frame get-property 'intervals-km-splits))
+      (define km-splits (df-get-property data-frame 'intervals-km-splits))
       (unless km-splits
         (set! km-splits (make-split-intervals data-frame "dst" 1000))
-        (send data-frame put-property 'intervals-km-splits km-splits))
+        (df-put-property data-frame 'intervals-km-splits km-splits))
       (send interval-view set-intervals sport 'default km-splits sid))
 
     ;; Switch the interval view to display splits by 1 mile
     (define (on-mile-splits)
-      (define mile-splits (send data-frame get-property 'intervals-mile-splits))
+      (define mile-splits (df-get-property data-frame 'intervals-mile-splits))
       (unless mile-splits
         (set! mile-splits (make-split-intervals data-frame "dst" 1600))
-        (send data-frame put-property 'intervals-mile-splits mile-splits))
+        (df-put-property data-frame 'intervals-mile-splits mile-splits))
       (send interval-view set-intervals sport 'default mile-splits sid))
 
     ;; Switch the interval view to display the climbs in the session
     (define (on-climb-splits)
-      (define climb-splits (send data-frame get-property 'intervals-climb-splits))
+      (define climb-splits (df-get-property data-frame 'intervals-climb-splits))
       (unless climb-splits
         (set! climb-splits (make-climb-intervals data-frame))
-        (send data-frame put-property 'intervals-climb-splits climb-splits))
+        (df-put-property data-frame 'intervals-climb-splits climb-splits))
       (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
 
     ;; Switch the interval view to display the descents in the session
     (define (on-descent-splits)
-      (define descent-splits (send data-frame get-property 'intervals-descent-splits))
+      (define descent-splits (df-get-property data-frame 'intervals-descent-splits))
       (unless descent-splits
         (set! descent-splits (make-climb-intervals data-frame #:descents #t))
-        (send data-frame put-property 'intervals-descent-splits descent-splits))
+        (df-put-property data-frame 'intervals-descent-splits descent-splits))
       (send interval-view set-intervals sport 'hill-descents descent-splits sid))
 
     ;; Switch the interval view to display the "bests" in the session.  For a
@@ -339,13 +340,13 @@ values (?, ?)" session-id id))
     ;; displayed, for other activities, the best speed over various distances
     ;; is displayed.
     (define (on-best-splits)
-      (define best-splits (send data-frame get-property 'intervals-best-splits))
+      (define best-splits (df-get-property data-frame 'intervals-best-splits))
       (unless best-splits
         (set! best-splits
               (if (eq? (vector-ref sport 0) 2)
                   (make-best-power-intervals data-frame)
                   (make-best-pace-intervals data-frame)))
-        (send data-frame put-property 'intervals-best-splits best-splits))
+        (df-put-property data-frame 'intervals-best-splits best-splits))
       (send interval-view set-intervals sport 'best-splits best-splits))
 
     ;; Switch the interval view to display the splits as recorded by the
@@ -397,9 +398,9 @@ values (?, ?)" session-id id))
     (define/public (set-session s df)
       (set! session s)
       (set! data-frame df)
-      (set! sport (send data-frame get-property 'sport))
-      (set! sid (send data-frame get-property 'session-id))
-      (define is-lap-swim? (send data-frame get-property 'is-lap-swim?))
+      (set! sport (df-get-property data-frame 'sport))
+      (set! sid (df-get-property data-frame 'session-id))
+      (define is-lap-swim? (df-get-property data-frame 'is-lap-swim?))
       (send choice enable (not is-lap-swim?))
       (when is-lap-swim? (send choice set-selection 0))
       (setup-interval-type-by-sport))

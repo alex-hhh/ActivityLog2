@@ -1,34 +1,47 @@
 #lang racket/base
-;; gpx.rkt -- export session data frames to GPX format
-;;
-;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
-;;
-;; This program is free software: you can redistribute it and/or modify it
-;; under the terms of the GNU General Public License as published by the Free
-;; Software Foundation, either version 3 of the License, or (at your option)
-;; any later version.
-;;
-;; This program is distributed in the hope that it will be useful, but WITHOUT
-;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-;; more details.
-
 (require racket/contract
-         racket/class
+         racket/flonum
+         racket/math
          racket/format
          racket/match
          racket/date
          xml
          (only-in srfi/19 string->date)
-         "data-frame.rkt"
-         "session-df.rkt"               ; for add-grade-series
-         "widgets/map-widget/map-util.rkt" ; to calculate the "dst" series
-         )
+         "df.rkt"
+         "series.rkt")
 
-(provide/contract
- (df-write/gpx (->* ((is-a?/c data-frame%) output-port?) (#:name (or/c #f string?)) any/c))
- (df-read/gpx (-> input-port? (is-a?/c data-frame%))))
+
+;;................................................. map-distance/degrees ....
+
+;; Formulas from http://www.movable-type.co.uk/scripts/latlong.html
+
+(define earth-radius (->fl 6371000))    ; meters
+
+(define (haversin theta)
+  (fl/ (fl- 1.0 (flcos theta)) 2.0))
+
+(define (inv-haversin h)
+  (fl* 2.0 (flasin (flsqrt h))))
+
+;; Calculate the distance in meters between two map coordinates
+(define (map-distance/radians lat1 lon1 lat2 lon2)
+  (let ((delta-lat (fl- lat2 lat1))
+        (delta-lon (fl- lon2 lon1)))
+    (let* ((a (fl+ (haversin delta-lat)
+                   (fl* (fl* (flcos lat1) (flcos lat2))
+                        (haversin delta-lon))))
+           (c (inv-haversin a)))
+      (fl* c earth-radius))))
+
+(define (map-distance/degrees lat1 lon1 lat2 lon2)
+  (map-distance/radians
+   (degrees->radians lat1)
+   (degrees->radians lon1)
+   (degrees->radians lat2)
+   (degrees->radians lon2)))
+
+
+;;......................................................... df-write/gpx ....
 
 (define gpx-header-tag
   "<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" creator=\"ActivityLog2\" version=\"1.1\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">\n")
@@ -67,18 +80,17 @@
 
 ;; Write to (current-output-port) the lap markers in DF as way points.
 (define (gpx-emit-laps df)
-  (define laps (send df get-property 'laps))
+  (define laps (or (df-get-property df 'laps) '()))
+  (define limit (df-row-count df))
   (unless (null? laps)
     (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                     (gpx-indent-string (make-string (gpx-indent) #\ )))
       ;; NOTE: don't emit the first lap, as that coincides with the start of
       ;; the track
       (for ([(lap lap-num) (in-indexed laps)] #:when (> lap-num 0))
-        (let ((index (send df get-index "timestamp" lap)))
-          (when index
-            (match-define (vector timestamp lat lon ele)
-              (send/apply df ref* index (gpx-export-series)))
-            (gpx-emit-wpt lat lon ele timestamp (format "Lap ~a" lap-num))))))))
+        (match-define (vector timestamp lat lon ele)
+          (df-lookup df "timestamp" (gpx-export-series) lap))
+        (gpx-emit-wpt lat lon ele timestamp (format "Lap ~a" lap-num))))))
 
 ;; Write to (current-output-port) the GPS points in DF as a track.  The track
 ;; is named by the NAME parameter.
@@ -89,17 +101,18 @@
   (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                   (gpx-indent-string (make-string (gpx-indent) #\ )))
     (write-string (format "~a<trk>\n" (gpx-indent-string)))
-    (let ((name (or name (send df get-property 'name) "GPX track")))
+    (let ((name (or name (df-get-property df 'name) "GPX track")))
       (write-string (format "~a  <name>~a</name>\n" (gpx-indent-string) name)))
     (write-string (format "~a  <trkseg>\n" (gpx-indent-string)))
     (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                     (gpx-indent-string (make-string (gpx-indent) #\ )))
-      (send df for-each (gpx-export-series)
-            (lambda (data)
-              (when data
-                (match-define (vector timestamp lat lon calt) data)
-                (when (and lat lon calt timestamp)
-                  (gpx-emit-trkpt lat lon calt timestamp))))))
+      (df-for-each
+       df (gpx-export-series)
+       (lambda (data)
+         (when data
+           (match-define (list timestamp lat lon calt) data)
+           (when (and lat lon calt timestamp)
+             (gpx-emit-trkpt lat lon calt timestamp))))))
     (write-string (format "~a  </trkseg>\n" (gpx-indent-string)))
     (write-string (format "~a</trk>\n" (gpx-indent-string)))))
 
@@ -107,29 +120,32 @@
 ;; data frame is expected to contain the "timestamp", "lat", "lon" and
 ;; optionally "alt" or "calt" (corrected altitude) series.
 ;;
-;; The data is exported in GPX format. Positions in the 'laps property are
-;; exported as way points and the entire GPS track is exported as a single
-;; track segment.  The name of the segment can be specified as the NAME
-;; parameter. If this is #f, the 'name property in the data frame is
-;; consulted, if that one is missing a default track name is used.
+;; The entire GPS track is exported as a single track segment
+;;
+;; The 'laps property, if present, is assumed to contain a list of timestamps.
+;; Positions corresponding to these timestamps are exported as way points.
+;;
+;; The name of the segment can be specified as the NAME parameter. If this is
+;; #f, the 'name property in the data frame is consulted, if that one is
+;; missing a default track name is used.
 ;;
 ;; TODO: as an improvement, we could split the track around teleport points
 ;; into different segments.  This would work nicely when exporting skiing
 ;; runs.
 ;;
-(define (df-write/gpx df out #:name (name #f))
-  (unless (send df contains? "timestamp" "lat" "lon")
+(define (write-gpx df out #:name (name #f))
+  (unless (df-contains? df "timestamp" "lat" "lon")
     (error "cannot export GPX track -- timestamp or lat or lon series missing"))
-  (unless (send df contains/any? "calt" "alt")
+  (unless (df-contains/any? df "calt" "alt")
     (error "cannot export GPX track -- altitude series missing"))
   (parameterize ((current-output-port out)
                  (gpx-indent 0)
                  (gpx-indent-string "")
                  (gpx-export-series
-                  (cond ((send df contains? "calt")
+                  (cond ((df-contains? df "calt")
                          ;; Prefer corrected altitude
                          (list "timestamp" "lat" "lon" "calt"))
-                        ((send df contains? "alt")
+                        ((df-contains? df "alt")
                          ;; Fall back on recorded altitude, if that is
                          ;; available
                          (list "timestamp" "lat" "lon" "alt"))
@@ -141,12 +157,21 @@
     (gpx-emit-trk df name)
     (write-string "</gpx>\n")))
 
+(define (df-write/gpx df outp #:name (name #f))
+  (if (path-string? outp)
+      (call-with-output-file outp
+        #:mode 'text #:exists 'truncate/replace
+        (lambda (o)
+          (write-gpx df o #:name name)))
+      (write-gpx df outp #:name name)))
+
+
 
-;;.................................................... reading gpx files ....
+;;.......................................................... df-read/gpx ....
 
 ;; Read the GPX XML document from the input port IN.  While reading the XML
 ;; contents, white space is collapsed and comments are skipped.
-(define (read-gpx in)
+(define (slurp-xml in)
   (parameterize ((collapse-whitespace #t)
                  (read-comments #f))
     (read-xml/document in)))
@@ -197,9 +222,47 @@
       (let ((data (pcdata-string
                    (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
         (case (element-name e)
-          ((time) (set! timestamp (date->seconds (string->date data "~Y-~m-~dT~H:~M:~SZ"))))
+          ((time) (set! timestamp (date->seconds (string->date data "~Y-~m-~dT~H:~M:~SZ") #f)))
           ((ele) (set! elevation (string->number data))))))
     (list timestamp lat lon elevation)))
+
+(define (parse-way-point wpt)
+  (let ((lat #f)
+        (lon #f)
+        (timestamp #f)
+        (elevation #f)
+        (name #f))
+    (for ([a (element-attributes wpt)])
+      (case (attribute-name a)
+        ((lat) (set! lat (string->number (attribute-value a))))
+        ((lon) (set! lon (string->number (attribute-value a))))))
+    ;; NOTE: we should extract the timestamp perhaps?  we don't really care
+    ;; about it for now...
+    (for ([e (element-content wpt)] #:when (element? e))
+      (let ((data (pcdata-string
+                   (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
+        (case (element-name e)
+          ((time) (set! timestamp (date->seconds (string->date data "~Y-~m-~dT~H:~M:~SZ"))))
+          ((ele) (set! elevation (string->number data)))
+          ((name) (set! name data)))))
+    (list timestamp lat lon elevation name)))
+
+(define (parse-all-way-points gpx)
+  (for/list ([e (element-content gpx)] #:when (e-name? e 'wpt))
+    (parse-way-point e)))
+
+(define (get-closest-timestamp df lat lon)
+  (define-values
+    (timestamp distance)
+    (for/fold ([timestamp #f] [distance #f])
+              (([plat plon ts] (in-data-frame df '("lat" "lon" "timestamp"))))
+      (if (and plat plon)
+          (let ((dst (map-distance/degrees plat plon lat lon)))
+            (if (or (not timestamp) (< dst distance))
+                (values ts dst)
+                (values timestamp distance)))
+          (values timestamp distance))))
+  timestamp)
 
 ;; Construct a data frame from the GPX document specified as an input port.
 ;; The data frame will have "timestamp", "lat", "lon", "alt", "dst" and
@@ -211,56 +274,81 @@
 ;; LIMITATIONS:
 ;;
 ;;  * only the first track segment is read
-;;  * way-points are not read (they could be stored in the 'laps property)
 ;;
 ;; HINT: to read the GPX from a file name use:
 ;;
 ;;     (call-with-input-file FILE-NAME df-read/gpx)
 ;;
-(define (df-read/gpx in)
-  (define gpx (get-gpx-tree (read-gpx in)))
+(define (read-gpx in)
+  (define gpx (get-gpx-tree (slurp-xml in)))
   (define track (get-track gpx))
   (unless track (error "could not find track"))
-  (define track-name (get-track-name track))
   (define track-segment (get-first-track-seg track))
   (unless track-segment (error "could not find track segment"))
   (define item-count (count-track-points track-segment))
   (define lat (make-vector item-count))
   (define lon (make-vector item-count))
   (define alt (make-vector item-count))
-  (define timestamp (make-vector item-count))
+  (define timestamp (make-vector item-count #f))
   (define index 0)
-  (for ([e (element-content track-segment)]
-        #:when (and (element? e) (eq? (element-name e) 'trkpt)))
+  (for ([e (element-content track-segment)] #:when (e-name? e 'trkpt))
     (match-define (list pt-timestamp pt-lat pt-lon pt-ele) (parse-track-point e))
     (vector-set! timestamp index pt-timestamp)
     (vector-set! lat index pt-lat)
     (vector-set! lon index pt-lon)
     (vector-set! alt index pt-ele)
     (set! index (add1 index)))
-  (define df
-    (new data-frame%
-         [series
-          (list
-           (new data-series% [name "timestamp"] [data timestamp])
-           (new data-series% [name "lat"] [data lat])
-           (new data-series% [name "lon"] [data lon])
-           (new data-series% [name "alt"] [data alt]))]))
-  (when track-name
-    (send df put-property 'name track-name))
+
+  (define timestamp-col (make-series "timestamp" #:data timestamp #:cmpfn <=))
+  (define lat-col (make-series "lat" #:data lat))
+  (define lon-col (make-series "lon" #:data lon))
+  (define alt-col (make-series "alt" #:data alt))
+  
+  (define df (make-data-frame))
+  (df-add-series df timestamp-col)
+  (df-add-series df lat-col)
+  (df-add-series df lon-col)
+  (df-add-series df alt-col)
+
   ;; Create the "dst" series, this is needed by the trainer application
   (define dst 0)
-  (send df add-derived-series
-        "dst"
-        '("lat" "lon")
-        (lambda (prev next)
-          (when (and prev next)
-            (match-define (vector prev-lat prev-lon) prev)
-            (match-define (vector next-lat next-lon) next)
-            (when (and prev-lat prev-lon next-lat next-lon)
-              (set! dst (+ dst (map-distance/degrees prev-lat prev-lon next-lat next-lon)))))
-          dst))
-  (send (send df get-series "dst") set-sorted #t)
-  ;; Add the "grade" series, this is needed by the trainer application
-  (add-grade-series df)
+  (df-add-derived
+   df
+   "dst"
+   '("lat" "lon")
+   (lambda (prev next)
+     (when (and prev next)
+       (match-define (list prev-lat prev-lon) prev)
+       (match-define (list next-lat next-lon) next)
+       (when (and prev-lat prev-lon next-lat next-lon)
+         (set! dst (+ dst (map-distance/degrees prev-lat prev-lon next-lat next-lon)))))
+     dst))
+  (df-set-sorted df "dst" <=)
+
+  (define track-name (get-track-name track))
+  (when track-name
+    (df-put-property df 'name track-name))
+  (define waypoints (parse-all-way-points gpx))
+  (define laps
+    (for/list ([wpt (in-list waypoints)])
+      (match-define (list timestamp lat lon elevation name) wpt)
+      (or timestamp (get-closest-timestamp df lat lon))))
+  (df-put-property df 'waypoints waypoints)
+  (df-put-property df 'laps (filter values laps))
+
   df)
+
+(define (df-read/gpx inp)
+  (if (path-string? inp)
+      (call-with-input-file inp #:mode 'text
+        (lambda (i) (read-gpx i)))
+      (read-gpx inp)))
+
+
+;;............................................................. provides ....
+
+(provide/contract
+ (df-write/gpx (->* (data-frame? (or/c path-string? output-port?))
+                    (#:name (or/c #f string?))
+                    any/c))
+ (df-read/gpx (-> (or/c path-string? input-port?) data-frame?)))

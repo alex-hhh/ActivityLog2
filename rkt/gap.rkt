@@ -15,7 +15,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "data-frame.rkt")              ; for bsearch
+(require "data-frame/bsearch.rkt")
 (require "fmt-util.rkt")                ; for convert-pace->m/s, convert-m/s->pace
 
 ;; Grade Adjusted Pace is calculated by obtaining a multiplier factor value

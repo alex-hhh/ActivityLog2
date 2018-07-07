@@ -21,7 +21,8 @@
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../session-df.rkt"
-         "../data-frame.rkt")
+         "../data-frame/csv.rkt"
+         "../data-frame/gpx.rkt")
 
 ;; (lazy-require
 ;;  ("edit-session-summary.rkt" (get-edit-session-summary-dialog))
@@ -37,7 +38,6 @@
  "edit-session-tss.rkt"
  "edit-session-weather.rkt"
  "edit-lap-swim.rkt"
- "../gpx.rkt"
  "../elevation-correction.rkt")
 
 (provide activity-operations<%>)

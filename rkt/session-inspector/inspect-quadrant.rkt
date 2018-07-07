@@ -32,7 +32,8 @@
          racket/match
          plot
          math/statistics
-         "../data-frame.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/scatter.rkt"
          "../plot-hack.rkt"
          "../series-meta.rkt"
          "../sport-charms.rkt"
@@ -362,8 +363,8 @@
                (and x y
                     (let ((xnam (send x series-name))
                           (ynam (send y series-name)))
-                      (and  (send df contains? xnam ynam)
-                            (send df select* xnam ynam #:filter filter-fn)))))
+                      (and  (df-contains? df xnam ynam)
+                            (df-select* df xnam ynam #:filter filter-fn)))))
              (define bounds (and ds (find-bounds ds)))
              (define qbounds
                (if opct
@@ -376,7 +377,7 @@
                                    (send y fractional-digits))))
              (define rt
                (and grouped
-                    (make-scatter-group-renderer
+                    (scatter-group-renderer
                      grouped
                      #:color (send y-axis plot-color))))
              (queue-callback
@@ -391,13 +392,13 @@
 
     (define (save-params-for-sport)
       (when data-frame
-        (let ((sport (send data-frame get-property 'sport))
+        (let ((sport (df-get-property data-frame 'sport))
               (data (list threshold-speed threshold-power threshold-cadence outlier-percentile outlier-handling)))
-          (hash-set! params-by-sport sport data))))
+          (hash-set! params-by-sport sport data))))
 
     (define (restore-params-for-sport)
       (when data-frame
-        (let* ((sport (send data-frame get-property 'sport))
+        (let* ((sport (df-get-property data-frame 'sport))
                (data (hash-ref params-by-sport sport (lambda () (list #f #f #f #f #f)))))
           (unless (= (length data) 5) ; opct and ohandling were recently added
             (match-define (list tspeed tpower tcad) data)
@@ -442,14 +443,14 @@
     ;; It can display if the data frame contains the required series
     ;; (depending on the sport)
     (define/public (should-display-for-data-frame? df)
-      (let ((sport (send df get-property 'sport)))
+      (let ((sport (df-get-property df 'sport)))
         (or
          (and (equal? (vector-ref sport 0) 1) ; running
-              (send df contains? "spd" "cad"))
+              (df-contains? df "spd" "cad"))
          (and (equal? (vector-ref sport 0) 5) ; swim
-              (send df contains? "spd" "cad"))
+              (df-contains? df "spd" "cad"))
          (and (equal? (vector-ref sport 0) 2) ; bike
-              (send df contains? "pwr" "cad")))))
+              (df-contains? df "pwr" "cad")))))
 
     (define/public (set-session session df)
       (save-params-for-sport)
@@ -457,11 +458,11 @@
       (set! data-frame df)
       (set! data-series #f)
       (set! export-file-name #f)
-      (define current-sport (send data-frame get-property 'sport))
-      (define session-id (send data-frame get-property 'session-id))
+      (define current-sport (df-get-property data-frame 'sport))
+      (define session-id (df-get-property data-frame 'session-id))
       (cond
         ((and (equal? (vector-ref current-sport 0) 1) ; running
-              (send data-frame contains? "spd" "cad"))
+              (df-contains? data-frame "spd" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-stride)
          (set! zones (get-session-sport-zones session-id 2))
@@ -472,7 +473,7 @@
                                    show-zones-check-box
                                    outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 5) ; swim
-              (send data-frame contains? "spd" "cad"))
+              (df-contains? data-frame "spd" "cad"))
          (set! x-axis axis-swim-avg-cadence)
          (set! y-axis axis-swim-stroke-length)
          ;; Add the torque series if not present
@@ -484,12 +485,9 @@
                                    show-zones-check-box
                                    outlier-percentile-field outlier-handling-choice))))
         ((and (equal? (vector-ref current-sport 0) 2) ; bike
-              (send data-frame contains? "pwr" "cad"))
+              (df-contains? data-frame "pwr" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-torque)
-         ;; Add the torque series if not present
-         (unless (send data-frame contains? "torque")
-           (add-torque-series df))
          (set! zones (get-session-sport-zones session-id 3))
          (set! yval-fn cadence->torque)
          (set! filter-fn filter-torque)
@@ -515,7 +513,7 @@
     ;; name from the session id.
     (define (get-default-export-file-name)
       (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id)))
+          (let ((sid (df-get-property data-frame 'session-id)))
             (if sid (format "quadrant-~a.png" sid) "quadrant.png"))))
 
     (define/public (on-interactive-export-image)

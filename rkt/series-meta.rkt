@@ -164,7 +164,7 @@
     ;; are smaller.  This is used for series like pace, where a smaller value
     ;; means you are running faster, or for series which need to be minimized,
     ;; for example ground contact time or vertical oscillation.
-    (define/public (inverted-best-avg?) #f)
+    (define/public (inverted-mean-max?) #f)
 
     ;; Return the ticks to use for plotting values of this series.
     (define/public (plot-ticks) (linear-ticks))
@@ -331,7 +331,7 @@
           "Pace (min/km)" "Pace (min/mi)"))
     (define/override (should-filter?) #t)
     ;; (define/override (y-range) (cons 0 #f))
-    (define/override (inverted-best-avg?) #t)
+    (define/override (inverted-mean-max?) #t)
     (define/override (series-name) "pace")
     (define/override (name) "Pace")
     ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
@@ -520,7 +520,7 @@
          (define/override (series-name) "grade")
          (define/override (fractional-digits) 1)
          (define/override (name) "Slope")
-         (define/override (inverted-best-avg?) #t))))
+         (define/override (inverted-mean-max?) #t))))
 (provide axis-grade-inverted)
 
 (define axis-hr-bpm
@@ -623,7 +623,7 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (series-name) "vratio")
          (define/override (name) "VRatio")
-         (define/override (inverted-best-avg?) #t)
+         (define/override (inverted-mean-max?) #t)
          (define/override (fractional-digits) 2)
 
          (define (vratio-factor vratio)
@@ -646,7 +646,7 @@
                "Vertical Oscillation (mm)" "Vertical Oscillation (inch)"))
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
-         (define/override (inverted-best-avg?) #t)
+         (define/override (inverted-mean-max?) #t)
          (define/override (series-name) "vosc")
          (define/override (name) "VOsc")
          (define/override (fractional-digits) 1)
@@ -668,7 +668,7 @@
   (new (class series-metadata% (init) (super-new)
          (define/override (axis-label) "Ground Contact Time (ms)")
          (define/override (should-filter?) #t)
-         (define/override (inverted-best-avg?) #t)
+         (define/override (inverted-mean-max?) #t)
          (define/override (series-name) "gct")
          (define/override (name) "GCT")
 
@@ -690,7 +690,7 @@
          (define/override (axis-label) "Ground Contact Time (%)")
          (define/override (should-filter?) #t)
          (define/override (histogram-bucket-slot) 0.1)
-         (define/override (inverted-best-avg?) #t)
+         (define/override (inverted-mean-max?) #t)
          (define/override (series-name) "pgct")
          (define/override (name) "GCT percent")
          (define/override (fractional-digits) 1)
@@ -1049,7 +1049,7 @@
          (define/override (y-range) (cons 0 #f))
          (define/override (plot-color-by-swim-stroke?) #t)
          (define/override (series-name) "pace")
-         (define/override (inverted-best-avg?) #t)
+         (define/override (inverted-mean-max?) #t)
          (define/override (name) "Pace")
          (define/override (value-formatter)
            (lambda (p)

@@ -36,7 +36,8 @@
          "utilities.rkt"
          "widgets/map-widget/map-util.rkt"
          "widgets/main.rkt"
-         "data-frame.rkt")
+         "data-frame/bsearch.rkt")
+
 
 (provide update-tile-codes)
 (provide fixup-elevation-for-session)
@@ -327,7 +328,7 @@ order by T.timestamp")))
     (let* ((sdist (tpoint-dst (vector-ref trackpoints start)))
            (half (/ (delta-dist start end) 2))
            (mid (bsearch trackpoints (+ sdist half)
-                         #:start start #:end end #:key tpoint-dst)))
+                         #:start start #:stop end #:key tpoint-dst)))
       mid))
   (define (order-points p1 p2 p3 p4)
     (let ((points (list p1 p2 p3 p4)))

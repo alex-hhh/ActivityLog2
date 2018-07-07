@@ -14,7 +14,6 @@
 
 
 (require rackunit)
-;;(require rackunit/gui)
 (require rackunit/text-ui)
 (require db)
 (require "../rkt/dbapp.rkt")
@@ -31,6 +30,7 @@
 (require "../rkt/workout-editor/wk-db.rkt")
 (require "../rkt/workout-editor/wk-fit.rkt")
 (require "../rkt/weather.rkt")
+(require "../rkt/data-frame/df.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
 
@@ -73,8 +73,14 @@
 
 ;; Do some basic checks on the session data frame
 (define (check-session-df df)
-  (check > (send df get-row-count) 0)   ; must have some data
-  (define sn (send df get-series-names))
+  (define nitems (df-row-count df))
+  (check > nitems 0)         ; must have some data
+  (define sn (df-series-names df))
+  ;; All data series must contain at least one data point of valid data
+  ;; (make-session-data-frame is supposed to remove empty series, like gct for
+  ;; a cycling session)
+  (for ([s (in-list sn)] #:unless (member s '("stride")))
+    (check < (df-count-na df s) nitems (format "empty series found: ~a" s)))
   ;; Remove the common series
   (set! sn (remove "timestamp" sn))
   (set! sn (remove "timer" sn))
@@ -88,8 +94,8 @@
 (define (check-time-in-zone df db file)
   ;; Only check TIZ data if sport zones have been added to the database
   (when (> (query-value db "select count(*) from SPORT_ZONE") 0)
-    (let ((sport (send df get-property 'sport))
-          (sid (send df get-property 'session-id)))
+    (let ((sport (df-get-property df 'sport))
+          (sid (df-get-property df 'session-id)))
       (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
         ;; Check that we have some time-in-zone data from the session
         (let ((nitems (query-value db "select count(*) from TIME_IN_ZONE where session_id = ?" sid)))
@@ -99,30 +105,45 @@
 ;; Check that we can obtain intervals from a data frame.  For now, we only
 ;; check if the code runs without throwing any exceptions.
 (define (check-intervals df)
-  (let ((sport (send df get-property 'sport)))
+  (let ((sport (df-get-property df 'sport)))
     (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
       (make-split-intervals df "elapsed" (* 5 60)) ; 5 min splits
+      ;; (printf "make-split-intervals elapsed done~%")(flush-output)
       (make-split-intervals df "dst" 1600)         ; 1 mile splits
+      ;; (printf "make-split-intervals dst done~%")(flush-output)
       (make-climb-intervals df)
+      ;; (printf "make-climb-intervals done~%")(flush-output)
+      ;; (printf "sport: ~a~%" sport)(flush-output)
       (if (eq? (vector-ref sport 0) 1)
-          (make-best-pace-intervals df)
-          (make-best-power-intervals df)))))
+          (begin
+            (make-best-pace-intervals df)
+            ;; (printf "make-best-pace-intervals done~%")(flush-output))
+            )
+          (begin
+            (make-best-power-intervals df)
+            ;; (printf "make-best-power-intervals done~%")(flush-output))
+          )))))
   
 (define (db-import-activity-from-file/check file db (basic-checks-only #f))
   (check-not-exn
    (lambda ()
      (let ((result (db-import-activity-from-file file db)))
-       ;; (lambda (msg) (printf "post import: ~a~%" msg)))
        (check-pred cons? result "Bad import result format")
        (check-eq? (car result) 'ok (format "~a" (cdr result)))
        (unless basic-checks-only
          ;; Do some extra checks on this imported file
-         (do-post-import-tasks db)
+         (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
+         ;; (printf "... done with the post import tasks~%")(flush-output)
          (for ((sid (aid->sid (cdr result) db)))
            (let ((df (session-df db sid)))
+             ;; (printf "got the session~%")(flush-output)
              (check-session-df df)
+             ;; (printf "check session done~%")(flush-output)
              (check-intervals df)
-             (check-time-in-zone df db file))))))))
+             ;; (printf "check intervals done~%")(flush-output)
+             (check-time-in-zone df db file)
+             ;;(printf "check time-in-zone done~%")
+             )))))))
 
 (define (db-import-manual-session db)
   (let* ((duration 3600)
@@ -543,7 +564,7 @@ where S.id = CPFS.session_id
        (with-database
          (lambda (db)
            (fill-sport-zones db)
-           (printf "About to import ~a~%" file)
+           (printf "About to import ~a~%" file)(flush-output)
            (db-import-activity-from-file/check file db)
            (check = 1 (activity-count db))
            (db-check-tile-code db)))))
@@ -553,7 +574,7 @@ where S.id = CPFS.session_id
        (lambda (db)
          (fill-sport-zones db)
          (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-           (printf "About to import ~a~%" file)
+           (printf "About to import ~a~%" file)(flush-output)
            (db-import-activity-from-file/check file db))
          (check = 8 (activity-count db)))))
 
@@ -562,12 +583,12 @@ where S.id = CPFS.session_id
        (lambda (db)
          (check-not-exn
           (lambda ()
-            (printf "Checking session-df for manual activity~%")
+            (printf "Checking session-df for manual activity~%")(flush-output)
             (let* ((sid (db-import-manual-session db))
                    (df (session-df db sid)))
               ;; We don't expect much in a session df for a manual session, but
               ;; we should at least be able to read it.
-              (check-eq? (send df get-row-count) #f)))))))
+              (check-eqv? (df-row-count df) 0)))))))
 
    (test-case "Get Sport Zones"
      (with-database
@@ -583,6 +604,6 @@ where S.id = CPFS.session_id
    ))
 
 (module+ test
-  (run-tests db-tests 'verbose))
+ (run-tests db-tests 'verbose))
 
 ;;(test/gui db-tests)

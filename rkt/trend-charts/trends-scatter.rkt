@@ -28,7 +28,8 @@
  "../widgets/icon-resources.rkt"
  "../widgets/main.rkt"
  "../plot-hack.rkt"
- "../data-frame.rkt"
+ "../data-frame/scatter.rkt"
+ "../data-frame/slr.rkt"
  "../al-widgets.rkt"
  "../series-meta.rkt"
  "../metrics.rkt"
@@ -340,13 +341,13 @@
   (let ((rt (list (tick-grid))))
     (when (scatter-data data)
       (set! rt
-            (cons (make-scatter-group-renderer
+            (cons (scatter-group-renderer
                    (scatter-data data)
                    #:color (send (scatter-axis2 data) plot-color))
                   rt)))
     (when (scatter-slr data)
       (set! rt
-            (cons (make-slr-renderer (scatter-slr data))
+            (cons (slr-renderer (scatter-slr data))
                   rt)))
     (reverse rt)))
 
