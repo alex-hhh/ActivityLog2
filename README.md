@@ -16,8 +16,12 @@ data.  If you want a working application, use the master branch.
 ## Implementation Status
 
 [x] The data-frame package is feature complete (more or less)
-[ ] Application works with the new data-frame package
-[ ] Documentation for the data-frame package (replaces "doc/data-frame.md")
+
+[ ] Application does not work with the new data-frame package
+
+[ ] Documentation for the data-frame package is missing(replaces
+    "doc/data-frame.md")
+
 [ ] Data-frame performance is not validated yet (in particular it will copy
     data where the previous implementation didn't (df-select)
 
