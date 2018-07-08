@@ -1,16 +1,29 @@
 #lang racket/base
+;; scatter.rkt -- utilities for scatter plots
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
 
-(require racket/contract
-         "bsearch.rkt"
-         "color-util.rkt"
-         racket/math
-         racket/match
-         racket/list
-         plot
-         plot/utils                     ; ->pen-color
-         racket/class
+(require plot
+         plot/utils
+         racket/class                   ; ->pen-color
+         racket/contract
          racket/draw
-         )
+         racket/list
+         racket/match
+         racket/math
+         "bsearch.rkt"
+         "color-util.rkt")
 
 ;; Delay the data in DATA-SERIES by AMOUNT.  Data-series is a sequence of
 ;; 3-element vectors: #(X Y TIMESTAMP).  For each item, this function replaces
@@ -162,6 +175,8 @@
          #:label (if first-time? label #f))
       (set! first-time? #f))))
 
+
+;;................................................. contract definitions ....
 
 ;; Time series items are X, Y and a timestamp, elapsed or distance value
 (define ts-item/c (vector/c (or/c #f real?) (or/c #f real?) real?))
@@ -180,6 +195,9 @@
 
 (define group-data/c (hash/c integer? xy-data/c))
 (define factor-data/c (hash/c any/c (or/c xy-data/c ts-data/c)))
+
+
+;;............................................................. provides ....
 
 (provide ts-item/c ts-data/c factor-data/c)
 

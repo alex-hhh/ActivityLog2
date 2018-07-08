@@ -1,10 +1,25 @@
 #lang racket/base
-(require racket/contract
-         racket/math
-         racket/match
-         racket/list
+;; histogram.rkt -- histograms and histogram plots for data frames
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
+
+(require plot
          plot/utils
-         plot
+         racket/contract
+         racket/list
+         racket/match
+         racket/math
          "df.rkt"
          "statistics.rkt")
 
@@ -332,8 +347,14 @@
                             )
       (set! x (+ x (vector-length fdata))))))
 
+
+;;................................................. contract definitions ....
+
 (define histogram/c (vectorof (vector/c (or/c real? string?) real?)))
 (define combined-histogram/c (vectorof (vector/c (or/c real? string?) real? real?)))
+
+
+;;............................................................. provides ....
 
 (provide histogram/c combined-histogram/c)
 

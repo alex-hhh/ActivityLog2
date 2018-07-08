@@ -2,7 +2,7 @@
 ;; spline.rkt -- construct spline interpolation functions from data points
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,9 +18,8 @@
 ;; The implementation is based on
 ;; https://en.wikipedia.org/wiki/Spline_interpolation
 
-(require math/matrix racket/match)
-
-(provide spline)
+(require math/matrix
+         racket/match)
 
 (define-type Data-Point (Vector Real Real))
 (define-type Delta-Point (Vector Real Real))
@@ -187,3 +186,9 @@
          (+ (* k1 x) (- y1 (* k1 x1))))
         (#t
          (loop (cdr sterms)))))))
+
+
+;;............................................................. provides ....
+
+(provide spline)
+

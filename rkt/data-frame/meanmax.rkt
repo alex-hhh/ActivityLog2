@@ -1,12 +1,26 @@
 #lang racket/base
+;; meanmax.rkt -- Mean Max calculations and plots for data frames
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
 
-(require racket/contract
-         racket/math
-         plot
+(require plot
          plot/utils
-         racket/list
+         racket/contract
          racket/format
+         racket/list
          racket/match
+         racket/math
          "df.rkt"
          "spline.rkt")
 
@@ -447,9 +461,15 @@
 
         (if aux-rt (list data-rt aux-rt) data-rt))))
 
+
+;;................................................. contract definitions ....
+
 ;; vector of DURATION, MAX-VALUE, START-POSITION
 (define mean-max-item/c (vector/c real? real? real?))
 (define mean-max/c (listof mean-max-item/c))
+
+
+;;............................................................. provides ....
 
 (provide mean-max-item/c mean-max/c)
 

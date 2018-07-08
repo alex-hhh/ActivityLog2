@@ -1,10 +1,24 @@
 #lang racket/base
+;; slr.rkt -- simple linear regression utilities
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
 
-(require racket/contract
-         racket/format
-         math/statistics
+(require math/statistics
+         plot
          plot/utils
-         plot)
+         racket/contract
+         racket/format)
 
 ;; Simple linear regression parameters Y = alpha + beta * X.  r is the
 ;; correlation coefficient.
@@ -29,6 +43,9 @@
    #:color '(#x2f #x4f #x4f)
    #:width 2
    #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
+
+
+;;............................................................. provides ....
 
 (provide/contract
  (slr? (-> any/c boolean?))

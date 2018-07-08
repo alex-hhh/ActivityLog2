@@ -1,6 +1,21 @@
 #lang racket/base
-(require racket/math
-         racket/contract)
+;; bsearch.rkt -- binary search in a sorted vector
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
+
+(require racket/contract
+         racket/math)
 
 ;; Search a sorted vector, VEC for a value VAL.  The vector is assumed to
 ;; contain sorted values, as defined by CMP-FN.  KEY, if present, selects the

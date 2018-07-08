@@ -1,11 +1,23 @@
 #lang racket/base
+;; df.rkt -- data frame implementation and basic routines
+;;
+;; This file is part of ActivityLog2, an fitness activity tracker
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
+;; This program is free software: you can redistribute it and/or modify it
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT
+;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+;; more details.
 
-(require "series.rkt"
-         "bsearch.rkt"
-         "exn.rkt"
+(require racket/contract
          racket/match
-         math/statistics
-         racket/contract)
+         "exn.rkt"
+         "series.rkt")
 
 
 ;;........................................................... data-frame ....
