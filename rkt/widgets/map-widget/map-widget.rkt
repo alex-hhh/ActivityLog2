@@ -35,7 +35,9 @@
 (define tile-size 256)                  ; size of the map tiles, in pixels
 (define earth-radius (->fl 6371000))    ; meters
 
-;; convert a zoom level to a "meters per pixel" value
+;; convert a zoom level to a "meters per pixel" value, this would be accurate
+;; at the equator, as under the mercantor projection, the meters per pixel
+;; value depends on the latitude.
 (define (zoom-level->mpp zoom-level)
   (let ((n (expt 2 (+ 8 zoom-level))))
     (/ (* 2 pi earth-radius) n)))
@@ -43,7 +45,11 @@
 ;; convert a "meters per pixel" value to an approximate zoom level
 (define (mpp->zoom-level mpp)
   (let ((n (/ (* 2 pi earth-radius) mpp)))
-    (- (/ (log n) (log 2)) 8)))
+    ;; this conversion does not account for the fact that the mercantor
+    ;; projection is not uniform across the entire globe, as such the "meters
+    ;; per pixel" value would need to take latitude into account.  Instead we
+    ;; just subtract an extra 0.5 and truncate the result.
+    (exact-truncate (- (/ (log n) (log 2)) 8.5))))
 
 ;; Maximum zoom level we allow for the map widget.
 (define max-zoom-level
@@ -68,9 +74,7 @@
         ;; mpp -- meters per pixel
         (let ((mpp-width (/ w canvas-width))
               (mpp-height (/ h canvas-height)))
-          (- (exact-floor (min (mpp->zoom-level mpp-width)
-                               (mpp->zoom-level mpp-height)))
-             1)))))
+          (mpp->zoom-level (max mpp-width mpp-height))))))
 
 (define (point-lat p) (vector-ref p 0))
 (define (point-long p) (vector-ref p 1))
@@ -153,7 +157,6 @@
 
   (let-values (([cx cy] (get-center zoom-level)))
     (send dc draw-ellipse (+ cx -10) (+ cy -10) 20 20))
-
   (match-define (map-bbox max-lat max-lon min-lat min-lon) bounding-box)
   (let ((max-coord (* tile-size (expt 2 zoom-level)))
         (map1 (lat-lon->map-point max-lat min-lon))
@@ -394,7 +397,7 @@
           ))
 (define debug-track-color-index -1)
 (define (get-next-pen)
-  (set! debug-track-color-index (+ 1 debug-track-color-index))
+  (set! debug-track-color-index (+ 1 debug-track-color-index))
   (set! debug-track-color-index (remainder debug-track-color-index (vector-length debug-track-colors)))
   (define color (vector-ref debug-track-colors debug-track-color-index))
   (send the-pen-list find-or-create-pen color 3 'solid 'round 'round))
@@ -409,7 +412,7 @@
     (init parent) (super-new)
 
     (define debug?
-      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+      (get-pref 'activity-log:draw-map-bounding-box (lambda () #f)))
     (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
 
@@ -537,10 +540,11 @@
                   24 24))
 
           (when debug?
-            (send dc set-pen debug-pen)
-            (send dc set-brush brush)
             (define bbox (get-bounding-box))
-            (draw-bounding-box dc bbox zoom-level))))
+            (when bbox
+              (send dc set-pen debug-pen)
+              (send dc set-brush brush)
+              (draw-bounding-box dc bbox zoom-level)))))
 
       (draw-map-legend canvas dc zoom-level))
 
@@ -614,7 +618,9 @@
                (on-mouse-event this event))
              (define/override (on-char event)
                (on-key-event this event)))
-           [parent parent] [paint-callback on-canvas-paint]))
+           [parent parent]
+           [paint-callback on-canvas-paint]
+           [style '(no-autoclear)]))
 
     (define/public (set-zoom-level zl)
       ;; Ensure the zoom level is in the valid range
