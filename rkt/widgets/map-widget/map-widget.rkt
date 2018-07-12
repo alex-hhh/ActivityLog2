@@ -24,6 +24,7 @@
          racket/list
          racket/sequence
          racket/stream
+         racket/match
          "../../utilities.rkt"
          "../../fmt-util.rkt"
          "map-util.rkt"
@@ -35,7 +36,9 @@
 (define tile-size 256)                  ; size of the map tiles, in pixels
 (define earth-radius (->fl 6371000))    ; meters
 
-;; convert a zoom level to a "meters per pixel" value
+;; convert a zoom level to a "meters per pixel" value, this would be accurate
+;; at the equator, as under the mercantor projection, the meters per pixel
+;; value depends on the latitude.
 (define (zoom-level->mpp zoom-level)
   (let ((n (expt 2 (+ 8 zoom-level))))
     (/ (* 2 pi earth-radius) n)))
@@ -43,7 +46,11 @@
 ;; convert a "meters per pixel" value to an approximate zoom level
 (define (mpp->zoom-level mpp)
   (let ((n (/ (* 2 pi earth-radius) mpp)))
-    (- (/ (log n) (log 2)) 8)))
+    ;; this conversion does not account for the fact that the mercantor
+    ;; projection is not uniform across the entire globe, as such the "meters
+    ;; per pixel" value would need to take latitude into account.  Instead we
+    ;; just subtract an extra 0.5 and truncate the result.
+    (exact-truncate (- (/ (log n) (log 2)) 8.5))))
 
 ;; Maximum zoom level we allow for the map widget.
 (define max-zoom-level
@@ -68,9 +75,7 @@
         ;; mpp -- meters per pixel
         (let ((mpp-width (/ w canvas-width))
               (mpp-height (/ h canvas-height)))
-          (- (exact-floor (min (mpp->zoom-level mpp-width)
-                               (mpp->zoom-level mpp-height)))
-             1)))))
+          (mpp->zoom-level (max mpp-width mpp-height))))))
 
 (define (point-lat p) (vector-ref p 0))
 (define (point-long p) (vector-ref p 1))
@@ -153,9 +158,10 @@
 
   (let-values (([cx cy] (get-center zoom-level)))
     (send dc draw-ellipse (+ cx -10) (+ cy -10) 20 20))
+  (match-define (map-bbox max-lat max-lon min-lat min-lon) bounding-box)
   (let ((max-coord (* tile-size (expt 2 zoom-level)))
-        (map1 (lat-lon->map-point (car (first bounding-box)) (cdr (first bounding-box))))
-        (map2 (lat-lon->map-point (car (second bounding-box)) (cdr (second bounding-box)))))
+        (map1 (lat-lon->map-point max-lat min-lon))
+        (map2 (lat-lon->map-point min-lat max-lon)))
     (let ((x1 (* (map-point-x map1) max-coord))
           (y1 (* (map-point-y map1) max-coord))
           (x2 (* (map-point-x map2) max-coord))
@@ -392,6 +398,11 @@
   (class object%
     (init parent) (super-new)
 
+    (define debug?
+      (get-pref 'activity-log:draw-map-bounding-box (lambda () #f)))
+    (define debug-pen
+      (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
+
     ;;; data to display on the map
     (define tracks '())
     (define markers '())
@@ -485,7 +496,16 @@
             (send dc draw-ellipse
                   (- last-current-location-x 12)
                   (- last-current-location-y 12)
-                  24 24))))
+                  24 24))
+          
+          (when debug?
+            (define bbox (get-bbox))
+            (define brush
+              (send the-brush-list find-or-create-brush "black" 'transparent))
+            (when bbox
+              (send dc set-pen debug-pen)
+              (send dc set-brush brush)
+              (draw-bounding-box dc bbox zoom-level)))))
       (draw-map-legend canvas dc zoom-level))
 
     ;; Bitmap to draw when we don't receive a tile
@@ -553,7 +573,9 @@
                (on-mouse-event this event))
              (define/override (on-char event)
                (on-key-event this event)))
-           [parent parent] [paint-callback on-canvas-paint]))
+           [parent parent]
+           [paint-callback on-canvas-paint]
+           [style '(no-autoclear)]))
 
     (define/public (set-zoom-level zl)
       ;; Ensure the zoom level is in the valid range
