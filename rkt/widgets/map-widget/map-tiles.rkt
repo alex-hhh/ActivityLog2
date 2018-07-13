@@ -42,7 +42,8 @@
  tile-copyright-string
  get-tile-provider-names
  current-tile-provider-name
- set-current-tile-provider)
+ set-current-tile-provider
+ set-cache-threshold)
 
 
 ;........................................................ debug helpers ....
@@ -477,6 +478,11 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; Number of entries in BITMAP-CACHE before we start discarding bitmaps.
 (define cache-threshold 100)
 
+;; Timestamp when the cache was last rotated, this is currently used to
+;; trigger a message in the log if the cache is rotated too quickly (see issue
+;; #29)
+(define cache-rotate-timestamp (current-inexact-milliseconds))
+
 ;; Database requests are sent on this channel
 (define db-request-channel #f)
 
@@ -488,6 +494,21 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
 ;; threads.
 ;; TODO: stop these threads nicely when the application exits.
 (define worker-threads '())
+
+;; Set a new BITMAP-CACHE threshold -- this is the number of map tile bitmaps
+;; we keep in memory.  This function will increase the cache threshold, it
+;; will not update it if NEW-THRESHOLD is less than CACHE-THRESHOLD.
+;;
+;; The minimum cache threshold should be at least the number of tiles required
+;; to cover the map widget (see issue #29), but should preferably be a few
+;; times larger to allow for smooth scrolling and zooming.  Each map tile is
+;; approx 256 Kb in size, so the required memory to hold the bitmaps is at
+;; least 2 * cache-threshold * 0.25 Mb, the '2' is because we have a
+;; `secondary-bitmap-cache`.
+(define (set-cache-threshold new-threshold)
+  (when (> new-threshold cache-threshold)
+    (set! cache-threshold new-threshold)
+    (dbglog "map cache threshold set to ~a tiles" new-threshold)))
 
 ;; Shutdown all the worker threads.  We tell the threads to stop and allow
 ;; them to finish their current task.
@@ -569,9 +590,12 @@ where zoom_level = ? and x_coord = ? and y_coord = ?")))
    ;; the secondary-bitmap-cache and rotate it. This way, we discard old
    ;; unused tiles, trying to keep the memory down.
    (when (> (hash-count bitmap-cache) cache-threshold)
-     (dbg-printf "Rotating tile cache~%")
-     (set! secondary-bitmap-cache bitmap-cache)
-     (set! bitmap-cache (make-hash)))
+     (let ((timestamp (current-inexact-milliseconds)))
+       (when (> (- timestamp cache-rotate-timestamp) 500)
+         (dbglog "tile cache rotating too fast, threshold is ~a tiles" cache-threshold))
+       (set! cache-rotate-timestamp timestamp)
+       (set! secondary-bitmap-cache bitmap-cache)
+       (set! bitmap-cache (make-hash))))
 
    (cond ((hash-ref bitmap-cache tile #f))
          ;; Check if this value is in the secondary bitmap cache.  If it is,
