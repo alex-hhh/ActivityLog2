@@ -744,8 +744,23 @@ values (?, ?)" session-id id))
     (define parent-panel parent)
     (define deleted? #t)
 
+    (define (paint-label canvas dc)
+      (define msg "Lengths for lap")
+      (define font
+        (send the-font-list find-or-create-font 14 'default 'normal 'normal))
+      (let-values (([cw ch] (send dc get-size))
+                   ([w h x y] (send dc get-text-extent msg font #t)))
+        (send dc set-font font)
+        (define text-color (make-color #x2f #x4f #x4f))
+        (send dc set-text-foreground text-color)
+        (let ((ox (- (/ cw 2) (/ h 2)))
+              (oy (+ (/ ch 2) (/ w 2))))
+          (send dc draw-text msg ox oy #t 0 (/ pi 2)))))
+
     (define p (new horizontal-panel% [parent parent-panel] [style '(deleted)]))
-    (define lb (new qresults-list% [pref-tag tag] [label "Lengths for lap"] [parent p]))
+    (define lc (new canvas% [parent p] [min-width 40] [stretchable-width #f]
+                    [paint-callback paint-label]))
+    (define lb (new qresults-list% [pref-tag tag] [parent p]))
 
     (send lb setup-column-defs *swim-length-fields*)
 

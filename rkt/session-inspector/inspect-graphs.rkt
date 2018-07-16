@@ -282,7 +282,7 @@
    (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
    (df-contains? df xseries "swim_stroke")
    (let ((stroke (df-lookup df xseries "swim_stroke" x)))
-     (and stroke (get-swim-stroke-name stroke)))))
+         (and stroke (get-swim-stroke-name stroke)))))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
@@ -427,7 +427,7 @@
      (define y-range
        (if (or need-sdata? need-sdata2?)
            (let* ((y (ps-y-axis new-ps))
-                  (y2 (ps-y-axis2 new-ps))
+                  (y2 (ps-y-axis2 new-ps))
                   (st1 (if sdata (ds-stats sdata) #f))
                   (st2 (if sdata2 (ds-stats sdata2) #f))
                   (yr1 (if st1 (get-plot-y-range st1 y) #f))
@@ -469,7 +469,10 @@
 (define graph-view%
   (class object%
     (init parent)
-    (init-field text tag [min-height 250] [hover-callback (lambda (x) (void))])
+    (init-field text tag
+                [min-height 250]
+                [hover-callback (lambda (x) (void))]
+                [style '()])
     (super-new)
 
     (define previous-plot-state empty-ps)
@@ -508,7 +511,7 @@
                          (define/public (interactive-export-image)
                            (on-interactive-export-image)))
                        [parent parent]
-                       [style '(border)]
+                       [style (remove-duplicates (append '(border) style))]
                        [border 1]
                        [spacing 0]
                        [stretchable-height show-graph?]
@@ -1404,8 +1407,8 @@
     (define/override (is-valid-for? data-frame)
       (df-contains/any?
        data-frame
-       "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
-       "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
+            "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
+            "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
 
     (setup-y-axis-items (map car y-axis-items))
     (on-y-axis-selected 0)
@@ -1771,27 +1774,33 @@
     ("Time" . ,axis-swim-time)))
 
 (define (make-default-graphs parent hover-callback)
+  ;; NOTE: all graphs are created as 'deleted, so they are not visible.  The
+  ;; graphs-panel% will control visibility by adding/removing graphs from the
+  ;; parent panel
   (list
-   (new speed-graph% [parent parent] [hover-callback hover-callback])
-   (new elevation-graph% [parent parent] [hover-callback hover-callback])
-   (new heart-rate-graph% [parent parent] [hover-callback hover-callback])
-   (new cadence-graph% [parent parent] [hover-callback hover-callback])
-   (new vosc-vratio-graph% [parent parent] [hover-callback hover-callback])
-   (new gct-graph% [parent parent] [hover-callback hover-callback])
-   (new power-graph% [parent parent] [hover-callback hover-callback])
-   (new wbal-graph% [parent parent] [hover-callback hover-callback])
-   (new lrbal-graph% [parent parent] [hover-callback hover-callback])
-   (new teff-graph% [parent parent] [hover-callback hover-callback])
-   (new psmth-graph% [parent parent] [hover-callback hover-callback])
-   (new pco-graph% [parent parent] [hover-callback hover-callback])
-   (new power-phase-graph% [parent parent] [hover-callback hover-callback])))
+   (new speed-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new elevation-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new heart-rate-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new cadence-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new vosc-vratio-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new gct-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new power-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new wbal-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new lrbal-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new teff-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new psmth-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new pco-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new power-phase-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-swim-graphs parent hover-callback)
+  ;; NOTE: all graphs are created as '(deleted), so they are not visible.  The
+  ;; graphs-panel% will control visibility by adding/removing graphs from the
+  ;; parent panel
   (list
-   (new swim-pace-graph% [parent parent] [hover-callback hover-callback])
-   (new swim-swolf-graph% [parent parent] [hover-callback hover-callback])
-   (new swim-stroke-count-graph% [parent parent] [hover-callback hover-callback])
-   (new swim-cadence-graph% [parent parent] [hover-callback hover-callback])))
+   (new swim-pace-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new swim-swolf-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new swim-stroke-count-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
+   (new swim-cadence-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define graph-panel%
   (class object%
@@ -2040,6 +2049,15 @@
             candidates))
 
       (set! graphs (get-graphs-for-session the-session))
+      (send graphs-panel change-children
+            (lambda (old) (map (lambda (g) (send g get-panel)) graphs)))
+      ;; Attempt to reflow the container so the plot canvas knows its size
+      ;; when the plots are about to be inserted -- this does not work,
+      ;; unfortunately and the plots are inserted than resized immediately,
+      ;; causing an unpleasant flicker.  I suspect this has to do something
+      ;; with the 'vscroll option on the graph panel, as the other plots
+      ;; (scatter, histogram, etc) don't have this problem.
+      (send graphs-panel reflow-container)
       (let* ((sel (send x-axis-choice get-selection))
              (x-axis (cdr (list-ref x-axis-choices sel))))
         (for-each (lambda (g)
@@ -2051,9 +2069,7 @@
                     (send g set-filter-amount filter-amount)
                     (send g set-data-frame data-frame)
                     (send g resume-flush))
-                  graphs))
-      (send graphs-panel change-children
-            (lambda (old) (map (lambda (g) (send g get-panel)) graphs))))
+                  graphs)))
 
     (define/public (set-session session df)
       (set! the-session session)

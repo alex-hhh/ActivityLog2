@@ -35,7 +35,9 @@
 (define tile-size 256)                  ; size of the map tiles, in pixels
 (define earth-radius (->fl 6371000))    ; meters
 
-;; convert a zoom level to a "meters per pixel" value
+;; convert a zoom level to a "meters per pixel" value, this would be accurate
+;; at the equator, as under the mercantor projection, the meters per pixel
+;; value depends on the latitude.
 (define (zoom-level->mpp zoom-level)
   (let ((n (expt 2 (+ 8 zoom-level))))
     (/ (* 2 pi earth-radius) n)))
@@ -43,7 +45,11 @@
 ;; convert a "meters per pixel" value to an approximate zoom level
 (define (mpp->zoom-level mpp)
   (let ((n (/ (* 2 pi earth-radius) mpp)))
-    (- (/ (log n) (log 2)) 8)))
+    ;; this conversion does not account for the fact that the mercantor
+    ;; projection is not uniform across the entire globe, as such the "meters
+    ;; per pixel" value would need to take latitude into account.  Instead we
+    ;; just subtract an extra 0.5 and truncate the result.
+    (exact-truncate (- (/ (log n) (log 2)) 8.5))))
 
 ;; Maximum zoom level we allow for the map widget.
 (define max-zoom-level
@@ -68,9 +74,7 @@
         ;; mpp -- meters per pixel
         (let ((mpp-width (/ w canvas-width))
               (mpp-height (/ h canvas-height)))
-          (- (exact-floor (min (mpp->zoom-level mpp-width)
-                               (mpp->zoom-level mpp-height)))
-             1)))))
+          (mpp->zoom-level (max mpp-width mpp-height))))))
 
 (define (point-lat p) (vector-ref p 0))
 (define (point-long p) (vector-ref p 1))
@@ -153,7 +157,6 @@
 
   (let-values (([cx cy] (get-center zoom-level)))
     (send dc draw-ellipse (+ cx -10) (+ cy -10) 20 20))
-
   (match-define (map-bbox max-lat max-lon min-lat min-lon) bounding-box)
   (let ((max-coord (* tile-size (expt 2 zoom-level)))
         (map1 (lat-lon->map-point max-lat min-lon))
@@ -185,30 +188,30 @@
     (let* ((max-coord (* tile-size (expt 2 zoom-level)))
            (x (* (map-point-x pos) max-coord))
            (y (* (map-point-y pos) max-coord)))
-      (let-values (([w h b e] (send dc get-text-extent label)))
-        (let ((arrow-length 30)
-              (text-spacing 2))
-          (let ((label-baseline-x (+ x (* direction arrow-length)))
-                (label-baseline-y (+ y (- arrow-length)))
-                (label-length (+ w text-spacing text-spacing))
-                (label-height (+ h text-spacing text-spacing)))
-            (send dc draw-line x y label-baseline-x label-baseline-y)
-            (send dc draw-line
-                  label-baseline-x label-baseline-y
-                  (+ label-baseline-x (* direction label-length))
-                  label-baseline-y)
-            (send dc set-pen
-                  (send the-pen-list find-or-create-pen "black" 1 'transparent))
-            (let ((rectangle-y (- label-baseline-y label-height))
-                  (rectangle-x (if (> direction 0)
-                                   label-baseline-x
-                                   (- label-baseline-x label-length))))
-              (send dc draw-rectangle
-                    rectangle-x rectangle-y
-                    label-length label-height)
-              (send dc draw-text label
-                    (+ rectangle-x text-spacing)
-                    (+ rectangle-y text-spacing)))))))))
+    (let-values (([w h b e] (send dc get-text-extent label)))
+      (let ((arrow-length 30)
+            (text-spacing 2))
+        (let ((label-baseline-x (+ x (* direction arrow-length)))
+              (label-baseline-y (+ y (- arrow-length)))
+              (label-length (+ w text-spacing text-spacing))
+              (label-height (+ h text-spacing text-spacing)))
+        (send dc draw-line x y label-baseline-x label-baseline-y)
+        (send dc draw-line
+              label-baseline-x label-baseline-y
+              (+ label-baseline-x (* direction label-length))
+              label-baseline-y)
+        (send dc set-pen
+              (send the-pen-list find-or-create-pen "black" 1 'transparent))
+        (let ((rectangle-y (- label-baseline-y label-height))
+              (rectangle-x (if (> direction 0)
+                               label-baseline-x
+                               (- label-baseline-x label-length))))
+          (send dc draw-rectangle
+                rectangle-x rectangle-y
+                label-length label-height)
+          (send dc draw-text label
+                (+ rectangle-x text-spacing)
+                (+ rectangle-y text-spacing)))))))))
 
 (define (with-draw-context dc origin-x origin-y thunk)
   (let-values (([ox oy] (send dc get-origin)))
@@ -225,8 +228,8 @@
     (super-new)
 
     (define bbox #f)
-    (define debug? #f)
-      ;; (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+    (define debug?
+      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
     (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
     (define paths-by-zoom-level (make-hash))
@@ -344,16 +347,16 @@
   (define sdist (/ statute-distance (zoom-level->mpp zoom-level)))
   (define-values (ox oy) (values 10 10))
   (define-values (cw ch) (send canvas get-size))
-  (send dc set-brush
-        (send the-brush-list find-or-create-brush
-              (make-color 255 255 255 0.7) 'solid))
-  (send dc set-pen
-        (send the-pen-list find-or-create-pen "white" 1 'transparent))
-  (send dc set-font legend-font)
-  (send dc set-text-foreground legend-color)
+        (send dc set-brush
+              (send the-brush-list find-or-create-brush
+                    (make-color 255 255 255 0.7) 'solid))
+        (send dc set-pen
+              (send the-pen-list find-or-create-pen "white" 1 'transparent))
+        (send dc set-font legend-font)
+        (send dc set-text-foreground legend-color)
 
-  (let-values (((w h x y) (send dc get-text-extent (tile-copyright-string) legend-font #t)))
-    (send dc draw-rectangle (- cw ox 5 w) (- ch oy 5 h) (+ w 5 5) (+ h 5 5))
+        (let-values (((w h x y) (send dc get-text-extent (tile-copyright-string) legend-font #t)))
+          (send dc draw-rectangle (- cw ox 5 w) (- ch oy 5 h) (+ w 5 5) (+ h 5 5))
     (send dc draw-text (tile-copyright-string) (- cw ox w) (- ch oy h))
 
     ;; use the height of the copyright string to determine the height of the
@@ -409,7 +412,7 @@
     (init parent) (super-new)
 
     (define debug?
-      (get-pref 'activity-log:draw-track-bounding-box (lambda () #f)))
+      (get-pref 'activity-log:draw-map-bounding-box (lambda () #f)))
     (define debug-pen
       (send the-pen-list find-or-create-pen (make-object color% 86 13 24) 2 'solid))
 
@@ -535,12 +538,13 @@
                   (- last-current-location-x 12)
                   (- last-current-location-y 12)
                   24 24))
-
+          
           (when debug?
-            (send dc set-pen debug-pen)
-            (send dc set-brush brush)
             (define bbox (get-bounding-box))
-            (draw-bounding-box dc bbox zoom-level))))
+            (when bbox
+              (send dc set-pen debug-pen)
+              (send dc set-brush brush)
+              (draw-bounding-box dc bbox zoom-level)))))
 
       (draw-map-legend canvas dc zoom-level))
 
@@ -568,6 +572,7 @@
           (send dc set-smoothing 'smoothed)
           (send dc set-smoothing 'unsmoothed))
       (send redraw-timer stop)
+      (define-values (w h) (send canvas get-size))
       (let* ((request-redraw? #f)
 
              ;; Coordinates of the tile at canvas origin (need not be a valid
@@ -577,19 +582,25 @@
 
              ;; offset inside the tile where the canvas origin lives.
              (xofs (- origin-x (* tile0-x tile-size)))
-             (yofs (- origin-y (* tile0-y tile-size))))
+             (yofs (- origin-y (* tile0-y tile-size)))
 
-        (let-values (((w h) (send canvas get-size)))
-          (for* ((x (in-range 0 (+ 1 (exact-ceiling (/ w tile-size)))))
-                 (y (in-range 0 (+ 1 (exact-ceiling (/ h tile-size))))))
-            (let ((tile-x (+ tile0-x x))
-                  (tile-y (+ tile0-y y)))
-              (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
-                (let ((bmp (or (get-tile-bitmap (map-tile zoom-level tile-x tile-y))
-                               (begin (set! request-redraw? #t) empty-bmp))))
-                  (send dc draw-bitmap bmp
-                        (- (* x tile-size) xofs)
-                        (- (* y tile-size) yofs)))))))
+             ;; Number of tiles on the width and height
+             (tw (add1 (exact-ceiling (/ w tile-size))))
+             (th (add1 (exact-ceiling (/ h tile-size)))))
+
+        ;; Tell the bitmap cache how many tiles to keep in the cache
+        (set-cache-threshold (* 5 tw th))
+          
+        (for* ((x (in-range 0 tw))
+               (y (in-range 0 th)))
+          (let ((tile-x (+ tile0-x x))
+                (tile-y (+ tile0-y y)))
+            (when (and (valid-tile-num? tile-x) (valid-tile-num? tile-y))
+              (let ((bmp (or (get-tile-bitmap (map-tile zoom-level tile-x tile-y))
+                             (begin (set! request-redraw? #t) empty-bmp))))
+                (send dc draw-bitmap bmp
+                      (- (* x tile-size) xofs)
+                      (- (* y tile-size) yofs))))))
 
         (when (or request-redraw? (> (get-download-backlog) 0))
           (send redraw-timer start 100))))
@@ -614,7 +625,9 @@
                (on-mouse-event this event))
              (define/override (on-char event)
                (on-key-event this event)))
-           [parent parent] [paint-callback on-canvas-paint]))
+           [parent parent]
+           [paint-callback on-canvas-paint]
+           [style '(no-autoclear)]))
 
     (define/public (set-zoom-level zl)
       ;; Ensure the zoom level is in the valid range
@@ -685,7 +698,7 @@
         (set! last-current-location-x #f)
         (set! last-current-location-x #f)
         (request-refresh))
-      
+     
       (when current-location
         (let-values (([w h] (send canvas get-size)))
           (let* ((point (lat-lon->map-point
@@ -764,13 +777,13 @@
           track))
       (set! tracks ntracks)
       (request-refresh))
-    
+          
     (define (get-bounding-box [group #f])
       (define bb
         (for/fold ([bb #f])
-                  ([track tracks]
-                   #:when (or (not group)
-                              (equal? group (send track get-group))))
+                ([track tracks]
+                 #:when (or (not group)
+                            (equal? group (send track get-group))))
           (let ((bb1 (send track get-bounding-box)))
             (if bb (bbox-merge bb bb1) bb1))))
       (if group

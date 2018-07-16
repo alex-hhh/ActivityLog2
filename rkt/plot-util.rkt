@@ -333,11 +333,15 @@
       (super on-size w h))
 
     (define (update-snip w h)
-      (define snip-w (max 0 (- w (* 2 horizontal-inset))))
-      (define snip-h (max 0 (- h (* 2 vertical-inset))))
       (when snip
-        (send snip resize snip-w snip-h)
-        (send pb move-to snip 0 0)))
+        (let ((snip-w (max 0 (- w (* 2 horizontal-inset))))
+              (snip-h (max 0 (- h (* 2 vertical-inset))))
+              (bw (box 0))
+              (bh (box 0)))
+          (send snip get-extent (send this get-dc) 0 0 bw bh)
+          (unless (and (= (unbox bw) snip-w) (= (unbox bh) snip-h))
+            (send snip resize snip-w snip-h)
+            (send pb move-to snip 0 0)))))
 
     (define/public (set-snip s)
       (set! snip s)
@@ -346,9 +350,9 @@
       (send pb begin-edit-sequence #f)
       (send pb erase)
       (when snip
+        (send pb insert snip)
         (let-values (([w h] (send (send this get-dc) get-size)))
-          (update-snip w h))
-        (send pb insert snip))
+          (update-snip w h)))
       (send pb end-edit-sequence)
       (send pb set-writable #f)
       (send this resume-flush))
