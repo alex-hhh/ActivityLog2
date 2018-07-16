@@ -238,7 +238,7 @@ etc.  For example to get the positions for the second KM in the activity, use:
 These indexes could be used to retrieve the GPS track for the second KM of the
 activity.
 
-## Retrieving individual values using  `ref` and `ref*`
+## Retrieving individual values using  `df-ref` and `df-ref*`
 
     (df-ref df index series)
     (df-ref* df index . series)
@@ -325,7 +325,7 @@ to the accumulated value:
     scratch.rkt> (df-fold df '("timer" "pwr") 0 accum-work)
     796091.0
 
-## Adding new series using `df-add-derived` and `df-addlazy`
+## Adding new series using `df-add-derived` and `df-add-lazy`
 
     (df-add-derived name base-series value-fn)
     (df-add-lazy name base-series value-fn)
