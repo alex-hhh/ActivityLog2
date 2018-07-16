@@ -83,12 +83,12 @@
     (error "series missing required data (hr, timer, spd)"))
   (pp-session-info df)
   ;; HR is the best 20 min of the session
-  (define hr-best (df-best-avg df "hr" #:weight-column "timer" #:durations (list (* 20 60))))
+  (define hr-best (df-mean-max df "hr" #:weight-series "timer" #:durations (list (* 20 60))))
   (when (null? hr-best)
     (error "session is too short"))
   (match-define (vector duration hr pos) (car hr-best))
   ;; SPD is the best 30 min of the session
-  (define spd-best (df-best-avg df "spd" #:weight-column "timer" #:durations (list (* 30 60))))
+  (define spd-best (df-mean-max df "spd" #:weight-series "timer" #:durations (list (* 30 60))))
   (when (null? spd-best)
     (error "session is too short"))
   (match-define (vector duration2 spd pos2) (car spd-best))
@@ -117,10 +117,10 @@
     (error "series missing required data (hr, timer, spd)"))
   (pp-session-info df)
   ;; HR is the best 20 min of the session
-  (define hr-best (df-best-avg df "hr" #:weight-column "timer" #:durations (list (* 20 60))))
+  (define hr-best (df-mean-max df "hr" #:weight-series "timer" #:durations (list (* 20 60))))
   (when (null? hr-best)
     (error "session is too short"))
-  (define pwr-best (df-best-avg df "pwr" #:weight-column "timer" #:durations (list (* 20 60))))
+  (define pwr-best (df-mean-max df "pwr" #:weight-series "timer" #:durations (list (* 20 60))))
   (when (null? pwr-best)
     (error "session is too short"))
   (newline)

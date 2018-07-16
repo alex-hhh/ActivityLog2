@@ -22,14 +22,22 @@
 
 ;;........................................................... data-frame ....
 
+;; A data frame holds together some data series in an unspecified order.  All
+;; series in the data series have the same number of elements.  There are
+;; methods for selecting a subset of the data, looking up values adding new
+;; series, plus other things.
+;;
+;; A data series can also contain "properties" which are key,value pairs.
 (struct data-frame
-  (semaphore
-   locking-thread
-   series
-   delayed
-   properties)
+  (semaphore                 ; controls access to materializing delayed series
+   locking-thread            ; the thread owning the semaphore
+   series                    ; a hash table of series?
+   delayed                   ; a hash table of functions which can create
+                             ; series (see `df-add-lazy`)
+   properties)               ; a hash table containing the series properties.
   #:mutable)
 
+;; Construct an empty data frame
 (define (make-data-frame)
   (data-frame
    (make-semaphore 1)
@@ -38,6 +46,12 @@
    (make-hash)
    (make-hash)))
 
+;; Create a copy of the data frame DF.  The returned copy will reference the
+;; same data series objects as the original (and the properties), but any
+;; add/delete operations, for both series and properties, will only affect the
+;; copy.
+;;
+;; Before copying the data frame, all lazy series will be materialized.
 (define (df-shallow-copy df)
   (match-define (data-frame _ _ series delayed properties) df)
   ;; Materialize all lazy series
@@ -50,28 +64,40 @@
    (make-hash)
    (hash-copy properties)))
 
+;; Return the series names in the data frame DF, as a list of strings.  The
+;; names are returned in an unspecified order.
 (define (df-series-names df)
   (match-define (data-frame _ _ series delayed _) df)
   (append (hash-keys series) (hash-keys delayed)))
 
+;; Return the property names in the data frame DF, as a list of symbols.  The
+;; names are returned in an unspecified order.
 (define (df-property-names df)
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-keys properties))
 
-(define (df-contains? df . column-names)
+;; Return #t if the data frame DF contains ALL the series specified in
+;; SERIES-NAMES
+(define (df-contains? df . series-names)
   (match-define (data-frame _ _ series delayed _) df)
-  (for/and ([n column-names])
+  (for/and ([n (in-list series-names)])
     (and (or (hash-ref series n #f)
              (hash-ref delayed n #f))
          #t)))
 
-(define (df-contains/any? df . column-names)
+;; Return #t if the data frame DF contains ANY of the series specified in
+;; SERIES-NAMES.
+(define (df-contains/any? df . series-names)
   (match-define (data-frame _ _ series delayed _) df)
-  (for/or ([n column-names])
+  (for/or ([n (in-list series-names)])
     (and (or (hash-ref series n #f)
              (hash-ref delayed n #f))
          #t)))
 
+;; Return the series named NAME in the data frame DF.  The series is
+;; materialized first, if needed -- i.e. if the series was added using
+;; `df-add-lazy`, the thunk will be invoked to create the series.  An error is
+;; raised if the series does not exist.
 (define (df-get-series df name)
   (match-define (data-frame semaphore locking-thread series delayed _) df)
   (define should-unlock? #f)
@@ -106,24 +132,40 @@
             (df-raise "df-get-series (\"~a\"): not found" name))
       (unlock))))
 
+;; Put the property (KEY, VALUE) inside the data frame DF, possibly replacing
+;; an existing one for KEY.
 (define (df-put-property df key value)
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-set! properties key value))
 
+;; Return the value for property KEY inside the data frame DF.  If there is no
+;; property named KEY, the DEFAULT-VALUE-FN is invoked to produce a value (the
+;; default function just returns #f)
 (define (df-get-property df key [default-value-fn (lambda () #f)])
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-ref properties key default-value-fn))
 
+;; Delete the property KEY in the data frame DF.
 (define (df-del-property df key)
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-remove! properties key))
 
+;; Returns the number of rows in the data frame DF.  All series inside a data
+;; frame have the same number of rows.
 (define (df-row-count df)
   (match-define (data-frame _ _ series _ _) df)
   (or (for/first ([v (in-hash-values series)])
         (series-size v))
       0))
 
+;; Returns a vector with the values in the series NAME from the data frame DF.
+;; START and STOP indicate the first and one-before-last row to be
+;; selected. FILTER-FN, when present, will filter values selected, only values
+;; for which FILTER-FN returns #t will be added to the resulting vector.
+;;
+;; If there is no FILTER-FN specified, the resulting vector will have (- STOP
+;; START) elements.  If there is a filter, the number of elements depends on
+;; how many are filtered out by this function.
 (define (df-select df name
                    #:filter (filter-fn #f)
                    #:start (start 0)
@@ -133,6 +175,17 @@
       (for/vector ([d (in-series col start stop)] #:when (filter-fn d)) d)
       (for/vector #:length (- stop start) ([d (in-series col start stop)]) d)))
 
+;; Return a sequence that produces values from a list of SERIES between START
+;; and STOP rows.  Each value in the sequence is a list of the values
+;; corresponding to the series names.  NOTE: this is intended to be used in
+;; `for` and related constructs to iterate over elements in the data frame.
+;;
+;; Example:
+;;
+;; (for ((coord (in-data-frame/list df "lat" "lon")))
+;;    (match-define (list lat lon) coord)
+;;    (printf "lat = ~a, lon = ~a~%" lat lon))
+;;
 (define (in-data-frame/list df
                             #:start (start 0)
                             #:stop (stop (df-row-count df))
@@ -143,6 +196,16 @@
         (in-series c start stop))))
   (in-values-sequence (apply in-parallel generators)))
 
+;; Return a sequence that produces values from a list of SERIES between START
+;; and STOP rows.  The sequence produces values, each one corresponding to the
+;; series names.  NOTE: this is intended to be used in `for` and related
+;; constructs to iterate over elements in the data frame.
+;;
+;; Example:
+;;
+;; (for (([lat lon] (in-data-frame df "lat" "lon")))
+;;    (printf "lat = ~a, lon = ~a~%" lat lon))
+;;
 (define (in-data-frame df
                        #:start (start 0)
                        #:stop (stop (df-row-count df))
@@ -153,11 +216,19 @@
         (in-series c start stop))))
   (apply in-parallel generators))
 
+;; Return a vector where each element is a vector containing values from
+;; multiple SERIES between the START and STOP rows of the data frame.
+;; FILTER-FN, when present, will filter values selected, only values for which
+;; FILTER-FN returns #t will be added to the resulting vector.
+;;
+;; If there is no FILTER-FN specified, the resulting vector will have (- STOP
+;; START) elements.  If there is a filter, the number of elements depends on
+;; how many are filtered out by this function.
 (define (df-select* df
                     #:filter (filter-fn #f)
                     #:start (start 0)
-                    #:stop (stop (df-row-count df)) . names)
-  (define sequence (keyword-apply in-data-frame/list null null df names #:start start #:stop stop))
+                    #:stop (stop (df-row-count df)) . series)
+  (define sequence (keyword-apply in-data-frame/list null null df series #:start start #:stop stop))
   (if filter-fn
       (for*/vector ([item sequence]
                     [val (in-value (list->vector item))]
@@ -165,31 +236,56 @@
         val)
       (for/vector #:length (- stop start) ([item sequence]) (list->vector item))))
 
-(define (df-index-of df column value)
-  (let ([s (df-get-series df column)])
+;; Return the index (position) of VALUE in the data frame SERIES.  If SERIES
+;; is not sorted, this will raise an error.  VALUE might not be present in the
+;; series, in that case, the returned index is the position of the first
+;; element which is greater than VALUE (i.e. the position where VALUE could be
+;; inserted and still keep the series sorted).  A value of 0 is returned if
+;; VALUE is less or equal than the first value of the series and a value of
+;; (df-row-count df) is returned if the value is greater than all the values
+;; in SERIES.
+(define (df-index-of df series value)
+  (let ([s (df-get-series df series)])
     (series-index-of s value)))
 
-(define (df-index-of* df column . values)
-  (let ([s (df-get-series df column)])
+;; Return a list of indexes corresponding to each element in VALUES for
+;; SERIES.  This is the same as calling `df-index-of` for each individual
+;; value, but it is more efficient.
+(define (df-index-of* df series . values)
+  (let ([s (df-get-series df series)])
     (for/list ([v (in-list values)]) (series-index-of s v))))
 
-(define (df-ref df index column)
-  (let ([s (df-get-series df column)])
+;; Return the value at INDEX for SERIES.
+(define (df-ref df index series)
+  (let ([s (df-get-series df series)])
     (series-ref s index)))
 
-(define (df-set! df index value column)
-  (let ([s (df-get-series df column)])
+;; Set the VALUE at INDEX in SERIES.  This will first validate that the series
+;; is still sorted (if SERIES was sorted) and that VALUE satisfies the SERIES
+;; contract (if any).  The update will fail if these constraints are not
+;; satisfied.
+(define (df-set! df index value series)
+  (let ([s (df-get-series df series)])
     (series-set! s index value)))
 
+;; Return a vector with values at INDEX for each element in the SERIES list.
 (define (df-ref* df index . series)
-  (for/vector ([column (in-list series)])
-    (let ([s (df-get-series df column)])
+  (for/vector ([series (in-list series)])
+    (let ([s (df-get-series df series)])
       (series-ref s index))))
 
+;; Return the NA value for SERIES.
 (define (df-na-value df series)
   (define s (df-get-series df series))
   (series-na s))
 
+;; Perform an indexed lookup: the index of VALUE is found in BASE-SERIES (a
+;; series name) and the value at the same index is returned from SERIES, which
+;; is either a single series or a list of series.  IF SERIES is a single
+;; string, a single value is returned, if it is a list of names, a list of
+;; values is returned.
+;;
+;; This is a combination of `df-index-of` and `df-ref`, but more efficient.
 (define (df-lookup df base-series series value)
   (let ((index (df-index-of df base-series value)))
     (if (< index (df-row-count df))
@@ -201,6 +297,8 @@
               (df-na-value df s))
             (df-na-value df series)))))
 
+;; Perform an indexed lookup on multiple values.  Same as calling `df-lookup`
+;; on each value in VALUES and returning the result as a list.
 (define (df-lookup* df base-series series . values)
   (define slist
     (if (list? series)
@@ -219,6 +317,11 @@
               (series-na s))
             (series-na slist)))))
 
+;; Perform an interpolated lookup: same as `df-lookup`, but if VALUE is not
+;; found exactly in BASE-SERIES, it's relative position is determined and it
+;; is used to interpolate values from the corresponding SERIES.  An
+;; interpolation function can be specified, if the default one is not
+;; sufficient.  This function is called once for each resulting SERIES.
 (define (df-lookup/interpolated
          df base-series series value
          #:interpolate (interpolate (lambda (t v1 v2)
@@ -241,6 +344,14 @@
                           (interpolate t p n))))
            (if (list? series) result (vector-ref result 0))))))
 
+;; Map the function FN over a list of SERIES between START and STOP.  Returns
+;; a vector with the values that FN returns.  FN is a function of ether one or
+;; two arguments.  If FN is a function with one argument, it is called with
+;; the values from all SERIES as a single vector.  If FN is a function of two
+;; arguments, it is called with the current and previous set of values, as
+;; vectors (this allows calculating "delta" values).  I.e. FN is invoked as
+;; (FN PREV CURRENT).  If FN accepts two arguments, it will be invoked as (FN
+;; #f CURRENT) for the first element of the iteration.
 (define (df-map df series fn #:start (start 0) #:stop (stop (df-row-count df)))
   (define sequence (keyword-apply in-data-frame/list null null df
                                   (if (string? series) (list series) series)
@@ -254,6 +365,8 @@
       (for/vector #:length (- stop start) ([val sequence])
         (fn val))))
 
+;; Iterate the function FN over a list of SERIES between START and STOP,
+;; discarding the results of FN.  FN is invoked as for `df-map`, which see.
 (define (df-for-each df series fn #:start (start 0) #:stop (stop (df-row-count df)))
   (define sequence (keyword-apply in-data-frame/list null null df
                                   (if (string? series) (list series) series)
@@ -267,6 +380,16 @@
       (for ([val sequence])
         (fn val))))
 
+;; Fold a function FN over a list of SERIES between START and STOP.  INIT-VAL
+;; is the initial value for the fold operation.  The last value returned by FN
+;; is returned by this function.  FN is a function of ether two or three
+;; arguments.  If FN is a function with two arguments, it is called with the
+;; fold value plus the values from all SERIES is passed in as a single vector.
+;; If FN is a function of three arguments, it is called with the fold value
+;; plus the current and previous set of values, as vectors (this allows
+;; calculating "delta" values).  I.e. FN is invoked as (FN VAL PREV CURRENT).
+;; If FN accepts two arguments, it will be invoked as (FN INIT-VAL #f CURRENT)
+;; for the first element of the iteration.
 (define (df-fold df series init-val fn #:start (start 0) #:stop (stop (df-row-count df)))
   (define sequence (keyword-apply in-data-frame/list null null df
                                   (if (string? series) (list series) series)
@@ -282,48 +405,81 @@
         (set! accumulator (fn accumulator val))))
   accumulator)
 
-(define (df-add-series df column)
+;; Add SERIES to the data frame DF.  The new series must have the same number
+;; of rows as existing series in the data frame, unless the data frame is
+;; empty.
+(define (df-add-series df s)
   (match-define (data-frame _ _ series delayed _) df)
-  ;; Check if the column has the same number of rows as the rest of the
-  ;; column.  Take special care for the first column (row-count)
-  ;; returns #f.
-  (let ((row-count (df-row-count df))
-        (srow-count (series-size column)))
-    (unless (or (hash-empty? series) (equal? row-count srow-count))
-      (df-raise "data-frame%/add-series (\"~a\"): bad length ~a, expecting ~a"
-                (series-name column) srow-count row-count)))
-  (let ([name (series-name column)])
-    (hash-set! series name column)))
+  ;; Check if the series has the same number of rows as the rest of the
+  ;; series (if there are any other series in the data frame)
+  (let ((nrows (df-row-count df))
+        (name (series-name s))
+        (size (series-size s)))
+    (unless (or (hash-empty? series) (equal? nrows size))
+      (df-raise "df-add-series (\"~a\"): bad length ~a, expecting ~a" name size nrows))
+    (hash-set! series name s)))
 
+;; Remove series NAME from the data frame, does nothing if the series does not
+;; exist.
 (define (df-del-series df name)
   (match-define (data-frame _ _ series delayed _) df)
   (hash-remove! series name)
   (hash-remove! delayed name))
 
+;; Add a new series to the data frame whose values are computed from values of
+;; existing series.  The data for the series is created using `df-map` by
+;; applying VALUE-FN on BASE-SERIES and the new data is added to the data
+;; frame.  See `df-map` for notes on the VALUE-FN.
 (define (df-add-derived df name base-seriess value-fn)
   (define data (df-map df base-seriess value-fn))
   (define col (make-series name #:data data))
   (df-add-series df col))
 
+;; Add a new series to the data frame, but delay creating it until it is
+;; referenced.  This function allows adding many series to a data frame, with
+;; the expectation that the cost to create those series is paid when (and if)
+;; they are used.
 (define (df-add-lazy df name base-series value-fn)
   (match-define (data-frame _ _ _ delayed _) df)
   (hash-set! delayed name
              (lambda () (df-add-derived df name base-series value-fn))))
 
-(define (df-set-sorted df column cmpfn)
-  (define col (df-get-series df column))
+;; Mark the SERIES as sorted according to CMPFN.  This does not actually sort
+;; the data series, it just tells the data frame that the series can be used
+;; for index lookup.  An error is raised if the series is not actually sorted
+;; or if it contains NA values.
+(define (df-set-sorted df series cmpfn)
+  (define col (df-get-series df series))
   (series-bless-sorted col cmpfn))
 
-(define (df-set-contract df column contractfn)
-  (define col (df-get-series df column))
+;; Set the contract for values in the data SERIES to CONTRACTFN.  An exception
+;; is thrown if not all values in SERIES match contractfn or are NA (the
+;; contractfn need not return #t for the NA value)
+(define (df-set-contract df series contractfn)
+  (define col (df-get-series df series))
   (series-bless-contract col contractfn))
 
-(define (df-count-na df column)
-  (define col (df-get-series df column))
+;; Count the number of NA (not available) values in SERIES.
+(define (df-count-na df series)
+  (define col (df-get-series df series))
   (series-na-count col))
 
-(define (df-is-na? df column val)
-  (define col (df-get-series df column))
+;; Return true if SERIES has any NA (not available) values.  This is
+;; equivalent to (> (df-count-na DF SERIES) 0), but it is faster.
+(define (df-has-na? df series)
+  (define col (df-get-series df series))
+  (series-has-na? col))
+
+;; Return true if SERIES has any values except NA (not available) values.
+;; This is equivalent to (< (df-count-na DF SERIES) (df-row-count DF)), but
+;; faster.
+(define (df-has-non-na? df series)
+  (define col (df-get-series df series))
+  (series-has-non-na? col))
+
+;; Return #t if VAL is the NA (not available) value for SERIES.
+(define (df-is-na? df series val)
+  (define col (df-get-series df series))
   (series-is-na? col val))
 
 ;; Helper function to select only entries with valie values.  Usefull as a
@@ -347,7 +503,7 @@
 (provide/contract
  (make-data-frame (-> data-frame?))
  (df-series-names (-> data-frame? (listof string?)))
- (df-property-names (-> data-frame? (listof string?)))
+ (df-property-names (-> data-frame? (listof symbol?)))
  (df-contains? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-contains/any? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-put-property (-> data-frame? symbol? any/c any/c))
@@ -396,5 +552,7 @@
  (df-count-na (-> data-frame? string? exact-nonnegative-integer?))
  (df-shallow-copy (-> data-frame? data-frame?))
  (df-is-na? (-> data-frame? string? any/c boolean?))
+ (df-has-na? (-> data-frame? string? boolean?))
+ (df-has-non-na? (-> data-frame? string? boolean?))
  (data-frame? (-> any/c boolean?))
  (valid-only (-> any/c boolean?)))

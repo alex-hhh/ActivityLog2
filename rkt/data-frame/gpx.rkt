@@ -23,6 +23,7 @@
          (only-in srfi/19 string->date)
          xml
          "df.rkt"
+         "exn.rkt"
          "series.rkt")
 
 
@@ -131,28 +132,13 @@
     (write-string (format "~a  </trkseg>\n" (gpx-indent-string)))
     (write-string (format "~a</trk>\n" (gpx-indent-string)))))
 
-;; Export the GPS track from the data frame DF to the output port OUT.  The
-;; data frame is expected to contain the "timestamp", "lat", "lon" and
-;; optionally "alt" or "calt" (corrected altitude) series.
-;;
-;; The entire GPS track is exported as a single track segment
-;;
-;; The 'laps property, if present, is assumed to contain a list of timestamps.
-;; Positions corresponding to these timestamps are exported as way points.
-;;
-;; The name of the segment can be specified as the NAME parameter. If this is
-;; #f, the 'name property in the data frame is consulted, if that one is
-;; missing a default track name is used.
-;;
-;; TODO: as an improvement, we could split the track around teleport points
-;; into different segments.  This would work nicely when exporting skiing
-;; runs.
-;;
+;; Write the contents of DF in GPX format to the output port OUT.  See
+;; `df-write/gpx` for some notes on what is actually written.
 (define (write-gpx df out #:name (name #f))
   (unless (df-contains? df "timestamp" "lat" "lon")
-    (error "cannot export GPX track -- timestamp or lat or lon series missing"))
+    (df-raise "cannot export GPX track -- timestamp or lat or lon series missing"))
   (unless (df-contains/any? df "calt" "alt")
-    (error "cannot export GPX track -- altitude series missing"))
+    (df-raise "cannot export GPX track -- altitude series missing"))
   (parameterize ((current-output-port out)
                  (gpx-indent 0)
                  (gpx-indent-string "")
@@ -165,13 +151,31 @@
                          ;; available
                          (list "timestamp" "lat" "lon" "alt"))
                         (#t
-                         (error "cannot export GPX track -- alt or calt series missing")))))
+                         (df-raise "cannot export GPX track -- alt or calt series missing")))))
     (write-string "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (write-string gpx-header-tag)
     (gpx-emit-laps df)
     (gpx-emit-trk df name)
     (write-string "</gpx>\n")))
 
+;; Export the GPS track from the data frame DF to OUT -- which is either an
+;; output port or a string, in which case it denotes a file name.  The data
+;; frame is expected to contain the "timestamp", "lat", "lon" series, and
+;; optionally "alt" or "calt" (corrected altitude) series.
+;;
+;; The entire GPS track is exported as a single track segment.
+;;
+;; The 'laps property, if present, is assumed to contain a list of timestamps.
+;; The positions corresponding to these timestamps are exported as way points.
+;;
+;; The name of the segment can be specified as the NAME parameter. If this is
+;; #f, the 'name property in the data frame is consulted, if that one is
+;; missing a default track name is used.
+;;
+;; TODO: as an improvement, we could split the track around teleport points
+;; into different segments.  This would work nicely when exporting skiing
+;; runs.
+;;
 (define (df-write/gpx df outp #:name (name #f))
   (if (path-string? outp)
       (call-with-output-file outp
@@ -195,7 +199,7 @@
   (let ((e (document-element xml)))
     (if (eq? (element-name e) 'gpx)
         e
-        (error "not a gpx file"))))
+        (df-raise "not a gpx file"))))
 
 ;; Convenience function to check if E is an XML document by NAME
 (define (e-name? e name)
@@ -266,6 +270,10 @@
   (for/list ([e (element-content gpx)] #:when (e-name? e 'wpt))
     (parse-way-point e)))
 
+;; Find the timestamp for the DF row that contains the point that is closest
+;; to the LAT + LON position.  Note that this is a simplistic method and will
+;; produce incorrect results if the GPX track contains loops or it is an "out
+;; and back" track.
 (define (get-closest-timestamp df lat lon)
   (define-values
     (timestamp distance)
@@ -280,26 +288,13 @@
   timestamp)
 
 ;; Construct a data frame from the GPX document specified as an input port.
-;; The data frame will have "timestamp", "lat", "lon", "alt", "dst" and
-;; "grade" series (the last two are computed.  See doc/session-df.md for the
-;; meaning of these series.  The data frame will also have a 'name property
-;; containing the "NAME" of the track segment, if this is present in the GPX
-;; file.
-;;
-;; LIMITATIONS:
-;;
-;;  * only the first track segment is read
-;;
-;; HINT: to read the GPX from a file name use:
-;;
-;;     (call-with-input-file FILE-NAME df-read/gpx)
-;;
+;; See `df-read/gpx` for details on what is read from the document.
 (define (read-gpx in)
   (define gpx (get-gpx-tree (slurp-xml in)))
   (define track (get-track gpx))
-  (unless track (error "could not find track"))
+  (unless track (df-raise "could not find track"))
   (define track-segment (get-first-track-seg track))
-  (unless track-segment (error "could not find track segment"))
+  (unless track-segment (df-raise "could not find track segment"))
   (define item-count (count-track-points track-segment))
   (define lat (make-vector item-count))
   (define lon (make-vector item-count))
@@ -344,6 +339,9 @@
   (when track-name
     (df-put-property df 'name track-name))
   (define waypoints (parse-all-way-points gpx))
+  ;; Try to reconstruct the 'laps property from the way points -- this will
+  ;; not work very well if the way points don't have a timestamp and the GPX
+  ;; track contains loops or it is an "out and back" track.
   (define laps
     (for/list ([wpt (in-list waypoints)])
       (match-define (list timestamp lat lon elevation name) wpt)
@@ -353,6 +351,26 @@
 
   df)
 
+;; Construct a data frame from the GPX document specified in INP -- which is
+;; either an input port or a string, in which case it denotes an input file.
+;; The data frame will have "timestamp", "lat", "lon", "alt", "dst" and
+;; "grade" series (the last two are computed.  See doc/session-df.md for the
+;; meaning of these series.
+;;
+;; The data frame will also have the following properties:
+;; 
+;; * a 'name property containing the "NAME" of the track segment, if this is
+;;   present in the GPX file.
+;;
+;; * a 'waypoints property containing a list of waypoints, if they GPX track
+;;   has any.  Each waypoint is represented as a list of TIMESTAMP, LAT, LON,
+;;   ELEVATION and NAME
+;;
+;; * a 'laps property containing a list of timestamps corresponding to each
+;;   way point in the waypoint list -- the laps property cannot be constructed
+;;   correctly if the waypoints are missing a timestamp property.
+;;
+;; Only the first track segment in the GPX file will be read.
 (define (df-read/gpx inp)
   (if (path-string? inp)
       (call-with-input-file inp #:mode 'text

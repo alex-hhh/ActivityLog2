@@ -167,11 +167,9 @@
      session-id))
 
   ;; Delete all empty series (e.g "gct" for a cycling activity)
-  (begin
-    (define nitems (df-row-count df))
-    (for ([series (in-list (df-series-names df))])
-      (unless (< (df-count-na df series) nitems)
-        (df-del-series df series))))
+  (for ([series (in-list (df-series-names df))])
+    (unless (df-has-non-na? df series)
+      (df-del-series df series)))
 
   (define cp-data (get-session-critical-power session-id))
   (when cp-data
@@ -201,7 +199,7 @@
   ;; not contain invalid values and it is monotonically growing (a lot of code
   ;; depends on this).
   (when (df-contains? df "dst")
-    (if (> (df-count-na df "dst") 0)
+    (if (df-has-na? df "dst")
         ;; If there are NA values in the dst series, patch it up...
         (let ((data (df-select df "dst")))
           (unless (vector-ref data 0)

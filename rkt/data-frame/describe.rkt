@@ -14,7 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/contract)
+(require racket/contract
+         racket/format
+         math/statistics
+         "df.rkt"
+         "statistics.rkt")
 
 ;; Print to the standard output port a nice description of DF, This is useful
 ;; in interactive mode.
@@ -27,7 +31,7 @@
       (~a v #:min-width 13 #:align 'right)))
   
   (printf "data-frame: ~a columns, ~a rows~%"
-          (length (df-column-names df))
+          (length (df-series-names df))
           (df-row-count df))
   (printf "properties:~%")
   (let ((prop-names (df-property-names df))
@@ -41,7 +45,7 @@
       (display (~a (df-get-property df pn) #:max-width (max (- 75 maxw) 10)))
       (newline)))
   (printf "series:~%")
-  (let ((series-names (sort (df-column-names df) string<?))
+  (let ((series-names (sort (df-series-names df) string<?))
         (maxw 0))
     (for ([sn series-names])
       (set! maxw (max (string-length (~a sn)) maxw)))
@@ -51,7 +55,7 @@
     (for ([sn series-names])
       (display "  ")
       (display (~a sn #:min-width maxw))
-      (let ((inv (dfcol-na-count (df-get-column df sn))))
+      (let ((inv (df-count-na df sn)))
         (display " ")
         (display (~r inv #:min-width 5)))
       (let ([stats (df-statistics df sn)])

@@ -42,7 +42,7 @@
            (match-define (vector x1 y1) d1)
            (vector (- x1 x0) (- y1 y0))))
         (#t
-         (error "->delta-series -- unknown data-series type"))))
+         (raise-argument-error "->delta-series -- unknown data-series type" data-series))))
 
 
 ;; Construct a B term for solving the equation system.
@@ -132,7 +132,7 @@
            (match-define (vector x1 y1) p1)
            (vector x0 y0 x1 y1 k0 k1 (- (* k0 dx) dy) (+ (* (- k1) dx) dy))))
         (#t
-         (error "spline-terms: unknown data-series type"))))
+         (raise-argument-error "spline-terms: unknown data-series type" data-series))))
 
 ;; Compute the a, b terms for each interpolation polynomial for a list of data
 ;; points in DATA-SERIES

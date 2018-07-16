@@ -24,9 +24,15 @@
 
 ;;............................................................ write-csv ....
 
+;; Quote the string STR, as per CSV rules: the string is enclosed in quotes
+;; and any quotes inside the string are doubled.
 (define (quote-string str)
   (string-append "\"" (string-replace str "\"" "\"\"") "\""))
 
+;; Write in CSV format the data frame DF to the output port OUTP.  If SERIES,
+;; if non-null, denote the series to be written.  If null, all the series are
+;; written out in an unspecified order.  Rows between START and STOP are
+;; written out.
 (define (write-csv df outp series #:start start #:stop stop)
   (define first? #t)
   (define columns (if (null? series) (df-series-names df) series))
@@ -62,9 +68,12 @@
      (newline outp))
    #:start start #:stop stop))
 
-;; Write to OUTP a data frame DF. Optionally, the series to be written out can
-;; be specified as the SERIES list. If SERIES is empty, all series are written
-;; out as columns in an unspecified order.
+;; Write the data frame DF to OUTP which is either an output port or a string,
+;; in which case it is assumed to be a file name.  The series to be written
+;; out can be specified as the SERIES list.  If SERIES is empty, all series
+;; are written out as columns in an unspecified order.  START and STOP denote
+;; the beginning and end rows to be written out, by default all rows are
+;; written out.
 (define (df-write/csv df outp #:start (start 0) #:stop (stop (df-row-count df)) . series)
   (if (path-string? outp)
       (call-with-output-file outp
@@ -77,6 +86,9 @@
 
 ;;............................................................. read-csv ....
 
+;; Parse a LINE from a CSV file and return the list of "cells" in it as
+;; strings.  Takes special care that comma characters "," inside strings are
+;; correctly handled.  Also double quotes inside strings are unquoted.
 (define (parse-line line)
   (let ((in (open-input-string line)))
     (let loop ((c (read-char in))
@@ -95,6 +107,17 @@
             (#t
              (loop (read-char in) (string-append current (string c)) row in-string?))))))
 
+;; Decode the string VAL into a Racket value. The decoding rules are:
+;;
+;; * if the trimmed string is empty, return #f
+;;
+;; * if the trimmed string is enclosed in quotes, it is assumed to be a string
+;; an quotes are removed.
+;;
+;; * if it parses as a number, return the number
+;;
+;; * otherwise return it as a string.
+;;
 (define (decode-value val)
   (and val
        ;; string->number decodes #x #b and #o as hex, binary or octal. We
@@ -111,6 +134,11 @@
               (#t
                (or (string->number trimmed radix) trimmed))))))
 
+;; Read a data frame from the INPUT port, by decoding CSV input.  IF HEADERS?
+;; is true, the first row in INPUT becomes the names of the columns,
+;; otherwise, the columns will be named "col1", "col2", etc.  The first row
+;; defines the number of columns: if subsequent rows have fewer cells, they
+;; are padded with #f, if it has more, they are silently truncated.
 (define (read-csv input headers?)
   (define df (make-data-frame))
   (define series #f)
@@ -147,6 +175,12 @@
                          (series-push-back s (decode-value v)))))))
            (loop (read-line input))))))
 
+;; Read CSV data in a data frame from the INP which is either a port or a
+;; string, in which case it is assumed to be a file name.  IF HEADERS?  is
+;; true, the first row in INPUT becomes the names of the columns, otherwise,
+;; the columns will be named "col1", "col2", etc.  The first row defines the
+;; number of columns: if subsequent rows have fewer cells, they are padded
+;; with #f, if it has more, they are silently truncated.
 (define (df-read/csv inp #:headers? (headers? #t))
   (if (path-string? inp)
       (call-with-input-file inp #:mode 'text

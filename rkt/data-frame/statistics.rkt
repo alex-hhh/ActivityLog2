@@ -20,9 +20,19 @@
          racket/vector
          "df.rkt")
 
-(define (df-set-default-weight-series df column-name)
-  (df-put-property df 'weight-series column-name))
+;; Set the default weight series for a data frame.  This will be used as a
+;; weight series if none is specified for `df-statistics` or `df-quantile`.
+;; Set it to #f for no weight series to be used for statistics.
+;;
+;; A weight series needs to be used when samples in the data frame don't have
+;; equal weight: For example, if a parameter (e.g. heart rate) is recorded at
+;; variable intervals, simply averaging the values will not produce an
+;; accurate average, if a timer series is also present, it can be used as a
+;; weight series to produce a better average.
+(define (df-set-default-weight-series df series)
+  (df-put-property df 'weight-series series))
 
+;; Return the name of the weight series for this data frame.
 (define (df-get-default-weight-series df)
   (df-get-property df 'weight-series))
 

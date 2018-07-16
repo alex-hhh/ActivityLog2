@@ -43,9 +43,9 @@
           (loop (cons nval series) nval)
           (reverse series)))))
 
+;; Merge the durations produced by 'generate-mean-max-durations' with
+;; 'important-mean-max-durations'
 (define default-mean-max-durations
-  ;; Merge the durations produced by 'generate-mean-max-durations' with
-  ;; 'important-mean-max-durations'
   (let loop ((result '())
              (fill (generate-mean-max-durations 10 (* 300 60) 1.2))
              (important important-mean-max-durations))
@@ -137,7 +137,7 @@
     (let ((dt (- x2 x1)))
       (vector dt (* dt (/ (+ y1 y2) 2)) x1))))
 
-;; Compute the best averave value from a delta series (as produced by
+;; Compute the mean maximal value from a delta series (as produced by
 ;; MAKE-DELTA-SERIES) over DURATION.  If INVERTED? is #t, the "best" is
 ;; condidered the smallest value (this is usefull for pace, vertical
 ;; oscilation, etc.)
@@ -220,9 +220,9 @@
       (match-define (vector d _ p) best)
       (vector d (compute-avg-at-position delta-series d p) p))))
 
-;; Return "best average" values from data frame COLUMN, for a set of
+;; Return "mean maximal" values from data frame COLUMN, for a set of
 ;; durations.  For each duration in DURATION the series is searched for the
-;; segment with the best average value of that duration.  This can be used,
+;; segment with the maximum mean value of that duration.  This can be used,
 ;; for example to find the best average power for some predefined intervals
 ;; (e.g. 5, 10 and 20 minutes)
 ;;

@@ -19,9 +19,10 @@
          "df.rkt"
          "series.rkt")
 
-;; Create a data-frame% from the result of running SQL-QUERY.  Each column
-;; from the result will be a series in the data frame, sql-null values will be
-;; converted to #f.
+;; Create a data frame from the result of running SQL-QUERY on the database DB
+;; with the supplied PARAMS.  SQL-QUERY can be either a string or a
+;; virtual-query object.  Each column from the result set will become a series
+;; in the data frame, sql-null values will be converted to #f.
 (define (df-read/sql db sql-query . params)
   (define result (apply query db sql-query params))
   (define headers

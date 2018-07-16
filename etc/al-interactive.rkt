@@ -24,7 +24,10 @@
          racket/class
          racket/contract
          "../rkt/utilities.rkt"
-         "../rkt/data-frame.rkt"
+         "../rkt/data-frame/df.rkt"
+         "../rkt/data-frame/csv.rkt"
+         "../rkt/data-frame/describe.rkt"
+         "../rkt/data-frame/statistics.rkt"
          "../rkt/session-df.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/hrv.rkt"
@@ -32,16 +35,16 @@
          "../rkt/database.rkt")
 
 (provide/contract
- (sid->df (-> number? (is-a?/c data-frame%)))
- (hrv->df (-> number? (or/c (is-a?/c data-frame%) #f)))
- (session-df->csv (-> (is-a?/c data-frame%) path-string? any/c))
- (pp-stops (-> (is-a?/c data-frame%) any/c))
- (df-generate-series (-> (is-a?/c data-frame%) string? (listof string?) procedure? any/c))
- (df-add-series (-> (is-a?/c data-frame%) string? (or/c list? vector?) any/c)))
+ (sid->df (-> number? data-frame?))
+ (hrv->df (-> number? (or/c data-frame? #f)))
+ (session-df->csv (-> data-frame? path-string? any/c))
+ (pp-stops (-> data-frame? any/c)))
 
 (provide
  (all-from-out db)
- (all-from-out "../rkt/data-frame.rkt")
+ (all-from-out "../rkt/data-frame/df.rkt")
+ (all-from-out "../rkt/data-frame/describe.rkt")
+ (all-from-out "../rkt/data-frame/statistics.rkt")
  (all-from-out "../rkt/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df.rkt")
@@ -77,20 +80,6 @@
   (let* ((sn (get-series/ordered df)))
     (call-with-output-file file-name (lambda (port) (apply df-write/csv port df sn))
       #:mode 'text #:exists 'truncate/replace )))
-
-;; Add a new series to DF by the name SERIES-NAME by applying GENERATOR-FN to
-;; BASE-SERIES
-(define (df-generate-series df series-name base-series generator-fn)
-  (send df add-derived-series
-        series-name
-        base-series
-        (lambda (data)
-          (and (for/and ((x (in-vector data))) x)
-               (apply generator-fn (vector->list data))))))
-
-;; Add a new series to DF from a name and a vector of values.
-(define (df-add-series df name data)
-  (send df add-series (new data-series% [name name] [data (list->vector data)])))
 
 
 ;...................................................... Other functions ....

@@ -21,16 +21,17 @@
          racket/match
          racket/math
          "df.rkt"
+         "exn.rkt"
          "statistics.rkt")
 
-;; Return a hash table mapping each sample in the data-frame% DF COLUMN to the
+;; Return a hash table mapping each sample in the data-frame% DF SERIES to the
 ;; number of times it appears in the series.  If WEIGHT is not #f, this is
 ;; used as the weight of the samples (instead of 1). INITIAL-BUCKETS
 ;; determines the hash table that is updated, BUCKET-WIDTH allows grouping the
 ;; samples into intervals (can be less than 1).  INCLUDE-ZEROES? if #f will
 ;; cause values that are equal to 0 to be discarded.
-(define (samples->buckets df column
-                          #:weight-column (weight #f)
+(define (samples->buckets df series
+                          #:weight-series (weight #f)
                           #:initial-buckets [initial-buckets (make-hash)]
                           #:bucket-width [bucket-width 1]
                           #:include-zeroes? [include-zeroes? #t])
@@ -65,7 +66,7 @@
 
   (df-fold
    df
-   (if weight (list weight column) (list column))
+   (if weight (list weight series) (list series))
    initial-buckets
    (if weight weighted-binning unweighted-binning)))
 
@@ -114,10 +115,10 @@
         (vector-ref histogram index))
       histogram))
 
-;; Create a histogram of the data-frame% DF COLUMN.  A histogram is a vector
-;; of values, each value is a (Vectorof SAMPLE-SLOT RANK).
+;; Create a histogram of the data frame DF SERIES.  A histogram is a vector of
+;; values, each value is a (Vectorof SAMPLE-SLOT RANK).
 ;;
-;; #:weight-column specifies the column to be used for weighting the samples
+;; #:weight-series specifies the series to be used for weighting the samples
 ;; (by default it it uses the weight property stored in the data-frame).  Use
 ;; #f for no weighting (each sample will have a weight of 1 in that case).
 ;;
@@ -133,18 +134,18 @@
 ;; #:as-percentage? determines if the data in the histogram represents a
 ;; percentage (adding up to 100) or it is the rank of each slot.
 ;;
-(define (df-histogram df column
-                      #:weight-column [weight (df-get-default-weight-series df)]
+(define (df-histogram df series
+                      #:weight-series [weight (df-get-default-weight-series df)]
                       #:bucket-width [bwidth 1]
                       #:trim-outliers [trim #f]
                       #:include-zeroes? [zeroes? #t]
                       #:as-percentage? [as-pct? #f])
-  (if (and (df-contains? df column)
+  (if (and (df-contains? df series)
            (or (not weight) (df-contains? df weight)))
       (let ()
         (define buckets
-          (samples->buckets df column
-                       #:weight-column weight
+          (samples->buckets df series
+                       #:weight-series weight
                        #:bucket-width bwidth
                        #:include-zeroes? zeroes?))
         (define histogram (buckets->histogram buckets
@@ -275,12 +276,13 @@
   (let* ((nbuckets (merge-lists (get-histogram-buckets h1) (get-histogram-buckets h2)))
          (n1 (normalize-histogram h1 nbuckets))
          (n2 (normalize-histogram h2 nbuckets)))
-    (unless (= (vector-length n1) (vector-length n2)) (error "bad length"))
+    (unless (= (vector-length n1) (vector-length n2))
+      (df-raise "combine-histograms: bad length"))
     (for/vector #:length (vector-length n1)
         ([e1 (in-vector n1)]
          [e2 (in-vector n2)])
       (unless (equal? (vector-ref e1 0) (vector-ref e2 0))
-        (error "bad value"))
+        (df-raise "combine-histograms: bad value"))
       (vector (vector-ref e1 0) (vector-ref e1 1) (vector-ref e2 1)))))
 
 ;; Create a plot renderer with two histograms.
@@ -360,7 +362,7 @@
 
 (provide/contract
  (df-histogram (->* (data-frame? string?)
-                    (#:weight-column string?
+                    (#:weight-series string?
                      #:bucket-width real?
                      #:trim-outliers (or/c #f (between/c 0 1))
                      #:include-zeroes? boolean?

@@ -117,6 +117,10 @@
      (series-reserve-space c1 100)
      (check = (series-free-space c1) 100)
 
+     ;; NOTE: c1 is empty
+     (check-false (series-has-non-na? c1))
+     (check-false (series-has-na? c1))
+
      (define c2 (make-series "col2" #:data #(1 2 3) #:contract integer? #:cmpfn <))
      (check = (series-size c2) 3)
      (check = (series-free-space c2) 0)
@@ -132,6 +136,9 @@
       exn:fail:contract?
       ;; cannot add a non sorted element
       (lambda () (series-push-back c2 1)))
+
+     (check-false (series-has-na? c2))
+     (check-true (series-has-non-na? c2))
 
      (check equal? (for/list ((x (in-series c1))) x) '())
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
@@ -202,8 +209,6 @@
 
      (check equal? (series-ref c2 3) #f)
      (check equal? (series-na-count c2) 1) ; C2 has one NA value
-
-
 
      )))
 
