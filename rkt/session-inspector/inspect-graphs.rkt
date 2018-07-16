@@ -282,7 +282,7 @@
    (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
    (df-contains? df xseries "swim_stroke")
    (let ((stroke (df-lookup df xseries "swim_stroke" x)))
-         (and stroke (get-swim-stroke-name stroke)))))
+     (and stroke (get-swim-stroke-name stroke)))))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
@@ -1030,7 +1030,7 @@
           (if avg
               (let* ((label (string-append "Avg " (fmt-fn avg))))
                 (function (lambda (x) avg) #:label label))
-            #f))))
+              #f))))
 
     (define/override (on-y-axis-selected index)
       (unless (equal? selected-y-axis index)
@@ -1284,10 +1284,10 @@
 
     (define/override (get-average-renderer)
       (let ((avg (get-avg-lrbal)))
-          (if avg
-              (let ((label (format-48 "Avg ~1,1F%" avg)))
-                (function (lambda (x) avg) #:label label))
-              #f)))
+        (if avg
+            (let ((label (format-48 "Avg ~1,1F%" avg)))
+              (function (lambda (x) avg) #:label label))
+            #f)))
 
     (set-y-axis axis-left-right-balance)
 
@@ -1407,8 +1407,8 @@
     (define/override (is-valid-for? data-frame)
       (df-contains/any?
        data-frame
-            "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
-            "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
+       "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
+       "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
 
     (setup-y-axis-items (map car y-axis-items))
     (on-y-axis-selected 0)
@@ -1442,7 +1442,7 @@
             (let ((pace (m/s->swim-pace avg)))
               (function (lambda (x) pace)
                         #:label (string-append "Avg " (swim-pace->string avg #t))))
-         #f)))
+            #f)))
 
     (define/override (set-data-frame data-frame)
       (set! avg-speed #f)
@@ -1817,7 +1817,7 @@
     (define show-avg? #f)           ; display the average line
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
     (define color-by-zone? #f)      ; color series by zone (if there zones are
-                                    ; defined)
+    ; defined)
     (define filter-amount 0)        ; amount of filtering to use in graphs
 
     ;; Map the preferred x-axis (as an index) by sport, this is saved as a
@@ -1883,12 +1883,12 @@
                        [alignment '(center top)]))
 
     (define interval-view-panel (new vertical-pane%
-                                [parent panel]
-                                [border 0]
-                                [spacing 1]
-                                [min-width 220]
-                                [stretchable-width #f]
-                                [alignment '(left top)]))
+                                     [parent panel]
+                                     [border 0]
+                                     [spacing 1]
+                                     [min-width 220]
+                                     [stretchable-width #f]
+                                     [alignment '(left top)]))
 
     (define interval-choice #f)
     (let ((p (new horizontal-pane%
@@ -1900,12 +1900,12 @@
       (set! interval-choice (new interval-choice% [tag 'interval-choice-graphs] [parent p] [label ""])))
 
     (define interval-view (new mini-interval-view%
-                          [parent interval-view-panel]
-                          [tag 'activity-log:charts-mini-lap-view]
-                          [callback (lambda (n lap)
-                                      (let ((lap-num (dict-ref lap 'lap-num #f)))
-                                        (when lap-num
-                                          (highlight-lap (- lap-num 1) lap))))]))
+                               [parent interval-view-panel]
+                               [tag 'activity-log:charts-mini-lap-view]
+                               [callback (lambda (n lap)
+                                           (let ((lap-num (dict-ref lap 'lap-num #f)))
+                                             (when lap-num
+                                               (highlight-lap (- lap-num 1) lap))))]))
 
     (send interval-choice set-interval-view interval-view)
 
