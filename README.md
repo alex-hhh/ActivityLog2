@@ -1,32 +1,3 @@
-# Data-Frame branch
-
-[![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=data-frame)](https://travis-ci.org/alex-hhh/ActivityLog2) (this branch)
-
-This branch contains a reimplementation of the data-frame module in
-preparation for releasing it as a separate package.  The data-frame
-implementation is in the "rkt/data-frame" folder, and should not have any
-dependencies on the other files in the project.  There is a unit-test file in
-"test/df-tests.rkt".  The documentation in "doc/data-frame.md" is not
-outdated.
-
-This branch is a work in progress and currently, the ActivityLog2 application
-might not run correctly, although it is unlikely that it will corrupt the
-data.  If you want a working application, use the master branch.
-
-## Implementation Status
-
-[x] The data-frame package is feature complete (more or less)
-
-[ ] Application does not work with the new data-frame package
-
-[ ] Documentation for the data-frame package is missing(replaces
-    "doc/data-frame.md")
-
-[ ] Data-frame performance is not validated yet (in particular it will copy
-    data where the previous implementation didn't (df-select)
-
-----
-
 ![Logo](img/logo/ActivityLog2.png)
 
 # ActivityLog2 - analyze data from swim, bike and run activities
