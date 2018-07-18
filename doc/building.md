@@ -1,3 +1,13 @@
+
+The simplest way to run ActivityLog2 from source is to start DrRacket, open
+the file "run.rkt" and click on the "Run" button, or press "Ctrl-R". You can
+also run ActivityLog2 from the command line using the following command:
+
+    racket run.rkt
+    
+The above will take a long time, especially the first time it is run.  You can
+also build a standalone distribution, see below.
+
 # Building a stand alone distribution
 
 ## Prerequisites
@@ -10,6 +20,9 @@ and tested using the latest Racket version and previous versions may or may
 not work.
 
 ### Plot library
+
+If you are running Racket 7.0 or newer, you don't need to worry about this
+step.
 
 The application makes use of features that are not yet (2 Feb 2018) present in
 the plot library that ships with Racket.  The application will work with the
@@ -25,6 +38,8 @@ To create a windows installer you will need to install [Inno
 Setup](http://www.jrsoftware.org/isinfo.php) and compile the "setup.iss" file.
 
 ## API Keys for web services
+
+> It seems that Wunderground is no longer supplying API keys, see issue #33.
 
 ActivityLog2 uses web services for some of the functionality.  Currently two
 services are used: [Wunderground](https://www.wunderground.com/) is used to
@@ -47,17 +62,9 @@ application.  To use these keys, you need to set two environment variables:
 These environment variables will be used while ActivityLog2 is running and
 they will also be embedded in any built executable.
 
-## Running or building ActivityLog2
+## Building ActivityLog2
 
-The simplest way to run ActivityLog2 is to start DrRacket, open the file
-"run.rkt" and click on the "Run" button, or press "Ctrl-R". You can also run
-ActivityLog2 from the command line using the following command:
-
-    racket run.rkt
-
-An installer can be built from the command line by typing the command below.
-This requires to have Inno Setup installed, otherwise the last step will
-fail:
+An installer can be built from the command line by typing the command below:
 
     racket build.rkt
 
@@ -83,6 +90,90 @@ Note that if compiled files are present, racket will not re-compile modified
 files, you will need to recompile them explicitly, otherwise you will
 encounter load errors when trying to run ActivityLog2.
 
+## Test suite
+
+ActivityLog2 has a test suite, this runs on Travis, each time data is pushed
+to a branch or a pull request is created.  The main aim of the test suite is
+to ensure that the application builds and packages cleanly and that the data
+storage and basic data operations work.
+
+Tests can also be run manually using the following commands:
+
+    raco test test/db-test.rkt
+    raco test test/df-test.rkt
+
+## Data storage and database management
+
+ActivityLog2 stores all session and athlete data in a
+[SQLite](https://sqlite.org/) database.  The application configuration data --
+that is column widths in various views, what graphs are selected by default
+and trend chart setup is stored in a separate preference file, see `get-pref`
+and `put-pref` in [rkt/utilities.rkt](../rkt/utilities.rkt)
+
+The **database schema** is defined in
+[sql/db-schema.sql](../sql/db-schema.sql), SQL statements form this file are
+executed when a new database is created, and the low level implementation that
+does this is in [rkt/dbutil.rkt](../rkt/dbutil.rkt).  The `open-activity-log`
+function defined in [rkt/dbapp.rkt](../rkt/dbapp.rkt) is used to either open
+an existing database and upgrade it if is an older version, or create a new
+database (if the file it needs to be opened does not exist.
+
+**Database backups** are periodically created (once a week) in the
+"db-backups" directory under the `(data-directory)` folder -- this function is
+defined in [rkt/utilities.rkt](../rkt/utilities.rkt), the location is platform
+dependent.  A backup is also created just before a database upgrade.  There
+are no mechanisms to automatically restore databases, but the files can be
+just renamed an copied in place as needed.  The databases are in single file
+only.
+
+To **update the database schema** the following need to be done:
+
+* Update the database schema in [sql/db-schema.sql](../sql/db-schema.sql) as
+  needed -- this file should always create the latest database version.
+* Update the SCHEMA_VERSION in db-schema.sql, incrementing the value; this
+  value is used by the application to determine if the opened database needs
+  an upgrade.
+* Write a database patch which updates the schema from the previous version to
+  the current version.  This database patch should also update the
+  SCHEMA_VERSION to the current version.  There are several examples in the
+  [sql](../sql) folder.
+* Update [dbapp.rkt](../rkt/dbapp.rkt) to update the schema version, add the
+  database patch both as a patch file with `define-runtime-path` and to the
+  update hash, `upgrade-patches`.
+
+The database upgrade mechanism is a simple one and there are several
+considerations required to make it work:
+
+* Older versions of ActivityLog2 should work with newer databases.  Adding new
+  tables, fields, or updating indexes should be fine, other changes require
+  more careful consideration.  In particular, renaming tables or fields just
+  to "improve clarity" is probably a bad idea.
+* The database schema is considered a public API.  Other applications can and
+  should be able to access and update data in the database outside of
+  ActivityLog2 (if they corrupt the data, it is their problem).  I use this
+  feature to track my training plan in an Excel worksheet and connect to the
+  database to get some basic metrics and reports, but it could be used for
+  other things as well.
+* The number of database upgrades should be minimized.  This means that new
+  features need careful consideration and aim to get the database schema right
+  the first time, or at least try to.
+
+While working on a database upgrade, start with the upgrade patch and don't
+update the SCHEMA_VERSION.  The patch can be manually applied using the
+`sqlite` command line utility and modified as needed during development,
+including adding the corresponding ActivityLog2 code that uses the new
+features.  Once the changes are worked out, update the database schema and
+upgrade paths.  Consider adding tests to test that the new database features
+added work or not (see [test/db-schema.rkt](../test/db-schema.rkt) for
+examples).  The test framework should test the database upgrade code
+automatically.
+
+The following commands can be used to check the integrity of an activity log
+database:
+
+    pragma integrity_check
+    pragma foreign_key_check
+
 ## Debugging tips
 
 ### Log messages and exceptions
@@ -90,8 +181,9 @@ encounter load errors when trying to run ActivityLog2.
 When ActivityLog2 throws an exception it can be logged in two places: the
 console or the log file.  On a Windows machine, the log file is located in
 "%APPDATA%/Local/ActivityLog/ActivityLogDbg.log", for other platforms, see
-`maybe-init-log-port` in "rkt/dbglog.rkt".  In particular, exceptions thrown
-from separate threads will be logged in the log file.
+`maybe-init-log-port` in [rkt/utilities.rkt](../rkt/utilities.rkt).  In
+particular, exceptions thrown from separate threads will be logged in the log
+file.
 
 The `dbglog`, `dbglog-exception` and `thread/dbglog` functions, defined in
 "rtk/utilities.rkt" can also be used to add additional logging as needed.
@@ -109,43 +201,12 @@ load and will run slow:
 
 ### Tracing function calls
 
-The "rkt/al-profiler.rkt" module contain definitions which allow tracing
-individual function calls.  It is more practical than the "trace" module
-shipped with Racket, as it allows to explicitly specify which functions to
-trace.  To use it, require the "al-profiler.rkt" module and replace `define`
-calls with `define/trace` calls.  This also works for method names, where
-`define/public` can be replaced with `define/public/trace`.
+The [rkt/al-profiler.rkt](../rkt/al-profiler.rkt) module contains definitions
+which allow tracing individual function calls.  It is more practical than the
+"trace" module shipped with Racket, as it allows to explicitly specify which
+functions to trace.  To use it, require the "al-profiler.rkt" module and
+replace `define` calls with `define/trace` calls.  This also works for method
+names, where `define/public` can be replaced with `define/public/trace`.
 
-The "rkt/al-profiler.rkt" also contains a small profiler, see that file for
-more details.
-
-### Test suite
-
-ActivityLog2 has a small test suite.  Tests can be run using:
-
-    raco test test/db-test.rkt
-    raco test test/df-test.rkt
-
-### Database stuff
-
-    pragma integrity_check
-    pragma foreign_key_check
-
-## Database management
-
-Activity data is stored in a [SQLite](https://sqlite.org/) database and the
-database schema is defined in "sql/db-schema.sql".  The schema is versioned
-using a value in the "SCHEMA_VERSION" table.  ActivityLog2 will check this
-version against its expected version and will automatically upgrade an older
-version database.
-
-When the schema is updated, the "sql/db-schema.sql" file is simply updated to
-reflect the latest schema version.  New databases will be created with the new
-version.  At the same time, a database patch is written which will upgrade an
-existing database from the previous version (see the "sql" folder for
-patches).
-
-A database can be manually upgraded using the following command (the sqlite3
-utility can be downloaded from the SQLite web site):
-
-    sqlite3 dbname.db < patch.sql
+The "rkt/al-profiler.rkt" module also contains a small profiler, see that file
+for more details.

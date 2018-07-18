@@ -297,7 +297,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
       (make-tdata "Histogram" detail-panel
                   (lambda (panel) (new histogram-plot-panel% [parent panel]))))
     (define mean-max
-      (make-tdata "Mean Max Curves" detail-panel
+      (make-tdata "Mean Max" detail-panel
                   (lambda (panel) (new mean-max-plot-panel% [parent panel]))))
     (define quadrant
       (make-tdata "Quadrant" detail-panel
