@@ -25,8 +25,8 @@
          "../widgets/map-widget/map-widget.rkt"
          "../widgets/map-widget/map-util.rkt"
          "../widgets/map-widget/map-tiles.rkt"
-         "../data-frame.rkt"
          "../series-meta.rkt"
+         "../data-frame/df.rkt"
          "../session-df.rkt")
 
 (provide map-panel%)
@@ -38,26 +38,27 @@
 
 (define (get-index df timestamp)
   (if timestamp
-      (send df get-index "timestamp" timestamp)
-      (send df get-row-count)))
+      (df-index-of df "timestamp" timestamp)
+      (df-row-count df)))
 
-(define (extract-track* df start end)
-  (send df select* "lat" "lon" #:filter valid-only #:start start #:end end))
+(define (extract-track* df start stop)
+  (df-select* df "lat" "lon" #:filter valid-only #:start start #:stop stop))
 
 ;; Add a map-point data series to the data frame DF.  map-points represent a
 ;; location in normalized coordinates (0..1).  These are used to interpolate a
 ;; position by `lookup-position`
 (define/contract (add-map-points df)
-  (-> (is-a?/c data-frame%) any/c)
-  (send df add-derived-series
-        "map-point"
-        '("lat" "lon")
-        (lambda (val)
-          (and val
-               (match-let (((vector lat lon) val))
-                 (and (real? lat)
-                      (real? lon)
-                      (lat-lon->map-point lat lon)))))))
+  (-> data-frame? any/c)
+  (df-add-derived
+   df
+   "map-point"
+   '("lat" "lon")
+   (lambda (val)
+     (and val
+          (match-let (((list lat lon) val))
+            (and (real? lat)
+                 (real? lon)
+                 (lat-lon->map-point lat lon)))))))
 
 ;; Lookup a GPS position in the data frame DF at distance DST.  The data frame
 ;; is assumed to have "lat", "lon", a "dst" and a "map-point" (see
@@ -66,22 +67,22 @@
 ;; positions.  If DST is outside the range if the dst series, the first or
 ;; last position is returned.
 (define/contract (lookup-position df dst)
-  (-> (is-a?/c data-frame%) real? (vector/c real? real?))
+  (-> data-frame? real? (vector/c real? real?))
 
-  (unless (send df contains? "map-point")
+  (unless (df-contains? df "map-point")
     (add-map-points df))
 
-  (define index (send df get-index "distance" dst))
+  (define index (df-index-of df "distance" dst))
 
   (cond ((<= index 0)
-         (send df ref* 0 "lat" "lon"))
-        ((>= index (send df get-row-count))
-         (send df ref* (sub1 (send df get-row-count)) "lat" "lon"))
+         (df-ref* df 0 "lat" "lon"))
+        ((>= index (df-row-count df))
+         (df-ref* df (sub1 (df-row-count df)) "lat" "lon"))
         (#t
-         (let* ((pdst (send df ref (sub1 index) "distance"))
-                (adst (send df ref index "distance"))
-                (prev-pos (send df ref (sub1 index) "map-point"))
-                (next-pos (send df ref index "map-point"))
+         (let* ((pdst (df-ref df (sub1 index) "distance"))
+                (adst (df-ref df index "distance"))
+                (prev-pos (df-ref df (sub1 index) "map-point"))
+                (next-pos (df-ref df index "map-point"))
                 (factor (/ (- dst pdst) (- adst pdst)))
                 (pos (map-point
                       (+ (* factor (map-point-x next-pos))
@@ -246,7 +247,7 @@
         (when custom-lap?
           ;; Extract the track data for the current lap and add it to the map.
           (match-let (((list start-idx end-idx)
-                       (send data-frame get-index* "timestamp" start (+ start elapsed))))
+                       (df-index-of* data-frame "timestamp" start (+ start elapsed))))
             (let ((track (extract-track* data-frame start-idx (add1 end-idx))))
               (send map-view add-track track selected-lap)))))
       
@@ -280,7 +281,7 @@
     ;; name from the session id.
     (define (get-default-export-file-name)
       (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id)))
+          (let ((sid (df-get-property data-frame 'session-id)))
             (if sid (format "map-~a.png" sid) "map.png"))))
 
     (define/public (on-interactive-export-image)
@@ -309,8 +310,8 @@
       ;; other activities, this should hopefully be empty.
       (define teleports
         (filter (lambda (p) (is-teleport? data-frame p))
-                (send data-frame get-property 'stop-points)))
-      (define laps (send data-frame get-property 'laps))
+                (df-get-property data-frame 'stop-points)))
+      (define laps (df-get-property data-frame 'laps))
       (define start (vector-ref laps 0))
       (define start-idx 0)
 
@@ -332,16 +333,16 @@
             (send the-pen-list find-or-create-pen
                   (make-object color% 226 34 62)
                   3 'solid 'round 'round))
-      (let ((nitems (send data-frame get-row-count)))
+      (let ((nitems (df-row-count data-frame)))
         ;; Add flags for the first and last valid GPS points on the route.  We
         ;; search the first valid point from both ends, rather than just
         ;; assuming that the first and last points are valid.
         (for*/first ((index (in-range 0 nitems))
-                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     (position (in-value (df-ref* data-frame index "lat" "lon")))
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "Start" 1 (make-color 0 135 36)))
         (for*/first ((index (in-range (sub1 nitems) 0 -1))
-                     (position (in-value (send data-frame ref* index "lat" "lon")))
+                     (position (in-value (df-ref* data-frame index "lat" "lon")))
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)

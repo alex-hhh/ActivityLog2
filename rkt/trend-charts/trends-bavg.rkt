@@ -30,11 +30,11 @@
  "trends-chart.rkt"
  "../widgets/main.rkt"
  "../plot-hack.rkt"
- "../data-frame.rkt"
+ "../data-frame/meanmax.rkt"
  "../al-widgets.rkt"
  "../series-meta.rkt"
  "../metrics.rkt"
- "../spline-interpolation.rkt"
+ "../data-frame/spline.rkt"
  "../utilities.rkt"
  "../pdmodel.rkt"
  "../bavg-util.rkt"
@@ -43,7 +43,7 @@
  "../database.rkt")
 
 
-(struct bavg-params tc-params
+(struct mmax-params tc-params
   (start-date end-date sport labels equipment
               series zero-base? heat-map? heat-map-pct cp-params))
 
@@ -99,11 +99,11 @@
               #:when (match? axis))
     index))
 
-(provide bavg-chart-settings%)
-(define bavg-chart-settings%
+(provide mmax-chart-settings%)
+(define mmax-chart-settings%
   (class edit-dialog-base%
     (init-field database
-                [default-name "Bavg"]
+                [default-name "Mmax"]
                 [default-title "Best Avg Chart"])
 
     (super-new [title "Chart Settings"]
@@ -329,7 +329,7 @@
 
       (send session-filter restore-from hdata)
 
-      (send name-field set-value (hash-ref hdata 'name "Bavg"))
+      (send name-field set-value (hash-ref hdata 'name "Mmax"))
       (send title-field set-value (hash-ref hdata 'title "BestAvg Chart"))
       (let ((series (hash-ref hdata 'series #f)))
         (when series
@@ -378,7 +378,7 @@
         (if dr
             (let ((start-date (car dr))
                   (end-date (cdr dr)))
-              (bavg-params
+              (mmax-params
                (send name-field get-value)
                (send title-field get-value)
                start-date
@@ -403,62 +403,62 @@
     ))
 
 (define (candidate-sessions db params)
-  (let ((start (bavg-params-start-date params))
-        (end (bavg-params-end-date params))
-        (sport (bavg-params-sport params))
-        (labels (bavg-params-labels params))
-        (equipment (bavg-params-equipment params)))
+  (let ((start (mmax-params-start-date params))
+        (end (mmax-params-end-date params))
+        (sport (mmax-params-sport params))
+        (labels (mmax-params-labels params))
+        (equipment (mmax-params-equipment params)))
     (fetch-candidate-sessions db (car sport) (cdr sport) start end
                               #:label-ids labels #:equipment-ids equipment)))
 
-(struct tbavg (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
+(struct tmmax (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
 
 (define (fetch-data database params progress-callback)
-  (let* ((lap-swimming? (is-lap-swimming? (bavg-params-sport params)))
+  (let* ((lap-swimming? (is-lap-swimming? (mmax-params-sport params)))
          (axis-choices (if lap-swimming? swim-axis-choices default-axis-choices))
          (candidates (candidate-sessions database params))
-         (axis-index (find-axis axis-choices (bavg-params-series params))))
+         (axis-index (find-axis axis-choices (mmax-params-series params))))
     (define axis (if axis-index (list-ref axis-choices axis-index) #f))
     (unless axis (error "no axis for series"))
-    (define data (get-aggregate-bavg candidates axis progress-callback))
+    (define data (get-aggregate-mmax candidates axis progress-callback))
     (define heat-map
-      (and (bavg-params-heat-map? params)
-           (number? (bavg-params-heat-map-pct params))
-           (let ((pct (bavg-params-heat-map-pct params)))
-             (get-aggregate-bavg-heat-map candidates data pct axis))))
+      (and (mmax-params-heat-map? params)
+           (number? (mmax-params-heat-map-pct params))
+           (let ((pct (mmax-params-heat-map-pct params)))
+             (get-aggregate-mmax-heat-map candidates data pct axis))))
     (define plot-fn
-      (aggregate-bavg->spline-fn data))
+      (aggregate-mmax->spline-fn data))
     (define cp-fn #f)
     (define cp-pict #f)
     (when plot-fn
-      (when (and (send axis have-cp-estimate?) (bavg-params-cp-params params))
-        (define cp2 (send axis cp-estimate plot-fn (bavg-params-cp-params params)))
+      (when (and (send axis have-cp-estimate?) (mmax-params-cp-params params))
+        (define cp2 (send axis cp-estimate plot-fn (mmax-params-cp-params params)))
         (when cp2
           (set! cp-fn (send axis pd-function cp2))
           (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn)))))
 
-    (tbavg axis data heat-map
+    (tmmax axis data heat-map
            plot-fn
-           (bavg-params-zero-base? params)
+           (mmax-params-zero-base? params)
            cp-fn
            cp-pict)))
 
 (define (make-renderer-tree data)
 
-  (let-values (((min-x max-x min-y max-y) (aggregate-bavg-bounds (tbavg-data data))))
-    (when (tbavg-zero-base? data) (set! min-y 0))
-    (if (tbavg-plot-fn data)
+  (let-values (((min-x max-x min-y max-y) (aggregate-mmax-bounds (tmmax-data data))))
+    (when (tmmax-zero-base? data) (set! min-y 0))
+    (if (tmmax-plot-fn data)
         (let ((rt (list
                    (tick-grid)
-                   (function (tbavg-plot-fn data)
-                             #:color (send (tbavg-axis data) plot-color)
+                   (function (tmmax-plot-fn data)
+                             #:color (send (tmmax-axis data) plot-color)
                              #:width 3))))
-          (when (tbavg-cp-fn data)
+          (when (tmmax-cp-fn data)
             (set! rt
-                  (cons (function (tbavg-cp-fn data) #:color "red" #:width 1.5 #:style 'long-dash) rt)))
-          (when (tbavg-heat-map data)
+                  (cons (function (tmmax-cp-fn data) #:color "red" #:width 1.5 #:style 'long-dash) rt)))
+          (when (tmmax-heat-map data)
             (let* ((range (* 0.3 (- max-y min-y)))
-                   (raw-fn (mk-spline-fn (tbavg-heat-map data)))
+                   (raw-fn (spline (tmmax-heat-map data)))
                    ;; NOTE: splines will have huge peaks when two points with
                    ;; opposing tangents are close together, this makes the
                    ;; heat map appear to go over 100%.  Fix that manually with
@@ -477,7 +477,7 @@
         (values #f #f #f #f #f))))
 
 (define (generate-plot output-fn axis renderer-tree)
-  (parameterize ([plot-x-ticks (best-avg-ticks)]
+  (parameterize ([plot-x-ticks (mean-max-ticks)]
                  [plot-x-label "Duration"]
                  [plot-x-transform log-transform]
                  [plot-y-ticks (send axis plot-ticks)]
@@ -506,8 +506,8 @@
                 #:width width #:height height))
    axis rt))
 
-(provide bavg-trends-chart%)
-(define bavg-trends-chart%
+(provide mmax-trends-chart%)
+(define mmax-trends-chart%
   (class trends-chart%
     (init-field database) (super-new)
 
@@ -519,7 +519,7 @@
     (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
-      (new bavg-chart-settings%
+      (new mmax-chart-settings%
            [default-name "BestAvg"]
            [default-title "Best Avg"]
            [database database]))
@@ -538,8 +538,8 @@
           #:mode 'text #:exists 'truncate)))
 
     (define (export-data-as-csv out)
-      (define data (tbavg-data cached-data))
-      (define heat-map (tbavg-heat-map cached-data))
+      (define data (tmmax-data cached-data))
+      (define heat-map (tmmax-heat-map cached-data))
       (write-string "Duration, Value, Sid, Time" out)
       (when heat-map (write-string ", Heat" out))
       (newline out)
@@ -567,9 +567,9 @@
 
       (when (and (good-hover? x y event) cached-data)
         (let ((params (send this get-params))
-              (fmtval (send (tbavg-axis cached-data) value-formatter)))
+              (fmtval (send (tmmax-axis cached-data) value-formatter)))
           (add-renderer (pu-vrule x))
-          (let ((closest (lookup-duration (tbavg-data cached-data) x)))
+          (let ((closest (lookup-duration (tmmax-data cached-data) x)))
             (when closest
               (match-define (cons (list sid1 ts1 d1 v1) (list sid2 ts2 d2 v2)) closest)
               (add-renderer (pu-markers (list (vector d1 v1) (vector d2 v2))))
@@ -577,16 +577,16 @@
               (add-info "Point 2" (string-append (fmtval v2) " @ " (duration->string d2)))
               (add-info #f (date-time->string (get-session-start-time sid1)))
               (add-info "Point 1" (string-append (fmtval v1) " @ " (duration->string d1)))))
-          (let ((cpfn (tbavg-cp-fn cached-data)))
+          (let ((cpfn (tmmax-cp-fn cached-data)))
             (when cpfn
               (let ((my (cpfn x)))
                 (when my
                   (add-info "Model" (fmtval my))))))
-          (let ((plotfn (tbavg-plot-fn cached-data)))
+          (let ((plotfn (tmmax-plot-fn cached-data)))
             (when plotfn
               (let ((dy (plotfn x)))
                 (when dy
-                  (add-info (send (tbavg-axis cached-data) name) (fmtval dy)))))))
+                  (add-info (send (tmmax-axis cached-data) name) (fmtval dy)))))))
 
         (add-info "Duration" (duration->string x))
         (add-renderer (pu-label x y (make-hover-badge (reverse info)))))
@@ -603,7 +603,7 @@
         (send canvas set-background-message "Working...")
         (if params
             (queue-task
-             "bavg-trends-chart%/put-plot-snip"
+             "mmax-trends-chart%/put-plot-snip"
              (lambda ()
                (define (report-progress p)
                  (queue-callback
@@ -617,11 +617,11 @@
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
-                    (define snip (insert-plot-snip canvas (tbavg-axis data) rt
+                    (define snip (insert-plot-snip canvas (tmmax-axis data) rt
                                                    min-x max-x min-y max-y))
                     (when snip (set-mouse-event-callback snip plot-hover-callback))
-                    (when (tbavg-cp-pict data)
-                      (set! pd-model-snip (new pict-snip% [pict (tbavg-cp-pict data)]))
+                    (when (tmmax-cp-pict data)
+                      (set! pd-model-snip (new pict-snip% [pict (tmmax-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)
                       (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location))))))))
             (begin
@@ -636,7 +636,7 @@
           (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
           (when rt
             (save-plot-to-file file-name width height
-                               (tbavg-axis data)
+                               (tmmax-axis data)
                                rt min-x max-x min-y max-y)))))
 
     (define/override (get-restore-data)

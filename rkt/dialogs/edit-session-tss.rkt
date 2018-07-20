@@ -24,7 +24,8 @@
          "../sport-charms.rkt"
          "../dbutil.rkt"
          "../widgets/main.rkt"
-         "../session-df.rkt")
+         "../session-df.rkt"
+         "../data-frame/df.rkt")
 
 (provide get-edit-session-tss-dialog)
 (provide maybe-update-session-tss)
@@ -126,18 +127,19 @@
   ;; NOTE: we use the timer series, so we don't count TSS while the recording
   ;; is stopped.  We could use the elapsed series to count TSS while stopped
   ;; as well.
-  (if (send df contains? "hr-zone" "timer")
-      (send df fold
-            '("timer" "hr-zone")
-            0
-            (lambda (tss prev next)
-              (if prev
-                  (match-let (((vector t0 z0) prev)
-                              ((vector t1 z1) next))
-                    (if (and (number? t0) (number? z0) (number? t1) (number? z1))
-                        (+ tss (zone->tss (/ (+ z0 z1) 2) (- t1 t0)))
-                        tss))
-                  tss)))
+  (if (df-contains? df "hr-zone" "timer")
+      (df-fold
+       df
+       '("timer" "hr-zone")
+       0
+       (lambda (tss prev next)
+         (if prev
+             (match-let (((list t0 z0) prev)
+                         ((list t1 z1) next))
+               (if (and (number? t0) (number? z0) (number? t1) (number? z1))
+                   (+ tss (zone->tss (/ (+ z0 z1) 2) (- t1 t0)))
+                   tss))
+             tss)))
       #f))
 
 (define edit-session-tss-dialog%

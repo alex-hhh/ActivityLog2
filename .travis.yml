@@ -12,17 +12,17 @@ matrix:
   - env: RACKET_VERSION=RELEASE
   fast_finish: true
 before_install:
-- git clone https://github.com/greghendershott/travis-racket.git
-- cat travis-racket/install-racket.sh | bash
-- export PATH="${RACKET_DIR}/bin:${PATH}"
-install: 
+  - git clone https://github.com/greghendershott/travis-racket.git
+  - cat travis-racket/install-racket.sh | bash
+  - export PATH="${RACKET_DIR}/bin:${PATH}"
+install:
 before_script:
-- export DISPLAY=:99.0
-- sh -e /etc/init.d/xvfb start
-- sh ./test/download-test-db.sh
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+  - sh ./test/download-test-db.sh
 script:
-- raco make run.rkt rkt/main.rkt
-- raco test test/db-test.rkt test/df-test.rkt
-- raco test test/db-upgrade-test.rkt
-- echo "Build Complete."
+  - racket build.rkt
+  - raco test test/df-test.rkt
+  - raco test test/db-test.rkt
+  - raco test test/db-upgrade-test.rkt
 after_script: 

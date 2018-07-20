@@ -26,102 +26,106 @@
          math/statistics
          "dbapp.rkt"                    ; TODO: don't use (current-database)
          "dbutil.rkt"
-         "spline-interpolation.rkt"
-         "data-frame.rkt"
+         "data-frame/spline.rkt"
+         "data-frame/meanmax.rkt"
+         "data-frame/histogram.rkt"
+         "data-frame/scatter.rkt"
+         "data-frame/slr.rkt"
+         "data-frame/df.rkt"
          "series-meta.rkt"
          "session-df.rkt"
          "utilities.rkt")
 
-;; WARNING: a best-avg set and a histogram in this file has a different
-;; structure than the one produced by df-best-avg and df-histogram from
+;; WARNING: a mean-max set and a histogram in this file has a different
+;; structure than the one produced by df-mean-max and df-histogram from
 ;; data-frame.rkt.
 
 
-;;................................................................. bavg ....
+;;................................................................. mmax ....
 
-;; Compute the BEST-AVG data for SERIES, and convert the result to a JSEXPR
+;; Compute the MEAN-MAX data for SERIES, and convert the result to a JSEXPR
 ;; (this is a scheme form that can be encoded as JSON, we can only use lists
 ;; and hashes).
-(define (best-avg/jsexpr df series (inverted? #f))
-  (let ((bavg
-         (if (send df get-property 'is-lap-swim?)
-             (df-best-avg/lap-swim df series #:inverted? inverted?)
-             (df-best-avg df series #:inverted? inverted?)))
-        (sid (send df get-property 'session-id)))
-    (for/list ((item bavg) #:when (vector-ref item 1))
+(define (mean-max/jsexpr df series (inverted? #f))
+  (let ((mmax
+         (if (df-get-property df 'is-lap-swim?)
+             (df-mean-max/lap-swim df series #:inverted? inverted?)
+             (df-mean-max df series #:inverted? inverted?)))
+        (sid (df-get-property df 'session-id)))
+    (for/list ((item mmax) #:when (vector-ref item 1))
       (match-define (vector duration value timestamp) item)
       (list sid timestamp duration (/ (exact-round (* value 100.0)) 100.0)))))
 
-(define db-bavg-insert-stmt
+(define db-mmax-insert-stmt
   (virtual-statement
    (lambda (dbsys)
      "insert into BAVG_CACHE (session_id, series, data) values (?, ?, ?)")))
 
-(define db-bavg-update-stmt
+(define db-mmax-update-stmt
   (virtual-statement
    (lambda (dbsys)
      "update BAVG_CACHE set data = ? where id = ?")))
 
-(define db-bavg-lookup-stmt
+(define db-mmax-lookup-stmt
   (virtual-statement
    (lambda (dbsys)
      "select id from BAVG_CACHE where session_id = ? and series = ?")))
 
-;; PUT the BAVG data into the database (BAVG_CACHE table) for the sid/series
+;; PUT the MMAX data into the database (BAVG_CACHE table) for the sid/series
 ;; key.  If an entry already exists, it is updated.
-(define (db-put-bavg db sid series bavg)
-  (let ((data (jsexpr->compressed-string bavg)))
+(define (db-put-mmax db sid series mmax)
+  (let ((data (jsexpr->compressed-string mmax)))
     (call-with-transaction
      db
      (lambda ()
-       (let ((id (query-maybe-value db db-bavg-lookup-stmt sid series)))
+       (let ((id (query-maybe-value db db-mmax-lookup-stmt sid series)))
          (if id
-             (query-exec db db-bavg-update-stmt data id)
-             (query-exec db db-bavg-insert-stmt sid series data)))))))
+             (query-exec db db-mmax-update-stmt data id)
+             (query-exec db db-mmax-insert-stmt sid series data)))))))
 
-(define db-bavg-fetch-stmt
+(define db-mmax-fetch-stmt
   (virtual-statement
    (lambda (dbsys)
      "select data from BAVG_CACHE where session_id = ? and series = ?")))
 
-;; Fetch cached BAVG data from the database.  Return #f if the data does not
+;; Fetch cached MMAX data from the database.  Return #f if the data does not
 ;; exist.
-(define (db-fetch-bavg db sid series)
-  (let ((data (query-maybe-value db db-bavg-fetch-stmt sid series)))
+(define (db-fetch-mmax db sid series)
+  (let ((data (query-maybe-value db db-mmax-fetch-stmt sid series)))
     (and data (compressed-string->jsexpr data))))
 
-;; A cache mapping a sid/series key to the bavg data.  Avoid
+;; A cache mapping a sid/series key to the mmax data.  Avoid
 ;; re-calculating/retrieving the data for subsequent calls.
-(define bavg-cache (make-hash))
+(define mmax-cache (make-hash))
 
-;; Return the BEST-AVG data for SID + SERIES.  It is retrieved from one of the
+;; Return the MEAN-MAX data for SID + SERIES.  It is retrieved from one of the
 ;; caches (db or in memory) if possible, otherwise it is computed and also
 ;; stored in the cache.
-(define (get-best-avg sid series (inverted? #f))
-  (or (hash-ref bavg-cache (cons sid series) #f)
+(define (get-mean-max sid series (inverted? #f))
+  (or (hash-ref mmax-cache (cons sid series) #f)
       ;; Try the database cache
-      (let ((bavg (db-fetch-bavg (current-database) sid series)))
-        (if bavg
+      (let ((mmax (db-fetch-mmax (current-database) sid series)))
+        (if mmax
             (begin
-              (hash-set! bavg-cache (cons sid series) bavg)
-              bavg)
+              (hash-set! mmax-cache (cons sid series) mmax)
+              mmax)
             #f))
       ;; Get the session data frame
       (let ((df (session-df (current-database) sid)))
-        (let ((bavg (if (send df contains? series)
-                        (best-avg/jsexpr df series inverted?)
+        (let ((mmax (if (df-contains? df series)
+                        (mean-max/jsexpr df series inverted?)
                         '())))
-          (db-put-bavg (current-database) sid series bavg)
-          (hash-set! bavg-cache (cons sid series) bavg)
-          bavg))))
+          (db-put-mmax (current-database) sid series mmax)
+          (hash-set! mmax-cache (cons sid series) mmax)
+          mmax))))
 
 
 ;; Merge two best avg sets according to whichever has the highest value
 ;; (unless inverted? is #f, in which case the smallest value is chosen).
-(define (merge-best-avg bavg1 bavg2 (inverted? #f))
+(define (merge-mean-max mmax1 mmax2 (inverted? #f))
   (let loop ((result '())
-             (b1 bavg1)
-             (b2 bavg2))
+             (b1 mmax1)
+             (b2 mmax2))
     (cond ((and (null? b1) (null? b2))
            (reverse result))
           ((null? b1)
@@ -140,26 +144,26 @@
                         (loop (cons (car b1) result) (cdr b1) (cdr b2))
                         (loop (cons (car b2) result) (cdr b1) (cdr b2))))))))))
 
-;; Return a BEST-AVG set resulting from merging all sets from SIDS (a list of
+;; Return a MEAN-MAX set resulting from merging all sets from SIDS (a list of
 ;; session ids) for SERIES.  PROGRESS, if specified, is a callback that is
 ;; called periodically with the percent of completed sessions (a value between
 ;; 0 and 1)
-(define (aggregate-bavg sids series #:inverted? (inverted? #f) #:progress-callback (progress #f))
+(define (aggregate-mmax sids series #:inverted? (inverted? #f) #:progress-callback (progress #f))
   (let ((nitems (length sids)))
     (for/fold ((final '()))
               (((sid index) (in-indexed (reorder-sids sids))))
-      (let ((bavg (get-best-avg sid series inverted?)))
+      (let ((mmax (get-mean-max sid series inverted?)))
         (when progress (progress (exact->inexact (/ index nitems))))
-        (merge-best-avg final bavg inverted?)))))
+        (merge-mean-max final mmax inverted?)))))
 
-;; Return the plot bounds for the aggregate best-avg set as a set of values
+;; Return the plot bounds for the aggregate mean-max set as a set of values
 ;; (min-x max-x min-y max-y)
-(define (aggregate-bavg-bounds abavg)
+(define (aggregate-mmax-bounds ammax)
   (let ((min-x #f)
         (max-x #f)
         (min-y #f)
         (max-y #f))
-    (for ([item abavg])
+    (for ([item ammax])
       (match-define (list sid ts duration value) item)
       (set! min-x (if min-x (min min-x duration) duration))
       (set! max-x (if max-x (max max-x duration) duration))
@@ -173,34 +177,34 @@
 
 ;; Return a function (-> Real Real) representing a spline interpolation of the
 ;; aggregate best avg data.
-(define (aggregate-bavg->spline-fn abavg)
+(define (aggregate-mmax->spline-fn ammax)
   (define data
-    (for/list ([item abavg])
+    (for/list ([item ammax])
       (match-define (list sid ts duration value) item)
       (vector duration value)))
-  (if (> (length data) 3) (mk-spline-fn data) #f))
+  (if (> (length data) 3) (spline data) #f))
 
-;; Return a heat map for an aggregate-bavg data.  For each duration in the
-;; ABAVG, it contains the number of sessions which come within PCT percent of
+;; Return a heat map for an aggregate-mmax data.  For each duration in the
+;; AMMAX, it contains the number of sessions which come within PCT percent of
 ;; the best at that duration.
 ;;
-;; ABAVG - an aggregate best avg, as produced by `aggregate-bavg'
+;; AMMAX - an aggregate best avg, as produced by `aggregate-mmax'
 ;;
 ;; PCT - percentage value used as a threshold test
 ;;
 ;; SIDS - list if session IDs to consider for the HEAT MAP
 ;;
-;; SERIES - the name of the series for which we compute the BAVG
+;; SERIES - the name of the series for which we compute the MMAX
 ;;
 ;; INVERTED? - whether to use an inverter best avg.
 ;;
-(define (aggregate-bavg-heat-map abavg pct sids series
+(define (aggregate-mmax-heat-map ammax pct sids series
                                  #:inverted? (inverted? #t) #:as-percentage? (as-percentage? #f))
   (define heat-map (make-hash))
   (for ((sid sids))
-    (let ((bavg (get-best-avg sid series inverted?)))
-      (let loop ((b1 abavg)
-                 (b2 bavg))
+    (let ((mmax (get-mean-max sid series inverted?)))
+      (let loop ((b1 ammax)
+                 (b2 mmax))
         (unless (or (null? b1) (null? b2))
           (match-define (list sid1 ts1 duration1 value1) (car b1))
           (match-define (list sid2 ts2 duration2 value2) (car b2))
@@ -217,10 +221,10 @@
                  (loop (cdr b1) (cdr b2))))))))
   (if as-percentage?
       (let ((nsids (length sids)))
-        (for/list ((item abavg))
+        (for/list ((item ammax))
           (match-define (list sid ts duration value) item)
           (vector duration (exact->inexact (/ (hash-ref! heat-map duration 0) nsids)))))
-      (for/list ((item abavg))
+      (for/list ((item ammax))
         (match-define (list sid ts duration value) item)
         (vector duration (hash-ref! heat-map duration 0)))))
 
@@ -231,7 +235,7 @@
 ;; We also remove keys with 0 rank to keep the data smaller (as it will be
 ;; stored in the database.
 (define (histogram/jsexpr df series)
-  (let* ((lap-swim? (send df get-property 'is-lap-swim?))
+  (let* ((lap-swim? (df-get-property df 'is-lap-swim?))
          (meta (find-meta-for-series series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
          (hist (df-histogram df series #:bucket-width bw)))
@@ -295,7 +299,7 @@
             #f))
       ;; Get the session data frame
       (let ((df (session-df (current-database) sid)))
-        (let ((hist (if (send df contains? series)
+        (let ((hist (if (df-contains? df series)
                         (histogram/jsexpr df series)
                         '())))
           (db-put-hist (current-database) sid series hist)
@@ -398,11 +402,11 @@
 ;; list of (x y rank) where rank is the number of points at the X, Y location.
 (define (scatter/jsexpr df series1 series2)
 
-  (define is-lap-swim? (send df get-property 'is-lap-swim?))
+  (define is-lap-swim? (df-get-property df 'is-lap-swim?))
   
   (define (extract)
-    (if (send df contains? series1 series2)
-        (send df select* series1 series2 #:filter valid-only)
+    (if (df-contains? df series1 series2)
+        (df-select* df series1 series2 #:filter valid-only)
         #f))
 
   (define (group data)
@@ -482,7 +486,7 @@
             #f))
       ;; Get the session data frame
       (let ((df (session-df (current-database) sid)))
-        (let ((scatter (if (send df contains? series1 series2)
+        (let ((scatter (if (df-contains? df series1 series2)
                            (scatter/jsexpr df series1 series2)
                            '())))
           (db-put-scatter (current-database) sid series1 series2 scatter)
@@ -745,7 +749,7 @@ select X.session_id
 ;; Clear all internal caches.  This is needed whenever the database is closed
 ;; and a new one is opened.
 (define (clear-metrics-cache)
-  (set! bavg-cache (make-hash))
+  (set! mmax-cache (make-hash))
   (set! hist-cache (make-hash))
   (set! scatter-cache (make-hash)))
 
@@ -780,7 +784,7 @@ select X.session_id
   (query-exec (current-database) "delete from BAVG_CACHE where session_id = ?" sid)
   (query-exec (current-database) "delete from HIST_CACHE where session_id = ?" sid)
   (query-exec (current-database) "delete from SCATTER_CACHE where session_id = ?" sid)
-  (hash-remove! bavg-cache sid)
+  (hash-remove! mmax-cache sid)
   (hash-remove! hist-cache sid)
   (hash-remove! scatter-cache sid))
 
@@ -799,12 +803,12 @@ select X.session_id
            (loop (async-channel-get s))))))))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
-;; the best-avg/c defined in data-frame.rkt
-(define aggregate-bavg-item/c (list/c exact-nonnegative-integer? ; session-id
+;; the mean-max/c defined in data-frame.rkt
+(define aggregate-mmax-item/c (list/c exact-nonnegative-integer? ; session-id
                                       real?                      ; time stamp
                                       (and/c real? positive?)    ; duration
                                       real?))                    ; value
-(define aggregate-bavg/c (listof aggregate-bavg-item/c))
+(define aggregate-mmax/c (listof aggregate-mmax-item/c))
 
 (define aggregate-hist-item/c (list/c real? real?)) ; key, rank
 (define aggregate-hist/c (listof aggregate-hist-item/c))
@@ -818,7 +822,7 @@ select X.session_id
                            (or/c #f number?)))
 
 (provide
- aggregate-bavg/c aggregate-bavg-item/c)
+ aggregate-mmax/c aggregate-mmax-item/c)
 
 (provide/contract
  (fetch-candidate-sessions (->* (connection?
@@ -830,15 +834,15 @@ select X.session_id
                                  #:equipment-ids (or/c #f (listof exact-nonnegative-integer?)))
                                 (listof exact-nonnegative-integer?)))
  (clear-metrics-cache (-> any/c))
- (aggregate-bavg (->* ((listof exact-nonnegative-integer?) string?)
+ (aggregate-mmax (->* ((listof exact-nonnegative-integer?) string?)
                       (#:inverted? boolean? #:progress-callback (or/c #f (-> real? any/c)))
-                      aggregate-bavg/c))
- (aggregate-bavg-bounds (-> aggregate-bavg/c
+                      aggregate-mmax/c))
+ (aggregate-mmax-bounds (-> aggregate-mmax/c
                             (values (or/c #f real?) (or/c #f real?)
                                     (or/c #f real?) (or/c #f real?))))
- (aggregate-bavg->spline-fn (-> aggregate-bavg/c
+ (aggregate-mmax->spline-fn (-> aggregate-mmax/c
                                 (or/c #f (-> real? (or/c #f real?)))))
- (aggregate-bavg-heat-map (->* (aggregate-bavg/c
+ (aggregate-mmax-heat-map (->* (aggregate-mmax/c
                                 (and/c real? positive?)
                                 (listof exact-nonnegative-integer?)
                                 string?)

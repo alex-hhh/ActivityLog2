@@ -1,8 +1,8 @@
 #lang racket/base
-;; color-util.rkt -- color manipulation utilities
+;; color-util.rkt -- convert colors from RGB to HSV and back
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -76,6 +76,9 @@
    (exact-round (fl* r 255.0))
    (exact-round (fl* g 255.0))
    (exact-round (fl* b 255.0))))
+
+
+;;............................................................. provides ....
 
 (provide
  rgb->hsl

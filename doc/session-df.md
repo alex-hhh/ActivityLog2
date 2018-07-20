@@ -1,15 +1,16 @@
 # Session data-frame% objects
 
-Session data is loaded into a `data-frame%` object (defined in
-"data-frame.rkt") by `session-df`.  Data frames contain track data for a
-session, all data operations and plotting is done on these data frame objects.
+Session data is loaded into a data-frame object (defined in
+"rkt/data-frame/df.rkt") by `session-df`.  Data frames contain the track data
+for a session, and all data operations and plotting is done on these data
+frame objects.
 
 This document describes the contents of the data frame object as created by
 `session-df`.
 
 ## Properties
 
-The data-frame% object can store a set of properties, which are key - value
+The data frame object can store a set of properties, which are key - value
 mappings. The following properties are present in the session data frame,
 while other parts of the application can attach additional properties:
 
@@ -40,7 +41,7 @@ the implementation notes on [Critical Power](./critical-power.md)
 Properties can be accessed using the `get-property` method.  For example, this
 will return the session id for the session data:
 
-    (send df get-property 'session-id)
+    (df-get-property df 'session-id)
 
 Regarding the **laps** and **stop-points** properties, these are lists that
 contain time stamp values in the **timestamp** series, to convert them to
@@ -48,25 +49,25 @@ indexes, so they can be used to reference positions in other series, use the
 `get-index` and `get-index*` methods, and to reference items in other series,
 use the `ref` and `ref*` methods:
 
-    (send df get-index "timestamp" 1471209289))
+    (df-get-index df "timestamp" 1471209289))
     => 52561
-    (send df get-index* "timestamp" 1471209289 1471220111)
+    (df-get-index* df "timestamp" 1471209289 1471220111)
     => '(52561 58728)
-    (send df ref 52561 "hr")
+    (df-ref df 52561 "hr")
     => 96.0
-    (send df ref* 52561 "speed" "cad" "pwr")
+    (df-ref* df 52561 "speed" "cad" "pwr")
     => '#(30.636 58.0 103.0)
 
 ## Data Series
 
-The data-frame% object contains several series for the session data.  Some of
+The data frame object contains several series for the session data.  Some of
 the data series come from the database, others some is calculated.  Below is a
 brief explanation what each series means.  Not all series will be present in
-every data-frame%, as series are created only if there is data for them in the
-session.  To check if a data frame contains some series, use the `contains?`
-method:
+every data frame, as series are created only if there is data for them in the
+session.  To check if a data frame contains some series, use the
+`df-contains?` function:
 
-    (send df contains? "lat" "lon" "alt")
+    (df-contains? df "lat" "lon" "alt")
     => #t
 
 ### Time Series

@@ -29,7 +29,12 @@
          math/statistics
          plot/utils
          plot
-         "data-frame.rkt"
+         "data-frame/df.rkt"
+         "data-frame/series.rkt"
+         "data-frame/scatter.rkt"
+         "data-frame/sql.rkt"
+         "data-frame/bsearch.rkt"
+         "data-frame/statistics.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
          "series-meta.rkt"
@@ -42,14 +47,14 @@
 (define factor-colors/c (listof (cons/c symbol? color/c)))
 
 (provide/contract
- (extract-data (->* ((is-a?/c data-frame%)
+ (extract-data (->* (data-frame?
                      (is-a?/c series-metadata%)
                      (is-a?/c series-metadata%))
                     ((or/c zero? positive?) boolean?)
                     ts-data/c))
  (ds-stats (-> ts-data/c statistics?))
  (add-verticals (-> ts-data/c ts-data/c))
- (get-lap-extents (-> (is-a?/c data-frame%) number? (cons/c number? (or/c number? #f))))
+ (get-lap-extents (-> data-frame? number? (cons/c number? (or/c number? #f))))
  (get-plot-y-range (-> statistics? (is-a?/c series-metadata%) y-range/c))
  (combine-y-range (-> y-range/c y-range/c y-range/c))
 
@@ -65,12 +70,12 @@
 
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
  (make-plot-renderer/swim-stroke (-> ts-data/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
- (get-series/ordered (-> (is-a?/c data-frame%) (listof string?)))
- (session-df (-> connection? number? (is-a?/c data-frame%)))
+ (get-series/ordered (-> data-frame? (listof string?)))
+ (session-df (-> connection? number? data-frame?))
  (reorder-sids (-> (listof integer?) (listof integer?)))
  (clear-session-df-cache (->* () ((or/c integer? #f)) any/c))
- (is-teleport? (-> (is-a?/c data-frame%) number? boolean?))
- (add-grade-series (-> (is-a?/c data-frame%) any/c)))
+ (is-teleport? (-> data-frame? number? boolean?))
+ (add-grade-series (-> data-frame? any/c)))
 
 (provide y-range/c factor-colors/c)
 
@@ -156,48 +161,57 @@
       (and (equal? sport-id 5) (equal? sub-sport-id 17))))
 
   (define df
-    (make-data-frame-from-query
+    (df-read/sql
      db
      (if is-lap-swim? fetch-trackpoins/swim fetch-trackpoins)
      session-id))
 
+  ;; Delete all empty series (e.g "gct" for a cycling activity)
+  (for ([series (in-list (df-series-names df))])
+    (unless (df-has-non-na? df series)
+      (df-del-series df series)))
+
   (define cp-data (get-session-critical-power session-id))
   (when cp-data
     (match-define (list cp wprime tau) cp-data)
-    (send df put-property 'critical-power cp)
-    (send df put-property 'wprime wprime)
-    (send df put-property 'tau tau))
+    (df-put-property df 'critical-power cp)
+    (df-put-property df 'wprime wprime)
+    (df-put-property df 'tau tau))
 
-  (send df put-property 'is-lap-swim? is-lap-swim?)
-  (send df put-property 'sport sport)
-  (send df put-property 'session-id session-id)
+  (df-put-property df 'is-lap-swim? is-lap-swim?)
+  (df-put-property df 'sport sport)
+  (df-put-property df 'session-id session-id)
 
-  (when (send df contains? "timestamp")
-    (send (send df get-series "timestamp") set-sorted #t)
+  (when (df-contains? df "timestamp")
+    (df-set-sorted df "timestamp" <=)
   
     ;; NOTE: the session might contain lap timestamps that have no track
     ;; points, don't put these laps in the data frame
-    (let ((row-count (send df get-row-count)))
-      (if (and row-count (> row-count 0))
+    (let ((row-count (df-row-count df)))
+      (if (> row-count 0)
           (let* ([laps (query-list db fetch-lap-timestamps session-id)]
-                 [maxts (send df ref (sub1 row-count) "timestamp")]
+                 [maxts (df-ref df (sub1 row-count) "timestamp")]
                  [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
-            (send df put-property 'laps xlaps))
-          (send df put-property 'laps '()))))
+            (df-put-property df 'laps xlaps))
+          (df-put-property df 'laps '()))))
 
   ;; If we have a "dst" series, mark it as sorted, but first make sure it does
   ;; not contain invalid values and it is monotonically growing (a lot of code
   ;; depends on this).
-  (when (send df contains? "dst")
-    (let* ((series (send df get-series "dst"))
-           (data (send series get-data)))
-      (unless (vector-ref data 0)
-        (vector-set! data 0 0))
-      (for ([index (in-range 1 (vector-length data))])
-        (let ((item (vector-ref data index)))
-          (unless (and item (>= item (vector-ref data (sub1 index))))
-            (vector-set! data index (vector-ref data (sub1 index))))))
-      (send series set-sorted #t)))
+  (when (df-contains? df "dst")
+    (if (df-has-na? df "dst")
+        ;; If there are NA values in the dst series, patch it up...
+        (let ((data (df-select df "dst")))
+          (unless (vector-ref data 0)
+            (vector-set! data 0 0))
+          (for ([index (in-range 1 (vector-length data))])
+            (let ((item (vector-ref data index)))
+              (unless (and item (>= item (vector-ref data (sub1 index))))
+                (vector-set! data index (vector-ref data (sub1 index))))))
+          ;; NOTE: we replace the old one here
+          (df-add-series df (make-series "dst" #:data data #:cmpfn <=)))
+        ;; ... otherwise, just mark it as sorted
+        (df-set-sorted df "dst" <=)))
 
   (add-timer-series df)
   (add-elapsed-series df)
@@ -230,15 +244,16 @@
   (add-rppa-series df)
   (add-rpppa-series df)
   (fixup-lrbal-series df)
+  (add-torque-series df)
 
   (when is-lap-swim?
     (add-swolf-series df))
 
   (unless is-lap-swim?
-    (cond ((send df contains? "timer")
-           (send df set-default-weight-series "timer"))
-          ((send df contains? "elapsed")
-           (send df set-default-weight-series "elapsed"))))
+    (cond ((df-contains? df "timer")
+           (df-set-default-weight-series df "timer"))
+          ((df-contains? df "elapsed")
+           (df-set-default-weight-series df "elapsed"))))
 
   (when cp-data
     (cond ((eqv? (vector-ref sport 0) 1) ; running
@@ -249,88 +264,91 @@
   df)
 
 (define (add-timer-series df)
-  (when (send df contains? "timestamp" "dst")
+  (when (df-contains? df "timestamp" "dst")
     (define stop-points '())
 
-    (send df add-derived-series
-          "timer"
-          '("timestamp" "dst")
-          (let ((timer 0))
-            (lambda (prev-val val)
-              (when prev-val
-                (match-define (vector ptimestamp pdst) prev-val)
-                (match-define (vector timestamp dst) val)
-                (define dt (- timestamp ptimestamp))
-                (define dd (if (and dst pdst) (- dst pdst) 0))
-                (if (and (> dt 10) (< dd  5.0))
-                    ;; Stop point
-                    (set! stop-points (cons ptimestamp stop-points))
-                    (set! timer (+ timer dt))))
-              timer)))
+    (df-add-derived
+     df
+     "timer"
+     '("timestamp" "dst")
+     (let ((timer 0))
+       (lambda (prev-val val)
+         (when prev-val
+           (match-define (list ptimestamp pdst) prev-val)
+           (match-define (list timestamp dst) val)
+           (define dt (- timestamp ptimestamp))
+           (define dd (if (and dst pdst) (- dst pdst) 0))
+           (if (and (> dt 10) (< dd  5.0))
+               ;; Stop point
+               (set! stop-points (cons ptimestamp stop-points))
+               (set! timer (+ timer dt))))
+         timer)))
 
-    (send (send df get-series "timer") set-sorted #t)
-    (send df put-property 'stop-points (reverse stop-points))))
+    (df-set-sorted df "timer" <=)
+    (df-put-property df 'stop-points (reverse stop-points))))
 
 (define (add-elapsed-series df)
-  (when (send df contains? "timestamp")
-    (define timestamp0
-      (vector-ref (send df select "timestamp") 0))
+  (when (df-contains? df "timestamp")
+    (define timestamp0 (df-ref df 0 "timestamp"))
     ;; Lap swiming timestamps record the start of the length.  Elapsed looks
     ;; much nicer if it records the end of the length, so we add the duration
     ;; of the current length to each generated sample.  We need to be
     ;; carefull, as durations are recorded with millisecond precision, but
     ;; timesamps are only with second precision, sometimes time might go
     ;; backwards.
-    (if (and (send df get-property 'is-lap-swim?)
-             (send df contains? "duration"))
+    (if (and (df-get-property df 'is-lap-swim?)
+             (df-contains? df "duration"))
         (let ((elapsed 0))
-          (send df add-derived-series
-                "elapsed"
-                '("timestamp" "duration")
-                (lambda (val)
-                  (match-define (vector timestamp duration) val)
-                  (let ((nelapsed (+ (- timestamp timestamp0) duration)))
-                    (when (> nelapsed elapsed)
-                      (set! elapsed nelapsed))
-                    elapsed))))
-        (send df add-derived-series
+          (df-add-derived
+           df
            "elapsed"
-          '("timestamp")
+           '("timestamp" "duration")
            (lambda (val)
-             (define timestamp (vector-ref val 0))
-             (- timestamp timestamp0))))
-    (send (send df get-series "elapsed") set-sorted #t)))
+             (match-define (list timestamp duration) val)
+             (let ((nelapsed (+ (- timestamp timestamp0) duration)))
+               (when (> nelapsed elapsed)
+                 (set! elapsed nelapsed))
+               elapsed))))
+        (df-add-derived
+         df
+         "elapsed"
+         '("timestamp")
+         (lambda (val)
+           (define timestamp (list-ref val 0))
+           (- timestamp timestamp0))))
+    (df-set-sorted df "elapsed" <=)))
 
 (define (add-distance-series df)
 
   (define (distance-km val)
-    (define dst (vector-ref val 0))
+    (define dst (list-ref val 0))
     (if dst (m->km dst) #f))
 
   (define (distance-mi val)
-    (define dst (vector-ref val 0))
+    (define dst (list-ref val 0))
     (if dst (m->mi dst) #f))
 
   (define (distance-yards val)
-    (define dst (vector-ref val 0))
+    (define dst (list-ref val 0))
     (if dst (m->yd dst) #f))
 
   (define (distance-meters val)
-    (vector-ref val 0))
+    (list-ref val 0))
 
-  (when (send df contains? "dst")
+  (when (df-contains? df "dst")
 
     ;; NOTE: the dst series contains #f's on lap swim activities.  Since this
     ;; series is used as a bases for the grahs, we patch the distance series
     ;; to contain valid values.
     (define distance
-      (send df map
-            '("dst")
-            (if (send df get-property 'is-lap-swim?)
-                (if (eq? (al-pref-measurement-system) 'metric)
-                    distance-meters distance-yards)
-                (if (eq? (al-pref-measurement-system) 'metric)
-                    distance-km distance-mi))))
+      (df-map
+       df
+       '("dst")
+       (if (df-get-property df 'is-lap-swim?)
+           (if (eq? (al-pref-measurement-system) 'metric)
+               distance-meters distance-yards)
+           (if (eq? (al-pref-measurement-system) 'metric)
+               distance-km distance-mi))))
 
     ;; Patch first element
     (or (vector-ref distance 0)
@@ -343,25 +361,24 @@
         (when (or (not current-point) (< current-point prev-point))
           (vector-set! distance idx prev-point))))
 
-    (let ((series (new data-series% [name "distance"] [data distance])))
-      (send df add-series series)
-      (unless (send series has-invalid-values)
-        (send series set-sorted #t)))))
+    (let ((series (make-series "distance" #:data distance #:cmpfn <=)))
+      (df-add-series df series))))
 
 (define (add-speed-series df)
 
   (define (speed-km/h val)
-    (match-define (vector spd) val)
+    (match-define (list spd) val)
     (if spd (m/s->km/h spd) spd))
   (define (speed-mi/h val)
-    (match-define (vector spd) val)
+    (match-define (list spd) val)
     (if spd (m/s->mi/h spd) #f))
-  (when (send df contains? "spd")
-    (send df add-derived-series/lazy
-          "speed"
-          '("spd")
-          (if (eq? (al-pref-measurement-system) 'metric)
-              speed-km/h speed-mi/h))))
+  (when (df-contains? df "spd")
+    (df-add-lazy
+     df
+     "speed"
+     '("spd")
+     (if (eq? (al-pref-measurement-system) 'metric)
+         speed-km/h speed-mi/h))))
 
 ;; Smooth the first LIMIT (in seconds) worth of samples from SERIES-NAME.
 ;; This is used for series that have huge unrealistic values at the start (e.g
@@ -383,22 +400,20 @@
            (+ (* (- 1 alpha) limit-val)
               (* alpha val))))))
   
-  (when (send df contains? series-name "elapsed")
-    (let* ((index (send df get-index "elapsed" limit))
-           (limit-val (if index (send df ref index series-name) #f)))
+  (when (df-contains? df series-name "elapsed")
+    (let* ((limit-index (df-index-of df "elapsed" limit))
+           (limit-val (if (< limit-index (df-row-count df))
+                          (df-ref df limit-index series-name)
+                          #f)))
       ;; If we have no value at INDEX, don't do any smoothing.  We could
       ;; improve this by searching further forward for a valid value, but it
       ;; is not needed for now.
       (when limit-val
-        (define sdata (let ((series (send df get-series series-name)))
-                        (send series get-data)))
-        (define edata (let ((series (send df get-series "elapsed")))
-                        (send series get-data)))
-        (for ([idx (in-range index)])
-          (vector-set! sdata idx
-                       (combine (vector-ref sdata idx)
-                                limit-val
-                                (vector-ref edata idx))))))))
+        (for ([idx (in-range limit-index)])
+          (define val (df-ref df idx series-name))
+          (define e (df-ref df idx "elapsed"))
+          (define nval (combine val limit-val e))
+          (df-set! df idx nval series-name))))))
 
 (define (add-pace-series df)
 
@@ -428,43 +443,45 @@
     (if (and spd (> spd 0.6)) (m/s->sec/mi spd)  #f))
 
   (define (pace-sec/100m val)
-    (match-define (vector spd) val)
+    (match-define (list spd) val)
     (if (and spd (> spd 0.1)) (m/s->sec/100m spd) #f))
 
   (define (pace-sec/100yd val)
-    (match-define (vector spd) val)
+    (match-define (list spd) val)
     (if (and spd (> spd 0.1)) (m/s->sec/100yd spd) #f))
 
-  (when (send df contains? "spd" "elapsed")
+  (when (df-contains? df "spd" "elapsed")
 
-    (if (send df get-property 'is-lap-swim?)
-        (send df add-derived-series/lazy
-              "pace" '("spd")
-              (if (eq? (al-pref-measurement-system) 'metric)
-                  pace-sec/100m pace-sec/100yd))
+    (if (df-get-property df 'is-lap-swim?)
+        (df-add-lazy
+         df
+         "pace" '("spd")
+         (if (eq? (al-pref-measurement-system) 'metric)
+             pace-sec/100m pace-sec/100yd))
         ;; non lap swim
         (let* ((limit 120)              ; seconds
                (pace-fn (if (eq? (al-pref-measurement-system) 'metric)
                             pace-sec/km pace-sec/mi))
-               (index (send df get-index "elapsed" limit))
-               (pace-limit (if index (pace-fn (send df ref index "spd")) #f)))
-          (send df add-derived-series/lazy
-                "pace"
-                '("spd" "elapsed")
-                (lambda (val)
-                  (match-define (vector spd elapsed) val)
-                  (combine (pace-fn spd) pace-limit elapsed limit)))))))
+               (pace-limit (pace-fn (df-lookup df "elapsed" "spd" limit))))
+          (df-add-lazy
+           df
+           "pace"
+           '("spd" "elapsed")
+           (lambda (val)
+             (match-define (list spd elapsed) val)
+             (combine (pace-fn spd) pace-limit elapsed limit)))))))
 
 (define (add-speed-zone-series df)
-  (define sid (send df get-property 'session-id))
+  (define sid (df-get-property df 'session-id))
   (define zones (get-session-sport-zones sid 2))
-  (when (and zones (send df contains? "spd"))
-    (send df add-derived-series/lazy
-          "speed-zone"
-          '("spd")
-          (lambda (val)
-            (match-define (vector spd) val)
-            (if spd (val->zone spd zones) #f)))))
+  (when (and zones (df-contains? df "spd"))
+    (df-add-lazy
+     df
+     "speed-zone"
+     '("spd")
+     (lambda (val)
+       (match-define (list spd) val)
+       (if spd (val->zone spd zones) #f)))))
 
 ;; Add a grade (slope) series to the data frame DF.  We assume that an
 ;; altidute and lat/lot series exist (use ADD-GRADE-SERIES, which performs the
@@ -486,11 +503,10 @@
   ;; the 'vector-copy' call in some cases.  This is left for a future
   ;; improvement.
   (define alt
-    (vector-copy
-     (let ((series (cond ((send df contains? "calt") "calt")
-                         ((send df contains? "alt") "alt")
-                         (#t #f))))
-       (send df select series))))
+    (let ((series (cond ((df-contains? df "calt") "calt")
+                        ((df-contains? df "alt") "alt")
+                        (#t #f))))
+      (df-select df series)))
 
   ;; Fixup #f's in the alt series, this works OK for one-off missing values,
   ;; if whole ranges are missing, this will not produce nice results.
@@ -505,15 +521,16 @@
   ;; as it might have stop points which would mess up our calculations.
   (define dst
     (let ((adst 0))
-      (send df map
-            '("lat" "lon")
-            (lambda (prev val)
-              (when prev
-                (match-define (vector plat plon) prev)
-                (match-define (vector lat lon) val)
-                (when (and plat plon lat lon)
-                  (set! adst (+ adst (map-distance/degrees plat plon lat lon)))))
-              adst))))
+      (df-map
+       df
+       '("lat" "lon")
+       (lambda (prev val)
+         (when prev
+           (match-define (list plat plon) prev)
+           (match-define (list lat lon) val)
+           (when (and plat plon lat lon)
+             (set! adst (+ adst (map-distance/degrees plat plon lat lon)))))
+         adst))))
 
   ;; When entering a longer tunnel and loosing the GPS signal, the Garmin
   ;; Device will continue to log the last known GPS location, but will
@@ -586,7 +603,7 @@
   (define (find-middle start end)
     (let* ((sdist (vector-ref dst start))
            (half (/ (delta-dist start end) 2))
-           (mid (bsearch dst (+ sdist half) #:start start #:end end)))
+           (mid (bsearch dst (+ sdist half) #:start start #:stop end)))
       mid))
   (define (order-points p1 p2 p3 p4)
     (let ((points (list p1 p2 p3 p4)))
@@ -613,44 +630,46 @@
   
   (iterate 0 (sub1 (vector-length grade)))
   
-  (send df add-series (new data-series% [name "grade"] [data grade])))
+  (df-add-series df (make-series "grade" #:data grade)))
 
 ;; Check that the data frame DF has the required data and add the grade series
 ;; if it does.
 (define (add-grade-series df)
   (define alt-series
-    (cond ((send df contains? "calt") "calt")
-          ((send df contains? "alt") "alt")
+    (cond ((df-contains? df "calt") "calt")
+          ((df-contains? df "alt") "alt")
           (#t #f)))
-  (when (and alt-series (send df contains? "lat" "lon"))
+  (when (and alt-series (df-contains? df "lat" "lon"))
     (add-grade-series-1 df)))
 
 (define (add-hr-pct-series df)
-  (define sid (send df get-property 'session-id))
+  (define sid (df-get-property df 'session-id))
   (define zones (get-session-sport-zones sid 1))
-  (when (and zones (send df contains? "hr"))
-    (send df add-derived-series/lazy
-          "hr-pct"
-          '("hr")
-          (lambda (val)
-            (match-define (vector hr) val)
-            (if hr (val->pct-of-max hr zones) #f)))))
+  (when (and zones (df-contains? df "hr"))
+    (df-add-lazy
+     df
+     "hr-pct"
+     '("hr")
+     (lambda (val)
+       (match-define (list hr) val)
+       (if hr (val->pct-of-max hr zones) #f)))))
 
 (define (add-hr-zone-series df)
-  (define sid (send df get-property 'session-id))
+  (define sid (df-get-property df 'session-id))
   (define zones (get-session-sport-zones sid 1))
-  (when (and zones (send df contains? "hr"))
-    (send df add-derived-series/lazy
-          "hr-zone"
-          '("hr")
-          (lambda (val)
-            (match-define (vector hr) val)
-            (if hr (val->zone hr zones) #f)))))
+  (when (and zones (df-contains? df "hr"))
+    (df-add-lazy
+     df
+     "hr-zone"
+     '("hr")
+     (lambda (val)
+       (match-define (list hr) val)
+       (if hr (val->zone hr zones) #f)))))
 
 (define (add-stride-series df)
 
   (define (stride-m val)
-    (match-define (vector spd cad) val)
+    (match-define (list spd cad) val)
     (if (and spd cad (> cad 0))
         (/ (* spd 60) (* 2 cad))
         #f))
@@ -661,13 +680,14 @@
           (m->ft s)
           #f)))
 
-  (when (send df contains? "spd" "cad")
-    (send df add-derived-series/lazy
-          "stride"
-          '("spd" "cad")
-          (if (eq? (al-pref-measurement-system) 'metric)
-              stride-m
-              stride-ft))))
+  (when (df-contains? df "spd" "cad")
+    (df-add-lazy
+     df
+     "stride"
+     '("spd" "cad")
+     (if (eq? (al-pref-measurement-system) 'metric)
+         stride-m
+         stride-ft))))
 
 (define (add-vratio-series df)
 
@@ -676,103 +696,111 @@
         (/ (* spd 60) (* 2 cad))
         #f))
 
-  (when (send df contains? "spd" "cad" "vosc")
-    (send df add-derived-series/lazy
-          "vratio"
-          '("spd" "cad" "vosc")
-          (lambda (val)
-            (match-define (vector spd cad vosc) val)
-            (if (and spd cad vosc)
-                (let ((st (stride spd cad)))
-                  (if (and st (> st 0))
-                      (let ((vratio (* 100.0 (/ vosc (* st 1000)))))
-                        vratio)
-                      #f))
-                #f)))))
+  (when (df-contains? df "spd" "cad" "vosc")
+    (df-add-lazy
+     df
+     "vratio"
+     '("spd" "cad" "vosc")
+     (lambda (val)
+       (match-define (list spd cad vosc) val)
+       (if (and spd cad vosc)
+           (let ((st (stride spd cad)))
+             (if (and st (> st 0))
+                 (let ((vratio (* 100.0 (/ vosc (* st 1000)))))
+                   vratio)
+                 #f))
+           #f)))))
 
 (define (add-power-zone-series df)
-  (define sid (send df get-property 'session-id))
+  (define sid (df-get-property df 'session-id))
   (define zones (get-session-sport-zones sid 3))
-  (when (and zones (send df contains? "pwr"))
-    (send df add-derived-series/lazy
-          "pwr-zone"
-          '("pwr")
-          (lambda (val)
-            (match-define (vector pwr) val)
-            (if pwr (val->zone pwr zones) #f)))))
+  (when (and zones (df-contains? df "pwr"))
+    (df-add-lazy
+     df
+     "pwr-zone"
+     '("pwr")
+     (lambda (val)
+       (match-define (list pwr) val)
+       (if pwr (val->zone pwr zones) #f)))))
 
 (define (add-lppa-series df)
-  (when (send df contains? "lpps" "lppe")
-    (send df add-derived-series/lazy
-          "lppa"
-          '("lpps" "lppe")
-          (lambda (val)
-            (match-define (vector start end) val)
-            (if (and start end)
-                (let ((angle (- end start)))
-                  (if (< angle 0) (+ angle 360) angle))
-                #f)))))
+  (when (df-contains? df "lpps" "lppe")
+    (df-add-lazy
+     df
+     "lppa"
+     '("lpps" "lppe")
+     (lambda (val)
+       (match-define (list start end) val)
+       (if (and start end)
+           (let ((angle (- end start)))
+             (if (< angle 0) (+ angle 360) angle))
+           #f)))))
 
 ;; Change the angle range form 0-360 to -180 .. 180.  This makes it look nicer
 ;; when angles are arround 0, as they will transition, for example, between
 ;; -20 and 20 degrees instead of jumping between 20 and 340
 (define (fixup-pp-series df series-name)
-  (when (send df contains? series-name)
-    ;; Don't use add-derived-series/lazy here as we enter in a recursive loop
-    ;; because we ask for the same series.
-    (send df add-derived-series
-          series-name
-          (list series-name)
-          (lambda (val)
-            (define a (vector-ref val 0))
-            (if a (if (> a 180.0) (- a 360) a) #f)))))
+  (when (df-contains? df series-name)
+    ;; Don't use df-add-lazy here as we enter in a recursive loop because we
+    ;; ask for the same series.
+    (df-add-derived
+     df
+     series-name
+     (list series-name)
+     (lambda (val)
+       (define a (list-ref val 0))
+       (if a (if (> a 180.0) (- a 360) a) #f)))))
 
 (define (add-lpppa-series df)
-  (when (send df contains? "lppps" "lpppe")
-    (send df add-derived-series/lazy
-          "lpppa"
-          '("lppps" "lpppe")
-          (lambda (val)
-            (match-define (vector start end) val)
-            (if (and start end)
-                (let ((angle (- end start)))
-                  (if (< angle 0) (+ angle 360) angle))
-                #f)))))
+  (when (df-contains? df "lppps" "lpppe")
+    (df-add-lazy
+     df
+     "lpppa"
+     '("lppps" "lpppe")
+     (lambda (val)
+       (match-define (list start end) val)
+       (if (and start end)
+           (let ((angle (- end start)))
+             (if (< angle 0) (+ angle 360) angle))
+           #f)))))
 
 (define (add-rppa-series df)
-  (when (send df contains? "rpps" "rppe")
-    (send df add-derived-series/lazy
-          "rppa"
-          '("rpps" "rppe")
-          (lambda (val)
-            (match-define (vector start end) val)
-            (if (and start end)
-                (let ((angle (- end start)))
-                  (if (< angle 0) (+ angle 360) angle))
-                #f)))))
+  (when (df-contains? df "rpps" "rppe")
+    (df-add-lazy
+     df
+     "rppa"
+     '("rpps" "rppe")
+     (lambda (val)
+       (match-define (list start end) val)
+       (if (and start end)
+           (let ((angle (- end start)))
+             (if (< angle 0) (+ angle 360) angle))
+           #f)))))
 
 (define (add-rpppa-series df)
-  (when (send df contains? "rppps" "rpppe")
-    (send df add-derived-series/lazy
-          "rpppa"
-          '("rppps" "rpppe")
-          (lambda (val)
-            (match-define (vector start end) val)
-            (if (and start end)
-                (let ((angle (- end start)))
-                  (if (< angle 0) (+ angle 360) angle))
-                #f)))))
+  (when (df-contains? df "rppps" "rpppe")
+    (df-add-lazy
+     df
+     "rpppa"
+     '("rppps" "rpppe")
+     (lambda (val)
+       (match-define (list start end) val)
+       (if (and start end)
+           (let ((angle (- end start)))
+             (if (< angle 0) (+ angle 360) angle))
+           #f)))))
 
 (define (add-swolf-series df)
-  (when (send df contains? "duration" "strokes")
-    (send df add-derived-series/lazy
-          "swolf"
-          '("duration" "strokes")
-          (lambda (val)
-            (match-define (vector duration strokes) val)
-            (if (and duration strokes)
-                (exact-round (+ duration strokes))
-                #f)))))
+  (when (df-contains? df "duration" "strokes")
+    (df-add-lazy
+     df
+     "swolf"
+     '("duration" "strokes")
+     (lambda (val)
+       (match-define (list duration strokes) val)
+       (if (and duration strokes)
+           (exact-round (+ duration strokes))
+           #f)))))
 
 (define (add-torque-series df)
 
@@ -780,62 +808,59 @@
     (let ((angular-velocity (* (/ cadence 60.0) (* 2 pi))))
       (/ power angular-velocity)))
 
-  (when (send df contains? "pwr" "cad")
-    (send df add-derived-series/lazy
-          "torque"
-          '("pwr" "cad")
-          (lambda (val)
-            (match-define (vector pwr cad) val)
-            (if (and pwr cad (> pwr 0) (> cad 0))
-                (cadence->torque pwr cad)
-                #f)))))
-
-(provide add-torque-series)
+  (when (df-contains? df "pwr" "cad")
+    (df-add-lazy
+     df
+     "torque"
+     '("pwr" "cad")
+     (lambda (val)
+       (match-define (list pwr cad) val)
+       (if (and pwr cad (> pwr 0) (> cad 0))
+           (cadence->torque pwr cad)
+           #f)))))
 
 ;; Convert some invalid values (e.g 0, 100) to #f.  This is used to replace 0
 ;; with #f in series like "gct" where a 0 is really invalid and messes up best
 ;; avg calculations
 (define (fixup-invalid-zero-values df series-name)
-  (when (send df contains? series-name)
-    (let* ([series (send df get-series series-name)]
-           [data (send series get-data)])
-      (for ([index (in-range (vector-length data))]
-            #:when (let ((val (vector-ref data index)))
-                     (and (number? val) (zero? val))))
-        (vector-set! data index #f)))))
+  (when (df-contains? df series-name)
+    (for ([index (in-range (df-row-count df))])
+      (define val (df-ref df index series-name))
+      (when (and (number? val) (zero? val))
+        (df-set! df index #f series-name)))))
 
 ;; Replace 0 and 100 with #f in the "lrbal" series -- these are invalid values
 ;; at the two extremes
 (define (fixup-lrbal-series df)
-  (when (send df contains? "lrbal")
-    (let* ([series (send df get-series "lrbal")]
-           [data (send series get-data)])
-      (for ([index (in-range (vector-length data))]
-            #:when (let ((val (vector-ref data index)))
-                     (and (number? val) (or (zero? val) (zero? (- 100 val))))))
-        (vector-set! data index #f)))))
+  (when (df-contains? df "lrbal")
+    (for ([index (in-range (df-row-count df))])
+      (define val (df-ref df index "lrbal"))
+      (when (and (number? val) (or (zero? val) (zero? (- 100 val))))
+        (df-set! df index #f "lrbal")))))
 
 (define (add-gap-series df)
   (define (pace-sec/km spd)
     (if (and spd (> spd 0.6)) (m/s->sec/km spd)  #f))
 
-  (when (send df contains? "pace" "grade")
-    (send df add-derived-series/lazy
-          "gap"
-          '("pace" "grade")
-          (lambda (current)
-            (match-define (vector pace grade) current)
-            (and pace grade (adjust-pace-for-grade pace grade))))))
+  (when (df-contains? df "pace" "grade")
+    (df-add-lazy
+     df
+     "gap"
+     '("pace" "grade")
+     (lambda (current)
+       (match-define (list pace grade) current)
+       (and pace grade (adjust-pace-for-grade pace grade))))))
 
 (define (add-gaspd-series df)
-  (when (send df contains? "spd" "grade")
-    (send df add-derived-series/lazy
-          "gaspd"
-          '("spd" "grade")
-          (lambda (current)
-            (match-define (vector spd grade) current)
-            (and spd grade
-                 (* spd (grade->multiplier grade)))))))
+  (when (df-contains? df "spd" "grade")
+    (df-add-lazy
+     df
+     "gaspd"
+     '("spd" "grade")
+     (lambda (current)
+       (match-define (list spd grade) current)
+       (and spd grade
+            (* spd (grade->multiplier grade)))))))
 
 ;; Add the W'Bal series to the data frame using the differential method by
 ;; Andy Froncioni and Dave Clarke.  This is based off the GoldenCheetah
@@ -844,67 +869,69 @@
 ;; BASE-SERIES is either "pwr" or "spd"
 (define (add-wbald-series df base-series)
 
-  (define sid (send df get-property 'session-id))
-  (define cp (send df get-property 'critical-power))
-  (define wprime (send df get-property 'wprime))
-  (define tau (send df get-property 'tau))
+  (define sid (df-get-property df 'session-id))
+  (define cp (df-get-property df 'critical-power))
+  (define wprime (df-get-property df 'wprime))
+  (define tau (df-get-property df 'tau))
 
   (define tau-rate
     (if tau (/ (/ wprime cp) tau) 1.0))
 
-  (when (and (send df contains? "elapsed" base-series) cp wprime)
+  (when (and (df-contains? df "elapsed" base-series) cp wprime)
 
     (define wbal wprime)
   
-    (send df add-derived-series/lazy
-          "wbal"
-          (list "elapsed" base-series)
-          (lambda (prev current)
-            (when (and prev current)
-              (match-define (vector t1 v1) prev)
-              (match-define (vector t2 v2) current)
-              (when (and t1 v1 t2 v2)
-                (let ((dt (- t2 t1))
-                      (v (* 0.5 (+ v1 v2))))
-                  (if (< v cp)
-                      (let ((rate (/ (- wprime wbal) wprime))
-                            (delta (- cp v)))
-                        (set! wbal (+ wbal (* tau-rate delta dt rate))))
-                      (let ((delta (- v cp)))
-                        (set! wbal (- wbal (* delta dt))))))))
-            wbal))))
+    (df-add-lazy
+     df
+     "wbal"
+     (list "elapsed" base-series)
+     (lambda (prev current)
+       (when (and prev current)
+         (match-define (list t1 v1) prev)
+         (match-define (list t2 v2) current)
+         (when (and t1 v1 t2 v2)
+           (let ((dt (- t2 t1))
+                 (v (* 0.5 (+ v1 v2))))
+             (if (< v cp)
+                 (let ((rate (/ (- wprime wbal) wprime))
+                       (delta (- cp v)))
+                   (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                 (let ((delta (- v cp)))
+                   (set! wbal (- wbal (* delta dt))))))))
+       wbal))))
 
 (define (add-wbald-series/gap df)
 
-  (define sid (send df get-property 'session-id))
-  (define cp (send df get-property 'critical-power))
-  (define wprime (send df get-property 'wprime))
-  (define tau (send df get-property 'tau))
+  (define sid (df-get-property df 'session-id))
+  (define cp (df-get-property df 'critical-power))
+  (define wprime (df-get-property df 'wprime))
+  (define tau (df-get-property df 'tau))
 
   (define tau-rate
     (if tau (/ (/ wprime cp) tau) 1.0))
 
   (cond
-    ((and (send df contains? "elapsed" "spd" "grade") cp wprime)
+    ((and (df-contains? df "elapsed" "spd" "grade") cp wprime)
      (define wbal wprime)
-     (send df add-derived-series/lazy
-           "wbal"
-           (list "elapsed" "spd" "grade")
-           (lambda (prev current)
-             (when (and prev current)
-               (match-define (vector t1 v1 g1) prev)
-               (match-define (vector t2 v2 g2) current)
-               (when (and t1 v1 t2 v2)
-                 (let* ((dt (- t2 t1))
-                        (m (grade->multiplier (* 0.5 (+ g1 g2))))
-                        (v (* m (* 0.5 (+ v1 v2)))))
-                   (if (< v cp)
-                       (let ((rate (/ (- wprime wbal) wprime))
-                             (delta (- cp v)))
-                         (set! wbal (+ wbal (* tau-rate delta dt rate))))
-                       (let ((delta (- v cp)))
-                         (set! wbal (- wbal (* delta dt))))))))
-             wbal)))
+     (df-add-lazy
+      df
+      "wbal"
+      '("elapsed" "spd" "grade")
+      (lambda (prev current)
+        (when (and prev current)
+          (match-define (list t1 v1 g1) prev)
+          (match-define (list t2 v2 g2) current)
+          (when (and t1 v1 t2 v2)
+            (let* ((dt (- t2 t1))
+                   (m (grade->multiplier (* 0.5 (+ g1 g2))))
+                   (v (* m (* 0.5 (+ v1 v2)))))
+              (if (< v cp)
+                  (let ((rate (/ (- wprime wbal) wprime))
+                        (delta (- cp v)))
+                    (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                  (let ((delta (- v cp)))
+                    (set! wbal (- wbal (* delta dt))))))))
+        wbal)))
     (#t
      (add-wbald-series df "spd"))))
 
@@ -921,50 +948,52 @@
 ;; BASE-SERIES is either "pwr" or "spd"
 (define (add-wbali-series df base-series)
 
-  (define sid (send df get-property 'session-id))
-  (define cp (send df get-property 'critical-power))
-  (define wprime (send df get-property 'wprime))
+  (define sid (df-get-property df 'session-id))
+  (define cp (df-get-property df 'critical-power))
+  (define wprime (df-get-property df 'wprime))
 
-  (when (and (send df contains? "elapsed" base-series) cp wprime)
+  (when (and (df-contains? df "elapsed" base-series) cp wprime)
 
     (define sum-count
-      (send df fold
-            (list "elapsed" base-series)
-            '(0 0)
-            (lambda (accum prev current)
-              (if (and prev current)
-                  (match-let (((vector t1 v1) prev)
-                              ((vector t2 v2) current))
-                    (if (and t1 v1 t2 v2)
-                        (let ((dt (- t2 t1))
-                              (v (* 0.5 (+ v1 v2))))
-                          (if (< v cp)
-                              (match-let (((list sum count) accum))
-                                (list (+ sum v) (+ count dt)))
-                              accum))
-                          accum))
-                  accum))))
-  
+      (df-fold
+       df
+       (list "elapsed" base-series)
+       '(0 0)
+       (lambda (accum prev current)
+         (if (and prev current)
+             (match-let (((list t1 v1) prev)
+                         ((list t2 v2) current))
+               (if (and t1 v1 t2 v2)
+                   (let ((dt (- t2 t1))
+                         (v (* 0.5 (+ v1 v2))))
+                     (if (< v cp)
+                         (match-let (((list sum count) accum))
+                           (list (+ sum v) (+ count dt)))
+                         accum))
+                   accum))
+             accum))))
+    
     (define avg-below-cp (/ (first sum-count) (second sum-count)))
     (define tau
       (+ 316.0 (* 546 (exp (- (* 1.0 (- cp avg-below-cp)))))))
     (define integral 0)
     (define wbal wprime)
   
-    (send df add-derived-series/lazy
-          "wbali"
-          (list "elapsed" base-series)
-          (lambda (prev current)
-            (when (and prev current)
-              (match-let (((vector t1 v1) prev)
-                          ((vector t2 v2) current))
-                (when (and t1 v1 t2 v2)
-                  (define dt (- t2 t1))
-                  (define v (* 0.5 (+ v1 v2)))
-                  (when (> v cp)
-                    (set! integral (+ integral (* (exp (/ t2 tau)) (* (- v cp) dt)))))
-                  (set! wbal (- wprime (* integral (exp (- (/ t2 tau)))))))))
-            wbal))))
+    (df-add-lazy
+     df
+     "wbali"
+     (list "elapsed" base-series)
+     (lambda (prev current)
+       (when (and prev current)
+         (match-let (((list t1 v1) prev)
+                     ((list t2 v2) current))
+           (when (and t1 v1 t2 v2)
+             (define dt (- t2 t1))
+             (define v (* 0.5 (+ v1 v2)))
+             (when (> v cp)
+               (set! integral (+ integral (* (exp (/ t2 tau)) (* (- v cp) dt)))))
+             (set! wbal (- wprime (* integral (exp (- (/ t2 tau)))))))))
+       wbal))))
 
 
 ;;................................................................ other ....
@@ -998,10 +1027,10 @@
         (stop-detection? (send x-axis has-stop-detection?)))
 
     (define data
-      (send data-frame select* xseries yseries "timestamp"
-            #:filter (lambda (v)
-                       (match-define (vector x y t) v)
-                       (and x (or y missing-value) t))))
+      (df-select* data-frame xseries yseries "timestamp"
+                  #:filter (lambda (v)
+                             (match-define (vector x y t) v)
+                             (and x (or y missing-value) t))))
     ;; Missing values items are just selected but they are still #f, replace
     ;; them now.
     (when missing-value
@@ -1012,7 +1041,7 @@
     ;; Filter the data in place, if required.
     (when (and should-filter? (> filter-width 0) (> (vector-length data) 0))
       (let ((fw (* base-filter-width filter-width))
-            (sp (or (send data-frame get-property 'stop-points) '()))
+            (sp (or (df-get-property data-frame 'stop-points) '()))
             (px (vector-ref (vector-ref data 0) 0))
             (py (vector-ref (vector-ref data 0) 1)))
         (for ((v (in-vector data)))
@@ -1035,7 +1064,7 @@
     ;; `make-session-data-frame'.  This is done after any filtering to make
     ;; the "edges" on the graph sharp even when filtering with large widths.
     (when stop-detection?
-      (let ([stop-points (send data-frame get-property 'stop-points)])
+      (let ([stop-points (df-get-property data-frame 'stop-points)])
         ;; NOTE: stop-points might be #f if there is no timer series
         (for ([point (or stop-points '())])
           (let ([idx (bsearch data point #:key (lambda (v) (vector-ref v 2)))])
@@ -1058,7 +1087,7 @@
       (define oidx 0)
       (define oval (vector-ref (vector-ref data 0) 1))
       (define ots (vector-ref (vector-ref data 0) 2))
-      (define stop-points (or (send data-frame get-property 'stop-points) '()))
+      (define stop-points (or (df-get-property data-frame 'stop-points) '()))
       (for ([idx (in-range 1 (vector-length data))])
         (define item (vector-ref data idx))
         (define val (vector-ref item 0))
@@ -1110,7 +1139,7 @@
 ;; one of the recorded laps, 0 being the first one.  Returns (cons START END),
 ;; where end can be #f for the last lap.
 (define (get-lap-extents data-frame lap-num)
-  (let* ((laps (send data-frame get-property 'laps))
+  (let* ((laps (df-get-property data-frame 'laps))
          (start (vector-ref laps lap-num))
          (end (if (< (+ lap-num 1) (vector-length laps))
                   (vector-ref laps (+ lap-num 1))
@@ -1285,7 +1314,7 @@
 ;; way (such that related series, like lat, lon and alt, are close to each
 ;; other)
 (define (get-series/ordered df)
-  (ordered-series all-series (send df get-series-names)))
+  (ordered-series all-series (df-series-names df)))
 
 
 ;;............................................................ utilities ....
@@ -1294,22 +1323,17 @@
 ;; and the next point.  Returns (values -1 -1) if we cannot determine the
 ;; difference.
 (define (delta-time-and-distance df timestamp)
-  (let ((index (send df get-index "timestamp" timestamp))
-        (timer-s (send df select "timestamp"))
-        (lat-s (send df select "lat"))
-        (lon-s (send df select "lon"))
-        (max-index (send df get-row-count)))
-    (if (and index (< (add1 index) max-index))
-        (let ((t1 (vector-ref timer-s index))
-              (t2 (vector-ref timer-s (+ index 1)))
-              (lat1 (vector-ref lat-s index))
-              (lat2 (vector-ref lat-s (+ index 1)))
-              (lon1 (vector-ref lon-s index))
-              (lon2 (vector-ref lon-s (+ index 1))))
+  (let ((index (df-index-of df "timestamp" timestamp))
+        (max-index (df-row-count df)))
+    (if (and (< index max-index) (< (add1 index) max-index))
+        (let ((t1 (df-ref df index "timestamp"))
+              (t2 (df-ref df (add1 index) "timestamp")))
           ;; TODO: We have missing values at this timestamp, perhaps we should
           ;; search forward (or backward?) for the a pair of valid points.
           ;; This search can be quite complex however.  For now, we just give
           ;; up if we have missing values.
+          (match-define (vector lat1 lon1) (df-ref* df index "lat" "lon"))
+          (match-define (vector lat2 lon2) (df-ref* df (add1 index) "lat" "lon"))
           (if (and t1 t2 lat1 lat2 lon1 lon2)
               (values
                (- t2 t1)
@@ -1364,26 +1388,26 @@
 ;; of the data frame, as code relies on `eq?` to check for "different" data
 ;; frames.
 (define (refresh-df sid df)
-  (if (send df get-property 'dirty-wbal)
+  (if (df-get-property df 'dirty-wbal)
       (let ((cp-data (get-session-critical-power sid)))
         (cond
           (cp-data
            (match-let (((list cp wprime tau) cp-data))
-             (let ((cp1 (send df get-property 'critical-power))
-                   (wprime1 (send df get-property 'wprime))
-                   (tau1 (send df get-property 'tau))
-                   (sport (send df get-property 'sport)))
+             (let ((cp1 (df-get-property df 'critical-power))
+                   (wprime1 (df-get-property df 'wprime))
+                   (tau1 (df-get-property df 'tau))
+                   (sport (df-get-property df 'sport)))
 
                (if (and (equal? cp cp1) (equal? wprime wprime1) (equal? tau tau1))
                    (begin
                      ;; parameters are the same, no need to change anything
-                     (send df del-property 'dirty-wbal)
+                     (df-del-property df 'dirty-wbal)
                      df)
-                   (let ((new-df (send df shallow-copy)))
-                     (send new-df del-property 'dirty-wbal)
-                     (send new-df put-property 'critical-power cp)
-                     (send new-df put-property 'wprime wprime)
-                     (send new-df put-property 'tau tau)
+                   (let ((new-df (df-shallow-copy df)))
+                     (df-del-property new-df 'dirty-wbal)
+                     (df-put-property new-df 'critical-power cp)
+                     (df-put-property new-df 'wprime wprime)
+                     (df-put-property new-df 'tau tau)
                      (cond ((eqv? (vector-ref sport 0) 1) ; running
                             (add-wbald-series new-df "spd"))
                            ((eqv? (vector-ref sport 0) 2) ; biking
@@ -1392,12 +1416,12 @@
                      new-df)))))
           (#t
            ;; We no longer have CP params for this data frame, delete them.
-           (let ((new-df (send df shallow-copy)))
-             (send new-df del-property 'dirty-wbal)
-             (send new-df del-property 'critical-power)
-             (send new-df del-property 'wprime)
-             (send new-df del-property 'tau)
-             (send new-df del-series "wbal")
+           (let ((new-df (df-shallow-copy df)))
+             (df-del-property new-df 'dirty-wbal)
+             (df-del-property new-df 'critical-power)
+             (df-del-property new-df 'wprime)
+             (df-del-property new-df 'tau)
+             (df-del-series new-df "wbal")
              (hash-set! df-cache sid new-df)
              new-df))
           ))
@@ -1445,7 +1469,7 @@
     (define df (or (hash-ref df-cache sid #f)
                    (hash-ref df-cache2 sid #f)))
     (when df                            ; might no longer be here
-      (send df put-property 'dirty-wbal #t))
+      (df-put-property df 'dirty-wbal #t))
       (log-event 'session-updated-data sid)))
 
 (define dummy

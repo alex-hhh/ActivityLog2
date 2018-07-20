@@ -18,7 +18,9 @@
          racket/match
          racket/dict
          math/statistics
-         "data-frame.rkt"
+         "data-frame/statistics.rkt"
+         "data-frame/meanmax.rkt"
+         "data-frame/df.rkt"
          "session-df.rkt")
 
 (provide
@@ -58,16 +60,17 @@
   ;; multi-sport activities, the distance series in a session starts where the
   ;; previous session left off.  For example, in a HIM race, the distance
   ;; series for the bike split starts at approx 1.8 km.
-  (let ((base (send df ref 0 series)))
+  (let ((base (df-ref df 0 series)))
+    (define limit (df-row-count df))
     (let loop ((split 0)
                (positions '()))
-      (let ((pos (send df get-index series (+ base (* split amount)))))
-        (if pos
+      (let ((pos (df-index-of df series (+ base (* split amount)))))
+        (if (< pos limit)
             (loop (add1 split) (cons pos positions))
             (if (or (null? positions)
-                    (equal? (car positions) (send df get-row-count)))
+                    (equal? (car positions) (df-row-count df)))
                 (reverse positions)
-                (reverse (cons (send df get-row-count) positions))))))))
+                (reverse (cons (df-row-count df) positions))))))))
   
 ;; Describe summary information that should appear in an interval summary
 ;; constructed by `make-interval-summary'.
@@ -115,64 +118,64 @@
 ;; between START-INDEX and END-INDEX.  Assumes DF has "timer" and "cad"
 ;; series.
 (define (total-cycles df start-index end-index)
-  (send df fold '("timer" "cad") 0
-        (lambda (accum prev next)
-          (if prev
-              (match-let (((vector pts pcad) prev)
-                          ((vector nts ncad) next))
-                (if (and pts pcad nts ncad)
-                    (let ((dt (- nts pts))
-                          (dcad (/ (+ pcad ncad) 2)))
-                      (+ accum (* dt (/ dcad 60.0))))
-                    accum))
-              accum))
-        #:start start-index #:end end-index))
+  (df-fold df '("timer" "cad") 0
+           (lambda (accum prev next)
+             (if prev
+                 (match-let (((list pts pcad) prev)
+                             ((list nts ncad) next))
+                   (if (and pts pcad nts ncad)
+                       (let ((dt (- nts pts))
+                             (dcad (/ (+ pcad ncad) 2)))
+                         (+ accum (* dt (/ dcad 60.0))))
+                       accum))
+                 accum))
+           #:start start-index #:stop end-index))
 
 ;; Calculate the total ascent and descent in the data frame DF between
 ;; START-INDEX and END-INDEX using the "alt" series.  Returns a (cons ASCENT
 ;; DESCENT)
 (define (total-ascent-descent df start-index end-index)
-  (send df fold "alt" '(0 . 0)
-        (lambda (accum prev next)
-          (if prev
-              (match-let (((vector palt) prev)
-                          ((vector nalt) next))
-                (if (and palt nalt)
-                    (let ((diff (- nalt palt)))
-                      (if (> diff 0)
-                          (cons (+ (car accum) diff) (cdr accum))
-                          (cons (car accum) (+ (cdr accum) (- diff)))))
-                    accum))
-              accum))
-        #:start start-index #:end end-index))
+  (df-fold df "alt" '(0 . 0)
+           (lambda (accum prev next)
+             (if prev
+                 (match-let (((list palt) prev)
+                             ((list nalt) next))
+                   (if (and palt nalt)
+                       (let ((diff (- nalt palt)))
+                         (if (> diff 0)
+                             (cons (+ (car accum) diff) (cdr accum))
+                             (cons (car accum) (+ (cdr accum) (- diff)))))
+                       accum))
+                 accum))
+           #:start start-index #:stop end-index))
 
 ;; Calculate the total corrected ascent and descent in the data frame DF
 ;; between START-INDEX and END-INDEX using the "alt" series.  Returns a (cons
 ;; ASCENT DESCENT)
 (define (total-cascent-cdescent df start-index end-index)
-  (send df fold "calt" '(0 . 0)
-        (lambda (accum prev next)
-          (if prev
-              (match-let (((vector palt) prev)
-                          ((vector nalt) next))
-                (if (and palt nalt)
-                    (let ((diff (- nalt palt)))
-                      (if (> diff 0)
-                          (cons (+ (car accum) diff) (cdr accum))
-                          (cons (car accum) (+ (cdr accum) (- diff)))))
-                    accum))
-              accum))
-        #:start start-index #:end end-index))
+  (df-fold df "calt" '(0 . 0)
+           (lambda (accum prev next)
+             (if prev
+                 (match-let (((list palt) prev)
+                             ((list nalt) next))
+                   (if (and palt nalt)
+                       (let ((diff (- nalt palt)))
+                         (if (> diff 0)
+                             (cons (+ (car accum) diff) (cdr accum))
+                             (cons (car accum) (+ (cdr accum) (- diff)))))
+                       accum))
+                 accum))
+           #:start start-index #:stop end-index))
 
 ;; Construct ascent and descent lap information from the data frame DF between
 ;; START-INDEX and END-INDEX
 (define (make-ascent-descent df start-index end-index)
   (define ad
-    (if (send df contains? "alt")
+    (if (df-contains? df "alt")
         (total-ascent-descent df start-index end-index)
         (cons #f #f)))
   (define cad
-    (if (send df contains? "calt")
+    (if (df-contains? df "calt")
         (total-cascent-cdescent df start-index end-index)
         (cons #f #f)))
   (list
@@ -198,25 +201,25 @@
   (define (get-stats series)
     (let ((stats (hash-ref stats-cache series #f)))
       (unless stats
-        (set! stats (df-statistics df series #:start start-index #:end end-index))
+        (set! stats (df-statistics df series #:start start-index #:stop end-index))
         (hash-set! stats-cache series stats))
       stats))
 
   (define (first-value series)
     (for*/first ([index (in-range start-index end-index 1)]
-                 [val (in-value (send df ref index series))]
+                 [val (in-value (df-ref df index series))]
                  #:when val)
       val))
 
   (define (last-value series)
-    (let ((upper-limit (min end-index (sub1 (send df get-row-count)))))
+    (let ((upper-limit (min end-index (sub1 (df-row-count df)))))
       (for*/first ([index (in-range upper-limit start-index -1)]
-                   [val (in-value (send df ref index series))]
+                   [val (in-value (df-ref df index series))]
                    #:when val)
         val)))
 
   (define base
-    (for/list ([field summary-def] #:when (send df contains? (list-ref field 1)))
+    (for/list ([field summary-def] #:when (df-contains? df (list-ref field 1)))
       (match-define (list tag series what) field)
       (define val
         (case what
@@ -233,9 +236,9 @@
              (statistics-max stats)))))
       (cons tag val)))
 
-  (when (send df contains/any? "alt" "calt")
+  (when (df-contains/any? df "alt" "calt")
     (set! base (append base (make-ascent-descent df start-index end-index))))
-  (when (send df contains? "timer" "cad")
+  (when (df-contains? df "timer" "cad")
     (set! base (append base (make-total-cycles df start-index end-index))))
 
   ;; Calculate the average speed from total time and distance, averaging the
@@ -259,7 +262,7 @@
 ;;
 ;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (make-split-intervals df series amount)
-  (if (send df contains? series)
+  (if (df-contains? df series)
       (let ((positions (split-by df series amount)))
         (for/list ([start positions]
                    [end (cdr positions)])
@@ -371,12 +374,12 @@
   ;; points.
   (define teleports
     (sort (filter (lambda (p) (is-teleport? df p))
-                  (or (send df get-property 'stop-points) '()))
+                  (or (df-get-property df 'stop-points) '()))
           <))
 
   ;; This is the position of the teleport points in the data frame
   (define teleports-idx
-    (send/apply df get-index* "timestamp" teleports))
+    (apply df-index-of* df "timestamp" teleports))
 
   ;; Return #t if GRADE is on a climb (or descent if descents is #t)
   (define (on-climb grade) (if descents? (< grade 0) (> grade 0)))
@@ -386,12 +389,12 @@
   ;; argument. Returns an updated climb structure, does not update C itself.
   (define (finalize c last-index hard-end?)
     (define last-dst
-      (let ((idx (min last-index (sub1 (send df get-row-count)))))
-        (send df ref idx "dst")))
+      (let ((idx (min last-index (sub1 (df-row-count df)))))
+        (df-ref df idx "dst")))
     (match-define (cons ascent descent)
-      (cond ((send df contains? "calt")
+      (cond ((df-contains? df "calt")
              (total-cascent-cdescent df (climb-start-idx c) last-index))
-            ((send df contains? "alt")
+            ((df-contains? df "alt")
              (total-ascent-descent df (climb-start-idx c) last-index))
             (#t
              (cons 0 0))))
@@ -413,7 +416,7 @@
         (set! climbs (cons uclimb climbs))))
     (set! current-climb #f))
 
-  (for (((val index) (in-indexed (send df select* "timestamp" "grade" "dst")))
+  (for (((val index) (in-indexed (df-select* df "timestamp" "grade" "dst")))
         #:when (and (vector-ref val 0) (vector-ref val 1) (vector-ref val 2)))
     (match-define (vector t g d) val)
     (unless (or (null? teleports) (<= t (car teleports)))
@@ -441,7 +444,7 @@
                               #:descents (descents? #f)
                               #:min-grade (mg 0.5)
                               #:min-length (ml 100))
-  (if (send df contains? "timestamp" "dst" "grade")
+  (if (df-contains? df "timestamp" "dst" "grade")
       (let ((climbs (find-climbs df #:min-grade mg #:min-length ml #:descents descents?)))
         (for/list ((c (in-list climbs)))
           (make-interval-summary df (climb-start-idx c) (climb-end-idx c))))
@@ -466,11 +469,11 @@
 ;;
 ;; See also the "AMBIGUITIES" section at the beginning of the file.
 (define (make-best-pace-intervals df)
-  (if (send df contains? "spd" "dst")
-      (let ((bavg (df-best-avg df "spd" #:weight-column "dst" #:durations best-pace-distances)))
+  (if (df-contains? df "spd" "dst")
+      (let ((bavg (df-mean-max df "spd" #:weight-series "dst" #:durations best-pace-distances)))
         (for/list ((item (in-list bavg)))
           (match-define (vector duration value position) item)
-          (match-define (list start end) (send df get-index* "dst" position (+ position duration)))
+          (match-define (list start end) (df-index-of* df "dst" position (+ position duration)))
           (make-interval-summary df start end)))
       '()))
 
@@ -483,10 +486,10 @@
 ;; Return intervals based on the best power maintained for a set of predefined
 ;; durations (e.g. the best 20 minute power)
 (define (make-best-power-intervals df)
-  (if (send df contains? "pwr" "elapsed")
-      (let ((bavg (df-best-avg df "pwr" #:weight-column "elapsed" #:durations best-power-durations)))
+  (if (df-contains? df "pwr" "elapsed")
+      (let ((bavg (df-mean-max df "pwr" #:weight-series "elapsed" #:durations best-power-durations)))
         (for/list ((item (in-list bavg)))
           (match-define (vector duration value position) item)
-          (match-define (list start end) (send df get-index* "elapsed" position (+ position duration)))
+          (match-define (list start end) (df-index-of* df "elapsed" position (+ position duration)))
           (make-interval-summary df start end)))
       '()))

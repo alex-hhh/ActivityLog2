@@ -1,5 +1,5 @@
 #lang racket/base
-;; inspect-best-avg.rkt -- best-avg plot view for a session.  This is not
+;; inspect-mean-max.rkt -- mean-max plot view for a session.  This is not
 ;; supported for swimming activites.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -26,7 +26,8 @@
          embedded-gui                   ; snip-width, snip-height
          "../utilities.rkt"
          "../series-meta.rkt"
-         "../data-frame.rkt"
+         "../data-frame/meanmax.rkt"
+         "../data-frame/df.rkt"
          "../dbapp.rkt"
          "../metrics.rkt"
          "../plot-hack.rkt"
@@ -36,7 +37,7 @@
          "../plot-util.rkt"
          "../database.rkt")
 
-(provide best-avg-plot-panel%)
+(provide mean-max-plot-panel%)
 
 ;; Filter AXIS-LIST to remove any axis definition that don't have a data
 ;; series in DF, a data-frame%
@@ -46,10 +47,8 @@
     (if (list? axis)
         (let ()
           (match-define (list name a1 a2) axis)
-          (send df contains?
-                (send a1 series-name)
-                (send a2 series-name)))
-        (send df contains? (send axis series-name))))
+          (df-contains? df (send a1 series-name) (send a2 series-name)))
+        (df-contains? df (send axis series-name))))
 
   (define (sort-key axis)
     (if (list? axis) (first axis) (send axis headline)))
@@ -173,12 +172,12 @@
         (fetch-candidate-sessions db sport-id sub-sport-id start end))
       '()))
 
-;; Return suitable plot bounds for a best-avg plor, considering all input
+;; Return suitable plot bounds for a mean-max plor, considering all input
 ;; data.  Returns four values: MIN-X, MAX-X, MIN-Y, MAX-Y.
-(define (plot-bounds axis zero-base? best-avg-data bests-data)
-  (let-values (((min-x max-x min-y max-y) (get-best-avg-bounds best-avg-data))
-               ((bmin-x bmax-x bmin-y bmax-y) (aggregate-bavg-bounds bests-data)))
-    (let ((inverted? (send axis inverted-best-avg?)))
+(define (plot-bounds axis zero-base? mean-max-data bests-data)
+  (let-values (((min-x max-x min-y max-y) (get-mean-max-bounds mean-max-data))
+               ((bmin-x bmax-x bmin-y bmax-y) (aggregate-mmax-bounds bests-data)))
+    (let ((inverted? (send axis inverted-mean-max?)))
       (values
        min-x
        max-x
@@ -192,15 +191,15 @@
 ;;
 ;; Return #f if no critical power data is present in the data frame.
 (define (make-cp2-from-df df)
-  (let ((cp (send df get-property 'critical-power))
-        (wprime (send df get-property 'wprime)))
+  (let ((cp (df-get-property df 'critical-power))
+        (wprime (df-get-property df 'wprime)))
     (if (and cp wprime)
         (cp2 cp wprime (make-cp-fn cp wprime) #f #f #f)
         #f)))
 
-(define best-avg-plot-panel%
+(define mean-max-plot-panel%
   (class object% (init parent) (super-new)
-    (define pref-tag 'activity-log:best-avg-plot)
+    (define pref-tag 'activity-log:mean-max-plot)
 
     (define axis-choices '())
     (define period-choices '())
@@ -267,18 +266,18 @@
            [value zero-base?] [label "Zero Base"]
            [callback (lambda (c e) (on-zero-base (send c get-value)))]))
 
-    ;; Pasteboard to display the actual BEST-AVG plot
+    ;; Pasteboard to display the actual MEAN-MAX plot
     (define plot-pb (new snip-canvas% [parent panel]))
 
     ;; Graph data
     (define data-frame #f)
     (define cp-data #f)
-    (define best-avg-data '())
-    (define best-avg-plot-fn #f)
-    (define best-avg-aux-data '())
-    (define best-avg-aux-plot-fn #f)
-    (define best-avg-aux-invfn #f)
-    (define best-avg-pd-fn #f)
+    (define mean-max-data '())
+    (define mean-max-plot-fn #f)
+    (define mean-max-aux-data '())
+    (define mean-max-aux-plot-fn #f)
+    (define mean-max-aux-invfn #f)
+    (define mean-max-pd-fn #f)
     (define inhibit-refresh 0)
     (define plot-rt #f)
     ;; The plot render tree for the "bests" plot
@@ -297,7 +296,7 @@
     (define saved-pd-model-snip-location #f)
 
     (define (current-sport)
-      (if data-frame (send data-frame get-property 'sport) #f))
+      (if data-frame (df-get-property data-frame 'sport) #f))
 
     (define (get-series-axis)
       (list-ref axis-choices selected-axis))
@@ -309,7 +308,7 @@
     (define (get-best-rt-generation) best-rt-generation)
 
     (define (install-axis-choices)
-      (let ((alist (if (send data-frame get-property 'is-lap-swim?)
+      (let ((alist (if (df-get-property data-frame 'is-lap-swim?)
                        swim-axis-choices
                        default-axis-choices)))
         (set! axis-choices (filter-axis-list data-frame alist)))
@@ -384,30 +383,30 @@
         ;; The aux values need special treatment: they are scaled to match the
         ;; main axis coordinate system, this works for the plot itself, but we
         ;; need to convert the value back for display.
-        (when (and best-avg-aux-plot-fn best-avg-aux-invfn)
-          (let* ((ay (best-avg-aux-plot-fn x))
+        (when (and mean-max-aux-plot-fn mean-max-aux-invfn)
+          (let* ((ay (mean-max-aux-plot-fn x))
                  (aux-axis (get-aux-axis))
                  (format-value (send aux-axis value-formatter)))
             (when ay
-              (let ((actual-ay ((invertible-function-f best-avg-aux-invfn) ay)))
+              (let ((actual-ay ((invertible-function-f mean-max-aux-invfn) ay)))
                 (add-info (send aux-axis name) (format-value actual-ay))
                 (set! markers (cons (vector x ay) markers))))))
 
         (define axis (get-series-axis))
         (define format-value (send axis value-formatter))
-        (add-data-point "Model" best-avg-pd-fn format-value)
+        (add-data-point "Model" mean-max-pd-fn format-value)
 
         ;; Find the closest point on the bests plot and put the date on which
         ;; it was achieved.  Technically, the hover will be between two such
         ;; measurements, but for simplicity we show only the one that it is
-        ;; closest to the mouse.  The trends-bavg plot shows both points.
+        ;; closest to the mouse.  The trends-mmax plot shows both points.
         (when bests-data
           (let ((closest (lookup-duration/closest bests-data x)))
             (when closest
               (define sid (car closest))
               (add-info #f (date-time->string (get-session-start-time sid))))))
         (add-data-point "Best" best-fn format-value)
-        (add-data-point (send axis name) best-avg-plot-fn format-value)
+        (add-data-point (send axis name) mean-max-plot-fn format-value)
         (add-info "Duration" (duration->string x))
         (unless (empty? info)
           (add-renderer (pu-markers markers))
@@ -421,24 +420,24 @@
         (let ((rt (list (tick-grid) plot-rt)))
           (when best-rt
             (set! rt (cons best-rt rt)))
-          (let ((best-avg-axis (get-series-axis))
+          (let ((mean-max-axis (get-series-axis))
                 (aux-axis (get-aux-axis))
                 ;; get the location of the pd-model-snip here, it will be lost
                 ;; once we insert a new plot in the canvas.
                 (saved-location (get-snip-location pd-model-snip)))
-            (let-values (((min-x max-x min-y max-y) (plot-bounds (get-series-axis) zero-base? best-avg-data bests-data)))
+            (let-values (((min-x max-x min-y max-y) (plot-bounds (get-series-axis) zero-base? mean-max-data bests-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
-              (if best-avg-aux-data
-                  (let ((ivs (mk-invertible-function best-avg-aux-data best-avg-data zero-base?)))
-                    (set! best-avg-aux-invfn ivs)
-                    (parameterize ([plot-x-ticks (best-avg-ticks)]
+              (if (> (length mean-max-aux-data) 0)
+                  (let ((ivs (mk-invertible-function mean-max-aux-data mean-max-data zero-base?)))
+                    (set! mean-max-aux-invfn ivs)
+                    (parameterize ([plot-x-ticks (mean-max-ticks)]
                                    [plot-x-label "Duration"]
                                    [plot-x-transform log-transform]
                                    [plot-x-tick-label-anchor 'top-right]
                                    [plot-x-tick-label-angle 30]
-                                   [plot-y-ticks (send best-avg-axis plot-ticks)]
-                                   [plot-y-label (send best-avg-axis axis-label)]
+                                   [plot-y-ticks (send mean-max-axis plot-ticks)]
+                                   [plot-y-label (send mean-max-axis axis-label)]
                                    [plot-y-far-ticks (ticks-scale (send aux-axis plot-ticks) ivs)]
                                    [plot-y-far-label (send aux-axis axis-label)])
                       (define snip (plot-snip/hack plot-pb rt
@@ -446,23 +445,23 @@
                                                    #:y-min min-y #:y-max max-y
                                                    ))
                       (set-mouse-event-callback snip plot-hover-callback)))
-                (parameterize ([plot-x-ticks (best-avg-ticks)]
+                (parameterize ([plot-x-ticks (mean-max-ticks)]
                                [plot-x-label "Duration"]
                                [plot-x-transform log-transform]
                                [plot-x-tick-label-anchor 'top-right]
                                [plot-x-tick-label-angle 30]
-                               [plot-y-ticks (send best-avg-axis plot-ticks)]
-                               [plot-y-label (send best-avg-axis axis-label)])
+                               [plot-y-ticks (send mean-max-axis plot-ticks)]
+                               [plot-y-label (send mean-max-axis axis-label)])
                   (define snip (plot-snip/hack plot-pb rt
                                                #:x-min min-x #:x-max max-x
                                                #:y-min min-y #:y-max max-y))
                   (set-mouse-event-callback snip plot-hover-callback)))
-              (when (and cp-data (send best-avg-axis have-cp-estimate?) best-avg-data)
+              (when (and cp-data (send mean-max-axis have-cp-estimate?) mean-max-data)
                 ;; NOTE: this is inefficient, as the plot-fn is already
-                ;; computed in the `make-best-avg-renderer` and we are
-                ;; computing it here a second time.
-                (let* ((fn (best-avg->plot-fn best-avg-data))
-                       (pict (send best-avg-axis pd-data-as-pict cp-data fn)))
+                ;; computed in the `mean-max-renderer` and we are computing it
+                ;; here a second time.
+                (let* ((fn (mean-max->spline mean-max-data))
+                       (pict (send mean-max-axis pd-data-as-pict cp-data fn)))
                   (set! pd-model-snip (new pict-snip% [pict pict]))
                   (send plot-pb set-floating-snip pd-model-snip)
                   (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location)))))))))
@@ -485,22 +484,23 @@
               (zerob? zero-base?)
               (renderer-tree '()))
           (queue-task
-           "inspect-best-avg%/refresh-plot"
+           "inspect-mean-max%/refresh-plot"
            (lambda ()
              (define data
                (or (hash-ref cache axis #f)
-                   (get-session-bavg df axis)))
+                   (get-session-mmax df axis)))
              (hash-set! cache axis data)
              ;; rebuild auxiliary data here
              (define aux-data
-               (and data aux-axis
-                    (let ((series (send aux-axis series-name)))
-                      (and (send df contains? series)
-                           (df-best-avg-aux df series data)))))
-             (when data
+               (if aux-axis
+                   (let ((series (send aux-axis series-name)))
+                     (and (df-contains? df series)
+                          (df-mean-max-aux df series data)))
+                   '()))
+             (when (> (length data) 0)  ; might not have any data points at all
                (set! renderer-tree
                      (cons
-                      (make-best-avg-renderer
+                      (mean-max-renderer
                        data aux-data
                        #:color1 (send axis plot-color)
                        #:color2 (and aux-axis (send aux-axis plot-color))
@@ -514,21 +514,17 @@
                (set! renderer-tree
                      (cons (function pd-function #:color "red" #:width 1.5 #:style 'long-dash)
                            renderer-tree)))
-             ;; NOTE: these are already calculated in make-best-avg-renderer!
-             (define plot-fn
-               (if data (best-avg->plot-fn data) #f))
-             (define aux-plot-fn
-               (if (and data aux-data)
-                   (best-avg->plot-fn (normalize-aux aux-data data zerob?))
-                   #f))
+             ;; NOTE: these are already calculated in mean-max-renderer!
+             (define plot-fn (mean-max->spline data))
+             (define aux-plot-fn (mean-max->spline (normalize-aux aux-data data zerob?)))
              (queue-callback
               (lambda ()
                 (cond ((not (null? renderer-tree))
-                       (set! best-avg-data data)
-                       (set! best-avg-aux-data aux-data)
-                       (set! best-avg-plot-fn plot-fn)
-                       (set! best-avg-aux-plot-fn aux-plot-fn)
-                       (set! best-avg-pd-fn pd-function)
+                       (set! mean-max-data data)
+                       (set! mean-max-aux-data aux-data)
+                       (set! mean-max-plot-fn plot-fn)
+                       (set! mean-max-aux-plot-fn aux-plot-fn)
+                       (set! mean-max-pd-fn pd-function)
                        (set! plot-rt renderer-tree)
                        (set! cache data-cache)
                        (put-plot-snip))
@@ -536,7 +532,7 @@
                        (send plot-pb set-background-message "No data to plot"))))))))))
 
     (define (refresh-bests-plot)
-      (define debug-tag "inspect-best-avg%/refresh-bests-plot")
+      (define debug-tag "inspect-mean-max%/refresh-bests-plot")
       (unless (> inhibit-refresh 0)
         (set! best-rt-generation (add1 best-rt-generation))
         (set! best-rt #f)
@@ -549,13 +545,13 @@
              (define candidates
                (get-candidate-sessions
                 (current-database)
-                (send data-frame get-property 'sport)
+                (df-get-property data-frame 'sport)
                 ((second (list-ref period-choices time-interval)))))
 
-             (define inverted? (send axis inverted-best-avg?))
-             (define bavg (get-aggregate-bavg candidates axis #f))
+             (define inverted? (send axis inverted-mean-max?))
+             (define mmax (get-aggregate-mmax candidates axis #f))
 
-             (define fn (aggregate-bavg->spline-fn bavg))
+             (define fn (aggregate-mmax->spline-fn mmax))
              (define brt
                (and fn
                     (function-interval
@@ -579,7 +575,7 @@
                   (when (= generation current-generation)
                     (set! best-rt brt)
                     (set! best-fn fn)
-                    (set! bests-data bavg)
+                    (set! bests-data mmax)
                     (put-plot-snip))))))))))
 
     (define (save-params-for-sport)
@@ -662,20 +658,20 @@
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
     ;; name from the session id and axis names of the plot.
     (define (get-default-export-file-name (extenstion "png"))
-      (let ((sid (send data-frame get-property 'session-id))
+      (let ((sid (df-get-property data-frame 'session-id))
             (axis1 (get-series-axis))
             (axis2 (get-aux-axis)))
         (cond ((and sid axis1 axis2)
-               (format "best-avg-~a-~a-~a.~a" sid
+               (format "mean-max-~a-~a-~a.~a" sid
                        (send axis1 series-name)
                        (send axis2 series-name)
                        extenstion))
               ((and sid axis1)
-               (format "best-avg-~a-~a.~a" sid
+               (format "mean-max-~a-~a.~a" sid
                        (send axis1 series-name)
                        extenstion))
               (#t
-               (format "best-avg.~a" extenstion)))))
+               (format "mean-max.~a" extenstion)))))
 
     (define/public (on-interactive-export-image)
       (let ((file (put-file "Select file to export to" #f #f
@@ -698,15 +694,15 @@
             #:mode 'text #:exists 'truncate))))
 
     (define (export-data-as-csv out formatted?)
-      (define have-aux? (and best-avg-aux-data (= (length best-avg-aux-data) (length best-avg-data))))
-      (define have-bests? (and bests-data (<= (length best-avg-data) (length bests-data))))
+      (define have-aux? (and mean-max-aux-data (= (length mean-max-aux-data) (length mean-max-data))))
+      (define have-bests? (and bests-data (<= (length mean-max-data) (length bests-data))))
       (write-string "Timestamp, Duration, Value" out)
       (when have-aux? (write-string ", Aux Value" out))
       (when have-bests? (write-string ", Best SID, Best Timestamp, Best Value" out))
       (newline out)
-      (for ((index (in-range (length best-avg-data))))
+      (for ((index (in-range (length mean-max-data))))
         (match-define (vector d m s)
-          (list-ref best-avg-data index))
+          (list-ref mean-max-data index))
         (if m
             (write-string (format "~a, ~a, ~a"
                                   (exact->inexact s)
@@ -716,7 +712,7 @@
             (write-string (format ", , ") out))
         (when have-aux?
           (match-define (vector d m s)
-            (list-ref best-avg-aux-data index))
+            (list-ref mean-max-aux-data index))
           (if m
               (write-string (format ", ~a" (exact->inexact m)) out)
               (write-string ", " out)))

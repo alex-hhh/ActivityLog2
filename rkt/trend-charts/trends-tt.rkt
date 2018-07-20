@@ -30,7 +30,9 @@
  "../widgets/main.rkt"
  "../plot-hack.rkt"
  "../sport-charms.rkt"
- "../data-frame.rkt"
+ "../data-frame/df.rkt"
+ "../data-frame/sql.rkt"
+ "../data-frame/csv.rkt"
  "../al-widgets.rkt")
 
 (provide tt-trends-chart%)
@@ -207,33 +209,36 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
 
 (define (make-group df count-series)
   (define group (make-hash))
-  (send df for-each
-        (list "dow" "time" count-series)
-        (lambda (val)
-          (match-define (vector dow time count) val)
-          (when (> count 0)
-            (hash-update! group count (lambda (prev) (cons (vector dow time) prev)) '()))))
+  (df-for-each
+   df
+   (list "dow" "time" count-series)
+   (lambda (val)
+     (match-define (list dow time count) val)
+     (when (> count 0)
+       (hash-update! group count (lambda (prev) (cons (vector dow time) prev)) '()))))
   group)
 
 (define (make-data df count-series)
   (define group '())
-  (send df for-each
-        (list "dow" "time" count-series)
-        (lambda (val)
-          (match-define (vector dow time count) val)
-          (when (> count 0)
-            (let ((item (vector dow time)))
-              (for ([x (in-range count)])
-                (set! group (cons item group)))))))
+  (df-for-each
+   df
+   (list "dow" "time" count-series)
+   (lambda (val)
+     (match-define (list dow time count) val)
+     (when (> count 0)
+       (let ((item (vector dow time)))
+         (for ([x (in-range count)])
+           (set! group (cons item group)))))))
   group)
 
 (define (make-data/multisport df)
   (define result (make-hash))
-  (send df for-each
-        '("dow" "time" "sport_id" "sub_sport_id" "ntotal")
-        (lambda (val)
-          (match-define (vector dow time sport sub-sport count) val)
-          (when (> count 0)
+  (df-for-each
+   df
+   '("dow" "time" "sport_id" "sub_sport_id" "ntotal")
+   (lambda (val)
+     (match-define (list dow time sport sub-sport count) val)
+     (when (> count 0)
             (let ((group (hash-ref result (cons sport sub-sport) '()))
                   (item (vector dow time)))
               (for ([x (in-range count)])
@@ -363,7 +368,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
       (define all-series '("dow" "time" "ntotal" "nstrength" "nswim"
                            "ncycle" "nrun" "sport_id" "sub_sport_id"))
       (define actual-series
-        (for/list ([series all-series] #:when (send tt-data contains? series))
+        (for/list ([series all-series] #:when (df-contains? tt-data series))
           series))
       (apply df-write/csv out tt-data actual-series))
 
@@ -391,20 +396,17 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
               (set! tri? (tt-params-tri-activities? params))
               (set! tt-data
                     (if tri?
-                        (make-data-frame-from-query database tt-tri-stmt start end)
+                        (df-read/sql database tt-tri-stmt start end)
                         (let ()
                           (match-define (cons sport-id sub-sport-id) sport)
                           (cond ((and sport-id sub-sport-id)
-                                 (make-data-frame-from-query
-                                  database tt-sport-stmt-1 start end
-                                  sport-id sub-sport-id))
+                                 (df-read/sql database tt-sport-stmt-1
+                                              start end sport-id sub-sport-id))
                                 (sport-id
-                                 (make-data-frame-from-query
-                                  database tt-sport-stmt-2 start end
-                                  sport-id))
+                                 (df-read/sql database tt-sport-stmt-2
+                                              start end sport-id))
                                 (#t
-                                 (make-data-frame-from-query
-                                  database tt-sport-stmt-3 start end))))))
-              (set! data-valid? (send tt-data get-row-count)))))))
+                                 (df-read/sql database tt-sport-stmt-3 start end))))))
+              (set! data-valid? (> (df-row-count tt-data) 0)))))))
 
     ))

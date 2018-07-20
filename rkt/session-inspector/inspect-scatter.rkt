@@ -26,7 +26,9 @@
          "../series-meta.rkt"
          "../plot-hack.rkt"
          "../plot-util.rkt"
-         "../data-frame.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/slr.rkt"
+         "../data-frame/scatter.rkt"
          "../widgets/main.rkt")
 
 (provide scatter-plot-panel%)
@@ -40,10 +42,8 @@
                (if (list? axis)
                    (let ()
                      (match-define (list name a1 a2) axis)
-                     (send df contains?
-                           (send a1 series-name)
-                           (send a2 series-name)))
-                   (send df contains? (send axis series-name))))
+                     (df-contains? df (send a1 series-name) (send a2 series-name)))
+                   (df-contains? df (send axis series-name))))
       axis))
   (sort al string<?
         #:key (lambda (a) (if (list? a) (first a) (send a headline)))))
@@ -183,10 +183,8 @@
 (define (extract-data data-frame x-axis y-axis)
   (let ((xnam (send x-axis series-name))
         (ynam (send y-axis series-name)))
-    (when (send data-frame contains? xnam ynam)
-      (send data-frame select*
-            xnam ynam "elapsed"
-            #:filter valid-only))))
+    (when (df-contains? data-frame xnam ynam)
+      (df-select* data-frame xnam ynam "elapsed" #:filter valid-only))))
 
 ;; Scatter plot state, contains data that is calculated in a separate thread
 ;; and passed to the plot routines.
@@ -246,13 +244,13 @@
            (grouped (group-samples delayed x-digits y-digits))
            (slr (slr-params delayed))
            (renderer (list
-                      (make-scatter-group-renderer
+                      (scatter-group-renderer
                        grouped
                        #:color color
                        #:label (and add-label?
                                     (or (send yaxis plot-label)
                                         (send xaxis plot-label))))
-                      (make-slr-renderer slr))))
+                      (slr-renderer slr))))
       (spstate ds bounds qbounds renderer))))
 
 (define scatter-plot-panel%
@@ -359,7 +357,7 @@
     (define export-file-name #f)
 
     (define (current-sport)
-      (if data-frame (send data-frame get-property 'sport) #f))
+      (if data-frame (df-get-property data-frame 'sport) #f))
 
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
@@ -632,7 +630,7 @@
     ;; name from the session id and axis names of the plot.
     (define (get-default-export-file-name)
       (or export-file-name
-          (let ((sid (send data-frame get-property 'session-id))
+          (let ((sid (df-get-property data-frame 'session-id))
                 (x-axis (list-ref axis-choices x-axis-index))
                 (y-axis (list-ref axis-choices y-axis-index)))
             (cond ((and sid x-axis y-axis)
@@ -659,7 +657,7 @@
       (set! outlier-percentile #f)
       (set! outlier-handling 'mark)
       (set! export-file-name #f)
-      (define lap-swimming? (send data-frame get-property 'is-lap-swim?))
+      (define lap-swimming? (df-get-property data-frame 'is-lap-swim?))
       (set! axis-choices
             (filter-axis-list
              data-frame

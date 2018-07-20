@@ -45,7 +45,7 @@
 (define-runtime-path trends-vol-file "../../img/trends/trends-vol.png")
 (define-runtime-path trends-tiz-file "../../img/trends/trends-tiz.png")
 (define-runtime-path trends-tt-file "../../img/trends/trends-tt.png")
-(define-runtime-path trends-bavg-file "../../img/trends/trends-bavg.png")
+(define-runtime-path trends-mmax-file "../../img/trends/trends-mmax.png")
 (define-runtime-path trends-hist-file "../../img/trends/trends-hist.png")
 (define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
 
@@ -92,9 +92,9 @@
     "Plot the time of day over weekday when each activity occured.")
 
    (tdecl
-    "Best Avg" 'bavg bavg-trends-chart%
-    trends-bavg-file
-    "Plot the best-average (mean maximal) for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
+    "Best Avg" 'bavg mmax-trends-chart%
+    trends-mmax-file
+    "Plot the mean maximal for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
 
    (tdecl
     "Histogram" 'hist hist-trends-chart%
@@ -321,15 +321,18 @@
 
       (define (make-trends-chart chart-tag restore-data)
         (define ci (find-tdecl chart-tag))
-        (when ci
-          (let ((pane (new trend-chart-pane%
-                           [parent trend-charts-panel]
-                           [info-tag (tdecl-tag ci)]
-                           [trend-chart-class (tdecl-class ci)]
-                           [database database]
-                           [restore-data restore-data])))
-            (set! trend-charts (append trend-charts (list pane)))
-            (send trend-charts-panel append (send pane get-name)))))
+        (if ci
+            (let ((pane (new trend-chart-pane%
+                             [parent trend-charts-panel]
+                             [info-tag (tdecl-tag ci)]
+                             [trend-chart-class (tdecl-class ci)]
+                             [database database]
+                             [restore-data restore-data])))
+              (set! trend-charts (append trend-charts (list pane)))
+              (send trend-charts-panel append (send pane get-name)))
+            ;; I should really stop renaming chart tags -- this place looses
+            ;; charts...
+            (dbglog "make-trends-chart: unknown trends chart tag: ~a" chart-tag)))
 
       (let ((data (get-pref tag (lambda () '()))))
         (when (> (length data) 0)

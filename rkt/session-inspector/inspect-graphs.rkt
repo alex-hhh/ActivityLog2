@@ -30,7 +30,9 @@
          "../fmt-util.rkt"
          "../series-meta.rkt"
          "../sport-charms.rkt"
-         "../data-frame.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/bsearch.rkt"
+         "../data-frame/statistics.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "../session-df.rkt"
@@ -50,7 +52,7 @@
 ;;.............................................................. helpers ....
 
 (define (is-lap-swimming? data-frame)
-  (send data-frame get-property 'is-lap-swim?))
+  (df-get-property data-frame 'is-lap-swim?))
 
 
 ;;.......................................................... chart-view% ....
@@ -140,7 +142,7 @@
                   ivl
                   struct-name)
   (-> nonnegative-integer?
-      (or/c #f (is-a?/c data-frame%))
+      (or/c #f data-frame?)
       (or/c #f (is-a?/c series-metadata%))
       (or/c #f (is-a?/c series-metadata%))
       (or/c #f (is-a?/c series-metadata%))
@@ -169,7 +171,7 @@
   (;; Automatically set by the ps guard to a (next-token), regardless of what
    ;; you pass in here :-)
    token
-   ;; The data-frame% from which we extract data
+   ;; The data-frame from which we extract data
    df
    ;; series-meta for X-axis, this will be time, elapsed time or distance
    x-axis
@@ -278,10 +280,9 @@
   (define xseries (send (ps-x-axis plot-state) series-name))
   (and
    (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
-   (send df contains? xseries "swim_stroke")
-       (let* ((index (send df get-index xseries x))
-              (stroke (send df ref index "swim_stroke")))
-         (and stroke (get-swim-stroke-name stroke)))))
+   (df-contains? df xseries "swim_stroke")
+   (let ((stroke (df-lookup df xseries "swim_stroke" x)))
+     (and stroke (get-swim-stroke-name stroke)))))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
@@ -297,7 +298,7 @@
     (cond ((and df (is-lap-swimming? df)
                 (send y plot-color-by-swim-stroke?))
            (make-plot-renderer/swim-stroke
-            sdata (send df select "swim_stroke")))
+            sdata (df-select df "swim_stroke")))
           ((and (ps-color? ps) fdata)
            (make-plot-renderer-for-splits fdata y-range (send y factor-colors)))
           ((and sdata sdata2)
@@ -383,7 +384,7 @@
                  (x (ps-x-axis new-ps))
                  (y (ps-y-axis new-ps))
                  (filter (ps-filter new-ps)))
-             (if (send df contains? (send x series-name) (send y series-name))
+             (if (df-contains? df (send x series-name) (send y series-name))
                  (let ([ds (extract-data df x y filter #t)])
                    (if (is-lap-swimming? df)
                        (add-verticals ds)
@@ -398,7 +399,7 @@
                  (x (ps-x-axis new-ps))
                  (y (ps-y-axis2 new-ps))
                  (filter (ps-filter new-ps)))
-             (if (send df contains? (send x series-name) (send y series-name))
+             (if (df-contains? df (send x series-name) (send y series-name))
                  (let ([ds (extract-data df x y filter #t)])
                    (if (is-lap-swimming? df)
                        (add-verticals ds)
@@ -414,8 +415,8 @@
        (if need-fdata?
            (let ((df (ps-df new-ps))
                  (y (ps-y-axis new-ps)))
-             (let* ((sport (send df get-property 'sport))
-                    (sid (send df get-property 'session-id))
+             (let* ((sport (df-get-property df 'sport))
+                    (sid (df-get-property df 'session-id))
                     (factor-fn (send y factor-fn sport sid))
                     (factor-colors (send y factor-colors)))
                (if (and factor-fn sdata)
@@ -572,7 +573,7 @@
                    [callback (lambda (c e)
                                (let* ((df (ps-df plot-state))
                                       (index (send c get-selection))
-                                      (sport (and df (send df get-property 'sport))))
+                                      (sport (and df (df-get-property df 'sport))))
                                  (when sport
                                    (hash-set! y-axis-by-sport sport index))
                                  (on-y-axis-selected index)))]))
@@ -746,7 +747,7 @@
       (set! plot-state (struct-copy ps plot-state [df df] [ivl #f]))
       (set! export-file-name #f)
       (when (and y-axis-choice df)
-        (let* ((sport (send df get-property 'sport))
+        (let* ((sport (df-get-property df 'sport))
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
           (send y-axis-choice set-selection y-axis-index)
           (on-y-axis-selected y-axis-index)))
@@ -805,7 +806,7 @@
           (let* ((df (ps-df plot-state))
                  (y (ps-y-axis plot-state))
                  (y2 (ps-y-axis2 plot-state))
-                 (sid (send df get-property 'session-id))
+                 (sid (df-get-property df 'session-id))
                  (s1 (and y (send y series-name)))
                  (s2 (and y2 (send y2 series-name))))
             (cond ((and sid s1 s2)
@@ -875,13 +876,13 @@
       (set! avg-speed #f)
       (set! zones #f)
       (when data-frame
-        (define sid (send data-frame get-property 'session-id))
+        (define sid (df-get-property data-frame 'session-id))
         (set! zones (get-session-sport-zones sid 2)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
       (for/or ([series '("speed" "pace" "speed-zone")])
-        (send data-frame contains? series)))
+        (df-contains? data-frame series)))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -916,7 +917,7 @@
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "alt" "calt"))
+      (df-contains/any? data-frame "alt" "calt"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -975,13 +976,13 @@
       (set! avg-hr #f)
       (set! zones #f)
       (when data-frame
-        (define sid (send data-frame get-property 'session-id))
+        (define sid (df-get-property data-frame 'session-id))
         (set! avg-hr #f)
         (set! zones (get-session-sport-zones sid 1)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "hr" "hr-pct" "hr-zone"))
+      (df-contains/any? data-frame "hr" "hr-pct" "hr-zone"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -1029,7 +1030,7 @@
           (if avg
               (let* ((label (string-append "Avg " (fmt-fn avg))))
                 (function (lambda (x) avg) #:label label))
-            #f))))
+              #f))))
 
     (define/override (on-y-axis-selected index)
       (unless (equal? selected-y-axis index)
@@ -1040,12 +1041,12 @@
       (set! avg-cadence #f)
       (set! avg-stride #f)
       (when data-frame
-        (let ((sp (send data-frame get-property 'sport)))
+        (let ((sp (df-get-property data-frame 'sport)))
           (set! sport (vector-ref sp 0))))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "cad" "stride"))
+      (df-contains/any? data-frame "cad" "stride"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -1105,13 +1106,13 @@
       (set! avg-vosc #f)
       (set! avg-vratio #f)
       (if data-frame
-          (let ((sp (send data-frame get-property 'sport)))
+          (let ((sp (df-get-property data-frame 'sport)))
             (set! sport (vector-ref sp 0)))
           (set! sport #f))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "vosc" "vratio"))
+      (df-contains/any? data-frame "vosc" "vratio"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -1171,12 +1172,12 @@
       (set! avg-gct #f)
       (set! avg-gct-pct #f)
       (when data-frame
-        (let ((sp (send data-frame get-property 'sport)))
+        (let ((sp (df-get-property data-frame 'sport)))
           (set! sport (vector-ref sp 0))))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "gct" "pgct"))
+      (df-contains/any? data-frame "gct" "pgct"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -1198,7 +1199,7 @@
     (send this set-y-axis axis-wbal)
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains? "wbal"))
+      (df-contains? data-frame "wbal"))
 
     ))
 
@@ -1248,12 +1249,12 @@
       (set! avg-power #f)
       (set! zones #f)
       (when data-frame
-        (define sid (send data-frame get-property 'session-id))
+        (define sid (df-get-property data-frame 'session-id))
         (set! zones (get-session-sport-zones sid 3)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "pwr" "pwr-zone"))
+      (df-contains/any? data-frame "pwr" "pwr-zone"))
 
     (setup-y-axis-items (map car y-axis-items))
     (set-y-axis (second (list-ref y-axis-items 0)))
@@ -1283,10 +1284,10 @@
 
     (define/override (get-average-renderer)
       (let ((avg (get-avg-lrbal)))
-          (if avg
-              (let ((label (format-48 "Avg ~1,1F%" avg)))
-                (function (lambda (x) avg) #:label label))
-              #f)))
+        (if avg
+            (let ((label (format-48 "Avg ~1,1F%" avg)))
+              (function (lambda (x) avg) #:label label))
+            #f)))
 
     (set-y-axis axis-left-right-balance)
 
@@ -1295,7 +1296,7 @@
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains? "lrbal"))
+      (df-contains? data-frame "lrbal"))
 
     ))
 
@@ -1314,7 +1315,7 @@
           axis-right-torque-effectiveness)
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "lteff" "rteff"))
+      (df-contains/any? data-frame "lteff" "rteff"))
 
     ))
 
@@ -1333,7 +1334,7 @@
           axis-right-pedal-smoothness)
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "lpsmth" "rpsmth"))
+      (df-contains/any? data-frame "lpsmth" "rpsmth"))
 
     ))
 
@@ -1352,7 +1353,7 @@
           axis-right-platform-centre-offset)
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any? "lpco" "rpco"))
+      (df-contains/any? data-frame "lpco" "rpco"))
 
     ))
 
@@ -1404,9 +1405,10 @@
           (fn))))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains/any?
-            "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
-            "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
+      (df-contains/any?
+       data-frame
+       "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
+       "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
 
     (setup-y-axis-items (map car y-axis-items))
     (on-y-axis-selected 0)
@@ -1440,7 +1442,7 @@
             (let ((pace (m/s->swim-pace avg)))
               (function (lambda (x) pace)
                         #:label (string-append "Avg " (swim-pace->string avg #t))))
-         #f)))
+            #f)))
 
     (define/override (set-data-frame data-frame)
       (set! avg-speed #f)
@@ -1482,7 +1484,7 @@
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains? "swolf"))
+      (df-contains? data-frame "swolf"))
 
     ))
 
@@ -1519,7 +1521,7 @@
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains? "strokes"))
+      (df-contains? data-frame "strokes"))
 
     ))
 
@@ -1556,7 +1558,7 @@
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
-      (send data-frame contains? "cad"))
+      (df-contains? data-frame "cad"))
 
     ))
 
@@ -1815,7 +1817,7 @@
     (define show-avg? #f)           ; display the average line
     (define zoom-to-lap? #f)        ; zoom current lap via a stretch-transform
     (define color-by-zone? #f)      ; color series by zone (if there zones are
-                                    ; defined)
+    ; defined)
     (define filter-amount 0)        ; amount of filtering to use in graphs
 
     ;; Map the preferred x-axis (as an index) by sport, this is saved as a
@@ -1881,12 +1883,12 @@
                        [alignment '(center top)]))
 
     (define interval-view-panel (new vertical-pane%
-                                [parent panel]
-                                [border 0]
-                                [spacing 1]
-                                [min-width 220]
-                                [stretchable-width #f]
-                                [alignment '(left top)]))
+                                     [parent panel]
+                                     [border 0]
+                                     [spacing 1]
+                                     [min-width 220]
+                                     [stretchable-width #f]
+                                     [alignment '(left top)]))
 
     (define interval-choice #f)
     (let ((p (new horizontal-pane%
@@ -1898,12 +1900,12 @@
       (set! interval-choice (new interval-choice% [tag 'interval-choice-graphs] [parent p] [label ""])))
 
     (define interval-view (new mini-interval-view%
-                          [parent interval-view-panel]
-                          [tag 'activity-log:charts-mini-lap-view]
-                          [callback (lambda (n lap)
-                                      (let ((lap-num (dict-ref lap 'lap-num #f)))
-                                        (when lap-num
-                                          (highlight-lap (- lap-num 1) lap))))]))
+                               [parent interval-view-panel]
+                               [tag 'activity-log:charts-mini-lap-view]
+                               [callback (lambda (n lap)
+                                           (let ((lap-num (dict-ref lap 'lap-num #f)))
+                                             (when lap-num
+                                               (highlight-lap (- lap-num 1) lap))))]))
 
     (send interval-choice set-interval-view interval-view)
 

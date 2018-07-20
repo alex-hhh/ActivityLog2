@@ -20,7 +20,9 @@
          racket/math
          math/statistics
          "utilities.rkt"
-         "data-frame.rkt"
+         "data-frame/df.rkt"
+         "data-frame/statistics.rkt"
+         "data-frame/histogram.rkt"
          "session-df.rkt"
          "widgets/main.rkt"
          "hrv.rkt"
@@ -29,12 +31,12 @@
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)
 
-(define (decoupling df s1 s2 #:start (start 0) #:end (end (send df get-row-count)))
-  (let ((half-point (exact-truncate (/ (+ start end) 2))))
-    (let ((stat-s1-1 (df-statistics df s1 #:start start #:end half-point))
-          (stat-s1-2 (df-statistics df s1 #:start half-point #:end end))
-          (stat-s2-1 (df-statistics df s2 #:start start #:end half-point))
-          (stat-s2-2 (df-statistics df s2 #:start half-point #:end end)))
+(define (decoupling df s1 s2 #:start (start 0) #:stop (stop (df-row-count df)))
+  (let ((half-point (exact-truncate (/ (+ start stop) 2))))
+    (let ((stat-s1-1 (df-statistics df s1 #:start start #:stop half-point))
+          (stat-s1-2 (df-statistics df s1 #:start half-point #:stop stop))
+          (stat-s2-1 (df-statistics df s2 #:start start #:stop half-point))
+          (stat-s2-2 (df-statistics df s2 #:start half-point #:stop stop)))
       (and stat-s1-1 stat-s1-2 stat-s2-1 stat-s2-2
            (let ((r1 (/ (statistics-mean stat-s1-1)
                         (statistics-mean stat-s2-1)))
@@ -43,19 +45,18 @@
              (* 100.0 (/ (- r1 r2) r1)))))))
 
 (define (decoupling/laps df s1 s2)
-  (let* ((laps (send df get-property 'laps))
+  (let* ((laps (df-get-property df 'laps))
          (limit (vector-length laps)))
     (for/list ([idx (in-range 0 (vector-length laps))])
       (define start
-        (or (send df get-index "timestamp" (vector-ref laps idx))
-            (send df get-row-count)))
-      (define end
+        (df-index-of df "timestamp" (vector-ref laps idx)))
+      (define stop
         (if (< idx (sub1 limit))
-            (send df get-index "timestamp" (vector-ref laps (+ idx 1)))
-            (send df get-row-count)))
+            (df-index-of df "timestamp" (vector-ref laps (+ idx 1)))
+            (df-row-count df)))
       ;; don't compute decoupling for small intervals
-      (if (and start end (> (- end start) 60))
-          (decoupling df s1 s2 #:start start #:end end)
+      (if (and start stop (> (- stop start) 60))
+          (decoupling df s1 s2 #:start start #:stop stop)
           0))))
 
 ;; Compute the time spend in each zone for SESSION (as returned by
@@ -135,16 +136,16 @@ select P.id
 ;; deleted.
 (define (update-time-in-zone-data sid db)
   (let* ((session (session-df db sid))
-         (sport (send session get-property 'sport))
+         (sport (df-get-property session 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
          (hr-zone-id (get-zone-id sid 1 db)))
 
     ;; Time in zone
-    (when (send session contains? "pwr-zone")
+    (when (df-contains? session "pwr-zone")
       (let ((data (time-in-zone session "pwr-zone")))
         (when data
           (store-time-in-zone sid pwr-zone-id data db))))
-    (when (send session contains? "hr-zone")
+    (when (df-contains? session "hr-zone")
       (let ((data (time-in-zone session "hr-zone")))
         (when data
           (store-time-in-zone sid hr-zone-id data db))))
@@ -155,7 +156,7 @@ select P.id
     ;; Aerobic Decoupling
     (cond
       ((and (equal? (vector-ref sport 0) 2) ; bike
-            (send session contains? "pwr" "hr"))
+            (df-contains? session "pwr" "hr"))
        (let ((adec (decoupling session "pwr" "hr")))
          (update-aerobic-decoupling-for-session db sid adec))
        (let ((adec/laps (decoupling/laps session "pwr" "hr"))
@@ -164,7 +165,7 @@ select P.id
                [lapid id/laps])
            (update-aerobic-decoupling-for-lap db lapid adec))))
       ((and (equal? (vector-ref sport 0) 1) ; run
-            (send session contains? "spd" "hr"))
+            (df-contains? session "spd" "hr"))
        (let ((adec (decoupling session "spd" "hr")))
          (update-aerobic-decoupling-for-session db sid adec))
        (let ((adec/laps (decoupling/laps session "spd" "hr"))

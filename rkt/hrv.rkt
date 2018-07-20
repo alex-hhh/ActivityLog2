@@ -30,16 +30,15 @@
  racket/dict
  math/statistics
  db
- "data-frame.rkt"
+ "data-frame/df.rkt"
+ "data-frame/series.rkt"
  "fit-file/fit-file.rkt"
  "database.rkt"
  )
 
 (provide/contract
- (make-hrv-data-frame/file (-> path-string? (or/c #f (is-a?/c data-frame%))))
- (make-hrv-data-frame/db (-> connection? number? (or/c #f (is-a?/c data-frame%))))
- 
- )
+ (make-hrv-data-frame/file (-> path-string? (or/c #f data-frame?)))
+ (make-hrv-data-frame/db (-> connection? number? (or/c #f data-frame?))))
 
 (provide
  (struct-out hrv-metrics)
@@ -98,31 +97,29 @@
             (set! hrv-samples (cons hrv hrv-samples))
             (set! bpm-samples (cons current-bpm bpm-samples))))))
     
-    (define (make-data-frame)
-      (let* ((ts-series
-              (new data-series% [name "timestamp"]
-                   [data (list->vector-rev timestamps)] [sorted? #t]))
-             (bpm-series
-              (new data-series% [name "bpm"] [data (list->vector-rev bpm-samples)]))
-             (hrv-series
-              (new data-series% [name "hrv"] [data (list->vector-rev hrv-samples)]))
-             (dhrv-series
-              (let* ([hrv (send hrv-series get-data)]
-                     [dhrv (for/vector #:length (vector-length hrv)
-                                       ((index (in-range (vector-length hrv))))
-                             (if (> index 0)
-                                 (let ((prev (vector-ref hrv (- index 1)))
-                                       (curr (vector-ref hrv index)))
-                                   (abs (- curr prev)))
-                                 0))])
-                (new data-series% [name "delta-hrv"] [data dhrv])))
-             (df (new data-frame% [series (list ts-series bpm-series hrv-series dhrv-series)])))
+    (define (make-df)
+      (let* ((ts (list->vector-rev timestamps))
+             (bpm (list->vector-rev bpm-samples))
+             (hrv (list->vector-rev hrv-samples))
+             (dhrv (for/vector #:length (vector-length hrv)
+                       ((index (in-range (vector-length hrv))))
+                     (if (> index 0)
+                         (let ((prev (vector-ref hrv(- index 1)))
+                               (curr (vector-ref hrv index)))
+                           (abs (- curr prev)))
+                         0)))
+             (df (make-data-frame)))
+        (df-add-series df (make-series "timestamp" #:data ts))
+        (df-set-sorted df "timestamp" <=)
+        (df-add-series df (make-series "bpm" #:data bpm))
+        (df-add-series df (make-series "hrv" #:data hrv))
+        (df-add-series df (make-series "delta-hrv" #:data dhrv))
         df))
 
     (define/public (get-data-frame)
       (if (equal? '() timestamps)
           #f                            ; no HRV data in the activity
-          (make-data-frame)))
+          (make-df)))
     ))
 
 
@@ -210,31 +207,31 @@
 
 ;; Calculate and return a HRV-METRICS instance based on HRV data in DF (a data
 ;; frame) between START and END.
-(define (compute-hrv-metrics df #:start (start #f) #:end (end #f))
+(define (compute-hrv-metrics df #:start (start 0) #:stop (end (df-row-count df)))
   (let* ((start (or start 0))
-         (end (or end (send df get-row-count)))
-         (hrv (let ((hrv (send df map '("bpm" "hrv")
-                               #:start start #:end end
-                               (lambda (val)
-                                 (match-define (vector bpm hrv) val)
-                                 (if (good-hrv? bpm hrv) hrv #f)))))
-                (vector-filter (lambda (x) (real? x)) hrv)))
-         (dhrv (let ((dhrv (send df map '("bpm" "hrv" "delta-hrv")
-                                 #:start start #:end end
+         (end (or end (df-row-count df)))
+         (hrv (let ((hrv (df-map df '("bpm" "hrv")
+                                 #:start start #:stop end
                                  (lambda (val)
-                                   (match-define (vector bpm hrv delta-hrv) val)
-                                   (if (good-hrv? bpm hrv) delta-hrv #f)))))
+                                   (match-define (list bpm hrv) val)
+                                   (if (good-hrv? bpm hrv) hrv #f)))))
+                (vector-filter (lambda (x) (real? x)) hrv)))
+         (dhrv (let ((dhrv (df-map df '("bpm" "hrv" "delta-hrv")
+                                   #:start start #:stop end
+                                   (lambda (val)
+                                     (match-define (list bpm hrv delta-hrv) val)
+                                     (if (good-hrv? bpm hrv) delta-hrv #f)))))
                  (vector-filter (lambda (x) (real? x)) dhrv)))
-         (nsamples (send df get-row-count))
+         (nsamples (df-row-count df))
          (good-samples (vector-length hrv))
-         (bad-samples (- (send df get-row-count) good-samples)))
+         (bad-samples (- (df-row-count df) good-samples)))
     (let ((sdnn (statistics-stddev (update-statistics* empty-statistics hrv)))
           (sdsd (statistics-stddev (update-statistics* empty-statistics dhrv)))
           (nn50 0)
           (nn20 0)
           (dhrv-sq 0)
           (nitems (- end start))
-          (delta-hrv (send df select "delta-hrv")))
+          (delta-hrv (df-select df "delta-hrv")))
       (for ((dhrv (in-vector delta-hrv start end)))
         (set! dhrv-sq (+ dhrv-sq (* dhrv dhrv)))
         (when (>= dhrv 50) (set! nn50 (+ nn50 1)))

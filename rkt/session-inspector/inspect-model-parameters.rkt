@@ -27,7 +27,8 @@
          "../color-theme.rkt"
          "../dbapp.rkt"
          "../fmt-util.rkt"
-         "../series-meta.rkt")
+         "../series-meta.rkt"
+         "../data-frame/df.rkt")
 
 (provide model-parameters-panel%)
 
@@ -298,8 +299,8 @@ order by VSZFS.zone_metric_id" sid))
     (define/public (set-session session df)
       (send text lock #f)
       (send text erase)
-      (let ((sid (send df get-property 'session-id))
-            (sport (send df get-property 'sport)))
+      (let ((sid (df-get-property df 'session-id))
+            (sport (df-get-property df 'sport)))
         (if sid
             (begin
               (insert-sport-zone-info text sid sport)
