@@ -35,6 +35,7 @@
          "data-frame/sql.rkt"
          "data-frame/bsearch.rkt"
          "data-frame/statistics.rkt"
+         "data-frame/rdp-simplify.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
          "series-meta.rkt"
@@ -1034,9 +1035,8 @@
     ;; Missing values items are just selected but they are still #f, replace
     ;; them now.
     (when missing-value
-      (for ([d data])
-        (unless (vector-ref d 1)
-          (vector-set! d 1 missing-value))))
+      (for ([d (in-vector data)] #:unless (vector-ref d 1))
+        (vector-set! d 1 missing-value)))
 
     ;; Filter the data in place, if required.
     (when (and should-filter? (> filter-width 0) (> (vector-length data) 0))
@@ -1076,34 +1076,10 @@
     ;; Reduce the number of points in the data to make it more manageable for
     ;; the plots.
     (when (and simplify-data (> (vector-length data) 0))
-      (define before-length (vector-length data))
-      ;; Max number of seconds between two adjacent values in the simplified
-      ;; data.
-      (define max-time-delta 30.0)
-      ;; Y values that differ by less than this amount will be dropped.
-      (define max-y-delta (expt 10 (- (send x-axis fractional-digits))))
-      ;; We update the data vector in place, than create a copy at the end to
-      ;; truncate it.
-      (define oidx 0)
-      (define oval (vector-ref (vector-ref data 0) 1))
-      (define ots (vector-ref (vector-ref data 0) 2))
-      (define stop-points (or (df-get-property data-frame 'stop-points) '()))
-      (for ([idx (in-range 1 (vector-length data))])
-        (define item (vector-ref data idx))
-        (define val (vector-ref item 0))
-        (define ts (vector-ref item 2))
-        (when (or
-               ;; Don't simplify the stop points
-               (and (cons? stop-points) (>= ts (car stop-points)))
-               (> (- ts ots) max-time-delta)
-               (> (abs (- val oval)) max-y-delta))
-          (when (and (cons? stop-points) (= ts (car stop-points)))
-            (set! stop-points (cdr stop-points)))
-          (set! oidx (add1 oidx))
-          (vector-set! data oidx item)
-          (set! oval val)
-          (set! ots ts)))
-      (set! data (vector-copy data 0 (add1 oidx))))
+      (define eps (expt 10 (- (send x-axis fractional-digits))))
+      ;; simplify data more aggressively for large data sets
+      (define mult (max 1.0 (/ (vector-length data) 5000)))
+      (set! data (rdp-simplify data #:epsilon (* eps mult) #:destroy-original? #t)))
 
     data))
 

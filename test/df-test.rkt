@@ -30,7 +30,8 @@
          "../rkt/data-frame/csv.rkt"
          "../rkt/data-frame/gpx.rkt"
          "../rkt/data-frame/statistics.rkt"
-         "../rkt/data-frame/meanmax.rkt")
+         "../rkt/data-frame/meanmax.rkt"
+         "../rkt/data-frame/rdp-simplify.rkt")
 
 
 ;;.............................................................. bsearch ....
@@ -673,6 +674,54 @@
      
      )))
 
+(define rdp-simplify-tests
+  (test-suite
+   "`rdp-simplify` test suite"
+   (test-case "`rdp-simplify` test cases"
+
+     ;; Degenerate cases for 0, 1, 2 vector sizes.  In these cases, the
+     ;; function should just return the input vector
+     
+     (define vzero (vector))
+     (check-not-exn
+      (lambda ()
+        (define result (rdp-simplify vzero))
+        (check = (vector-length result) 0)))
+     
+     (define vone (vector (vector 0 1)))
+     (check-not-exn
+      (lambda ()
+        (define result (rdp-simplify vone))
+        (check = (vector-length result) 1)
+        (check equal? (vector-ref result 0) (vector 0 1))))
+
+     (define vtwo (vector (vector 0 1) (vector 0 2)))
+     (check-not-exn
+      (lambda ()
+        (define result (rdp-simplify vtwo))
+        (check = (vector-length result) 2)
+        (check equal? (vector-ref result 0) (vector 0 1))
+        (check equal? (vector-ref result 1) (vector 0 2))))
+
+     ;; NOTE: it would be nice if we could test that rdp-simplify actually did
+     ;; a sane simplification, rather than just reduce the number of points...
+     
+     (define df-1136 (df-read/csv "./test-data/track-data-1136.csv"))
+     (define data (df-select* df-1136 "timer" "spd"))
+
+     (define data-1 (rdp-simplify data #:epsilon 0.01))
+     (define data-2 (rdp-simplify data #:epsilon 0.02))
+     (define data-3 (rdp-simplify data #:epsilon 0.03))
+
+     (check < (vector-length data-2) (vector-length data-1))
+     (check < (vector-length data-3) (vector-length data-2))
+
+     (define data-4 (rdp-simplify data #:epsilon 0.04 #:destroy-original? #t))
+     (check < (vector-length data-4) (vector-length data-3))
+     ;; data now contains #f values, as it was destroyed
+     (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0)
+     
+     )))
 
 
 
@@ -688,7 +737,8 @@
    dfdb-tests
    csv-tests
    gpx-tests
-   stats+mmax-tests))
+   stats+mmax-tests
+   rdp-simplify-tests))
 
 (module+ test
   (run-tests data-frame-tests))
