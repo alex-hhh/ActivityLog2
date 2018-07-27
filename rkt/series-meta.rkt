@@ -2,7 +2,7 @@
 ;; series-meta.rkt -- helper classes for plotting various data series
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,6 +20,7 @@
          racket/math
          racket/draw
          racket/format
+         racket/contract
          pict
          "fmt-util.rkt"
          "sport-charms.rkt"
@@ -56,7 +57,7 @@
                      (loop mid amax)
                      (loop amin mid))))))
       #f))
-  
+
 ;; Return the max speed (in meters/second) at which DISTANCE can be covered
 ;; according to the Pace-Duration function PD.
 ;;
@@ -360,7 +361,7 @@
     (define/override (factor-colors) (ct:zone-colors))
 
     (define/override (have-cp-estimate?) #t)
-    
+
     (define/override (cp-estimate bavg-fn params)
       (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
       ;; Check that the bavg function can provide values for the CP2
@@ -1232,6 +1233,7 @@
    axis-timer-time
    axis-speed
    axis-pace
+   axis-gap
    axis-speed-zone
    axis-elevation
    axis-corrected-elevation
@@ -1285,7 +1287,12 @@
         axis-swim-distance
         axis-swim-time))
 
+;; NOTE: `findf` returns #f if the series is not found.  We rely on the
+;; contract to check that, as this function is always expected to return a
+;; valid axis definition, and it should always be passed valid series names.
 (define (find-meta-for-series name (is-lap-swimming? #f))
   (findf (lambda (meta) (equal? (send meta series-name) name))
          (if is-lap-swimming? swim-series-meta all-series-meta)))
-(provide find-meta-for-series)
+
+(provide/contract
+ (find-meta-for-series (->* (string?) (boolean?) (is-a?/c series-metadata%))))
