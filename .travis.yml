@@ -18,11 +18,12 @@ before_install:
 install:
 before_script:
   - export DISPLAY=:99.0
-  - sh -e /etc/init.d/xvfb start
-  - sh ./test/download-test-db.sh
+  - bash -e /etc/init.d/xvfb start
+  - bash ./test/download-test-db.sh
 script:
   - racket build.rkt
   - raco test test/df-test.rkt
   - raco test test/db-test.rkt
   - raco test test/db-upgrade-test.rkt
+  - raco test test/aggregate-test.rkt
 after_script: 

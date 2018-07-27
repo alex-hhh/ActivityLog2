@@ -16,6 +16,7 @@ build-id.txt
 # racket puts compiled files in this folder
 compiled/
 dist/
+test/test-db/
 # ignore it for now, contains user specific info.
 .dir-locals.el
 # various data files that we don't want under version control
@@ -24,3 +25,4 @@ dist/
 *.xls
 *.xlsm
 ChangeLog
+TAGS

@@ -39,10 +39,9 @@
   (define version (db-vesion path))
   (define target-version (schema-version))
   (define tmpdb (build-path test-dir "tmp.db"))
-  (check-not-eqv?
-   version target-version
-   (format "~a cannot upgrade from version ~a to ~a~%"
-              (path->string path) version target-version))
+  (check <= version target-version
+         (format "~a cannot upgrade from version ~a to ~a~%"
+                 (path->string path) version target-version))
   (printf "*** ~a: attempt upgrade from version ~a to ~a~%"
           (path->string path) version target-version)
 
