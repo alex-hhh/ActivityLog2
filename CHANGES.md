@@ -1,3 +1,23 @@
+# Release 1.5.2
+
+This release contains the following bug fixes and improvements:
+
+* "Lengths For Lap" label for Swim sessions is now vertical, it looks much
+  nicer.
+  
+* improvements to map drawing and fixing an issue where maps would not display
+  correctly on high DPI displays (issue #29)
+  
+* reduce flicker when graphs view is opened for the first time for a session.
+
+* fixed a bug where histogram trends could not be computed for the "Grade
+  Adjusted Pace" series.
+
+# Release 1.5.1
+
+This is a bug-fix release, addressing issue #34, which prevented creation of
+new trend charts.
+
 # Release 1.5.0
 
 * A new [workout
