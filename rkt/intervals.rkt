@@ -1,8 +1,8 @@
 #lang racket/base
 ;; intervals.rkt -- find various types of intervals in session data frame
-;; 
+;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -71,7 +71,7 @@
                     (equal? (car positions) (df-row-count df)))
                 (reverse positions)
                 (reverse (cons (df-row-count df) positions))))))))
-  
+
 ;; Describe summary information that should appear in an interval summary
 ;; constructed by `make-interval-summary'.
 (define summary-def
@@ -247,7 +247,7 @@
         (total-elapsed-time (dict-ref base 'total-elapsed-time #f)))
     (when (and total-distance total-elapsed-time (> total-elapsed-time 0))
       (set! base (cons (cons 'avg-speed (/ total-distance total-elapsed-time)) base))))
-      
+
   ;; Mark this lap as custom
   (set! base (append (list '(custom-lap . #t)) base))
   base)
@@ -416,9 +416,9 @@
         (set! climbs (cons uclimb climbs))))
     (set! current-climb #f))
 
-  (for (((val index) (in-indexed (df-select* df "timestamp" "grade" "dst")))
-        #:when (and (vector-ref val 0) (vector-ref val 1) (vector-ref val 2)))
-    (match-define (vector t g d) val)
+  (for (([t g d] (in-data-frame df "timestamp" "grade" "dst"))
+        (index (in-range (df-row-count df)))
+        #:when (and t g d))
     (unless (or (null? teleports) (<= t (car teleports)))
       (complete-current-climb #t)  ; reached a teleport point, climbs end here
       (set! teleports (cdr teleports)))

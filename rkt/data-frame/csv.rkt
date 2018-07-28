@@ -109,7 +109,7 @@
 
 ;; Decode the string VAL into a Racket value. The decoding rules are:
 ;;
-;; * if the trimmed string is empty, return #f
+;; * if the trimmed string is empty or equal? to NA, return #f
 ;;
 ;; * if the trimmed string is enclosed in quotes, it is assumed to be a string
 ;; an quotes are removed.
@@ -118,14 +118,14 @@
 ;;
 ;; * otherwise return it as a string.
 ;;
-(define (decode-value val)
+(define (decode-value val na)
   (and val
        ;; string->number decodes #x #b and #o as hex, binary or octal. We
        ;; could also recognize 0x as hex, but we don't for now.
       (let* ((trimmed (string-trim val))
              (radix 10)
              (n (string-length trimmed)))
-        (cond ((= n 0) #f)
+        (cond ((or (= n 0) (equal? trimmed na)) #f)
               ((and
                 (>= n 2)
                 (eqv? #\" (string-ref trimmed 0))
@@ -138,11 +138,12 @@
 ;; is true, the first row in INPUT becomes the names of the columns,
 ;; otherwise, the columns will be named "col1", "col2", etc.  The first row
 ;; defines the number of columns: if subsequent rows have fewer cells, they
-;; are padded with #f, if it has more, they are silently truncated.
-(define (read-csv input headers?)
+;; are padded with #f, if it has more, they are silently truncated.  NA
+;; determines the string that constitutes the "not available" value.
+(define (read-csv input headers? na)
   (define df (make-data-frame))
   (define series #f)
-  (let loop ((line (read-line input)))
+  (let loop ((line (read-line input 'any)))
     (cond ((eof-object? line)
            (for ((s (in-vector series)))
              (df-add-series df s))
@@ -156,14 +157,14 @@
                  ;; the remaining series.
                  (let ((shortfall (max 0 (- (vector-length series) (length slots)))))
                    (for ([s (in-vector series)] [v (in-list (append slots (make-list shortfall #f)))])
-                     (series-push-back s (decode-value v))))
+                     (series-push-back s (decode-value v na))))
                  ;; First row
                  (if headers?
                      (let ((index 1))
                        (set! series
                              (for/vector ([h slots])
                                ;; Gracefully handle series with empty header names
-                               (let ((name (decode-value h)))
+                               (let ((name (~a (decode-value h na))))
                                  (unless name
                                    (set! name (~a "col" index))
                                    (set! index (add1 index)))
@@ -172,20 +173,25 @@
                        (set! series (for/vector ([idx (in-range (length slots))])
                                       (make-series (format "col~a" idx))))
                        (for ([s (in-vector series)] [v (in-list slots)])
-                         (series-push-back s (decode-value v)))))))
-           (loop (read-line input))))))
+                         (series-push-back s (decode-value v na)))))))
+           (loop (read-line input 'any))))))
 
 ;; Read CSV data in a data frame from the INP which is either a port or a
 ;; string, in which case it is assumed to be a file name.  IF HEADERS?  is
 ;; true, the first row in INPUT becomes the names of the columns, otherwise,
 ;; the columns will be named "col1", "col2", etc.  The first row defines the
 ;; number of columns: if subsequent rows have fewer cells, they are padded
-;; with #f, if it has more, they are silently truncated.
-(define (df-read/csv inp #:headers? (headers? #t))
+;; with #f, if it has more, they are silently truncated.  NA represents the
+;; cell value to be replaced by the NA value in the data frame, by default
+;; only empty cells are NA values, but this allows specifying an additional
+;; string to represent NA values (some CSV exporters use "-" as the not
+;; available value).
+(define (df-read/csv inp #:headers? (headers? #t) #:na (na ""))
   (if (path-string? inp)
+      ;; not 'text: we might read MAC text files on a Windows machine!
       (call-with-input-file inp #:mode 'text
-        (lambda (i) (read-csv i headers?)))
-      (read-csv inp headers?)))
+        (lambda (i) (read-csv i headers? na)))
+      (read-csv inp headers? na)))
 
 
 ;;............................................................. provides ....
@@ -196,5 +202,5 @@
                     #:rest (listof string?)
                     any/c))
  (df-read/csv (->* ((or/c path-string? input-port?))
-                   (#:headers? boolean?)
+                   (#:headers? boolean? #:na string?)
                    data-frame?)))

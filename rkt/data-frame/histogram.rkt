@@ -40,7 +40,9 @@
   ;; correctly for distributing values into buckets for zones.  The bucket
   ;; value is the start of the interval (as opposed to the middle of the
   ;; interval if `exact-round` would be used.
-  (define (val->bucket v) (exact-truncate (/ v bucket-width)))
+  (define (val->bucket v)
+    ;; NOTE: has to work for non real values (e.g. strings!)
+    (if (real? v) (exact-truncate (/ v bucket-width)) v))
 
   (define (weighted-binning buckets prev-val val)
     (when prev-val
@@ -50,7 +52,9 @@
         (let* ([dx (- ws pws)]
                [dy (/ (+ v pv) 2)]
                [bucket (val->bucket dy)])
-          (when (or (not (zero? bucket)) include-zeroes?)
+          (when (or (not (number? bucket))
+                    (not (zero? bucket))
+                    include-zeroes?)
             (let ([pval (hash-ref buckets bucket 0)])
               (hash-set! buckets bucket (+ dx pval)))))))
     buckets)
@@ -59,7 +63,9 @@
     (match-define (list v) val)
     (when v
       (let ([bucket (val->bucket v)])
-        (when (or (not (zero? bucket)) include-zeroes?)
+        (when (or (not (number? bucket))
+                  (not (zero? bucket))
+                  include-zeroes?)
           (let ([pval (hash-ref buckets bucket 0)])
             (hash-set! buckets bucket (+ 1 pval))))))
     buckets)
@@ -82,18 +88,44 @@
                             #:as-percentage? (as-percentage? #f))
 
   (define total (for/sum ([v (in-hash-values buckets)]) v))
-  (define keys (sort (hash-keys buckets) <))
+  (define unsorted (hash-keys buckets))
+  (define real-keys? #f)
+  ;; Try to sort the keys, if we can (we know how to sort reals and strings
+  ;; only)
+  (define keys
+    (cond ((for/and ([k (in-list unsorted)]) (real? k))
+           (set! real-keys? #t)
+           (sort unsorted <))
+          ((for/and ([k (in-list unsorted)]) (string? k))
+           (sort unsorted string<?))
+          (#t
+           unsorted)))
+
+  (define (bucket->val b)
+    ;; don't touch b, if the bucket-width is 1, this allows working with
+    ;; non-number bucket keys.
+    (if (eqv? bucket-width 1) b (* b bucket-width)))
 
   (if (> (length keys) 0)
-      (let ([min (first keys)]
-            [max (last keys)])
-        (for/vector #:length (+ 1 (- max min))
-                    ([bucket (in-range min (add1 max))])
-          (vector (* bucket bucket-width)
-                  (let ((val (hash-ref buckets bucket 0)))
-                    (if (and as-percentage? (> total 0))
-                        (* 100 (/ val total))
-                        val)))))
+      ;; If the keys are all real numbers, we create the histogram with empty
+      ;; slots in it as well (this looks nicer when plotted.
+      (if real-keys?
+          (let ([min (first keys)]
+                [max (last keys)])
+            (for/vector #:length (add1 (- max min))
+                        ([bucket (in-range min (add1 max))])
+              (vector (bucket->val bucket)
+                      (let ((val (hash-ref buckets bucket 0)))
+                        (if (and as-percentage? (> total 0))
+                            (* 100 (/ val total))
+                            val)))))
+          (for/vector #:length (length keys)
+                      ([bucket (in-list keys)])
+            (vector bucket
+                    (let ((val (hash-ref buckets bucket 0)))
+                      (if (and as-percentage? (> total 0))
+                          (* 100 (/ val total))
+                          val)))))
       #f))
 
 ;; Drop buckets from boths ends of HISTOGRAM which have elements less than
@@ -134,6 +166,10 @@
 ;; #:as-percentage? determines if the data in the histogram represents a
 ;; percentage (adding up to 100) or it is the rank of each slot.
 ;;
+;; In the resulting histogram, samples that are numbers or strings will be
+;; sorted.  In addition, if the samples are numbers, empty slots will be
+;; created so that the buckets are also consecutive.
+;;
 (define (df-histogram df series
                       #:weight-series [weight (df-get-default-weight-series df)]
                       #:bucket-width [bwidth 1]
@@ -145,9 +181,9 @@
       (let ()
         (define buckets
           (samples->buckets df series
-                       #:weight-series weight
-                       #:bucket-width bwidth
-                       #:include-zeroes? zeroes?))
+                            #:weight-series weight
+                            #:bucket-width bwidth
+                            #:include-zeroes? zeroes?))
         (define histogram (buckets->histogram buckets
                                               #:bucket-width bwidth
                                               #:as-percentage? as-pct?))
@@ -195,7 +231,7 @@
     (match-define (vector label value) item)
     (vector (if (number? label) (fmt label) label) value)))
 
-;; Create a historgam plot renderer from DATA (a sequence of [BUCKET
+;; Create a histogram plot renderer from DATA (a sequence of [BUCKET
 ;; NUM-SAMPLES]), as received from `df-histogram` (which see).
 ;;
 ;; #:color determines the color of the plot.
@@ -279,8 +315,8 @@
     (unless (= (vector-length n1) (vector-length n2))
       (df-raise "combine-histograms: bad length"))
     (for/vector #:length (vector-length n1)
-        ([e1 (in-vector n1)]
-         [e2 (in-vector n2)])
+                ([e1 (in-vector n1)]
+                 [e2 (in-vector n2)])
       (unless (equal? (vector-ref e1 0) (vector-ref e2 0))
         (df-raise "combine-histograms: bad value"))
       (vector (vector-ref e1 0) (vector-ref e1 1) (vector-ref e2 1)))))
@@ -362,7 +398,7 @@
 
 (provide/contract
  (df-histogram (->* (data-frame? string?)
-                    (#:weight-series string?
+                    (#:weight-series (or/c #f string?)
                      #:bucket-width real?
                      #:trim-outliers (or/c #f (between/c 0 1))
                      #:include-zeroes? boolean?
@@ -374,7 +410,7 @@
                           (#:color any/c
                            #:skip real?
                            #:x-min real?
-                           #:label string?
+                           #:label (or/c #f string?)
                            #:blank-some-labels boolean?
                            #:x-value-formatter (or/c #f (-> number? string?)))
                           (treeof renderer2d?)))
@@ -388,4 +424,3 @@
                                    (listof (cons/c symbol? color/c)))
                                   (#:x-value-formatter (or/c #f (-> number? string?)))
                                   (treeof renderer2d?))))
- 

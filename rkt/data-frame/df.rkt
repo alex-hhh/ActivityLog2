@@ -110,7 +110,7 @@
     (semaphore-wait semaphore)
     (set! should-unlock? #t)
     (set-data-frame-locking-thread! df (current-thread)))
-  
+
   (define (unlock)
     (when should-unlock?
       (set-data-frame-locking-thread! df #f)
@@ -126,7 +126,7 @@
       (when thunk
         (thunk)                         ; create the column now
         (hash-remove! delayed name)))
-    
+
     (begin0
         (or (hash-ref series name #f)
             (df-raise "df-get-series (\"~a\"): not found" name))
@@ -430,8 +430,8 @@
 ;; existing series.  The data for the series is created using `df-map` by
 ;; applying VALUE-FN on BASE-SERIES and the new data is added to the data
 ;; frame.  See `df-map` for notes on the VALUE-FN.
-(define (df-add-derived df name base-seriess value-fn)
-  (define data (df-map df base-seriess value-fn))
+(define (df-add-derived df name base-series value-fn)
+  (define data (df-map df base-series value-fn))
   (define col (make-series name #:data data))
   (df-add-series df col))
 

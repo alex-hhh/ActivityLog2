@@ -121,8 +121,8 @@
  (df-get-default-weight-series (-> data-frame? (or/c #f string?)))
  (df-statistics (->* (data-frame? string?)
                      (#:weight-series string?
-                      #:start real?
-                      #:stop real?)
+                      #:start exact-nonnegative-integer?
+                      #:stop exact-nonnegative-integer?)
                      (or/c #f statistics?)))
  (df-quantile (->* (data-frame? string?)
                    (#:weight-series string?

@@ -2,7 +2,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,6 +18,7 @@
 (require rackunit
          rackunit/gui
          rackunit/text-ui
+         racket/vector
          math/statistics
          db)
 
@@ -31,6 +32,7 @@
          "../rkt/data-frame/gpx.rkt"
          "../rkt/data-frame/statistics.rkt"
          "../rkt/data-frame/meanmax.rkt"
+         "../rkt/data-frame/histogram.rkt"
          "../rkt/data-frame/rdp-simplify.rkt")
 
 
@@ -335,10 +337,10 @@
                       (lambda (prev current)
                         (if prev
                             ;; A delta series on col1, col2
-                          (match-let (((list pc1 pc2) prev)
-                                      ((list c1 c2) current))
-                            (list (- c1 pc1) (- c2 pc2)))
-                          'none)))
+                            (match-let (((list pc1 pc2) prev)
+                                        ((list c1 c2) current))
+                              (list (- c1 pc1) (- c2 pc2)))
+                            'none)))
               #(none (1 -1) (1 -1) (1 -1)))
 
        (check equal?
@@ -357,7 +359,7 @@
                             ;; A delta series on col1, col2
                             (match-let (((list pc1 pc2) prev)
                                         ((list c1 c2) current))
-                            (list (- c1 pc1) (- c2 pc2)))
+                              (list (- c1 pc1) (- c2 pc2)))
                             'none))
                       #:start 1 #:stop 3)
               #(none (1 -1))))
@@ -449,7 +451,7 @@
 
      (let ()                          ; test-case "`in-data-frame` test-cases"
        (define sum1 (for/sum (((c1 c2) (in-data-frame df "col1" "col2" #:start 1 #:stop 3)))
-                     (+ c1 c2)))
+                      (+ c1 c2)))
        (check = sum1 8)
        (define sum2 (for/sum (((c1 c2) (in-data-frame df "col1" "col2")))
                       (+ c1 c2)))
@@ -586,6 +588,11 @@
       (lambda ()
         (call-with-input-string text (lambda (in) (df-read/csv in)))))
 
+     ;; This CSV file contains "-" in the "empty" cells, strip them out when
+     ;; reading them.
+     (let ((df (df-read/csv "./test-data/sample2.csv" #:na "-")))
+       (check > (df-count-na df "two") 0))
+
      )))
 
 (define gpx-test-file "./gpx-tests-t1.gpx")
@@ -655,13 +662,13 @@
      (check-not-exn
       (lambda ()
         (df-set-default-weight-series df "timer")))
-     
+
      (define w (df-statistics df "spd"))
      (check < (abs (- (statistics-mean w) 0.81)) 1e-2)
 
      ;; TODO: need better tests for the quantile.  This really tests that we
      ;; can run the function in its basic form
-     
+
      (define q (df-quantile df "spd"))
      (check equal? (length q) 5)
 
@@ -670,9 +677,42 @@
         (define mmax (df-mean-max df "spd"))
         (check > (length mmax) 0)       ; need a better test
         ))
-      
-     
+
+
      )))
+
+(define histogram-tests
+  (test-suite
+   "`df-histogram` test suite"
+   (test-case "`df-histogram` test cases"
+
+     (define df-1136 (df-read/csv "./test-data/track-data-1136.csv"))
+
+     (let ((h (df-histogram df-1136 "spd" #:bucket-width 1)))
+       (check = (vector-length h) 3)
+       (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
+         (check = n (df-row-count df-1136))))
+
+     (let ((h (df-histogram df-1136 "spd" #:bucket-width 0.01)))
+       (check > (vector-length h) 1)
+       (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
+         (check = n (df-row-count df-1136))))
+
+     ;; Add a string series classifying the heart rate.  We get a histogram of
+     ;; this classification and check that too...
+     (df-add-derived df-1136 "spd-tag" '("spd")
+                     (lambda (val)
+                       (match-define (list spd) val)
+                       (cond ((< spd 1.0) "low")
+                             ((> spd 1.1) "high")
+                             (#t "med"))))
+     (let ((h (df-histogram df-1136 "spd-tag")))
+       (check = (vector-length h) 3)      ; the three tags
+       (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
+         (check = n (df-row-count df-1136))))
+
+     )))
+
 
 (define rdp-simplify-tests
   (test-suite
@@ -681,13 +721,13 @@
 
      ;; Degenerate cases for 0, 1, 2 vector sizes.  In these cases, the
      ;; function should just return the input vector
-     
+
      (define vzero (vector))
      (check-not-exn
       (lambda ()
         (define result (rdp-simplify vzero))
         (check = (vector-length result) 0)))
-     
+
      (define vone (vector (vector 0 1)))
      (check-not-exn
       (lambda ()
@@ -705,7 +745,7 @@
 
      ;; NOTE: it would be nice if we could test that rdp-simplify actually did
      ;; a sane simplification, rather than just reduce the number of points...
-     
+
      (define df-1136 (df-read/csv "./test-data/track-data-1136.csv"))
      (define data (df-select* df-1136 "timer" "spd"))
 
@@ -720,7 +760,7 @@
      (check < (vector-length data-4) (vector-length data-3))
      ;; data now contains #f values, as it was destroyed
      (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0)
-     
+
      )))
 
 
@@ -738,6 +778,7 @@
    csv-tests
    gpx-tests
    stats+mmax-tests
+   histogram-tests
    rdp-simplify-tests))
 
 (module+ test
