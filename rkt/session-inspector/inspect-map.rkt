@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -67,7 +67,7 @@
 ;; positions.  If DST is outside the range if the dst series, the first or
 ;; last position is returned.
 (define/contract (lookup-position df dst)
-  (-> data-frame? real? (vector/c real? real?))
+  (-> data-frame? real? (or/c (vector/c real? real?) #f))
 
   (unless (df-contains? df "map-point")
     (add-map-points df))
@@ -83,14 +83,19 @@
                 (adst (df-ref df index "distance"))
                 (prev-pos (df-ref df (sub1 index) "map-point"))
                 (next-pos (df-ref df index "map-point"))
-                (factor (/ (- dst pdst) (- adst pdst)))
-                (pos (map-point
-                      (+ (* factor (map-point-x next-pos))
-                         (* (- 1 factor) (map-point-x prev-pos)))
-                      (+ (* factor (map-point-y next-pos))
-                         (* (- 1 factor) (map-point-y prev-pos))))))
-           (let-values (((lat lon) (map-point->lat-lon pos)))
-             (vector lat lon))))))
+                (factor (/ (- dst pdst) (- adst pdst))))
+           ;; positions might not be found in the data frame -- this can
+           ;; happen if the track has gaps in it, for example if
+           ;; running/riding through a tunnel.
+           (if (and prev-pos next-pos)
+               (let ((pos (map-point
+                           (+ (* factor (map-point-x next-pos))
+                              (* (- 1 factor) (map-point-x prev-pos)))
+                           (+ (* factor (map-point-y next-pos))
+                              (* (- 1 factor) (map-point-y prev-pos))))))
+                 (let-values (((lat lon) (map-point->lat-lon pos)))
+                   (vector lat lon)))
+               #f)))))
 
 (define map-panel%
   (class object%
@@ -118,12 +123,12 @@
                        [alignment '(center top)]))
 
     (define interval-view-panel (new vertical-pane%
-                                [parent panel]
-                                [border 0]
-                                [spacing 1]
-                                [min-width 220]
-                                [stretchable-width #f]
-                                [alignment '(left top)]))
+                                     [parent panel]
+                                     [border 0]
+                                     [spacing 1]
+                                     [min-width 220]
+                                     [stretchable-width #f]
+                                     [alignment '(left top)]))
     (define interval-coice #f)
     (let ((p (new horizontal-pane%
                   [parent interval-view-panel]
@@ -132,7 +137,7 @@
                   [alignment '(left center)])))
       (new message% [parent p] [label "Laps"] [font *header-font*])
       (set! interval-coice (new interval-choice% [tag 'interval-choice-map] [parent p] [label ""])))
-    
+
     (define interval-view
       (new mini-interval-view%
            [parent interval-view-panel]
@@ -215,7 +220,7 @@
         (set! show-selected-lap-only? flag)
         (when selected-lap-data
           (highlight-lap selected-lap-data))))
-      
+
     (define (set-zoom-level v)
       (send map-view set-zoom-level v))
 
@@ -250,7 +255,7 @@
                        (df-index-of* data-frame "timestamp" start (+ start elapsed))))
             (let ((track (extract-track* data-frame start-idx (add1 end-idx))))
               (send map-view add-track track selected-lap)))))
-      
+
       ;; Highlight current lap by setting a thicker pen of a different color
       ;; and putting the track on top.
       (send map-view set-group-pen selected-lap

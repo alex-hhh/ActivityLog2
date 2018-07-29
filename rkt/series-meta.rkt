@@ -446,7 +446,10 @@
        p))
 
     (define/override (value-formatter)
-      (lambda (p) (pace->string (convert-pace->m/s p))))
+      (lambda (p)
+        (if (> p 0)
+            (pace->string (convert-pace->m/s p))
+            "")))
     ))
 
 (define axis-pace (new axis-pace%))
