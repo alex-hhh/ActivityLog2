@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -168,7 +168,12 @@
     ;; display the first one.
     (define (on-timer)
       (unless (null? queued-messages)
-        (set-label (car queued-messages))
+        (define message
+          (let ((nmsg (length queued-messages)))
+            (if (= nmsg 1)
+                (car queued-messages)
+                (format "~a (+ ~a more)" (car queued-messages) (sub1 nmsg)))))
+        (set-label message)
         (show-notification #t)))
 
     ;; Handle clicking the dismiss button: call the `dismiss-callback' and set

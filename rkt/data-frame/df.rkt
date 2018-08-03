@@ -33,7 +33,7 @@
    locking-thread            ; the thread owning the semaphore
    series                    ; a hash table of series?
    delayed                   ; a hash table of functions which can create
-                             ; series (see `df-add-lazy`)
+   ; series (see `df-add-lazy`)
    properties)               ; a hash table containing the series properties.
   #:mutable)
 
@@ -339,8 +339,8 @@
                 (prev (apply df-ref* df (sub1 index) slist))
                 (next (apply df-ref* df index slist))
                 (result (for/vector #:length (length slist)
-                            ([p (in-vector prev)]
-                             [n (in-vector next)])
+                                    ([p (in-vector prev)]
+                                     [n (in-vector next)])
                           (interpolate t p n))))
            (if (list? series) result (vector-ref result 0))))))
 
@@ -507,7 +507,7 @@
  (df-contains? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-contains/any? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-put-property (-> data-frame? symbol? any/c any/c))
- (df-get-property (->* (data-frame? symbol?) ((-> any/c)) any/c))
+ (df-get-property (->* (data-frame? symbol?) (any/c) any/c))
  (df-del-property (-> data-frame? symbol? any/c))
  (df-row-count (-> data-frame? exact-nonnegative-integer?))
  (df-select (->* (data-frame? string?) (#:filter (or/c #f (-> any/c any/c))

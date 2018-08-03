@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -51,17 +51,17 @@
 ;; to get all the information it needs to do its work.
 (define activity-operations<%>
   (interface ()
-             get-top-level-window
-             get-database
-             get-selected-sid
-             get-selected-guid
-             get-selected-sport
-             after-update
-             can-delete?
-             after-delete
-             after-new
-             before-popup
-             after-popdown))
+    get-top-level-window
+    get-database
+    get-selected-sid
+    get-selected-guid
+    get-selected-sport
+    after-update
+    can-delete?
+    after-delete
+    after-new
+    before-popup
+    after-popdown))
 
 (define the-inspect-callback #f)
 
@@ -76,9 +76,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (let ((name (vector-ref row 0))
           (sport (vector-ref row 1))
           (sub-sport (vector-ref row 2)))
-    (format "~a (~a)" name
-            (get-sport-name (if (sql-null? sport) #f sport)
-                            (if (sql-null? sub-sport) #f sub-sport))))))
+      (format "~a (~a)" name
+              (get-sport-name (if (sql-null? sport) #f sport)
+                              (if (sql-null? sub-sport) #f sub-sport))))))
 
 (define (get-activity-original-file-name db guid)
   (query-value
@@ -158,15 +158,15 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (let ((mresult (message-box/custom
                         "Confirm clear corrected elevation"
                         (format "Really clear the corrected elevation for \"~a\"?~%You can re-create this data again using Fixup Elevation."
-                                  (get-session-headline db sid))
-                           #f "Clear" "Cancel" toplevel '(caution default=3))))
+                                (get-session-headline db sid))
+                        #f "Clear" "Cancel" toplevel '(caution default=3))))
           (when (equal? mresult 2)
             (clear-session-df-cache sid) ; remove this session from the cache
             (clear-corrected-elevation-for-session db sid)
             (log-event 'session-updated sid)
             (log-event 'session-updated-data sid)
             (send target after-update sid)))))
-              
+
     (define (on-edit-weather m e)
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
@@ -204,7 +204,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                           "Confirm delete"
                           (format "Really delete activity \"~a\"?~%This cannot be undone."
                                   (get-session-headline db sid))
-                           #f "Delete" "Cancel" toplevel '(caution default=3))))
+                          #f "Delete" "Cancel" toplevel '(caution default=3))))
             (when (equal? mresult 2)
               (db-delete-session sid db)
               (clear-session-df-cache sid) ; remove this session from the cache
@@ -228,7 +228,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
              (aid (query-value db "select id from ACTIVITY where guid = ?" guid))
              (fname (get-activity-original-file-name db guid))
              (file (put-file "Select file to export to" toplevel #f fname #f '()
-                            '(("Any" "*.*")))))
+                             '(("Any" "*.*")))))
         (when file
           (db-export-raw-data aid db file))))
 
@@ -255,7 +255,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
               (for ((_ (in-range 20)) #:unless df) (sleep/yield 0.1)))
             (if df
                 (let* ((sn (get-series/ordered df)))
-                  (call-with-output-file fname (lambda (port) (apply df-write/csv port df sn))
+                  (call-with-output-file fname (lambda (port) (apply df-write/csv df port sn))
                     #:mode 'text #:exists 'truncate/replace ))
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame"
                              toplevel '(ok stop)))))))
@@ -285,7 +285,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (call-with-output-file fname
                   (lambda (port)
                     (df-write/gpx df port #:name (get-session-headline db sid)))
-                    #:mode 'text #:exists 'truncate/replace )
+                  #:mode 'text #:exists 'truncate/replace )
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame"
                              toplevel '(ok stop)))))))
 

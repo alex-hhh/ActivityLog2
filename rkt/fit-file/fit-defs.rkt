@@ -4,7 +4,7 @@
 ;; the SDK from https://www.thisisant.com/resources/fit/
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,6 +20,7 @@
 
 ;; Timestamps in the FIT file start from Dec 31, 1989
 (define *fit-epoch* (find-seconds 0 0 0 31 12 1989 #f))
+(provide *fit-epoch*)
 
 (define (fit-time->unix-time t)
   ;; Convert a timestamp from FIT epoch to UNIX epoch
@@ -625,21 +626,21 @@
 
 (define *file-type*
   '((1 . device)
-   (2 . settings)
-   (3 . sport)
-   (4 . activity)
-   (5 . workout)
-   (6 . course)
-   (7 . schedules)
-   (8 . locations)
-   (9 . weight)
-   (10 . totals)
-   (11 . goals)
-   (14 . blood-pressure)
-   (15 . monitoring-a)
-   (20 . activity-summary)
-   (28 . monitoring-daily)
-   (23 . monitoring-b)))
+    (2 . settings)
+    (3 . sport)
+    (4 . activity)
+    (5 . workout)
+    (6 . course)
+    (7 . schedules)
+    (8 . locations)
+    (9 . weight)
+    (10 . totals)
+    (11 . goals)
+    (14 . blood-pressure)
+    (15 . monitoring-a)
+    (20 . activity-summary)
+    (28 . monitoring-daily)
+    (23 . monitoring-b)))
 
 (define *manfacturer*                   ; NOTE: not the full list of manufacturers
   '((1 . garmin)))

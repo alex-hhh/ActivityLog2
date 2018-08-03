@@ -437,14 +437,16 @@
         (let ((name (hash-ref axis-by-sport (current-sport) #f)))
           (let ((index (find-axis name axis-choices)))
             (set! y-axis-index (or index 0)))))
-      (send y-axis-choice set-selection y-axis-index)
+      (when (<= y-axis-index 0 (sub1 (send y-axis-choice get-number)))
+        (send y-axis-choice set-selection y-axis-index))
       (set! export-file-name #f)
       (restore-params-for-axis))
 
     (define/public (save-visual-layout)
-      (save-params-for-sport)
-      (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
-        (put-pref pref-tag data)))
+      (when (> (length axis-choices) 0)
+        (save-params-for-sport)
+        (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
+          (put-pref pref-tag data))))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
@@ -480,10 +482,14 @@
              data-frame
              (if (lap-swimming?) swim-axis-choices default-axis-choices)))
       (install-axis-choices axis-choices)
-      (restore-params-for-sport)
-      (set! inhibit-refresh #f)
-      (set! export-file-name #f)
-      (maybe-enable-color-by-zone-checkbox)
-      (refresh-plot))
+      (if (> (length axis-choices) 0)
+          (begin
+            (restore-params-for-sport)
+            (set! inhibit-refresh #f)
+            (set! export-file-name #f)
+            (maybe-enable-color-by-zone-checkbox)
+            (refresh-plot))
+          (begin
+            (set! inhibit-refresh #f))))
 
     ))

@@ -3,7 +3,7 @@
 ;; supported for swimming activites.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -445,17 +445,17 @@
                                                    #:y-min min-y #:y-max max-y
                                                    ))
                       (set-mouse-event-callback snip plot-hover-callback)))
-                (parameterize ([plot-x-ticks (mean-max-ticks)]
-                               [plot-x-label "Duration"]
-                               [plot-x-transform log-transform]
-                               [plot-x-tick-label-anchor 'top-right]
-                               [plot-x-tick-label-angle 30]
-                               [plot-y-ticks (send mean-max-axis plot-ticks)]
-                               [plot-y-label (send mean-max-axis axis-label)])
-                  (define snip (plot-snip/hack plot-pb rt
-                                               #:x-min min-x #:x-max max-x
-                                               #:y-min min-y #:y-max max-y))
-                  (set-mouse-event-callback snip plot-hover-callback)))
+                  (parameterize ([plot-x-ticks (mean-max-ticks)]
+                                 [plot-x-label "Duration"]
+                                 [plot-x-transform log-transform]
+                                 [plot-x-tick-label-anchor 'top-right]
+                                 [plot-x-tick-label-angle 30]
+                                 [plot-y-ticks (send mean-max-axis plot-ticks)]
+                                 [plot-y-label (send mean-max-axis axis-label)])
+                    (define snip (plot-snip/hack plot-pb rt
+                                                 #:x-min min-x #:x-max max-x
+                                                 #:y-min min-y #:y-max max-y))
+                    (set-mouse-event-callback snip plot-hover-callback)))
               (when (and cp-data (send mean-max-axis have-cp-estimate?) mean-max-data)
                 ;; NOTE: this is inefficient, as the plot-fn is already
                 ;; computed in the `mean-max-renderer` and we are computing it
@@ -651,8 +651,9 @@
       (set! inhibit-refresh (sub1 inhibit-refresh)))
 
     (define/public (save-visual-layout)
-      (save-params-for-sport)
-      (put-pref pref-tag (list params-by-sport)))
+      (when (> (length axis-choices) 0)
+        (save-params-for-sport)
+        (put-pref pref-tag (list params-by-sport))))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
@@ -736,10 +737,13 @@
       (set! plot-rt #f)
       (set! best-rt #f)
       (install-axis-choices)
-      (install-period-choices)
-      (restore-params-for-sport)
-      (set! inhibit-refresh (sub1 inhibit-refresh))
-      (refresh-bests-plot)
-      (refresh-plot))
+      (if (> (length axis-choices) 0)
+          (begin
+            (install-period-choices)
+            (restore-params-for-sport)
+            (set! inhibit-refresh (sub1 inhibit-refresh))
+            (refresh-bests-plot)
+            (refresh-plot))
+          (set! inhibit-refresh (sub1 inhibit-refresh))))
 
     ))

@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -123,7 +123,7 @@
 (define fetch-trackpoins/swim
   "select L.start_time as timestamp,
        (select max(T.distance) from A_TRACKPOINT T where T.length_id = L.id) as dst,
-       SS.total_timer_time as duration,
+       ifnull(SS.total_timer_time, 0) as duration,
        SS.avg_speed as spd,
        round(60.0 * SS.total_cycles / SS.total_timer_time, 1) as cad,
        SS.swim_stroke_id as swim_stroke,
@@ -185,7 +185,7 @@
 
   (when (df-contains? df "timestamp")
     (df-set-sorted df "timestamp" <=)
-  
+
     ;; NOTE: the session might contain lap timestamps that have no track
     ;; points, don't put these laps in the data frame
     (let ((row-count (df-row-count df)))
@@ -262,27 +262,37 @@
           ((eqv? (vector-ref sport 0) 2) ; biking
            (add-wbald-series df "pwr"))))
 
+  ;; WARNING: don't check for empty series here (or any operation that
+  ;; references all the series) as this will materialize all lazy series and
+  ;; make this function really slow!
+
   df)
 
 (define (add-timer-series df)
-  (when (df-contains? df "timestamp" "dst")
+  (when (df-contains? df "timestamp")
     (define stop-points '())
+    (define st empty-statistics)
 
     (df-add-derived
      df
      "timer"
-     '("timestamp" "dst")
+     '("timestamp")
      (let ((timer 0))
        (lambda (prev-val val)
          (when prev-val
-           (match-define (list ptimestamp pdst) prev-val)
-           (match-define (list timestamp dst) val)
+           (match-define (list ptimestamp) prev-val)
+           (match-define (list timestamp) val)
            (define dt (- timestamp ptimestamp))
-           (define dd (if (and dst pdst) (- dst pdst) 0))
-           (if (and (> dt 10) (< dd  5.0))
-               ;; Stop point
+           ;; Keep track of the average time between samples (open water swims
+           ;; can have 40-70 seconds between samples) and consider a stop
+           ;; point any sample that is at least 3 times longer than the
+           ;; current average...
+           (if (and (> (statistics-count st) 1)
+                    (> dt (* 3 (statistics-mean st))))
                (set! stop-points (cons ptimestamp stop-points))
-               (set! timer (+ timer dt))))
+               (begin
+                 (set! st (update-statistics st dt))
+                 (set! timer (+ timer dt)))))
          timer)))
 
     (df-set-sorted df "timer" <=)
@@ -400,7 +410,7 @@
           (exact->inexact
            (+ (* (- 1 alpha) limit-val)
               (* alpha val))))))
-  
+
   (when (df-contains? df series-name "elapsed")
     (let* ((limit-index (df-index-of df "elapsed" limit))
            (limit-val (if (< limit-index (df-row-count df))
@@ -425,7 +435,7 @@
   ;; acitvity (1-2 minutes). This is done in a proportional manner, so that
   ;; the pace becomes the actual pace the closer we are to the limit.  This
   ;; produces nicer looking pace graphs.
-  
+
   (define (combine pace limit-pace elapsed limit)
     ;; If there is no pace @ limit, we effectively disable the smoothing.
     ;; This can happen, among other things, if the session is shorter than
@@ -628,10 +638,12 @@
                      ;; Else, iterate over the defined ranges
                      (for ([s ranges] [e (cdr ranges)])
                        (iterate s e))))))))))
-  
+
   (iterate 0 (sub1 (vector-length grade)))
-  
-  (df-add-series df (make-series "grade" #:data grade)))
+
+  ;; Only add the grade series if there are actually any values in it...
+  (when (for/first ([g (in-vector grade)] #:when g) #t)
+    (df-add-series df (make-series "grade" #:data grade))))
 
 ;; Check that the data frame DF has the required data and add the grade series
 ;; if it does.
@@ -750,7 +762,10 @@
      (list series-name)
      (lambda (val)
        (define a (list-ref val 0))
-       (if a (if (> a 180.0) (- a 360) a) #f)))))
+       (if a (if (> a 180.0) (- a 360) a) #f)))
+    ;; Get rid if this series if it became empty
+    (unless (df-has-non-na? df series-name)
+      (df-del-series series-name))))
 
 (define (add-lpppa-series df)
   (when (df-contains? df "lppps" "lpppe")
@@ -837,7 +852,10 @@
     (for ([index (in-range (df-row-count df))])
       (define val (df-ref df index "lrbal"))
       (when (and (number? val) (or (zero? val) (zero? (- 100 val))))
-        (df-set! df index #f "lrbal")))))
+        (df-set! df index #f "lrbal")))
+    ;; Remove this series if it became empty after fixing invalid values.
+    (unless (df-has-non-na? df "lrbal")
+      (df-del-series df "lrbal"))))
 
 (define (add-gap-series df)
   (define (pace-sec/km spd)
@@ -881,7 +899,7 @@
   (when (and (df-contains? df "elapsed" base-series) cp wprime)
 
     (define wbal wprime)
-  
+
     (df-add-lazy
      df
      "wbal"
@@ -973,13 +991,13 @@
                          accum))
                    accum))
              accum))))
-    
+
     (define avg-below-cp (/ (first sum-count) (second sum-count)))
     (define tau
       (+ 316.0 (* 546 (exp (- (* 1.0 (- cp avg-below-cp)))))))
     (define integral 0)
     (define wbal wprime)
-  
+
     (df-add-lazy
      df
      "wbali"
@@ -1059,27 +1077,58 @@
                 (set! px x)
                 (set! py y))))))
 
+    (define stop-points
+      (if stop-detection? (df-get-property data-frame 'stop-points '()) '()))
+    (define stop-indices
+      (for/list ([point (in-list stop-points)])
+        (bsearch data point #:key (lambda (v) (vector-ref v 2)))))
+    (define limit (vector-length data))
+
     ;; Mark stop points by setting the values around the stop point to 0. stop
     ;; points are stored in the data-frame when it is loaded up by
     ;; `make-session-data-frame'.  This is done after any filtering to make
     ;; the "edges" on the graph sharp even when filtering with large widths.
-    (when stop-detection?
-      (let ([stop-points (df-get-property data-frame 'stop-points)])
-        ;; NOTE: stop-points might be #f if there is no timer series
-        (for ([point (or stop-points '())])
-          (let ([idx (bsearch data point #:key (lambda (v) (vector-ref v 2)))])
-            (when idx
-              (vector-set! (vector-ref data idx) 1 0)
-              (when (< (+ idx 1) (vector-length data))
-                (vector-set! (vector-ref data (+ idx 1)) 1 0)))))))
+    ;;
+    ;; If the data set is too small, overriding existing data points to 0 will
+    ;; destroy otherwise useful information.  In such a case, we create a copy
+    ;; of the data and add extra points, instead of overriding them.  For
+    ;; larger data sets, this is not so important as there are adjacent data
+    ;; points with the same, or close values.
+    (if (and (< (vector-length data) 100) (> (length stop-points) 0))
+        (let ((ndata (make-vector (+ (vector-length data) (* 2 (length stop-points))) #f)))
+          (let loop ((index 0) (nindex 0) (stop-indices stop-indices))
+            (when (< index (vector-length data))
+              (vector-set! ndata nindex (vector-ref data index))
+              (cond ((null? stop-indices)
+                     (loop (add1 index) (+ 1 nindex) stop-indices))
+                    ((= index (car stop-indices))
+                     (let ((nd (vector-copy (vector-ref data index))))
+                       (vector-set! nd 1 0)
+                       (vector-set! ndata (+ 1 nindex) nd))
+                     (let ((nd (vector-copy (vector-ref data (add1 index)))))
+                       (vector-set! nd 1 0)
+                       (vector-set! ndata (+ 2 nindex) nd))
+                     (loop (add1 index) (+ 3 nindex) (cdr stop-indices)))
+                    (#t
+                     (loop (add1 index) (add1 nindex) stop-indices)))))
+          (set! data ndata))
+        (for ([stop (in-list stop-indices)])
+          (when (< stop limit)
+            (vector-set! (vector-ref data stop) 1 0))
+          (when (< (add1 stop) limit)
+            (vector-set! (vector-ref data (add1 stop)) 1 0))))
 
     ;; Reduce the number of points in the data to make it more manageable for
-    ;; the plots.
-    (when (and simplify-data (> (vector-length data) 0))
+    ;; the plots.  We don't simplify small data sets (1000 points or less)
+    (when (and simplify-data (> (vector-length data) 1000))
       (define eps (expt 10 (- (send x-axis fractional-digits))))
-      ;; simplify data more aggressively for large data sets
-      (define mult (max 1.0 (/ (vector-length data) 5000)))
-      (set! data (rdp-simplify data #:epsilon (* eps mult) #:destroy-original? #t)))
+      ;; simplify data more aggressively for large data sets, but limit it
+      ;; somehow...
+      (define mult (min 10 (max 1.0 (/ limit 5000))))
+      (set! data (rdp-simplify data
+                               #:epsilon (* eps mult)
+                               #:destroy-original? #t
+                               #:keep-positions stop-indices)))
 
     data))
 
@@ -1121,7 +1170,7 @@
                   (vector-ref laps (+ lap-num 1))
                   #f)))
     (cons start end)))
-         
+
 ;; Determine the min/max y values for a plot based on STATS (as collected by
 ;; `ds-stats') and the Y-AXIS.
 (define (get-plot-y-range stats y-axis)
@@ -1192,10 +1241,10 @@
     (add-arg '#:alpha 0.2)
 
     (keyword-apply
-         lines-interval kwd val
-         (list (vector start max-val) (vector end max-val))
-         (list (vector start min-val) (vector end min-val))
-         '())))
+     lines-interval kwd val
+     (list (vector start max-val) (vector end max-val))
+     (list (vector start min-val) (vector end min-val))
+     '())))
 
 ;; Create a plot renderer that plots different points in different colors.
 ;; DATA is produced by `group-samples/factor' and it is a hash table mapping a
@@ -1350,7 +1399,7 @@
   (define (present-in-cache sid)
     (or (hash-ref df-cache sid #f)
         (hash-ref df-cache2 sid #f)))
-  
+
   (let ((in-cache '())
         (not-in-cache '()))
     (for ((sid (in-list sids)))
@@ -1446,7 +1495,7 @@
                    (hash-ref df-cache2 sid #f)))
     (when df                            ; might no longer be here
       (df-put-property df 'dirty-wbal #t))
-      (log-event 'session-updated-data sid)))
+    (log-event 'session-updated-data sid)))
 
 (define dummy
   (let ((s (make-log-event-source)))

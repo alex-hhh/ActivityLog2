@@ -17,6 +17,7 @@ build-id.txt
 compiled/
 dist/
 test/test-db/
+test/test-fit/
 # ignore it for now, contains user specific info.
 .dir-locals.el
 # various data files that we don't want under version control

@@ -489,6 +489,8 @@
          (define/override (series-name) "alt")
          (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
+         ;; Don't replace missing values with anything, strip them out.
+         (define/override (missing-value) #f)
          )))
 (provide axis-elevation)
 
@@ -501,6 +503,8 @@
          (define/override (series-name) "calt")
          (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
+         ;; Don't replace missing values with anything, strip them out.
+         (define/override (missing-value) #f)
          )))
 (provide axis-corrected-elevation)
 

@@ -1,6 +1,6 @@
 #lang racket
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -12,25 +12,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require rackunit)
-(require rackunit/text-ui)
-(require db)
-(require "../rkt/dbapp.rkt")
-(require "../rkt/database.rkt")
-(require "../rkt/dbutil.rkt")
-(require "../rkt/sport-charms.rkt")
-(require "../rkt/fit-file/fit-file.rkt")
-(require "../rkt/fit-file/activity-util.rkt")
-(require "../rkt/utilities.rkt")
-(require "../rkt/import.rkt")
-(require "../rkt/session-df.rkt")
-(require "../rkt/intervals.rkt")
-(require "../rkt/workout-editor/wkstep.rkt")
-(require "../rkt/workout-editor/wk-db.rkt")
-(require "../rkt/workout-editor/wk-fit.rkt")
-(require "../rkt/weather.rkt")
-(require "../rkt/data-frame/df.rkt")
+(require db
+         rackunit
+         rackunit/text-ui
+         "../rkt/data-frame/df.rkt"
+         "../rkt/database.rkt"
+         "../rkt/dbapp.rkt"
+         "../rkt/dbutil.rkt"
+         "../rkt/fit-file/activity-util.rkt"
+         "../rkt/session-df.rkt"
+         "../rkt/sport-charms.rkt"
+         "../rkt/weather.rkt"
+         "../rkt/workout-editor/wk-db.rkt"
+         "../rkt/workout-editor/wk-fit.rkt"
+         "../rkt/workout-editor/wkstep.rkt"
+         "test-util.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
 
@@ -55,95 +51,6 @@
 
 (define (activity-count db)
   (query-value db "select count(*) from ACTIVITY"))
-
-(define (with-database thunk)
-  (let ((db (open-activity-log 'memory)))
-    (set-current-database db)
-    (clear-session-df-cache)
-    (dynamic-wind
-      (lambda () (void))
-      ;; NOTE: cannot really catch errors as error trace will loose context
-      (lambda () (thunk db))
-      (lambda () (disconnect db)))))
-
-(define (aid->sid aid db)
-  ;; NOTE: there might be multiple session ID's for each activity ID
-  ;; (multisport sessions)
-  (query-list db "select id from A_SESSION where activity_id = ?" aid))
-
-;; Do some basic checks on the session data frame
-(define (check-session-df df)
-  (define nitems (df-row-count df))
-  (check > nitems 0)         ; must have some data
-  (define sn (df-series-names df))
-  ;; All data series must contain at least one data point of valid data
-  ;; (make-session-data-frame is supposed to remove empty series, like gct for
-  ;; a cycling session)
-  (for ([s (in-list sn)] #:unless (member s '("stride")))
-    (check < (df-count-na df s) nitems (format "empty series found: ~a" s)))
-  ;; Remove the common series
-  (set! sn (remove "timestamp" sn))
-  (set! sn (remove "timer" sn))
-  (set! sn (remove "elapsed" sn))
-  (set! sn (remove "dst" sn))
-  ;; Check that we still got some actual data series left
-  (check > (length sn) 0 "no meaningful series in session data frame"))
-
-;; Check that TIME-IN-ZONE data has been stored in the database for this
-;; session.
-(define (check-time-in-zone df db file)
-  ;; Only check TIZ data if sport zones have been added to the database
-  (when (> (query-value db "select count(*) from SPORT_ZONE") 0)
-    (let ((sport (df-get-property df 'sport))
-          (sid (df-get-property df 'session-id)))
-      (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
-        ;; Check that we have some time-in-zone data from the session
-        (let ((nitems (query-value db "select count(*) from TIME_IN_ZONE where session_id = ?" sid)))
-          (check > nitems 0
-                 (format "TIZ not present for ~a ~a" sport file)))))))
-
-;; Check that we can obtain intervals from a data frame.  For now, we only
-;; check if the code runs without throwing any exceptions.
-(define (check-intervals df)
-  (let ((sport (df-get-property df 'sport)))
-    (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
-      (make-split-intervals df "elapsed" (* 5 60)) ; 5 min splits
-      ;; (printf "make-split-intervals elapsed done~%")(flush-output)
-      (make-split-intervals df "dst" 1600)         ; 1 mile splits
-      ;; (printf "make-split-intervals dst done~%")(flush-output)
-      (make-climb-intervals df)
-      ;; (printf "make-climb-intervals done~%")(flush-output)
-      ;; (printf "sport: ~a~%" sport)(flush-output)
-      (if (eq? (vector-ref sport 0) 1)
-          (begin
-            (make-best-pace-intervals df)
-            ;; (printf "make-best-pace-intervals done~%")(flush-output))
-            )
-          (begin
-            (make-best-power-intervals df)
-            ;; (printf "make-best-power-intervals done~%")(flush-output))
-          )))))
-  
-(define (db-import-activity-from-file/check file db (basic-checks-only #f))
-  (check-not-exn
-   (lambda ()
-     (let ((result (db-import-activity-from-file file db)))
-       (check-pred cons? result "Bad import result format")
-       (check-eq? (car result) 'ok (format "~a" (cdr result)))
-       (unless basic-checks-only
-         ;; Do some extra checks on this imported file
-         (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
-         ;; (printf "... done with the post import tasks~%")(flush-output)
-         (for ((sid (aid->sid (cdr result) db)))
-           (let ((df (session-df db sid)))
-             ;; (printf "got the session~%")(flush-output)
-             (check-session-df df)
-             ;; (printf "check session done~%")(flush-output)
-             (check-intervals df)
-             ;; (printf "check intervals done~%")(flush-output)
-             (check-time-in-zone df db file)
-             ;;(printf "check time-in-zone done~%")
-             )))))))
 
 (define (db-import-manual-session db)
   (let* ((duration 3600)
@@ -284,7 +191,7 @@ select count(T.id),
   (check-pred number? (session-avg-right-ppp-start session) "avg-right-ppp-start")
   (check-pred number? (session-avg-right-ppp-end session) "avg-right-ppp-end")
 
-    ;; The avg CYD fields must be present for each lap
+  ;; The avg CYD fields must be present for each lap
   (for ([lap (in-list (session-laps session))])
     (check-pred number? (lap-avg-left-pco lap) "avg-left-pco")
     (check-pred number? (lap-avg-right-pco lap) "avg-right-pco")
@@ -306,7 +213,7 @@ select count(T.id),
    (test-case "Cycling dynamics import / export"
      (with-database
        (lambda (db)
-         (db-import-activity-from-file/check a9 db #t) ; only basic checks here
+         (db-import-activity-from-file/check a9 db #:basic-checks-only? #t)
          (check = 1 (activity-count db))
          (define session-id 1)
          (cyd-check-session-values session-id db)
@@ -362,32 +269,32 @@ select count(T.id),
 
          ;; Check that the indoor cycling session has a sport zone and a CP zone assigned
          (check-eq? 1 (length (query-list db "
-select S.id 
-from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS 
-where S.id = SZFS.session_id 
-  and S.sport_id = 2 
+select S.id
+from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS
+where S.id = SZFS.session_id
+  and S.sport_id = 2
   and S.sub_sport_id = 6")))
 
          (check-eq? 1 (length (query-list db "
-select S.id 
-from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS 
-where S.id = CPFS.session_id 
-  and S.sport_id = 2 
+select S.id
+from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS
+where S.id = CPFS.session_id
+  and S.sport_id = 2
   and S.sub_sport_id = 6")))
 
          ;; Check that the cycling session has a sport zone and a CP zone assigned
          (check-eq? 1 (length (query-list db "
-select S.id 
-from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS 
-where S.id = SZFS.session_id 
-  and S.sport_id = 2 
+select S.id
+from A_SESSION S, V_SPORT_ZONE_FOR_SESSION SZFS
+where S.id = SZFS.session_id
+  and S.sport_id = 2
   and S.sub_sport_id is null")))
 
          (check-eq? 1 (length (query-list db "
-select S.id 
-from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS 
-where S.id = CPFS.session_id 
-  and S.sport_id = 2 
+select S.id
+from A_SESSION S, V_CRITICAL_POWER_FOR_SESSION CPFS
+where S.id = CPFS.session_id
+  and S.sport_id = 2
   and S.sub_sport_id is null")))
 
          )))))
@@ -494,7 +401,7 @@ where S.id = CPFS.session_id
 
   ;; two workouts left
   (check = 2 (query-value db "select count(*) from WORKOUT") "check #7")
-  ;; ... with one version each 
+  ;; ... with one version each
   (check = 2 (query-value db "select count(*) from WORKOUT_VERSION") "check #8")
 
   (define-values (workout-id2 version-id2)
@@ -512,7 +419,7 @@ where S.id = CPFS.session_id
   (fetch-workout db workout-id2 #:for-export? #t)
   (check = 1 (query-value db "select is_exported from WORKOUT_VERSION where id = ?"
                           version-id2))
-  
+
   )
 
 (define (check-workout-fit-generation)
@@ -554,10 +461,10 @@ where S.id = CPFS.session_id
    "Database tests"
 
    (test-case
-    "Create fresh database"
-    ;; This should catch any problems with db-schema.sql
-    (check-not-exn
-     (lambda () (disconnect (open-activity-log 'memory)))))
+       "Create fresh database"
+     ;; This should catch any problems with db-schema.sql
+     (check-not-exn
+      (lambda () (disconnect (open-activity-log 'memory)))))
 
    (test-case "Importing first activity"
      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
@@ -604,6 +511,6 @@ where S.id = CPFS.session_id
    ))
 
 (module+ test
- (run-tests db-tests 'verbose))
+  (run-tests db-tests 'verbose))
 
 ;;(test/gui db-tests)

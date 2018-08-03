@@ -1,29 +1,59 @@
+
+# Travis CI build and test file for ActivityLog2.  The aim is to check that
+# the application builds correctly, and automated tests pass.  The build step
+# runs build.rkt which also creates a distribution (in the past, creating a
+# distribution has failed due to bad paths in `define-runtime-path`).  Some of
+# the automated tests depend on data that is downloaded from Google Drive,
+# this is private data and it is encrypted.  It is downloaded by the
+# `download-test-data.sh` script.
+
+# Some notes:
+
+# The "secure" part will not be decrypted on pull requests that are from
+# outside the main repository (this actually makes sense, if you think about
+# it) -- tests that depend on private data will only run on the official
+# branches.
+
+# Do not use caching of any kind, it is not really needed and possibly not a
+# good idea when combined with the `download-test-data.sh`
+
+# The Racket tests require an X server, since they link into the GUI
+# libraries, even though they don't open any GUI windows, thus we have a
+# DISPLAY environment variable and we start `xvfb`
+
+# References:
+
+# https://docs.travis-ci.com/user/caching/
+# https://docs.travis-ci.com/user/encryption-keys/
+
 language: c
 sudo: false
+cache: false
+
 env:
   global:
-  - RACKET_DIR=~/racket
-  - secure: 3vqwMDeZJu/3MZCE5jyg2m6c7FtnGq236/dtG0ka7PR4ep4UEyqvzTyFw2G72iaZucTdhY0qq2WqgMTh54+vp+TW7dNCF9E5JCzcmKRPhn00ElpsghocPvniBlBW8KeBCqtbJGKaBTJrNtsAV48DlmZsNGTT6hvJliLPVeMB+mab7+0sStB+Bn2tjpStkux+lH6u0WfPXVg7BmPAAaUNjjjcFqdGVDv58fx+iAjy81n/IaAgCMfjQN9B7weSjTWiN8RzGthGusx0vCPupH4bzHoHzu6J/Vk2ExCT1y1KWV8faZR7PGTGmvWExDlp0s+fPOMocyop1uIIsJYqaGjZWjg1lSlXuzPB/lAxvmaqSYkRQSFuGQ4KUxvQRRNxt0OS96Eqho2dev6auCrE5BJ7HLT9hEAZ9AMrNpEA2gQ51a27lTMrYfrSiYl1W4L172Fd9eJL08sVeu27g3VNH/4wPUqbiQr76lIMRsjwcqPUwFL11UsA78eTzkj8B/1rW5YN4uTvC9ICVtgQYCJKlPbPv/CC22B/m6Vq5spYbtXgWV6mvIYO/oAx8114rK5eNtHcv5zBo6VM8xo5/x1CedIOwkHmec0VQ8PSVi8UhP9oxlhYBnTXUb/Jc4FegrU2goBQ21KeIExOx7Z4kGgvi7tP0lTwABF+0AzXIEvb9S4AAfY=
+    - RACKET_DIR=~/racket
+    - DISPLAY=:99.0
+    - secure: "UrtMaEd9RcXMSEaOK/0VJh7W5L1MIAIjcZnh38pHt/xDIRDCXhMNxkMCS6ra00UwrFaw1l3VcI5mNYWY1JP6Fct1LbU2AY+sKoNNkld5OigNUrx1eXhtzXy8a1T0gX0kJhWvPVAActRwnaWjmhUblH1UAOWOvfcX4laekAVXbSJOVCBKSQl7HNl0xJBm0TriAZtWg+pumTG93e2+3hza6cWQ0tJHqn1kwBmD6aKTJLpd05IU3g6bl/+4cOGosnOaD8L/fDjA51Hl5kwHXPxTrNkoLqRdrCfX+q5vF9D6qG6VdS4lxiNKDTCvnKQ8TZXsvF+WIvIaQSR8CrqqO5pfZWHQNkMJ6jIFrLrV77xx5fa4wWamOgeoZ2GhkXjlg/0qVTVU30h4qZbijbP7byyyErLKujklIYJPgRcgp8ok7pMs4qyqMK7lWyrwYQ7lc/e0PvS/stz8tGSVMboHsVFcP1IlQHAaQJK7Nlk3Pzxktx9CtOHOn/DW7Bw+eRd/zF24GqZKBwxB5VbgBWxpPfukWUwejo/uIevMGGSDnPOmNXvWeQL0LJ8C6qKUSfaH9+5YGwkev46MH41KyWfyekqjbASxNx3MU7SXeFrwT/5jQVENhD/zAUVMVk4Nr6YmAWm1iD66RvpJ/Y3lHn0roQ3CUVKWsHR/l5cNd8SYx5RT7nU="
   matrix:
-  - RACKET_VERSION=6.12
+    - RACKET_VERSION=7.0
 matrix:
   allow_failures:
-  - env: RACKET_VERSION=HEAD
-  - env: RACKET_VERSION=RELEASE
+    - env: RACKET_VERSION=HEAD
+    - env: RACKET_VERSION=RELEASE
   fast_finish: true
 before_install:
-  - git clone https://github.com/greghendershott/travis-racket.git
-  - cat travis-racket/install-racket.sh | bash
+  - bash ./.travis/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
-install:
+install: true
 before_script:
-  - export DISPLAY=:99.0
   - bash -e /etc/init.d/xvfb start
-  - bash ./test/download-test-db.sh
+  - bash ./.travis/download-test-data.sh
 script:
   - racket build.rkt
   - raco test test/df-test.rkt
   - raco test test/db-test.rkt
   - raco test test/db-upgrade-test.rkt
   - raco test test/aggregate-test.rkt
+  - raco test test/fit-test.rkt
 after_script: 

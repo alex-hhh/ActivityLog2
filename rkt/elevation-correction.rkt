@@ -2,7 +2,7 @@
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -74,7 +74,9 @@ where position_lat is not null
     (bitwise-ior (arithmetic-shift x tile-level) y)))
 
 (define (lat-lon->tile-code lat lon)
-  (map-point->tile-code (lat-lon->map-point lat lon)))
+  (map-point->tile-code (lat-lon->map-point
+                         (exact->inexact lat)
+                         (exact->inexact lon))))
 (provide lat-lon->tile-code)
 
 (define (update-tile-codes db)
@@ -182,7 +184,7 @@ from A_TRACKPOINT where tile_code = ?
   ;; Return the average altitude at LAT, LONG based on points in
   ;; ALTITUDE-DATA.  ALTITUDE-DATA is a function which returns a set of points
   ;; given a tile code.
-  
+
   ;; Implementaion: we select points in the tile containing LAT/LONG plus all
   ;; surronding tiles and average the altitude of those points weighted by
   ;; their distance from LAT/LONG.
@@ -210,8 +212,10 @@ from A_TRACKPOINT where tile_code = ?
 
   (let ((r-lat (degrees->radians lat))
         (r-long (degrees->radians long))
-        (sum-div (cons 0.0 0.0)))
-    (for ([tile-code (candidate-tile-codes (lat-lon->map-point lat long))])
+        (sum-div (cons 0.0 0.0))
+        (i-lat (exact->inexact lat))
+        (i-lon (exact->inexact long)))
+    (for ([tile-code (candidate-tile-codes (lat-lon->map-point i-lat i-lon))])
       (let ([points (altitude-data tile-code)])
         (set! sum-div (accumulate-average-altitude r-lat r-long points sum-div))))
     (if (> (cdr sum-div) 0)
@@ -373,7 +377,7 @@ order by T.timestamp")))
             (set-tpoint-calt! tp a))
           ;; Use the previous value
           (set-tpoint-calt! tp (tpoint-calt (vector-ref trackpoints (sub1 idx))))))
-    
+
     (iterate 0 (sub1 (vector-length trackpoints)))))
 
 (define update-trackpoint-stmt
@@ -605,4 +609,3 @@ update SECTION_SUMMARY
  where id in (select S.summary_id
                 from A_SESSION S
                where S.id = ?)" session-id))))
-

@@ -307,14 +307,16 @@
     (define/public (set-selection index)
       ;; NOTE that index 0 is reserved for the expand/collapse button, our
       ;; internal indexes start at 1.
-      (unless (eq? selected-index index)
+      (unless (eq? selected-index (add1 index))
         (set! selected-index (add1 index))
         (send canvas refresh)))
 
     ;; Select or de-select the item at INDEX depending on SELECT? (0 is the
     ;; first actual label, NOT the collapse button).
     (define/public (select index select?)
-      (if (eq? selected-index index)
+      ;; NOTE that index 0 is reserved for the expand/collapse button, our
+      ;; internal indexes start at 1.
+      (if (eq? selected-index (add1 index))
           ;; De-select the current item, if selected.
           (unless select?
             (set! selected-index #f)

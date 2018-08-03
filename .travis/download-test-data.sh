@@ -15,8 +15,8 @@
 set -e
 script_name=$(basename $0)
 
-if [ -z $TESTDBPW ]; then
-    echo "$script_name: missing TESTDBPW env var, will not download anything"
+if [ -z $TESTDATAPW ]; then
+    echo "$script_name: missing TESTDATAPW env var, will not download anything"
     exit 0
 fi
 
@@ -32,16 +32,16 @@ function download_file {
     fi
 
     gurl=https://drive.google.com/uc
-    gcookies=$(mktemp download-test-db.XXXXXXXXXX)
+    gcookies=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
     trap 'rm -f -- $gcookies' INT TERM HUP EXIT
     curl -sc $gcookies "$gurl?export=download&id=$file_id" > /dev/null
     code="$(awk '/_warning_/ {print $NF}' $gcookies)"
-    ofile1=$(mktemp download-test-db.XXXXXXXXXX)
+    ofile1=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
     trap 'rm -f -- $ofile1' INT TERM HUP EXIT
-    curl -LJ -o ./$ofile1 -b $gcookies "$gurl?export=download&confirm=$code&id=$file_id"
-    ofile2=$(mktemp download-test-db.XXXXXXXXXX)
+    curl -LJ -o $ofile1 -b $gcookies "$gurl?export=download&confirm=$code&id=$file_id"
+    ofile2=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
     trap 'rm -f -- $ofile2' INT TERM HUP EXIT
-    openssl aes-256-cbc -d -k $TESTDBPW -in $ofile1 -out $ofile2
+    openssl aes-256-cbc -d -k $TESTDATAPW -in $ofile1 -out $ofile2
     # We run in the root of the repo, but output test databases into the test
     # folder
     tar xvzf $ofile2 -C test
@@ -49,6 +49,5 @@ function download_file {
     rm -f -- $gcookies $ofile1 $ofile2
 }
 
-# https://drive.google.com/file/d/1KQ8IpgI3LDPnF4z0ovnR-nNXPnZxubLs/view?usp=sharing
-
-download_file "1KQ8IpgI3LDPnF4z0ovnR-nNXPnZxubLs"
+download_file "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo"
+download_file "1K8UsFT9962Gd195a71cPqzhK4O0RPK7y"

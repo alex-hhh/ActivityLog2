@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -125,7 +125,9 @@
               (set! seq (list mp))
               (set! current-factor (factor-fn (key-fn mp)))
               (if (equal? factor current-factor)
-                  (loop (add1 index))
+                  (begin
+                    (set! seq (cons item seq))
+                    (loop (add1 index)))
                   (loop index)))))))
   ;; Add last one
   (when current-factor
@@ -335,7 +337,8 @@
         (fdata (pd-fdata pd))
         (y-range (pd-y-range pd)))
     (cond ((and df (is-lap-swimming? df)
-                (send y plot-color-by-swim-stroke?))
+                (send y plot-color-by-swim-stroke?)
+                (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
             sdata (df-select df "swim_stroke")))
           ((and (ps-color? ps) fdata)
@@ -722,12 +725,16 @@
               (lambda ()
                 (if (= (pd-token npdata) (ps-token plot-state))
                     (begin
-                      (when (pd-plot-rt npdata)
-                        (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
-                        (set-mouse-event-callback the-plot-snip plot-hover-callback)
-                        (when (pd-hlivl npdata)
-                          (match-define (list xmin xmax color) (pd-hlivl npdata))
-                          (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                      (if (pd-plot-rt npdata)
+                          (begin
+                            (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
+                            (set-mouse-event-callback the-plot-snip plot-hover-callback)
+                            (when (pd-hlivl npdata)
+                              (match-define (list xmin xmax color) (pd-hlivl npdata))
+                              (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                          (begin
+                            (send graph-canvas set-snip #f)
+                            (send graph-canvas set-background-message "No data for plot...")))
                       (set! previous-plot-state pstate)
                       (set! plot-state pstate)
                       (set! plot-data npdata)
@@ -745,12 +752,16 @@
              (queue-callback
               (lambda ()
                 (if (= (pd-token pdata) cached-bitmap-token)
-                    (begin
-                      (set! the-plot-snip (put-plot/canvas graph-canvas pdata pstate))
-                      (set-mouse-event-callback the-plot-snip plot-hover-callback)
-                      (when (pd-hlivl pdata)
-                        (match-define (list xmin xmax color) (pd-hlivl pdata))
-                        (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                    (if (pd-plot-rt pdata)
+                        (begin
+                          (set! the-plot-snip (put-plot/canvas graph-canvas pdata pstate))
+                          (set-mouse-event-callback the-plot-snip plot-hover-callback)
+                          (when (pd-hlivl pdata)
+                            (match-define (list xmin xmax color) (pd-hlivl pdata))
+                            (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                        (begin
+                          (send graph-canvas set-snip #f)
+                          (send graph-canvas set-background-message "No data for plot...")))
                     (void)))))))))
 
     (define (refresh)
@@ -2114,8 +2125,14 @@
 
       (let ((lap-swimming? (is-lap-swimming? data-frame)))
 
+        ;; note: some activities might not contain a distance series.
         (set! x-axis-choices
-              (if lap-swimming? swim-x-axis-choices default-x-axis-choices))
+              (for/list ([axis (in-list (if lap-swimming?
+                                            swim-x-axis-choices
+                                            default-x-axis-choices))]
+                         #:when (df-contains? df (send (cdr axis) series-name)))
+                axis))
+
         (send filter-amount-choice set-selection (if lap-swimming? 0 filter-amount))
         (send filter-amount-choice enable (not lap-swimming?))
         (send x-axis-choice clear)

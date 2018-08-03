@@ -756,6 +756,20 @@
      (check < (vector-length data-2) (vector-length data-1))
      (check < (vector-length data-3) (vector-length data-2))
 
+     (define nitems (vector-length data))
+     (define test-point (exact-truncate (/ nitems 2))) ; midway point
+     (define data-5 (rdp-simplify data #:epsilon 0.03
+                                  #:keep-positions
+                                  (list test-point
+                                        (sub1 nitems) ; last one
+                                        (+ nitems 5) ; out of range
+                                        )))
+     ;; The test-point and the one that follows were kept in the output set...
+     (check-pred exact-nonnegative-integer?
+                 (vector-memq (vector-ref data test-point) data-5))
+     (check-pred exact-nonnegative-integer?
+                 (vector-memq (vector-ref data (add1 test-point)) data-5))
+
      (define data-4 (rdp-simplify data #:epsilon 0.04 #:destroy-original? #t))
      (check < (vector-length data-4) (vector-length data-3))
      ;; data now contains #f values, as it was destroyed

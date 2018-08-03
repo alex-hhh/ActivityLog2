@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -331,8 +331,9 @@
                [track (extract-track* data-frame start-idx end-idx)])
           (send map-view add-track track group)
           (set! start lap)
-          ;; Make sure lap tracks are joined
-          (set! start-idx (sub1 end-idx))))
+          ;; Make sure lap tracks are joined, but do not go backwards (this
+          ;; accounts for empty laps)
+          (set! start-idx (max start-idx (sub1 end-idx)))))
 
       (send map-view set-group-pen #f
             (send the-pen-list find-or-create-pen
