@@ -26,6 +26,7 @@
          "../rkt/utilities.rkt"
          "../rkt/data-frame/df.rkt"
          "../rkt/data-frame/csv.rkt"
+         "../rkt/data-frame/sql.rkt"
          "../rkt/data-frame/describe.rkt"
          "../rkt/data-frame/statistics.rkt"
          "../rkt/session-df.rkt"
@@ -45,6 +46,8 @@
  (all-from-out "../rkt/data-frame/df.rkt")
  (all-from-out "../rkt/data-frame/describe.rkt")
  (all-from-out "../rkt/data-frame/statistics.rkt")
+ (all-from-out "../rkt/data-frame/csv.rkt")
+ (all-from-out "../rkt/data-frame/sql.rkt")
  (all-from-out "../rkt/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df.rkt")

@@ -15,7 +15,8 @@
 (require racket/match
          racket/contract
          racket/math
-         racket/flonum)
+         racket/flonum
+         "data-frame/annealing.rkt")
 
 
 ;;................................................. Critical Power Model ....
@@ -275,72 +276,6 @@
   (search)
   best)
 
-
-;.................................................. simulated-annealing ....
-
-(define (default-temperature r)
-  ; R is growing from almost 0 to 1, the temperature will drop from 1 to 0
-  (- 1 r))
-
-;; Default transition probability function as described in the simulated
-;; annealing wikipedia page.
-;;
-(define (default-transition cost ncost temperature)
-  (if (< ncost cost)
-      1.0
-      (if (> temperature 0)
-          ;; cost and ncost vary between 0 and 2.  As such we use a 10.0
-          ;; multiplier on them to reduce the probability of a transition when
-          ;; ncost > cost
-          (let* ((exponent (/ (* 10.0 (- ncost cost)) temperature))
-                 (probability (exp (- exponent))))
-            probability)
-          0.0)))
-
-;; Implement the simulated anealing algorithm as described in:
-;; https://en.wikipedia.org/wiki/Simulated_annealing
-;;
-;; INITIAL-STATE is the initial state of the system
-;;
-;; NEIGHBOUR is a function (state, temperature) => state, given a state and
-;; the temperature t, will return a new state
-;;
-;; GOAL is a function (STATE) => COST, that evaluates the cost of the state
-;; (smaller is better)
-;;
-;; TEMPERATURE is a function (iteration-pct) => temperature, that gets passed
-;; in the percentage of the completed iterations
-;; (num-iterations/max-iterations) and produces a "temperature" value.
-;;
-;; TRANSITION is a function (cost, new-cost, temperature) => probability, that
-;; computes the probability of transitioning to a new state given the cost of
-;; the states and the temperature.
-;;
-;; MAKE-ITERATIONS is the maximum number of iterations to perform
-;;
-(define (simulated-anealing
-         #:initial initial-state
-         #:neighbour neighbour
-         #:goal goal
-         #:temperature (temperature default-temperature)
-         #:transition (transition default-transition)
-         #:max-iterations max-iterations)
-
-  (define-values
-    (state cost)
-    (for/fold ([state initial-state]
-               [cost (goal initial-state)])
-              ([k (in-range 1 (add1 max-iterations))])
-      (let* ((t (temperature (exact->inexact (/ k max-iterations))))
-             (nstate (neighbour state t))
-             (ncost (goal nstate))
-             (p (transition cost ncost t)))
-        (if (>= p (random))
-            (values nstate ncost)
-            (values state cost)))))
-
-  state)
-
 ;; Determine CP params using a simulated-anealing algorithm.  This is
 ;; algorithm is about 4 times faster than SEARCH-BEST-CP/EXHAUSIVE, but since
 ;; it is probabilistic it gives slightly different results each time it is
@@ -383,13 +318,13 @@
     (define t2 (ntime (cp2-t2 state) (* r2 aerange) aestart aeend))
     (calculate-cp t1 t2))
 
-  (simulated-anealing
+  (annealing
    ;; We start in the middle of the range
    #:initial (calculate-cp (/ (+ anstart anend) 2) (/ (+ aestart aeend) 2))
    ;; Our goal is the cost function
    #:goal cp2-cost
    #:neighbour neighbour
-   #:max-iterations 5000))
+   #:iterations 5000))
 
 (provide
  (struct-out cp2)

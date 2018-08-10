@@ -35,12 +35,14 @@
     (define lookup-val
       (+ (key-fn (vector-ref data-series start-index))
          amount))
-    (define index
-      (bsearch data-series lookup-val
-               #:start start-index
-               #:stop (+ start-index (exact-truncate amount) (sgn amount))
-               #:key key-fn))
-    (if (< index (vector-length data-series))
+    (define index (bsearch data-series lookup-val #:key key-fn))
+    ;; NOTE: `bsearch` will return 0 if `lookup-val` is smaller than the first
+    ;; item in the vector, so we need one extra check in that case, so we drop
+    ;; values from the start of the series if the shift is beyond the start of
+    ;; the series.
+    (if (and (< index (vector-length data-series))
+             (or (> index 0)
+                 (>= lookup-val (key-fn (vector-ref data-series 0)))))
         (vector-ref (vector-ref data-series index) 1)
         #f))
 

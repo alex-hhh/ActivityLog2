@@ -40,8 +40,8 @@
    beg                           ; start index in the vector where data begins
    end                           ; end index in the vector where data ends
    cmpfn                         ; a compare function, when present, all
-                                 ; elements in this column must be sorted
-                                 ; according to this function
+   ; elements in this column must be sorted
+   ; according to this function
    na                            ; value for the Not Available slots
    contractfn                    ; when not #f, specified contract for elements
    )
@@ -132,11 +132,11 @@
 ;; CONTRACT, if present, is a function which validates the elements in the
 ;; series.
 (define (make-series name
-                    #:data (data #f)
-                    #:capacity (capacity 10)
-                    #:cmpfn (cmpfn #f)
-                    #:na (na #f)
-                    #:contract (contractfn #f))
+                     #:data (data #f)
+                     #:capacity (capacity 10)
+                     #:cmpfn (cmpfn #f)
+                     #:na (na #f)
+                     #:contract (contractfn #f))
   (define df
     (series
      name
@@ -223,12 +223,25 @@
   (match-define (series _ data beg end _ _ _) c)
   (define s (+ start beg))
   (define e (+ stop beg))
-  (when (or (< s beg) (> s end))
-    (raise-range-error
-     'in-series "vector" "" start data 0 (- end beg)))
-  (when (or (< e beg) (> e end))
-    (raise-range-error
-     'in-series "vector" "" stop data 0 (- end beg)))
+  (if (<= start stop)
+      (begin
+        (unless (<= beg s end)
+          (raise-range-error
+           'in-series "vector1" "" start data 0 (- end beg)))
+        (unless (<= beg e end)
+          (raise-range-error
+           'in-series "vector2" "" stop data 0 (- end beg)))
+        (unless (> step 0)
+          (raise-argument-error 'step "positive" step)))
+      (begin
+        (unless (<= (sub1 beg) s end)
+          (raise-range-error
+           'in-series "vector3" "" start data 0 (- end beg)))
+        (unless (<= (sub1 beg) e end)
+          (raise-range-error
+           'in-series "vector4" "" stop data 0 (- end beg)))
+        (unless (< step 0)
+          (raise-argument-error 'step "negative" step))))
   (in-vector (series-data c) s e step))
 
 ;; Find the index of VALUE in the data series C.  The series has to be sorted,
@@ -243,8 +256,8 @@
       (bsearch data value #:cmp cmpfn #:start beg #:stop end)
       (df-raise (format "series-index-of: ~a is not sorted" name))
       #;(for/first ([(x index) (in-indexed (in-vector data beg end))]
-                  #:when (equal? x value))
-        index)))
+                    #:when (equal? x value))
+          index)))
 
 ;; Return the number of "not available" values in the data series.
 (define (series-na-count c)
@@ -272,12 +285,12 @@
 
 (provide/contract
  (make-series (->* (string?)
-                  (#:data (or/c vector? #f)
-                   #:capacity exact-nonnegative-integer?
-                   #:cmpfn (or/c #f (-> any/c any/c boolean?))
-                   #:na any/c
-                   #:contract (-> any/c boolean?))
-                  series?))
+                   (#:data (or/c vector? #f)
+                    #:capacity exact-nonnegative-integer?
+                    #:cmpfn (or/c #f (-> any/c any/c boolean?))
+                    #:na any/c
+                    #:contract (-> any/c boolean?))
+                   series?))
  (series? (-> any/c boolean?))
  (series-na (-> series? any/c))
  (series-name (-> series? string?))
@@ -290,9 +303,9 @@
  (series-set! (-> series? exact-nonnegative-integer? any/c any/c))
  (series-push-back (-> series? any/c any/c))
  (in-series (->* (series?) (exact-nonnegative-integer?
-                          exact-nonnegative-integer?
-                          exact-nonnegative-integer?)
-                sequence?))
+                            (or/c -1 exact-nonnegative-integer?)
+                            exact-integer?)
+                 sequence?))
  (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
  (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
  (series-bless-contract (-> series? (or/c #f (-> any/c boolean?)) any/c))

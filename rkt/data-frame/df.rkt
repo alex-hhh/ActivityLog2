@@ -193,7 +193,7 @@
   (define generators
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
-        (in-series c start stop))))
+        (in-series c start stop (if (<= start stop) 1 -1)))))
   (in-values-sequence (apply in-parallel generators)))
 
 ;; Return a sequence that produces values from a list of SERIES between START
@@ -213,7 +213,7 @@
   (define generators
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
-        (in-series c start stop))))
+        (in-series c start stop (if (<= start stop) 1 -1)))))
   (apply in-parallel generators))
 
 ;; Return a vector where each element is a vector containing values from
@@ -339,8 +339,8 @@
                 (prev (apply df-ref* df (sub1 index) slist))
                 (next (apply df-ref* df index slist))
                 (result (for/vector #:length (length slist)
-                                    ([p (in-vector prev)]
-                                     [n (in-vector next)])
+                            ([p (in-vector prev)]
+                             [n (in-vector next)])
                           (interpolate t p n))))
            (if (list? series) result (vector-ref result 0))))))
 
@@ -496,7 +496,7 @@
 
 ;;............................................................. provides ....
 
-(define index/c exact-nonnegative-integer?)
+(define index/c (or/c -1 exact-nonnegative-integer?))
 (define mapfn/c (or/c (-> any/c any/c) (-> any/c any/c any/c)))
 (define foldfn/c (or/c (-> any/c any/c any/c) (-> any/c any/c any/c any/c)))
 

@@ -2,7 +2,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,9 @@
          "../rkt/data-frame/statistics.rkt"
          "../rkt/data-frame/meanmax.rkt"
          "../rkt/data-frame/histogram.rkt"
-         "../rkt/data-frame/rdp-simplify.rkt")
+         "../rkt/data-frame/rdp-simplify.rkt"
+         "../rkt/data-frame/least-squares-fit.rkt"
+         "../rkt/data-frame/scatter.rkt")
 
 
 ;;.............................................................. bsearch ....
@@ -447,7 +449,12 @@
        (define result2 '())
        (for ((item (in-data-frame/list df "col1" "col2")))
          (set! result2 (cons item result2)))
-       (check equal? result2 '((4 0) (3 1) (2 2) (1 3))))
+       (check equal? result2 '((4 0) (3 1) (2 2) (1 3)))
+       (define result3 '())
+       ;; See if we can select backwards
+       (for ((item (in-data-frame/list df "col1" "col2" #:start 2 #:stop -1)))
+         (set! result3 (cons item result3)))
+       (check equal? result3 '((1 3) (2 2) (3 1))))
 
      (let ()                          ; test-case "`in-data-frame` test-cases"
        (define sum1 (for/sum (((c1 c2) (in-data-frame df "col1" "col2" #:start 1 #:stop 3)))
@@ -777,7 +784,165 @@
 
      )))
 
+(define scatter-tests
+  (test-suite
+   "`scatter` test suite"
+   (test-case "`time-delay-series` test case"
 
+     (define timestamp 1000000)
+     (define nitems 100)
+     (define shift-amount 20)
+
+     (define tdata
+       (for/vector #:length nitems
+           ([i (in-range nitems)])
+         (vector i i (+ timestamp i))))
+
+     ;; We expect less items in the delayed series, as items will be dropped
+     ;; from the end or the start...
+     (define expected-length (- nitems shift-amount))
+
+     (define delay-positive (time-delay-series tdata shift-amount))
+     (check = (vector-length delay-positive) expected-length)
+     (for ((item (in-vector delay-positive)))
+       (match-define (vector x y ts) item)
+       ;; NOTE: the x y and timestamp values were chosen carefully so we can
+       ;; check if they shifted correctly with simple arithmetic!
+       (check = (- ts x) timestamp)
+       (check = (- y x) shift-amount))
+
+     (define delay-negative (time-delay-series tdata (- shift-amount)))
+     (check = (vector-length delay-negative) expected-length)
+     (for ((item (in-vector delay-negative)))
+       (match-define (vector x y ts) item)
+       ;; NOTE: the x y and timestamp values were chosen carefully so we can
+       ;; check if they shifted correctly with simple arithmetic!
+       (check = (- ts x) timestamp)
+       (check = (- y x) (- shift-amount)))
+
+     )))
+
+
+
+;;.................................................... least-squares-fit ....
+
+;; Check that the fit returned by `df-least-squares-fit` is indeed a best fit
+;; -- we test that by modifying the coefficients one by one and see if the
+;; residual from the modified fit function is bigger than the original. If it
+;; is smaller, we just found a better fit than `df-least-squares-fit`
+;; returned!
+(define (check-modified-residuals fit df xseries yseries)
+
+  (define (make-polynomial coefficients)
+    (lambda (x)
+      (define-values (y p)
+        (for/fold ([y 0] [p 1])
+                  ([c (in-list coefficients)])
+          (values (+ y (* p c)) (* p x))))
+      y))
+
+  (define (make-exponential coefficients)
+    (match-define (list a b c) coefficients)
+    (lambda (x) (+ (* a (exp (* b x))) c)))
+
+  (define (make-logarithmic coefficients)
+    (match-define (list a b) coefficients)
+    (lambda (x) (+ a (* b (log x)))))
+
+  (define (make-power-law coefficients)
+    (match-define (list a b) coefficients)
+    (lambda (x) (* a (expt x b))))
+
+  (define (calculate-residual fn)
+    (for/sum (([x y] (in-data-frame df xseries yseries)))
+      (define d (- y (fn x)))
+      (* d d)))
+
+  (define (scale-coeffient coefficients n factor)
+    (let ((item (list-ref coefficients n))
+          (head (take coefficients n))
+          (tail (drop coefficients (add1 n))))
+      (append head (list (* item factor)) tail)))
+
+  (match-define (least-squares-fit type coefficients residual fn) fit)
+  (for ([n (in-range (length coefficients))])
+    (for ([factor (in-list '(0.95 1.05))])
+      (define ncoeff (scale-coeffient coefficients n factor))
+      (define nfn
+        (case type
+          ((linear polynomial) (make-polynomial ncoeff))
+          ((exponential) (make-exponential ncoeff))
+          ((logarithmic) (make-logarithmic ncoeff))
+          ((power) (make-power-law ncoeff))
+          (else (lambda (x) 1))))
+      (define nresidual (calculate-residual nfn))
+      (check > nresidual residual))))
+
+(define least-squares-fit-tests
+  (test-suite
+   "`df-least-squares-fit` test suite"
+   (test-case "`df-least-squares-fit` test cases"
+
+     (define df (df-read/csv "./test-data/lsq-test.csv"))
+
+     (define fit-linear (df-least-squares-fit
+                         df "base" "linear"
+                         #:mode 'linear
+                         #:residual? #t))
+     (check-modified-residuals fit-linear df "base" "linear")
+
+     (define fit-first (df-least-squares-fit
+                        df "base" "linear"
+                        #:mode 'polynomial
+                        #:polynomial-degree 1
+                        #:residual? #t))
+     (check-modified-residuals fit-first df "base" "linear")
+
+     (define fit-second (df-least-squares-fit
+                         df "base" "second"
+                         #:mode 'polynomial
+                         #:polynomial-degree 2
+                         #:residual? #t))
+     (check-modified-residuals fit-second df "base" "second")
+
+     (define fit-third (df-least-squares-fit
+                        df "base" "third"
+                        #:mode 'polynomial
+                        #:polynomial-degree 3
+                        #:residual? #t))
+     (check-modified-residuals fit-third df "base" "third")
+
+     ;; NOTE: exponential fit does not seem to generate minimum residuals, not
+     ;; a mathematician, so I don't know why, see explanation for
+     ;; `df-least-squares-fit`.
+
+     ;; (define fit-exp (df-least-squares-fit
+     ;;                  df "base" "exp"
+     ;;                  #:mode 'exponential
+     ;;                  #:residual? #t
+     ;;                  #:annealing? #t
+     ;;                  #:annealing-iterations 1000))
+     ;; (check-modified-residuals fit-exp df "base" "exp")
+
+     (define fit-log (df-least-squares-fit
+                      df "base2" "log"
+                      #:mode 'logarithmic
+                      #:residual? #t))
+     (check-modified-residuals fit-log df "base2" "log")
+
+     ;; NOTE: power fit does not seem to generate minimum residuals, not a
+     ;; mathematician, so I don't know why, see explanation for
+     ;; `df-least-squares-fit`.
+     ;;
+     ;; (define fit-pow (df-least-squares-fit
+     ;;                  df "base2" "pow"
+     ;;                  #:mode 'power
+     ;;                  #:residual? #t
+     ;;                  #:annealing? #t
+     ;;                  #:annealing-iterations 1000))
+     ;; (check-modified-residuals fit-pow df "base2" "pow")
+
+     )))
 
 ;;................................................................. rest ....
 
@@ -793,7 +958,9 @@
    gpx-tests
    stats+mmax-tests
    histogram-tests
-   rdp-simplify-tests))
+   rdp-simplify-tests
+   scatter-tests
+   least-squares-fit-tests))
 
 (module+ test
   (run-tests data-frame-tests))
