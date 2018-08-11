@@ -24,25 +24,22 @@
 ;; NOTE: the quadrant plot is also defined for run and swim activities, using
 ;; pace instead of power.  The Y line is stride instead of torque.
 
-(require racket/class
-         racket/gui/base
+(require math/statistics
+         plot/no-gui
+         racket/class
          racket/function
-         racket/math
-         racket/string
+         racket/gui/base
          racket/match
-         plot
-         math/statistics
+         racket/math
+         "../color-theme.rkt"
          "../data-frame/df.rkt"
          "../data-frame/scatter.rkt"
          "../plot-hack.rkt"
+         "../plot-util.rkt"
          "../series-meta.rkt"
          "../sport-charms.rkt"
-         "../widgets/main.rkt"
-         "../session-df.rkt"
          "../utilities.rkt"
-         "../fmt-util.rkt"
-         "../color-theme.rkt"
-         "../plot-util.rkt")
+         "../widgets/main.rkt")
 
 (provide quadrant-plot-panel%)
 

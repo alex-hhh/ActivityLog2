@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/string racket/format racket/date
+(require racket/class racket/string racket/format racket/date
          "validating-input-field.rkt")
 (provide date-input-field%)
 

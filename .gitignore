@@ -27,3 +27,4 @@ test/test-fit/
 *.xlsm
 ChangeLog
 TAGS
+flycheck_*

@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
@@ -13,15 +13,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require racket/format
          rackunit
-         rackunit/text-ui
          "test-util.rkt"
-         "../rkt/data-frame/describe.rkt"
          "../rkt/data-frame/df.rkt"
-         "../rkt/database.rkt"
-         "../rkt/dbapp.rkt"
-         "../rkt/import.rkt"
          "../rkt/session-df.rkt"
          "../rkt/series-meta.rkt"
          "../rkt/weather.rkt")
@@ -82,4 +77,5 @@
      )))
 
 (module+ test
+  (require rackunit/text-ui)
   (run-tests fit-files-test-suite 'verbose))

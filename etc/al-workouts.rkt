@@ -2,7 +2,7 @@
 ;; al-worktouts.rkt -- library functions for creating FIT workouts
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -14,11 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "../rkt/fit-file.rkt")
-(require "../rkt/fit-defs.rkt")
+(require "../rkt/fit-file/fit-file.rkt")
+(require "../rkt/fit-file/fit-defs.rkt")
 
 (provide (all-defined-out))
-(provide (all-from-out "../rkt/fit-file.rkt"))
+(provide (all-from-out "../rkt/fit-file/fit-file.rkt"))
 
 
 ;;....................................................... duration types ....
@@ -112,11 +112,11 @@
     #:mode 'binary
     #:exists 'replace))
 
-(define workout-builder% 
+(define workout-builder%
   (class fit-event-dispatcher%
     (init)
     (super-new)
-    
+
     (define/override (on-file-id file-id) (printf "file-id: ~a~%" file-id))
     (define/override (on-file-creator creator) (printf "file-creator: ~a~%" creator))
     ;;(define/override (on-activity activity) #f)

@@ -14,14 +14,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot
+(require plot/no-gui
          racket/class
          racket/contract
          racket/gui/base
          (rename-in srfi/48 (format format-48))
          racket/list
          racket/match
-         racket/format
          math/statistics
          racket/math
          plot/utils

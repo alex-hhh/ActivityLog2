@@ -17,7 +17,7 @@
 (require racket/class
          racket/gui/base
          racket/match
-         db
+         db/base
          "../dbutil.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"

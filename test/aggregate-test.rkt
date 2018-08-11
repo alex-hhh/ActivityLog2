@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
@@ -13,17 +13,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require rackunit)
+(require racket/math
+         racket/match
+         racket/date
+         racket/format
+         racket/class
+         rackunit
+         "../rkt/bavg-util.rkt"
+         "../rkt/dbapp.rkt"
+         "../rkt/metrics.rkt"
+         "../rkt/pdmodel.rkt"
+         "../rkt/series-meta.rkt")
+
 ;;(require rackunit/gui)
-(require rackunit/text-ui)
-(require db)
-(require racket/date)
-(require racket/format)
-(require "../rkt/dbapp.rkt")
-(require "../rkt/bavg-util.rkt")
-(require "../rkt/series-meta.rkt")
-(require "../rkt/metrics.rkt")
-(require "../rkt/pdmodel.rkt")
 
 (define (check-mmax sport sub-sport year axis)
   ;; At this time we only check that the code runs and generates something

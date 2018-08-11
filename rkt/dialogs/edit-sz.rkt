@@ -15,7 +15,7 @@
 ;; more details.
 
 
-(require db
+(require db/base
          racket/class
          racket/gui/base
          racket/list

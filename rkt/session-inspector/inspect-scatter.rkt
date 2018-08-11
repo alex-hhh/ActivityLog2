@@ -14,21 +14,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot
+(require math/statistics
+         plot/no-gui
          racket/class
          racket/gui/base
          racket/list
          racket/match
          racket/math
          racket/string
-         math/statistics
-         "../utilities.rkt"
-         "../series-meta.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/scatter.rkt"
+         "../data-frame/slr.rkt"
          "../plot-hack.rkt"
          "../plot-util.rkt"
-         "../data-frame/df.rkt"
-         "../data-frame/slr.rkt"
-         "../data-frame/scatter.rkt"
+         "../series-meta.rkt"
+         "../utilities.rkt"
          "../widgets/main.rkt")
 
 (provide scatter-plot-panel%)

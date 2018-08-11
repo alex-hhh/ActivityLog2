@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; workout-editor.rkt -- workout editor panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -14,16 +14,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui pict json
-         "../fmt-util.rkt"
+(require racket/gui/base racket/class pict
          "../widgets/main.rkt"
-         "../utilities.rkt"
          "pict-util.rkt"
          "wkstep.rkt"
          "workout-editor-headline.rkt"
          "workout-pasteboard.rkt"
-         "wk-fit.rkt"
-         "wk-json.rkt"
          "wk-estimate.rkt")
 
 (provide workout-editor%)

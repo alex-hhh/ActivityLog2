@@ -13,8 +13,7 @@
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
-(require racket/match
-         racket/vector
+(require racket/vector
          racket/contract)
 
 ;; Return a function which calculates the perpendicular distance of a point to

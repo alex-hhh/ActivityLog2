@@ -14,7 +14,6 @@
 
 (require racket/gui/base
          racket/class
-         racket/dict
          "../sport-charms.rkt"
          "../widgets/main.rkt"
          "wkstep.rkt")

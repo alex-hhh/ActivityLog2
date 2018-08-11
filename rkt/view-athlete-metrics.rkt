@@ -14,14 +14,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/class
          racket/gui/base
          "al-widgets.rkt"
          "database.rkt"
          "dialogs/edit-athlete-metrics.rkt"
          "fmt-util.rkt"
-         "widgets/icon-resources.rkt"
          "dbutil.rkt"
          "utilities.rkt"
          "widgets/main.rkt")

@@ -15,7 +15,7 @@
 ;; more details.
 
 (require browser/external
-         db
+         db/base
          racket/gui/base)
 
 (provide interactive-generate-heatmap)

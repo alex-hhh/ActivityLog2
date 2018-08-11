@@ -14,7 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/class
          racket/gui/base
          (rename-in srfi/48 (format format-48))
@@ -22,7 +22,6 @@
          racket/match
          "utilities.rkt"
          "fmt-util.rkt"
-         "widgets/icon-resources.rkt"
          "dbutil.rkt"
          "widgets/main.rkt")
 

@@ -17,7 +17,7 @@
 
 (require racket/class
          racket/gui/base
-         db
+         db/base
          pict
          pict/snip
          racket/format

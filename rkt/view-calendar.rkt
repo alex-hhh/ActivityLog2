@@ -14,7 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          pict
          racket/class
          racket/date
@@ -25,7 +25,6 @@
          racket/match
          "dialogs/activity-edit.rkt"
          "fmt-util.rkt"
-         "widgets/icon-resources.rkt"
          "sport-charms.rkt"
          "widgets/main.rkt"
          "utilities.rkt")

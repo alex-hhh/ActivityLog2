@@ -28,7 +28,7 @@
  racket/match
  racket/draw
  racket/class
- db
+ db/base
  "../../utilities.rkt"                  ; for get-pref
  "../../dbutil.rkt"
  "map-util.rkt")

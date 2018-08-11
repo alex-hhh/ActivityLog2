@@ -20,7 +20,7 @@
 ;; filters.  Data can also be exported as CSV (thans to the qresults-list%
 ;; widget).
 
-(require db
+(require db/base
          (rename-in srfi/48 (format format-48))
          racket/class
          racket/date
@@ -30,7 +30,6 @@
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"
-         "widgets/icon-resources.rkt"
          "sport-charms.rkt"
          "dbutil.rkt"
          "widgets/main.rkt"

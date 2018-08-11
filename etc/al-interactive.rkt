@@ -5,7 +5,7 @@
 ;; some convenience functions for retrieving data from it.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -29,6 +29,7 @@
          "../rkt/data-frame/sql.rkt"
          "../rkt/data-frame/describe.rkt"
          "../rkt/data-frame/statistics.rkt"
+         "../rkt/data-frame/meanmax.rkt"
          "../rkt/session-df.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/hrv.rkt"
@@ -48,6 +49,7 @@
  (all-from-out "../rkt/data-frame/statistics.rkt")
  (all-from-out "../rkt/data-frame/csv.rkt")
  (all-from-out "../rkt/data-frame/sql.rkt")
+ (all-from-out "../rkt/data-frame/meanmax.rkt")
  (all-from-out "../rkt/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df.rkt")
@@ -71,7 +73,7 @@
 ;; Get a data frame with all recorded series from a session id
 (define (sid->df sid)
   (session-df (current-database) sid))
- ;; Get a HRV data frame from a session id
+;; Get a HRV data frame from a session id
 (define (hrv->df sid)
   (make-hrv-data-frame/db (current-database) sid))
 

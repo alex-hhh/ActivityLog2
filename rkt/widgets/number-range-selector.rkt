@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;

@@ -16,9 +16,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require math/base
+(require racket/math
          racket/class
-         racket/draw
          racket/flonum
          racket/gui/base
          racket/list

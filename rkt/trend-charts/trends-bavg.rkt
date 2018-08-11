@@ -15,33 +15,27 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- db
- plot
- racket/class
- racket/match
- racket/gui/base
- racket/math
- racket/hash
- racket/list
- pict
- embedded-gui                           ; snip-width, snip-height
- "trends-chart.rkt"
- "../widgets/main.rkt"
- "../plot-hack.rkt"
- "../data-frame/meanmax.rkt"
- "../al-widgets.rkt"
- "../series-meta.rkt"
- "../metrics.rkt"
- "../data-frame/spline.rkt"
- "../utilities.rkt"
- "../pdmodel.rkt"
- "../bavg-util.rkt"
- "../fmt-util.rkt"
- "../plot-util.rkt"
- "../database.rkt")
-
+(require pict
+         plot/no-gui
+         racket/class
+         racket/gui/base
+         racket/hash
+         racket/match
+         racket/math
+         "../al-widgets.rkt"
+         "../bavg-util.rkt"
+         "../data-frame/meanmax.rkt"
+         "../data-frame/spline.rkt"
+         "../database.rkt"
+         "../fmt-util.rkt"
+         "../metrics.rkt"
+         "../pdmodel.rkt"
+         "../plot-hack.rkt"
+         "../plot-util.rkt"
+         "../series-meta.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (struct mmax-params tc-params
   (start-date end-date sport labels equipment

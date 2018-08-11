@@ -15,15 +15,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
-         plot
-         pict
+(require db/base
+         plot/no-gui
          racket/class
          racket/date
          racket/gui/base
          racket/list
          racket/match
-         embedded-gui                   ; snip-width, snip-height
          "../utilities.rkt"
          "../series-meta.rkt"
          "../data-frame/meanmax.rkt"

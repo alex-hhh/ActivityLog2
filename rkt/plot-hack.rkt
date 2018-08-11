@@ -32,7 +32,7 @@
 
 (module glue typed-racket/base-env/extra-env-lang
   (module types typed/racket/base
-    (require (only-in typed/racket/gui Snip% Editor-Canvas%))
+    (require (only-in typed/racket/gui/base Snip% Editor-Canvas%))
     (provide (all-defined-out))
     (define-type Set-Snip
       (-> (Instance Editor-Canvas%) Any Void)))
@@ -52,7 +52,7 @@
 (require plot
          racket/class
          racket/math
-         (only-in typed/racket/gui Snip% Editor-Canvas%)
+         (only-in typed/racket/gui/base Snip% Editor-Canvas%)
          (only-in typed/racket/draw Bitmap%)
          'glue)
 

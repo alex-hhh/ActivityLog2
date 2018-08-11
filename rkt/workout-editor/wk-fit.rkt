@@ -22,8 +22,7 @@
  racket/list
  racket/math
  "wkstep.rkt"
- "../fit-file/fit-file.rkt"
- "../fit-file/fit-defs.rkt")
+ "../fit-file/fit-file.rkt")
 
 (provide/contract
  (fit->workout (-> (or/c bytes? path-string? input-port?) workout?))

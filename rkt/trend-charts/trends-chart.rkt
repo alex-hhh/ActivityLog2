@@ -15,8 +15,8 @@
 ;; more details.
 
 (require
- db
- plot
+ db/base
+ plot/no-gui
  racket/class
  racket/date
  racket/math

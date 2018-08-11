@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/match
          racket/contract
          "wk-json.rkt"

@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class
+(require racket/class
          "pict-util.rkt"
          "workout-step-snip-base.rkt"
          "embedded-snip-button.rkt")

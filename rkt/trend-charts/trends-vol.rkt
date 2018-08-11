@@ -20,10 +20,9 @@
  racket/match
  racket/gui/base
  racket/math
- db
- plot
+ db/base
+ plot/no-gui
  "../plot-hack.rkt"
- "../widgets/icon-resources.rkt"
  "../database.rkt"
  "../widgets/main.rkt"
  "../al-widgets.rkt"

@@ -17,10 +17,8 @@
 
 
 (require
- db
- plot
+ plot/no-gui
  racket/class
- racket/match
  racket/gui/base
  racket/math
  racket/string
@@ -29,7 +27,6 @@
  racket/hash
  racket/format
  "trends-chart.rkt"
- "../widgets/icon-resources.rkt"
  "../widgets/main.rkt"
  "../plot-hack.rkt"
  "../al-widgets.rkt"

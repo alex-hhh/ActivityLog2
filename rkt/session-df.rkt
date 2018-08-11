@@ -16,7 +16,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/class
          racket/match
          racket/math
@@ -28,7 +28,7 @@
          racket/async-channel
          math/statistics
          plot/utils
-         plot
+         plot/no-gui
          "data-frame/df.rkt"
          "data-frame/series.rkt"
          "data-frame/scatter.rkt"

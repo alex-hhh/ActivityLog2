@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/math racket/format)
+(require racket/gui/base racket/class)
 (require "../utilities.rkt"             ; thread/dbglog
          "widget-utilities.rkt")
 

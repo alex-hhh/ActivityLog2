@@ -14,22 +14,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot
+(require plot/no-gui
          racket/class
+         racket/format
          racket/gui/base
          racket/list
          racket/match
          racket/string
-         racket/math
-         racket/format
-         "../utilities.rkt"
-         "../series-meta.rkt"
-         "../plot-hack.rkt"
-         "../data-frame/histogram.rkt"
          "../data-frame/df.rkt"
-         "../widgets/main.rkt"
+         "../data-frame/histogram.rkt"
+         "../fmt-util.rkt"
+         "../plot-hack.rkt"
          "../plot-util.rkt"
-         "../fmt-util.rkt")
+         "../series-meta.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide histogram-plot-panel%)
 

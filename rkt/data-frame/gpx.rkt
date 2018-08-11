@@ -20,7 +20,7 @@
          racket/format
          racket/match
          racket/math
-         (only-in srfi/19 string->date)
+         (only-in srfi/19/time string->date)
          xml
          "df.rkt"
          "exn.rkt"

@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
@@ -13,10 +13,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
+         racket/list
          rackunit
          "../rkt/data-frame/df.rkt"
-         "../rkt/data-frame/describe.rkt"
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/import.rkt"

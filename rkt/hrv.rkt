@@ -29,7 +29,7 @@
  racket/vector
  racket/dict
  math/statistics
- db
+ db/base
  "data-frame/df.rkt"
  "data-frame/series.rkt"
  "fit-file/fit-file.rkt"

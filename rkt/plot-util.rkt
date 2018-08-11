@@ -21,8 +21,8 @@
          racket/match
          racket/math
          pict
+         plot/no-gui
          pict/snip
-         plot
          plot/utils
          embedded-gui
          "utilities.rkt")

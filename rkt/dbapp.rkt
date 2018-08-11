@@ -16,7 +16,7 @@
 
 (require "dbutil.rkt"
          "utilities.rkt"
-         db
+         db/base
          racket/contract
          racket/runtime-path)
 

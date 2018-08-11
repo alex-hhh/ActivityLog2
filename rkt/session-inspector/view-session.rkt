@@ -14,32 +14,32 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
+         racket/async-channel
          racket/class
          racket/date
+         racket/dict
          racket/gui/base
          racket/match
-         racket/async-channel
-         racket/dict
+         "../al-widgets.rkt"
+         "../data-frame/df.rkt"
+         "../database.rkt"
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
-         "../al-widgets.rkt"
-         "../database.rkt"
+         "../series-meta.rkt"
+         "../session-df.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt"
          "inspect-best-avg.rkt"
          "inspect-graphs.rkt"
          "inspect-histogram.rkt"
          "inspect-laps.rkt"
          "inspect-map.rkt"
-         "inspect-overview.rkt"
-         "inspect-scatter.rkt"
-         "inspect-quadrant.rkt"
          "inspect-model-parameters.rkt"
-         "../sport-charms.rkt"
-         "../widgets/main.rkt"
-         "../utilities.rkt"
-         "../session-df.rkt"
-         "../series-meta.rkt"
-         "../data-frame/df.rkt")
+         "inspect-overview.rkt"
+         "inspect-quadrant.rkt"
+         "inspect-scatter.rkt")
 
 (provide view-session%)
 

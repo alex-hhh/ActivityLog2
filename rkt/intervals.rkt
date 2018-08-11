@@ -14,8 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
-         racket/match
+(require racket/match
          racket/dict
          math/statistics
          "data-frame/statistics.rkt"

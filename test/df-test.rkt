@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -16,8 +16,11 @@
 
 
 (require rackunit
-         rackunit/gui
-         rackunit/text-ui
+         racket/math
+         racket/list
+         racket/base
+         racket/match
+         racket/port
          racket/vector
          math/statistics
          db)
@@ -821,8 +824,6 @@
        (check = (- y x) (- shift-amount)))
 
      )))
-
-
 
 ;;.................................................... least-squares-fit ....
 
@@ -963,4 +964,5 @@
    least-squares-fit-tests))
 
 (module+ test
+  (require rackunit/text-ui)
   (run-tests data-frame-tests))

@@ -17,8 +17,8 @@
 
 
 (require
- db
- plot
+ db/base
+ plot/no-gui
  racket/class
  racket/match
  racket/gui/base
@@ -26,7 +26,6 @@
  racket/format
  "../database.rkt"
  "trends-chart.rkt"
- "../widgets/icon-resources.rkt"
  "../widgets/main.rkt"
  "../plot-hack.rkt"
  "../sport-charms.rkt"

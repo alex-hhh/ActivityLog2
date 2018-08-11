@@ -20,7 +20,7 @@
          racket/math
          racket/match
          racket/list
-         db
+         db/base
          "../sport-charms.rkt"
          "../widgets/main.rkt"
          "../utilities.rkt"

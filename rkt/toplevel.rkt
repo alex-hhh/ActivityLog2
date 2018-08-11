@@ -14,41 +14,41 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
+         framework/splash
          racket/class
          racket/gui/base
          racket/math
-         framework/splash
-         "dialogs/about-frame.rkt"
-         "dialogs/activity-edit.rkt"
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
-         "utilities.rkt"
+         "dialogs/about-frame.rkt"
+         "dialogs/activity-edit.rkt"
+         "dialogs/edit-cp.rkt"
          "dialogs/edit-labels.rkt"
          "dialogs/edit-preferences.rkt"
          "dialogs/edit-seasons.rkt"
          "dialogs/edit-sz.rkt"
-         "dialogs/edit-cp.rkt"
-         "elevation-correction.rkt"
          "dialogs/export-fit-settings.rkt"
-         "widgets/map-widget/map-tiles.rkt"
-         "widgets/map-widget/map-util.rkt"
+         "elevation-correction.rkt"
+         "import.rkt"
+         "metrics.rkt"
+         "session-df.rkt"
+         "session-inspector/view-session.rkt"
          "time-in-zone.rkt"
+         "trend-charts/view-trends.rkt"
+         "utilities.rkt"
          "view-activities.rkt"
          "view-athlete-metrics.rkt"
          "view-calendar.rkt"
          "view-equipment.rkt"
          "view-last-import.rkt"
          "view-reports.rkt"
-         "session-inspector/view-session.rkt"
-         "trend-charts/view-trends.rkt"
-         "workout-editor/view-workouts.rkt"
+         "weather.rkt"
          "widgets/main.rkt"
-         "import.rkt"
-         "metrics.rkt"
-         "session-df.rkt"
-         "weather.rkt")
+         "widgets/map-widget/map-tiles.rkt"
+         "widgets/map-widget/map-util.rkt"
+         "workout-editor/view-workouts.rkt")
 
 (provide toplevel-window%)
 

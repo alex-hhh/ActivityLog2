@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/string
+(require racket/class racket/string
          "validating-input-field.rkt"
          "../fmt-util.rkt")
 

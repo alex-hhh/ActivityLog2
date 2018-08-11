@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; build.rkt -- utilities for building the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
@@ -17,13 +17,19 @@
 ;; NOTE: Gracket instance used to run this might have to have "debugging"
 ;; disabled in the Language menu
 
-(require compiler/distribute
+(require compiler/cm
+         compiler/distribute
          compiler/embed
-         compiler/cm
          file/ico
          images/icons/stickman
          launcher/launcher
-         racket/draw)
+         racket/class
+         racket/draw
+         racket/file
+         racket/math
+         racket/port
+         racket/string
+         racket/system)
 
 ;; Create an ICO file from the bitmap BMP.  The resulting icon will be square
 ;; even if BMP is not.  The height of BMP will determine the size of the icon.

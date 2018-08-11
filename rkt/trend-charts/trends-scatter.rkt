@@ -15,8 +15,7 @@
 ;; more details.
 
 (require
- db
- plot
+ plot/no-gui
  racket/class
  racket/match
  racket/gui/base
@@ -25,7 +24,6 @@
  racket/list
  racket/hash
  "trends-chart.rkt"
- "../widgets/icon-resources.rkt"
  "../widgets/main.rkt"
  "../plot-hack.rkt"
  "../data-frame/scatter.rkt"

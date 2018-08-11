@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
@@ -12,7 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class embedded-gui pict)
+(require racket/gui/base racket/class racket/string embedded-gui pict)
 (provide tag-input-field%)
 
 (define the-default-tag-font

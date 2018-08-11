@@ -15,7 +15,7 @@
 ;; more details.
 
 (require math/statistics
-         plot
+         plot/no-gui
          plot/utils
          racket/contract
          racket/format)

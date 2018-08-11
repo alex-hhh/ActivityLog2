@@ -26,7 +26,7 @@
 ;; It will work best if a route is traversed several times and won't do
 ;; anything usefull for a route that is traversed only once.
 
-(require db
+(require db/base
          racket/class
          racket/flonum
          racket/math

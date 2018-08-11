@@ -14,10 +14,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/class
          racket/gui/base
-         racket/string
          racket/match
          "../widgets/main.rkt"
          "../fmt-util.rkt"

@@ -13,7 +13,7 @@
 # run.
 
 set -e
-script_name=$(basename $0)
+script_name=${0##**/}
 
 if [ -z $TESTDATAPW ]; then
     echo "$script_name: missing TESTDATAPW env var, will not download anything"

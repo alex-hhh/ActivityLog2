@@ -16,12 +16,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require db/base
          racket/class
          racket/gui/base
          racket/list
-         "../fmt-util.rkt"
          "../dbutil.rkt"
+         "../fmt-util.rkt"
          "../widgets/main.rkt")
 
 (provide get-season-editor)
