@@ -2,7 +2,7 @@
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,7 +24,6 @@
          "../data-frame/df.rkt"
          "../data-frame/histogram.rkt"
          "../fmt-util.rkt"
-         "../plot-hack.rkt"
          "../plot-util.rkt"
          "../series-meta.rkt"
          "../utilities.rkt"
@@ -301,7 +300,7 @@
                                              (time-ticks))]
                            [plot-x-ticks (send y-axis plot-ticks)]
                            [plot-x-label (send y-axis axis-label)])
-              (define snip (plot-snip/hack plot-pb rt))
+              (define snip (plot-to-canvas rt plot-pb))
               (set-mouse-event-callback snip plot-hover-callback))))))
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note

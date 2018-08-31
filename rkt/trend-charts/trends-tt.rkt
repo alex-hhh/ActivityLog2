@@ -3,7 +3,7 @@
 ;; trends-tt.rkt -- "Training Time chart, a punch card style chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,8 +26,8 @@
  racket/format
  "../database.rkt"
  "trends-chart.rkt"
+ "../plot-util.rkt"
  "../widgets/main.rkt"
- "../plot-hack.rkt"
  "../sport-charms.rkt"
  "../data-frame/df.rkt"
  "../data-frame/sql.rkt"
@@ -327,8 +327,8 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
   (if renderer-tree
       (generate-plot
        (lambda (rt)
-         (plot-snip/hack
-          canvas #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25 rt))
+         (plot-to-canvas
+          rt canvas #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25))
        renderer-tree)
     (begin
       (send canvas set-snip #f)

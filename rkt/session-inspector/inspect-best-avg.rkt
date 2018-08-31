@@ -28,7 +28,6 @@
          "../data-frame/df.rkt"
          "../dbapp.rkt"
          "../metrics.rkt"
-         "../plot-hack.rkt"
          "../bavg-util.rkt"
          "../pdmodel.rkt"
          "../fmt-util.rkt"
@@ -438,7 +437,7 @@
                                    [plot-y-label (send mean-max-axis axis-label)]
                                    [plot-y-far-ticks (ticks-scale (send aux-axis plot-ticks) ivs)]
                                    [plot-y-far-label (send aux-axis axis-label)])
-                      (define snip (plot-snip/hack plot-pb rt
+                      (define snip (plot-to-canvas rt plot-pb
                                                    #:x-min min-x #:x-max max-x
                                                    #:y-min min-y #:y-max max-y
                                                    ))
@@ -450,7 +449,7 @@
                                  [plot-x-tick-label-angle 30]
                                  [plot-y-ticks (send mean-max-axis plot-ticks)]
                                  [plot-y-label (send mean-max-axis axis-label)])
-                    (define snip (plot-snip/hack plot-pb rt
+                    (define snip (plot-to-canvas rt plot-pb
                                                  #:x-min min-x #:x-max max-x
                                                  #:y-min min-y #:y-max max-y))
                     (set-mouse-event-callback snip plot-hover-callback)))

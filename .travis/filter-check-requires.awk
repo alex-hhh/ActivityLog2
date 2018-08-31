@@ -49,9 +49,8 @@ BEGIN {
 /^DROP \(submod.*)/ { next; }
 /^DROP typed-racket\/utils\// { next; }
 
-# plot-hack and fmt-util cannot be dropped, not sure why raco check-requires
-# suggests that they are dropped...
-/^DROP .*plot-hack\.rkt/ { next; }
+# fmt-util cannot be dropped, not sure why raco check-requires suggests that
+# they are dropped...
 /^DROP .*fmt-util\.rkt/ { next; }
 
 {

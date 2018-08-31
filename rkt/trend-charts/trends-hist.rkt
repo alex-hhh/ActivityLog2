@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,6 @@
  racket/format
  "trends-chart.rkt"
  "../widgets/main.rkt"
- "../plot-hack.rkt"
  "../al-widgets.rkt"
  "../series-meta.rkt"
  "../metrics.rkt"
@@ -387,7 +386,7 @@
   (if renderer-tree
       (generate-plot
        (lambda (renderer-tree)
-         (plot-snip/hack canvas renderer-tree))
+         (plot-to-canvas renderer-tree canvas))
        axis params renderer-tree)
       (begin
         (send canvas set-snip #f)

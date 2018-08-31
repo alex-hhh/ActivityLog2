@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,7 +24,6 @@
  racket/format
  db/base
  plot/no-gui
- "../plot-hack.rkt"
  "../database.rkt"
  "../widgets/main.rkt"
  "trends-chart.rkt"
@@ -360,10 +359,10 @@
 (define (insert-plot-snip canvas params renderer-tree)
   (generate-plot
    (lambda (renderer-tree)
-     (plot-snip/hack
-      canvas
+     (plot-to-canvas
+      renderer-tree canvas
       #:x-min (pmc-params-start-date params)
-      #:x-label #f #:y-label #f renderer-tree))
+      #:x-label #f #:y-label #f))
    renderer-tree))
 
 (define (save-plot-to-file file-name width height params renderer-tree)

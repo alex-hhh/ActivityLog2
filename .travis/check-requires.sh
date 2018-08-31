@@ -59,8 +59,11 @@ case $MODE in
             awk '/\.rkt$/ { print $3; }' |\
             while read file
             do
-                raco check-requires "$file" |\
-                    awk -f $FILTER
+                # NOTE: git diff will also list deleted files, don't check them
+                if [ -f "$file" ]; then
+                    raco check-requires "$file" |\
+                        awk -f $FILTER
+                fi
             done
         ;;
     *)

@@ -1,7 +1,7 @@
 #lang racket/base
 ;; plot-util.rkt -- plot helpers and utilities
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,27 +24,9 @@
          plot/no-gui
          pict/snip
          plot/utils
+         plot
          embedded-gui
          "utilities.rkt")
-
-(provide/contract
- ;; NOTE all these are actually instances of 2d-plot-snip%, but the plot
- ;; library does not export that type.
- (set-mouse-event-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
- (set-overlay-renderers (-> (is-a?/c snip%) (or/c (treeof renderer2d?) #f null) any/c))
- (pu-vrule (-> real? renderer2d?))
- (pu-label (->* (real? real?) () #:rest (listof (or/c string? pict? #f)) renderer2d?))
- (pu-vrange (-> real? real? (is-a?/c color%) renderer2d?))
- (pu-markers (-> (listof (vector/c real? real?)) renderer2d?))
- (make-hover-badge (-> (listof (listof (or/c #f string?))) pict?))
- (move-snip-to (-> (is-a?/c snip%) (or/c #f (cons/c number? number?)) any/c))
- (get-snip-location (-> (or/c #f (is-a?/c snip%)) (or/c #f (cons/c number? number?))))
- (xposition->histogram-slot (->* (number?) (number? number?)
-                                 (values (or/c #f exact-nonnegative-integer?)
-                                         (or/c #f exact-nonnegative-integer?)))))
-
-;; NOTE: pict-snip% is from pict/snip
-(provide snip-canvas% pict-snip% good-hover?)
 
 ;; Resources for drawing overlays on the plots.  Defined in one place to
 ;; ensure consistency across all the plots.
@@ -272,7 +254,7 @@
     (define/augment (on-insert snip before x y)
       (unless (send this find-first-snip)
         (set! main-snip snip)))
-      
+
     (define/augment (after-insert snip before x y)
       (when (eq? main-snip snip)
         (send this move-to snip 0 0))
@@ -406,3 +388,69 @@
       (send this refresh))
 
     (send this lazy-refresh #t)))
+
+
+(define (plot-to-canvas renderer-tree canvas
+                        #:x-min [x-min #f] #:x-max [x-max #f]
+                        #:y-min [y-min #f] #:y-max [y-max #f]
+                        #:width [width (plot-width)]
+                        #:height [height (plot-height)]
+                        #:title [title (plot-title)]
+                        #:x-label [x-label (plot-x-label)]
+                        #:y-label [y-label (plot-y-label)]
+                        #:legend-anchor [legend-anchor (plot-legend-anchor)])
+  ;; Calculate the initial size of the plot such that it fills up the entire
+  ;; canvas area.  The #:width and #:height parameters are only used if this
+  ;; would result in a 0 sized plot.
+  ;;
+  ;; The plot snip will be resized automatically as the canvas resizes, but
+  ;; this initial sizing ensures there is no flickering when a snip with a
+  ;; different size is inserted into the canvas forcing the canvas to resize
+  ;; it immediately.
+  (let-values (((w h) (send (send canvas get-dc) get-size)))
+    (let* ((hinset (send canvas horizontal-inset))
+           (vinset (send canvas vertical-inset))
+           (iw (exact-round (- w (* 2 hinset))))
+           (ih (exact-round (- h (* 2 vinset))))
+           [snip (plot-snip renderer-tree
+                            #:x-min x-min #:x-max x-max
+                            #:y-min y-min #:y-max y-max
+                            #:width (if (> iw 0) iw width)
+                            #:height (if (> ih 0) ih height)
+                            #:title title
+                            #:x-label x-label #:y-label y-label
+                            #:legend-anchor legend-anchor)])
+      (send canvas set-snip snip)
+      snip)))
+
+
+;;............................................................. provides ....
+
+(provide/contract
+ ;; NOTE all these are actually instances of 2d-plot-snip%, but the plot
+ ;; library does not export that type.
+ (set-mouse-event-callback (-> (is-a?/c snip%) (-> (is-a?/c snip%) (is-a?/c mouse-event%) (or/c #f number?) (or/c #f number?) any/c) any/c))
+ (set-overlay-renderers (-> (is-a?/c snip%) (or/c (treeof renderer2d?) #f null) any/c))
+ (pu-vrule (-> real? renderer2d?))
+ (pu-label (->* (real? real?) () #:rest (listof (or/c string? pict? #f)) renderer2d?))
+ (pu-vrange (-> real? real? (is-a?/c color%) renderer2d?))
+ (pu-markers (-> (listof (vector/c real? real?)) renderer2d?))
+ (make-hover-badge (-> (listof (listof (or/c #f string?))) pict?))
+ (move-snip-to (-> (is-a?/c snip%) (or/c #f (cons/c number? number?)) any/c))
+ (get-snip-location (-> (or/c #f (is-a?/c snip%)) (or/c #f (cons/c number? number?))))
+ (xposition->histogram-slot (->* (number?) (number? number?)
+                                 (values (or/c #f exact-nonnegative-integer?)
+                                         (or/c #f exact-nonnegative-integer?))))
+ (plot-to-canvas (->* ((treeof (or/c renderer2d? nonrenderer?)) (is-a?/c snip-canvas%))
+                      (#:x-min (or/c real? #f) #:x-max (or/c real? #f)
+                       #:y-min (or/c real? #f) #:y-max (or/c real? #f)
+                       #:width (and/c integer? positive?)
+                       #:height (and/c integer? positive?) 
+                       #:title (or/c string? #f)
+                       #:x-label (or/c string? #f) #:y-label (or/c string? #f)
+                       #:legend-anchor symbol?)
+                      any/c)))
+
+;; NOTE: pict-snip% is from pict/snip
+(provide snip-canvas% pict-snip% good-hover?)
+

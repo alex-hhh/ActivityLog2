@@ -2,7 +2,7 @@
 ;; inspect-quadrant.rkt -- Quadrant Plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -34,7 +34,6 @@
          "../color-theme.rkt"
          "../data-frame/df.rkt"
          "../data-frame/scatter.rkt"
-         "../plot-hack.rkt"
          "../plot-util.rkt"
          "../series-meta.rkt"
          "../sport-charms.rkt"
@@ -338,8 +337,8 @@
                          [plot-y-label (send y-axis axis-label)])
             (match-define (vector x-min x-max y-min y-max)
               (if (eq? outlier-handling 'mark) data-bounds quantile-bounds))
-            (plot-snip/hack
-             plot-pb (reverse rt)
+            (plot-to-canvas
+             (reverse rt) plot-pb
              #:x-min x-min #:x-max x-max #:y-min y-min #:y-max y-max)))))
 
     (define (refresh-plot)

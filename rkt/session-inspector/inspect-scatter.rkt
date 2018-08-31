@@ -2,7 +2,7 @@
 ;; inspect-scatter.rkt -- scatter plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -25,7 +25,6 @@
          "../data-frame/df.rkt"
          "../data-frame/scatter.rkt"
          "../data-frame/slr.rkt"
-         "../plot-hack.rkt"
          "../plot-util.rkt"
          "../series-meta.rkt"
          "../utilities.rkt"
@@ -474,7 +473,7 @@
                            [plot-y-label (send y-axis axis-label)])
               (match-define (vector x-min x-max y-min y-max)
                 (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
-              (plot-snip/hack plot-left-pb rt
+              (plot-to-canvas rt plot-left-pb
                               #:x-min x-min #:x-max x-max
                               #:y-min y-min #:y-max y-max))))
 
@@ -500,7 +499,7 @@
                            [plot-y-label (send y-axis axis-label)])
               (match-define (vector x-min x-max y-min y-max)
                 (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
-              (plot-snip/hack plot-right-pb rt
+              (plot-to-canvas rt plot-right-pb
                               #:x-min x-min #:x-max x-max
                               #:y-min y-min #:y-max y-max)))))))
 

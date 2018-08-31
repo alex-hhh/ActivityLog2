@@ -2,7 +2,7 @@
 ;; trends-scatter.rkt -- aggregate scatter chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -25,12 +25,12 @@
  racket/hash
  "trends-chart.rkt"
  "../widgets/main.rkt"
- "../plot-hack.rkt"
  "../data-frame/scatter.rkt"
  "../data-frame/slr.rkt"
  "../al-widgets.rkt"
  "../series-meta.rkt"
  "../metrics.rkt"
+ "../plot-util.rkt"
  "../utilities.rkt")
 
 ;; Find an axis that works in SERIES-NAME and return its position in
@@ -376,13 +376,9 @@
   (if rt
       (generate-plot
        (lambda (renderer-tree min-x max-x min-y max-y)
-         (plot-snip/hack
-          canvas
-          #:x-min min-x
-          #:x-max max-x
-          #:y-min min-y
-          #:y-max max-y
-          renderer-tree))
+         (plot-to-canvas
+          renderer-tree canvas
+          #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
        data params rt)
       (begin
         (send canvas set-snip #f)

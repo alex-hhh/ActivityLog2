@@ -36,7 +36,6 @@
          "../utilities.rkt"
          "../widgets/main.rkt"
          "../session-df.rkt"
-         "../plot-hack.rkt"
          "../plot-util.rkt")
 
 (provide graph-panel%)
@@ -661,7 +660,7 @@
         (output-fn (full-render-tree))))
 
     (define (put-plot/canvas canvas pd ps)
-      (put-plot (lambda (rt) (plot-snip/hack canvas rt)) pd ps))
+      (put-plot (lambda (rt) (plot-to-canvas rt canvas)) pd ps))
 
     (define (put-plot/file file-name width height pd ps)
       ;; (-> path-string? exact-positive-integer? exact-positive-integer? pd? ps? any/c)
