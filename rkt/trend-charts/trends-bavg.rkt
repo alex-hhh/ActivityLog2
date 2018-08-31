@@ -36,10 +36,6 @@
          "../widgets/main.rkt"
          "trends-chart.rkt")
 
-(struct mmax-params tc-params
-  (start-date end-date sport labels equipment
-              series zero-base? heat-map? heat-map-pct cp-params))
-
 (define default-axis-choices
   (list
    axis-speed
@@ -94,7 +90,7 @@
 
 (provide mmax-chart-settings%)
 (define mmax-chart-settings%
-  (class edit-dialog-base%
+  (class* edit-dialog-base% (chart-settings-interface<%>)
     (init-field database
                 [default-name "Mmax"]
                 [default-title "Best Avg Chart"])
@@ -285,7 +281,7 @@
            (number? (send ae-range-start-input get-converted-value))
            (number? (send ae-range-end-input get-converted-value)))))
 
-    (define/public (get-restore-data)
+    (define/public (get-chart-settings)
       (hash-union
        (send session-filter get-restore-data)
        (hash
@@ -302,56 +298,40 @@
         'ae-start (send ae-range-start-input get-converted-value)
         'ae-end (send ae-range-end-input get-converted-value))))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
 
-      (define hdata
-        ;; Old data format was just a list, not a hash.  Convert it to a hash
-        ;; now.
-        (if (list? data)
-            (match-let (((list name title dr sport series zero-base? show-heat? heat-pct) data))
-              (hash
-               'name name
-               'title title
-               'date-range dr
-               'sport sport
-               'series series
-               'zero-base? zero-base?
-               'show-heat? show-heat?
-               'heat-percent heat-pct))
-            data))
+      (send session-filter restore-from data)
 
-      (send session-filter restore-from hdata)
-
-      (send name-field set-value (hash-ref hdata 'name "Mmax"))
-      (send title-field set-value (hash-ref hdata 'title "BestAvg Chart"))
-      (let ((series (hash-ref hdata 'series #f)))
+      (send name-field set-value (hash-ref data 'name "Mmax"))
+      (send title-field set-value (hash-ref data 'title "BestAvg Chart"))
+      (let ((series (hash-ref data 'series #f)))
         (when series
           (let ((index (find-axis axis-choices series)))
             (if index
                 (send series-selector set-selection index)
                 (send series-selector set-selection 0)))))
-      (send zero-base-checkbox set-value (hash-ref hdata 'zero-base? #f))
-      (let ((show-heat? (hash-ref hdata 'show-heat? #f)))
+      (send zero-base-checkbox set-value (hash-ref data 'zero-base? #f))
+      (let ((show-heat? (hash-ref data 'show-heat? #f)))
         (send show-heat-checkbox set-value show-heat?)
         (on-show-heat show-heat?))
-      (let ((heat-pct (hash-ref hdata 'heat-percent #f)))
+      (let ((heat-pct (hash-ref data 'heat-percent #f)))
         (if (number? heat-pct)
             (send heat-percent-input set-numeric-value heat-pct)
             (send heat-percent-input set-value "")))
-      (send estimate-cp-checkbox set-value (hash-ref hdata 'estimate-cp? #f))
-      (let ((anstart (hash-ref hdata 'an-start 120)))
+      (send estimate-cp-checkbox set-value (hash-ref data 'estimate-cp? #f))
+      (let ((anstart (hash-ref data 'an-start 120)))
         (if (number? anstart)
             (send an-range-start-input set-numeric-value anstart)
             (send an-range-start-input set-value "")))
-      (let ((anend (hash-ref hdata 'an-end 300)))
+      (let ((anend (hash-ref data 'an-end 300)))
         (if (number? anend)
             (send an-range-end-input set-numeric-value anend)
             (send an-range-end-input set-value "")))
-      (let ((aestart (hash-ref hdata 'ae-start 720)))
+      (let ((aestart (hash-ref data 'ae-start 720)))
         (if (number? aestart)
             (send ae-range-start-input set-numeric-value aestart)
             (send ae-range-start-input set-value "")))
-      (let ((aeend (hash-ref hdata 'ae-end 1200)))
+      (let ((aeend (hash-ref data 'ae-end 1200)))
         (if (number? aeend)
             (send ae-range-end-input set-numeric-value aeend)
             (send ae-range-end-input set-value "")))
@@ -362,77 +342,54 @@
 
     (define/public (show-dialog parent)
       (send session-filter on-before-show-dialog)
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
+      (and (send this do-edit parent) (get-chart-settings)))
 
-    (define/public (get-settings)
-      (let ((dr (send session-filter get-date-range)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (mmax-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send session-filter get-sport)
-               (send session-filter get-labels)
-               (send session-filter get-equipment)
-               (let ((axis (list-ref axis-choices (send series-selector get-selection))))
-                 (send axis series-name))
-               (send zero-base-checkbox get-value)
-               (send show-heat-checkbox get-value)
-               (let ((pct (send heat-percent-input get-converted-value)))
-                 (if (number? pct) (/ pct 100.0) pct))
-               (if (send estimate-cp-checkbox get-value)
-                   (cp2search
-                    (send an-range-start-input get-converted-value)
-                    (send an-range-end-input get-converted-value)
-                    (send ae-range-start-input get-converted-value)
-                    (send ae-range-end-input get-converted-value))
-                   #f)))
-            #f)))
+
     ))
 
 (define (candidate-sessions db params)
-  (let ((start (mmax-params-start-date params))
-        (end (mmax-params-end-date params))
-        (sport (mmax-params-sport params))
-        (labels (mmax-params-labels params))
-        (equipment (mmax-params-equipment params)))
+  (match-define (cons start end) (hash-ref params 'timestamps))
+  (let ((sport (hash-ref params 'sport))
+        (labels (hash-ref params 'labels))
+        (equipment (hash-ref params 'equipment)))
     (fetch-candidate-sessions db (car sport) (cdr sport) start end
                               #:label-ids labels #:equipment-ids equipment)))
 
 (struct tmmax (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
 
 (define (fetch-data database params progress-callback)
-  (let* ((lap-swimming? (is-lap-swimming? (mmax-params-sport params)))
+  (let* ((lap-swimming? (is-lap-swimming? (hash-ref params 'sport)))
          (axis-choices (if lap-swimming? swim-axis-choices default-axis-choices))
          (candidates (candidate-sessions database params))
-         (axis-index (find-axis axis-choices (mmax-params-series params))))
+         (axis-index (find-axis axis-choices (hash-ref params 'series))))
     (define axis (if axis-index (list-ref axis-choices axis-index) #f))
     (unless axis (error "no axis for series"))
     (define data (get-aggregate-mmax candidates axis progress-callback))
     (define heat-map
-      (and (mmax-params-heat-map? params)
-           (number? (mmax-params-heat-map-pct params))
-           (let ((pct (mmax-params-heat-map-pct params)))
+      (and (hash-ref params 'show-heat? #f)
+           (number? (hash-ref params 'heat-percent #f))
+           (let ((pct (hash-ref params 'heat-percent 0.95)))
              (get-aggregate-mmax-heat-map candidates data pct axis))))
     (define plot-fn
       (aggregate-mmax->spline-fn data))
     (define cp-fn #f)
     (define cp-pict #f)
     (when plot-fn
-      (when (and (send axis have-cp-estimate?) (mmax-params-cp-params params))
-        (define cp2 (send axis cp-estimate plot-fn (mmax-params-cp-params params)))
-        (when cp2
-          (set! cp-fn (send axis pd-function cp2))
-          (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn)))))
+      (when (and (send axis have-cp-estimate?)
+                 (hash-ref params 'estimate-cp?))
+        (define search-params
+          (let ((an-start (hash-ref params 'an-start))
+                (an-end (hash-ref params 'an-end))
+                (ae-start (hash-ref params 'ae-start))
+                (ae-end (hash-ref params 'ae-end)))
+            (cp2search an-start an-end ae-start ae-end)))
+        (define cp2 (send axis cp-estimate plot-fn search-params))
+        (set! cp-fn (send axis pd-function cp2))
+        (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn))))
 
     (tmmax axis data heat-map
            plot-fn
-           (mmax-params-zero-base? params)
+           (hash-ref params 'zero-base?)
            cp-fn
            cp-pict)))
 
@@ -559,7 +516,7 @@
       (define (add-renderer r) (set! renderers (cons r renderers)))
 
       (when (and (good-hover? x y event) cached-data)
-        (let ((params (send this get-params))
+        (let ((params (send this get-chart-settings))
               (fmtval (send (tmmax-axis cached-data) value-formatter)))
           (add-renderer (pu-vrule x))
           (let ((closest (lookup-duration (tmmax-data cached-data) x)))
@@ -589,7 +546,7 @@
     (define/override (put-plot-snip canvas)
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
-            (params (send this get-params))
+            (params (send this get-chart-settings))
             (saved-generation generation)
             (saved-location (get-snip-location pd-model-snip)))
         (send canvas set-snip #f)
@@ -624,7 +581,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (let ((data cached-data)
-            (params (send this get-params)))
+            (params (send this get-chart-settings)))
         (when (and params data)
           (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
           (when rt
@@ -632,8 +589,8 @@
                                (tmmax-axis data)
                                rt min-x max-x min-y max-y)))))
 
-    (define/override (get-restore-data)
-      (define sdata (super get-restore-data))
+    (define/override (get-chart-settings)
+      (define sdata (super get-chart-settings))
       (if (hash? sdata)
           (let ((location (or (get-snip-location pd-model-snip)
                               saved-pd-model-snip-location)))
@@ -642,11 +599,9 @@
                 sdata))
           sdata))
 
-    (define/override (restore-from data)
-      ;; Old style data was saved as a list
-      (when (hash? data)
-        (set! saved-pd-model-snip-location
-              (hash-ref data 'pd-model-location #f)))
-      (super restore-from data))
+    (define/override (put-chart-settings data)
+      (set! saved-pd-model-snip-location
+            (hash-ref data 'pd-model-location #f))
+      (super put-chart-settings data))
 
     ))

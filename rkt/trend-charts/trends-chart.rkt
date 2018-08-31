@@ -2,7 +2,7 @@
 ;; trends-chart.rkt -- common trend chart functionality
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,7 @@
 
 (require
  db/base
+ racket/gui/base
  plot/no-gui
  racket/class
  racket/date
@@ -29,9 +30,9 @@
  "../utilities.rkt")
 
 (provide
- (struct-out tc-params)
  trends-chart%
- session-filter%)
+ session-filter%
+ chart-settings-interface<%>)
 
 (provide/contract
  (get-true-min-start-date (-> connection? exact-integer?))
@@ -46,10 +47,6 @@
 (provide
  pad-data
  simplify-labels)
-
-;; Basic parameters for a chart, all chart parameters should derive from this
-;; structure.  Individual charts will define additional parameters.
-(struct tc-params (name title))
 
 ;; A "session filter" widget: displays options for selecting sessions based on
 ;; sport, date-range, labels and equipment.  This is just a convenient package
@@ -83,6 +80,7 @@
     (define/public (get-restore-data)
       (hash
        'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
        'sport (send sport-selector get-selection)
        'labels (send labels-input get-contents-as-tag-ids)
        'equipment (send equipment-input get-contents-as-tag-ids)))
@@ -145,6 +143,13 @@
 
     ))
 
+;; Interface that has to be implemented by all chart settings dialogs
+(define chart-settings-interface<%>
+  (interface ()
+    (get-chart-settings (->m (hash/c symbol? any/c)))
+    (put-chart-settings (->m (hash/c symbol? any/c) any/c))
+    (show-dialog (->m (or/c (is-a?/c area<%>) #f) (or/c (hash/c symbol? any/c) #f)))))
+
 ;; Base class for all the trends charts. Contains the common mechanisms for
 ;; interacting with the rest of the application, so the individual charts can
 ;; focus on getting the data and building the charts only.
@@ -155,13 +160,9 @@
 
     (define settings-dialog #f)
 
-    ;; Keep a copy of the last good retore data from the settings dialog.  The
-    ;; restore data from the dialog might be wrong if the user opens the
-    ;; dialog, makes modifications than hits cancel.
-    (define restore-data #f)
-
-    ;; The parameters for the chart, a struct derived from tc-params
-    (define params #f)
+    ;; The parameters for the chart, a hash having at least 'name and 'title
+    ;; keys.
+    (define chart-settings #f)
 
     ;; Used to receive notifications about changed sessions, etc.
     (define change-notification-source (make-log-event-source))
@@ -212,46 +213,44 @@
       (unless settings-dialog (set! settings-dialog (make-settings-dialog)))
       settings-dialog)
 
-    (define/public (get-params)
-      (unless params
-        (set! params (send (get-settings-dialog) get-settings)))
-      params)
+    (define/public (get-chart-settings)
+      (unless chart-settings
+        (set! chart-settings (send (get-settings-dialog) get-chart-settings)))
+      chart-settings)
+
+    (define/public (put-chart-settings data)
+      (send (get-settings-dialog) put-chart-settings data)
+      ;; set `chart-settings` to #f so that data is read at least once, so
+      ;; that the 'timestamps entry is updated!
+      (set! chart-settings #f)
+      (invalidate-data))
 
     (define/public (get-name)
-      (let ((p (get-params)))
-        (if p (tc-params-name p) "XXX (no params)")))
+      (let ((p (get-chart-settings)))
+        (if p (hash-ref p 'name "XXX (no params)") "XXX (no params)")))
 
     (define/public (get-title)
-      (let ((p (get-params)))
-        (if p (tc-params-title p) "No Title (no params)")))
+      (let ((p (get-chart-settings)))
+        (if p (hash-ref p 'title "No Title (no params)") "No Title (no params)")))
 
     ;; Open a settings dialog (with PARENT as the parent window) and update
     ;; any chart settings. Returns #t if settings were updated, #f otherwise.
     (define/public (interactive-setup parent)
-      (cond ((send (get-settings-dialog) show-dialog parent)
+      (define dlg (get-settings-dialog))
+      (cond ((send dlg show-dialog parent)
              => (lambda (dialog-result)
-                  (set! params dialog-result)
-                  (set! restore-data (send (get-settings-dialog) get-restore-data))
+                  (set! chart-settings dialog-result)
                   (invalidate-data)
                   #t))
             (#t
              ;; Dialog has been canceled, restore previous settings so they
              ;; show up correctly next time the dialog is opened.
-             (when restore-data
-               (send (get-settings-dialog) restore-from restore-data))
+             (when chart-settings
+               (send dlg put-chart-settings chart-settings))
              #f)))
 
-    (define/public (get-restore-data)
-      restore-data)
-
-    (define/public (restore-from data)
-      (set! params #f)
-      (set! restore-data data)
-      (send (get-settings-dialog) restore-from data)
-      (invalidate-data))
-
     (define/public (refresh)
-      (set! params #f))
+      (set! chart-settings #f))
 
     ))
 

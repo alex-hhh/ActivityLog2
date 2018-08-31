@@ -27,10 +27,8 @@
 
 (provide bw-trends-chart%)
 
-(struct bw-params tc-params (start-date end-date group-by))
-
 (define bw-chart-settings%
-  (class edit-dialog-base%
+  (class* edit-dialog-base% (chart-settings-interface<%>)
     (init-field database
                 [default-name "Trends"]
                 [default-title "Trends Chart"])
@@ -53,43 +51,27 @@
       (new choice% [parent grouping-gb] [label "Group By "]
            [choices '("Week" "Month" "Year")]))
 
-    (define/public (get-restore-data)
-      (list
-       (send name-field get-value)
-       (send title-field get-value)
-       (send date-range-selector get-restore-data)
-       (send group-by-choice get-selection)))
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'group-by (send group-by-choice get-selection)))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (match-define (list d0 d1 d2 d3) data)
-      (send name-field set-value d0)
-      (send title-field set-value d1)
-      (send date-range-selector restore-from d2)
-      (send group-by-choice set-selection d3))
+      (send name-field set-value (hash-ref data 'name))
+      (send title-field set-value (hash-ref data 'title))
+      (send date-range-selector restore-from (hash-ref data 'date-range))
+      (send group-by-choice set-selection (hash-ref data 'group-by)))
 
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
+      (and (send this do-edit parent) (get-chart-settings)))
 
-    (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
-              (bw-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send group-by-choice get-selection)))
-            #f)))
     ))
 
 (define (get-data db sql-query start-date end-date group-by)
@@ -210,11 +192,10 @@
 
     (define (maybe-fetch-data)
       (unless data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
-            (let ((start (bw-params-start-date params))
-                  (end (bw-params-end-date params))
-                  (group-by (bw-params-group-by params)))
+            (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+            (let ((group-by (hash-ref params 'group-by)))
               (set! bw-data (get-data database bw-query start end group-by))
               (set! data-valid? (> (length bw-data) 0)))))))
 

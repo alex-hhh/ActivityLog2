@@ -90,23 +90,6 @@
 
 ;;.............................................. scatter-chart-settings% ....
 
-(struct scatter-params
-  tc-params
-  (start-date
-   end-date
-   sport
-   labels
-   equipment
-   series1
-   series2
-   ;; Percentile of the points that are considered outliers
-   outlier-percentile
-   ;; what to do with outlier points: 'mark -- mark the outlier region on the
-   ;; plot. 'crop crop the plot to remove the outlier points.
-   outlier-handling
-   )
-  #:transparent)
-
 (provide scatter-chart-settings%)
 (define scatter-chart-settings%
   (class edit-dialog-base%
@@ -151,7 +134,7 @@
 
       (when (valid? selection2)
         (send series2-selector set-selection selection2))
-      
+
       )
 
     (define (on-sport-selected sport)
@@ -234,7 +217,7 @@
           'mark
           'crop))
 
-    (define/public (get-restore-data)
+    (define/public (get-chart-settings)
       (hash-union
        (send session-filter get-restore-data)
        (hash
@@ -245,7 +228,7 @@
         'opct (get-outlier-percentile)
         'ohandling (get-outlier-handling))))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (send session-filter restore-from data)
       (when (hash? data)
         (send name-field set-value (hash-ref data 'name "Scatter"))
@@ -269,39 +252,18 @@
 
     (define/public (show-dialog parent)
       (send session-filter on-before-show-dialog)
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
+      (and (send this do-edit parent) (get-chart-settings)))
 
-    (define/public (get-settings)
-      (let ((dr (send session-filter get-date-range)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (scatter-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send session-filter get-sport)
-               (send session-filter get-labels)
-               (send session-filter get-equipment)
-               (get-selected-series-name series1-selector)
-               (get-selected-series-name series2-selector)
-               (get-outlier-percentile)
-               (get-outlier-handling)))
-            #f)))
     ))
 
 ;; Fetch a list of session IDs from the database DB corresponding to
 ;; parameters in PARAMS (a SCATTER-PARAMS instance).  Sessions are fetched based
 ;; on start and end date and the selected sport.
 (define (candidate-sessions db params)
-  (let ((start (scatter-params-start-date params))
-        (end (scatter-params-end-date params))
-        (sport (scatter-params-sport params))
-        (labels (scatter-params-labels params))
-        (equipment (scatter-params-equipment params)))
+  (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+  (let ((sport (hash-ref params 'sport))
+        (labels (hash-ref params 'labels))
+        (equipment (hash-ref params 'equipment)))
     (fetch-candidate-sessions db (car sport) (cdr sport) start end
                               #:label-ids labels #:equipment-ids equipment)))
 
@@ -311,18 +273,18 @@
 (define (fetch-data db params progress)
   (let* ((candidates (candidate-sessions db params))
          ;; Series can be "lteff+rteff" for dual series!
-         (series1 (string-split (scatter-params-series1 params) "+"))
-         (series2 (string-split (scatter-params-series2 params) "+"))
-         (meta1 (find-meta-for-series (first series1) (is-lap-swimming? (scatter-params-sport params))))
-         (meta2 (find-meta-for-series (first series2) (is-lap-swimming? (scatter-params-sport params))))
+         (series1 (string-split (hash-ref params 'series1) "+"))
+         (series2 (string-split (hash-ref params 'series2) "+"))
+         (meta1 (find-meta-for-series (first series1) (is-lap-swimming? (hash-ref params 'sport))))
+         (meta2 (find-meta-for-series (first series2) (is-lap-swimming? (hash-ref params 'sport))))
          (data (aggregate-scatter candidates (first series1) (first series2)
                                   #:progress-callback progress))
          (bounds (aggregate-scatter-bounds
                   data
                   (send meta1 fractional-digits)
                   (send meta2 fractional-digits)))
-         (qbounds (let ((opct (scatter-params-outlier-percentile params)))
-                    (if opct
+         (qbounds (let ((opct (hash-ref params 'opct)))
+                    (if (number? opct)
                         (aggregate-scatter-bounds/quantile data opct)
                         empty-bounds)))
          (slr (aggregate-scatter-slr data)))
@@ -350,7 +312,7 @@
     (reverse rt)))
 
 (define (generate-plot output-fn data params rt)
-  (let ((outlier-handling (scatter-params-outlier-handling params))
+  (let ((outlier-handling (hash-ref params 'ohandling))
         (bounds (scatter-bounds data))
         (qbounds (scatter-qbounds data))
         (rt rt))
@@ -432,7 +394,7 @@
       (send canvas set-background-message "Working...")
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
-            (params (send this get-params))
+            (params (send this get-chart-settings))
             (saved-generation generation))
         (if params
             (queue-task
@@ -460,7 +422,7 @@
       ;; We assume the data is ready, and don't do anything if it is not.
       (let ((data cached-data)
             (rt cached-renderer-tree)
-            (params (send this get-params)))
+            (params (send this get-chart-settings)))
         (when (and data params rt)
           (save-plot-to-file file-name width height data params rt))))
 

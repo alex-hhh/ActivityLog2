@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -195,13 +195,19 @@
       (unless trend-chart
         (set! trend-chart (new trend-chart-class [database database]))
         (when restore-data
-          (send trend-chart restore-from restore-data))
+          (if (hash? restore-data)
+              (send trend-chart put-chart-settings restore-data)
+              ;; old trend charts used to use lists for their restore data,
+              ;; but that was not flexible...
+              (dbglog "discarding non-hash trend chart restore-data")))
         (set! graph-pb (new snip-canvas% [parent this]))))
 
     (define/public (get-name)
       (cond (trend-chart (send trend-chart get-name))
             ;; These are a bit of a hack, but we want to get the name of the
-            ;; tab without creating the trend chart itself
+            ;; tab without creating the trend chart itself.  Old style trend
+            ;; chart data was stored as lists some times, with the first
+            ;; element being the name.
             ((list? restore-data) (first restore-data))
             ((hash? restore-data) (hash-ref restore-data 'name))))
 
@@ -234,7 +240,7 @@
       ;; If the trend chart was not created, just return the previous restore
       ;; data, to be saved again.
       (if trend-chart
-          (list info-tag (send trend-chart get-restore-data))
+          (list info-tag (send trend-chart get-chart-settings))
           (list info-tag restore-data)))
 
     (define/public (export-image file-name)

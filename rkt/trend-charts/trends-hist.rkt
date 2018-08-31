@@ -26,6 +26,7 @@
  racket/string
  racket/hash
  racket/format
+ racket/match
  "trends-chart.rkt"
  "../widgets/main.rkt"
  "../al-widgets.rkt"
@@ -97,14 +98,8 @@
 
 ;;................................................. hist-chart-settings% ....
 
-(struct hist-params tc-params
-  (start-date end-date sport labels equipment
-              series
-              zeroes? colors? aspct? bwidth otrim)
-  #:transparent)
-
 (define hist-chart-settings%
-  (class edit-dialog-base%
+  (class* edit-dialog-base% (chart-settings-interface<%>)
     (init-field database
                 [default-name "Hist"]
                 [default-title "Histogram Chart"])
@@ -159,7 +154,7 @@
                                 [parent (send this get-client-pane)]
                                 [database database]
                                 [sport-selected-callback on-sport-selected]))
-    
+
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (set! series-selector
           (let ((p (make-horizontal-pane series-gb #f)))
@@ -208,7 +203,7 @@
              "+")
             (send axis series-name))))
 
-    (define/public (get-restore-data)
+    (define/public (get-chart-settings)
       (hash-union
        (send session-filter get-restore-data)
        (hash
@@ -221,7 +216,7 @@
         'bucket-width (send bucket-width-field get-converted-value)
         'outlier-trim (send outlier-trim-field get-converted-value))))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (send session-filter restore-from data)
       (when (hash? data)
         (send name-field set-value (hash-ref data 'name "Hist"))
@@ -246,43 +241,18 @@
 
     (define/public (show-dialog parent)
       (send session-filter on-before-show-dialog)
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
+      (and (send this do-edit parent) (get-chart-settings)))
 
-    (define/public (get-settings)
-      (let ((dr (send session-filter get-date-range)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (hist-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send session-filter get-sport)
-               (send session-filter get-labels)
-               (send session-filter get-equipment)
-               (get-selected-series-name)
-               (send include-zeroes-checkbox get-value)
-               (send color-by-zone-checkbox get-value)
-               (send show-as-pct-checkbox get-value)
-               (let ((bw (send bucket-width-field get-converted-value)))
-                 (if (or (not bw) (eq? bw 'empty)) 1 (if (> bw 1) bw 1)))
-               (let ((otrim (send outlier-trim-field get-converted-value)))
-                 (if (eq? otrim 'empty) 0 otrim))))
-            #f)))
     ))
 
 ;; Fetch a list of session IDs from the database DB corresponding to
 ;; parameters in PARAMS (a HIST-PARAMS instance).  Sessions are fetched based
 ;; on start and end date and the selected sport.
 (define (candidate-sessions db params)
-  (let ((start (hist-params-start-date params))
-        (end (hist-params-end-date params))
-        (sport (hist-params-sport params))
-        (labels (hist-params-labels params))
-        (equipment (hist-params-equipment params)))
+  (match-define (cons start end) (hash-ref params 'timestamps))
+  (let ((sport (hash-ref params 'sport))
+        (labels (hash-ref params 'labels))
+        (equipment (hash-ref params 'equipment)))
     (fetch-candidate-sessions db (car sport) (cdr sport) start end
                               #:label-ids labels #:equipment-ids equipment)))
 
@@ -294,30 +264,28 @@
 (define (fetch-data db params progress)
   (let* ((candidates (candidate-sessions db params))
          ;; Series can be "lteff+rteff" for dual series!
-         (series (string-split (hist-params-series params) "+")))
+         (series (string-split (hash-ref params 'series) "+")))
     (hist
-     (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hist-params-sport params))))
+     (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hash-ref params 'sport))))
      (for/list ([s series]) (aggregate-hist candidates s #:progress-callback progress)))))
 
 ;; Prepare a histogram ready for rendering or export based on histogram DATA
 ;; and PARAMS.  The returned object is either a histogram/c or a
 ;; combined-histogram/c
 (define (prepare-histogram data params)
-  (define aspct? (hist-params-aspct? params))
-  (define zeroes? (hist-params-zeroes? params))
+  (define aspct? (hash-ref params 'show-as-pct?))
+  (define zeroes? (hash-ref params 'include-zeroes?))
 
   (define dual? (>= (length (hist-axis data)) 2))
   (define axis1 (first (hist-axis data)))
   (define axis2 (and dual? (second (hist-axis data))))
   (define hist1 (first (hist-data data)))
   (define hist2 (and dual? (second (hist-data data))))
-  (define bwidth1
-    (* (hist-params-bwidth params)
-       (send axis1 histogram-bucket-slot)))
-  (define bwidth2
-    (and axis2
-         (* (hist-params-bwidth params)
-            (send axis2 histogram-bucket-slot))))
+  (define bwidth-base
+    (let ((bw (hash-ref params 'bucket-width)))
+      (if (eq? bw 'empty) 1 (if (> bw 1) bw 1))))
+  (define bwidth1 (* bwidth-base (send axis1 histogram-bucket-slot)))
+  (define bwidth2 (and axis2 (* bwidth-base (send axis2 histogram-bucket-slot))))
 
   (define h1 (expand-histogram hist1
                                #:include-zeroes? zeroes?
@@ -328,9 +296,13 @@
                                     #:include-zeroes? zeroes?
                                     #:bucket-width bwidth2
                                     #:as-percentage? aspct?)))
-  
-  (when (> (hist-params-otrim params) 0)
-    (let ((trim (/ (hist-params-otrim params) 100)))
+
+  (define otrim
+    (let ((ot (hash-ref params 'outlier-trim)))
+      (if (eq? ot 'empty) 0 ot)))
+
+  (when (> otrim 0)
+    (let ((trim (/ otrim 100)))
       (when h1
         (set! h1 (trim-histogram-outliers h1 trim)))
       (when h2
@@ -342,8 +314,8 @@
   (define dual? (>= (length (hist-axis data)) 2))
   (define axis1 (first (hist-axis data)))
   (define axis2 (and dual? (second (hist-axis data))))
-  (define factor-fn (and (hist-params-colors? params)
-                         (send axis1 factor-fn (hist-params-sport params))))
+  (define factor-fn (and (hash-ref params 'color-by-zone?)
+                         (send axis1 factor-fn (hash-ref params 'sport))))
   (define factor-colors (send axis1 factor-colors))
 
   (define (valid?)
@@ -371,8 +343,8 @@
                #:color (send axis1 plot-color)))))))
 
 (define (generate-plot output-fn axis params renderer-tree)
-  (let* ((aspct? (hist-params-aspct? params))
-         (lap-swim? (is-lap-swimming? (hist-params-sport params)))
+  (let* ((aspct? (hash-ref params 'show-as-pct?))
+         (lap-swim? (is-lap-swimming? (hash-ref params 'sport)))
          (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time"))))
     (parameterize ([plot-y-label label]
                    [plot-y-ticks (if (or aspct? lap-swim?)
@@ -431,7 +403,7 @@
 
     (define (export-data-as-csv out)
       (define data cached-data)
-      (define params (send this get-params))
+      (define params (send this get-chart-settings))
       (define histogram histogram-data)
 
       (define dual? (>= (length (hist-axis data)) 2))
@@ -447,7 +419,7 @@
           (write-string (format "Value, Rank ~a~%" (send axis1 series-name)) out))
 
       (define format-value (send axis1 value-formatter))
-      (define ndigits (if (hist-params-aspct? params)
+      (define ndigits (if (hash-ref params 'show-as-pct?)
                           2
                           (send axis1 fractional-digits)))
       (for ((item (in-vector histogram)))
@@ -459,10 +431,10 @@
     (define (plot-hover-callback snip event x y)
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
-      
+
       (when (and (good-hover? x y event) cached-data histogram-data)
         (define dual? (>= (length (hist-axis cached-data)) 2))
-        (define params (send this get-params))
+        (define params (send this get-chart-settings))
         (define skip (if dual? 2.5 1.0))
         (define gap (if dual? 0.15 1/8))
         (define-values (series slot) (xposition->histogram-slot x skip gap))
@@ -472,9 +444,9 @@
             ;; NOTE first item in the vector is the bucket name, not the value
             (define value (vector-ref item (add1 series)))
             (when (<= y value)
-              (let ((tag (cond ((hist-params-aspct? params)
+              (let ((tag (cond ((hash-ref params 'show-as-pct?)
                                 (format "~a %" (~r value #:precision 1)))
-                               ((is-lap-swimming? (hist-params-sport params))
+                               ((is-lap-swimming? (hash-ref params 'sport))
                                 (format "~a pool lengths" (~r value #:precision 1)))
                                (#t
                                 (duration->string value)))))
@@ -487,7 +459,7 @@
       (send canvas set-background-message "Working...")
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
-            (params (send this get-params))
+            (params (send this get-chart-settings))
             (saved-generation generation))
         (if params
             (queue-task
@@ -516,7 +488,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (let ((data cached-data)
-            (params (send this get-params)))
+            (params (send this get-chart-settings)))
         (when (and params data)
           (let ((rt (make-renderer-tree data params)))
             (when rt

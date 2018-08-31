@@ -33,9 +33,6 @@
 
 (define histogram-gap 0.5)
 
-;; Metric: 0 - time, 1 - distance, 2 - session count, 3 - tss
-(struct vol-params tc-params (start-date end-date group-by sport sub-sport metric))
-
 (define vol-chart-settings%
   (class edit-dialog-base%
     (init-field database
@@ -61,51 +58,32 @@
       (new choice% [parent grouping-gb] [label "Metric "]
            [choices '("Time" "Distance" "Session Count" "Effort")]))
 
-    (define/public (get-restore-data)
-      (list
-       (send name-field get-value)
-       (send title-field get-value)
-       (send date-range-selector get-restore-data)
-       (send group-by-choice get-selection)
-       (send metric-choice get-selection)
-       (send sport-selector get-selection)))
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'group-by (send group-by-choice get-selection)
+       'metric (send metric-choice get-selection)
+       'sport (send sport-selector get-selection)))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (match-define (list d0 d1 d2 d3 d4 d5) data)
-      (send name-field set-value d0)
-      (send title-field set-value d1)
-      (send date-range-selector restore-from d2)
-      (send group-by-choice set-selection d3)
-      (send metric-choice set-selection d4)
-      (send sport-selector set-selected-sport (car d5) (cdr d5)))
+      (send name-field set-value (hash-ref data 'name))
+      (send title-field set-value (hash-ref data 'title))
+      (send date-range-selector restore-from (hash-ref data 'date-range))
+      (send group-by-choice set-selection (hash-ref data 'group-by))
+      (send metric-choice set-selection (hash-ref data 'metric))
+      (let ((sp (hash-ref data 'sport #f)))
+        (when sp
+          (send sport-selector set-selected-sport (car sp) (cdr sp)))))
 
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
-
-    (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection))
-            (sport (send sport-selector get-selection)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
-              (vol-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send group-by-choice get-selection)
-               (car sport)
-               (cdr sport)
-               (send metric-choice get-selection)))
-            #f)))
+      (and (send this do-edit parent) (get-chart-settings)))
 
     ))
 
@@ -235,7 +213,7 @@
         (write-string (format "~a, ~a~%" timestamp val) out)))
 
     (define (get-y-label)
-      (let ((metric (vol-params-metric (send this get-params))))
+      (let ((metric (hash-ref (send this get-chart-settings) 'metric)))
         (case metric
           ((0) "Time (hours)")
           ((1) "Distance (km)")
@@ -245,13 +223,13 @@
     (define (plot-hover-callback snip event x y)
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
-      
+
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
-      
+
       (when (good-hover? x y event)
-        (define params (send this get-params))
-        (define metric (vol-params-metric params))
+        (define params (send this get-chart-settings))
+        (define metric (hash-ref params 'metric))
         (define format-value
           (case metric
             ((0) (lambda (v) (duration->string (* v 3600))))
@@ -265,7 +243,7 @@
             ((1) "Distance")
             ((2) "Activities")
             ((3) "Stress")))
-        
+
         (define-values (series slot) (xposition->histogram-slot x skip gap))
         (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
           (let ((row (list-ref chart-data slot)))
@@ -290,7 +268,7 @@
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
-    
+
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
@@ -298,14 +276,12 @@
 
     (define (maybe-fetch-data)
       (unless data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
-            (let* ((start (vol-params-start-date params))
-                   (end (vol-params-end-date params))
-                   (group-by (vol-params-group-by params))
-                   (metric (vol-params-metric params))
-                   (sport (vol-params-sport params))
-                   (sub-sport (vol-params-sub-sport params))
+            (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+            (match-define (cons sport sub-sport) (hash-ref params 'sport))
+            (let* ((group-by (hash-ref params 'group-by))
+                   (metric (hash-ref params 'metric))
                    (timestamps (generate-timestamps start end group-by)))
               (set! sql-query (make-sql-query start end group-by sport sub-sport))
               (set! sql-query-result (get-data database sql-query metric))

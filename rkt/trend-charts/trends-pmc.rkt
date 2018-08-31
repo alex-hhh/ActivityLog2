@@ -40,9 +40,6 @@
 ;; Training Load" (fatigue).  Default is 7 days.
 (define atl-range 7)
 
-(struct pmc-params tc-params
-  (start-date end-date show-form? show-fitness? show-fatigue? show-daily-tss?))
-
 (define pmc-chart-settings%
   (class edit-dialog-base%
     (init-field database [default-name "Trends"] [default-title "Trends Chart"])
@@ -80,54 +77,34 @@
         (set! show-fatigue-check-box
               (new check-box% [parent q] [label "Fatigue"] [value #t]))))
 
-    (define/public (get-restore-data)
-      (list
-       (send name-field get-value)
-       (send title-field get-value)
-       (send date-range-selector get-restore-data)
-       (send show-form-check-box get-value)
-       (send show-fitness-check-box get-value)
-       (send show-fatigue-check-box get-value)
-       (send show-daily-tss-check-box get-value)))
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'show-form? (send show-form-check-box get-value)
+       'show-fitness? (send show-fitness-check-box get-value)
+       'show-fatigue? (send show-fatigue-check-box get-value)
+       'show-tss? (send show-daily-tss-check-box get-value)))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (match-define (list d0 d1 d2 d3 d4 d5 d6) data)
-      (send name-field set-value d0)
-      (send title-field set-value d1)
-      (send date-range-selector restore-from d2)
-      (send show-form-check-box set-value d3)
-      (send show-fitness-check-box set-value d4)
-      (send show-fatigue-check-box set-value d5)
-      (send show-daily-tss-check-box set-value d6))
+      (send name-field set-value (hash-ref data 'name ""))
+      (send title-field set-value (hash-ref data 'title ""))
+      (let ((dr (hash-ref data 'date-range #f)))
+        (when dr
+          (send date-range-selector restore-from dr)))
+      (send show-form-check-box set-value (hash-ref data 'show-form? #t))
+      (send show-fitness-check-box set-value (hash-ref data 'show-fitness? #t))
+      (send show-fatigue-check-box set-value (hash-ref data 'show-fatigue? #t))
+      (send show-daily-tss-check-box set-value (hash-ref data 'show-tss? #f)))
 
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
-
-    (define/public (set-seasons seasons)
-      (send date-range-selector set-seasons seasons))
-
-    (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
-              (pmc-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date end-date
-               (send show-form-check-box get-value)
-               (send show-fitness-check-box get-value)
-               (send show-fatigue-check-box get-value)
-               (send show-daily-tss-check-box get-value)))
-            #f)))
+      (and (send this do-edit parent) (get-chart-settings)))
 
     ))
 
@@ -330,26 +307,26 @@
 
 (define (make-renderer-tree params pmc-data)
   (let ((rt (list (tick-grid))))
-    (when (pmc-params-show-form? params)
+    (when (hash-ref params 'show-form? #t)
       (let ((form-renderer (make-form-renderer pmc-data)))
         (set! rt (cons form-renderer rt))))
 
-    (when (pmc-params-show-fitness? params)
+    (when (hash-ref params 'show-fitness? #t)
       (let ((fitness-renderer (make-fitness-renderer pmc-data)))
         (set! rt (cons fitness-renderer rt))))
 
-    (when (pmc-params-show-fatigue? params)
+    (when (hash-ref params 'show-fatigue? #t)
       (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
         (set! rt (cons fatigue-renderer rt))))
 
-    (when (pmc-params-show-daily-tss? params)
+    (when (hash-ref params 'show-tss? #f)
       (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
         (set! rt (cons daily-tss-renderer rt))))
 
     ;; Add a "today" vertical line to the plot
     (set! rt
           (cons (vrule (current-seconds)) rt))
-    
+
     rt))
 
 (define (generate-plot output-fn renderer-tree)
@@ -357,22 +334,22 @@
     (output-fn renderer-tree)))
 
 (define (insert-plot-snip canvas params renderer-tree)
+  (match-define (cons start-date end-date) (hash-ref params 'timestamps (cons 0 0)))
   (generate-plot
    (lambda (renderer-tree)
      (plot-to-canvas
       renderer-tree canvas
-      #:x-min (pmc-params-start-date params)
-      #:x-label #f #:y-label #f))
+      #:x-min start-date #:x-label #f #:y-label #f))
    renderer-tree))
 
 (define (save-plot-to-file file-name width height params renderer-tree)
+  (match-define (cons start-date end-date) (hash-ref params 'timestamps (cons 0 0)))
   (generate-plot
    (lambda (renderer-tree)
      (plot-file
       renderer-tree
       file-name #:width width #:height height
-      #:x-min (pmc-params-start-date params)
-      #:x-label #f #:y-label #f))
+      #:x-min start-date #:x-label #f #:y-label #f))
    renderer-tree))
 
 (define pmc-trends-chart%
@@ -412,8 +389,10 @@
       ;; PMC is computed well in advance to compensate for the long ramp up
       ;; time of ATL CTL values.  Only print out the actual range, values
       ;; before start-date are not accurate.
-      (let ((params (send this get-params)))
-        (for ((datum pmc-data) #:when (>= (vector-ref datum 0) (pmc-params-start-date params)))
+      (let ((params (send this get-chart-settings)))
+        (match-define (cons start-date end-date)
+          (hash-ref params 'timestamps (cons 0 0)))
+        (for ((datum pmc-data) #:when (>= (vector-ref datum 0) start-date))
           (match-define (vector day ctl atl tss) datum)
           (write-string
            (format "~a, ~a, ~a, ~a, ~a~%"
@@ -428,7 +407,7 @@
       (define (add-renderer r) (set! renderers (cons r renderers)))
       (when (good-hover? x y event)
         (let ((entry (get-pmc-data-for-timestamp pmc-data x))
-              (params (send this get-params)))
+              (params (send this get-chart-settings)))
           (when entry
             (match-define (list ts ctl atl tsb tss) entry)
             ;; Highlight the entire day -- while the plot is linear, values
@@ -436,13 +415,13 @@
             (add-renderer (pu-vrange ts (+ ts (* 24 3600)) *sea-green-hl*))
             (unless (eq? cached-day ts)
               (add-info "Date" (calendar-date->string ts))
-              (when (pmc-params-show-form? params)
+              (when (hash-ref params 'show-form? #t)
                 (add-info "Form" (~r tsb #:precision 1)))
-              (when (pmc-params-show-fitness? params)
+              (when (hash-ref params 'show-fitness? #t)
                 (add-info "Fitness" (~r ctl #:precision 1)))
-              (when (pmc-params-show-fatigue? params)
+              (when (hash-ref params 'show-fatigue? #t)
                 (add-info "Fatigue" (~r atl #:precision 1)))
-              (when (pmc-params-show-daily-tss? params)
+              (when (hash-ref params 'show-tss? #f)
                 (add-info "Stress" (~r tss #:precision 1)))
               (unless (null? info)
                 (set! cached-badge (make-hover-badge info))))
@@ -451,7 +430,7 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
-      (let ((params (send this get-params)))
+      (let ((params (send this get-chart-settings)))
         (if params
             (let ((rt (make-renderer-tree params pmc-data)))
               (let ((snip (insert-plot-snip canvas params rt)))
@@ -460,21 +439,25 @@
 
     (define/override (save-plot-image file-name width height)
       (when data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
             (let ((rt (make-renderer-tree params pmc-data)))
               (save-plot-to-file file-name width height params rt))))))
 
     (define (maybe-build-pmc-data)
       (unless data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
+            (match-define
+              (cons start-date end-date)
+              (hash-ref params 'timestamps (cons 0 0)))
             ;; NOTE: we extend the range so ATL CTL at the start of the range
             ;; is correctly computed (w/ exponential averaging, all past TSS
             ;; values have a contribution to the present)
-            (let ((start (max 0 (- (pmc-params-start-date params) (* 4 ctl-range 24 3600))))
-                  (end (pmc-params-end-date params)))
+            (let ((start (max 0 (- start-date (* 4 ctl-range 24 3600))))
+                  (end end-date))
               (set! pmc-data (produce-pmc-data/method-2 start end database)))
             (set! data-valid? #t)))))
 
     ))
+

@@ -35,10 +35,6 @@
 
 (define histogram-gap 0.5)
 
-;; Group-by: 0 - week, 1 - month, 2 - year
-;; Metric: 0 - time, 1 - distance, 2 - session count
-(struct trivol-params tc-params (start-date end-date group-by metric))
-
 (define trivol-chart-settings%
   (class edit-dialog-base%
     (init-field database
@@ -63,49 +59,30 @@
       (new choice% [parent grouping-gb] [label "Metric "]
            [choices '("Time" "Distance" "Session Count" "Effort")]))
 
-    (define/public (get-restore-data)
-      (list
-       (send name-field get-value)
-       (send title-field get-value)
-       (send date-range-selector get-restore-data)
-       (send group-by-choice get-selection)
-       (send metric-choice get-selection)))
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'group-by (send group-by-choice get-selection)
+       'metric (send metric-choice get-selection)))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (match-define (list d0 d1 d2 d3 d4) data)
-      (send name-field set-value d0)
-      (send title-field set-value d1)
-      (send date-range-selector restore-from d2)
-      (send group-by-choice set-selection d3)
-      (send metric-choice set-selection d4))
+      (send name-field set-value (hash-ref data 'name ""))
+      (send title-field set-value (hash-ref data 'title ""))
+      (send date-range-selector restore-from (hash-ref data 'date-range))
+      (send group-by-choice set-selection (hash-ref data 'group-by))
+      (send metric-choice set-selection (hash-ref data 'metric)))
 
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
-
-    (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
-              (trivol-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date
-               end-date
-               (send group-by-choice get-selection)
-               (send metric-choice get-selection)))
-            #f)))
+      (and (send this do-edit parent) (get-chart-settings)))
 
     ))
-
 
 (define (make-sql-query/time start-date end-date group-by)
   (format "select ~a as period,
@@ -262,7 +239,8 @@
           (hash-ref events 'session-updated #f)))
 
     (define (get-y-label)
-      (let ((metric (trivol-params-metric (send this get-params))))
+      (let* ((params (send this get-chart-settings))
+             (metric (hash-ref params 'metric)))
         (case metric
           ((0) "Time (hours)")
           ((1) "Distance (km)")
@@ -277,37 +255,36 @@
       (define (add-renderer r) (set! renderers (cons r renderers)))
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
-      
+
       (when (good-hover? x y event)
-        (define params (send this get-params))
-        (define metric (trivol-params-metric params))
-        (define format-value
-          (case metric
-            ((0) (lambda (v) (duration->string (* v 3600))))
-            ((1) (lambda (v) (distance->string (* v 1000) #t)))
-            ((2) (lambda (v) (format "~a activities" (exact-round v))))
-            ((3) (lambda (v) (format "~a stress" (exact-round v))))))
-        
-        (define-values (series slot) (xposition->histogram-slot x skip gap))
-        (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
-          (let ((row (list-ref chart-data slot)))
-            (when (> (vector-length row) 1)
-              (match-define (vector timestamp wtime stime btime rtime) row)
-              (define total (+ wtime stime btime rtime))
-              (define (->percent-str val)
-                (string-append (~r (* 100 (/ val total)) #:precision 1) " %"))
-              (when (<= y total)
-                (unless (eq? cached-hslot slot)
-                  (set! cached-hslot slot)
-                  (set! cached-badge
-                        (make-hover-badge
-                         (list (list "Weights" (format-value wtime) (->percent-str wtime))
-                               (list "Swim" (format-value stime) (->percent-str stime))
-                               (list "Bike" (format-value btime) (->percent-str btime))
-                               (list "Run" (format-value rtime) (->percent-str rtime))
-                               (list "Total" (format-value (+ wtime stime btime rtime)))))))
-                (when cached-badge
-                  (add-renderer (pu-label x y cached-badge))))))))
+        (let* ((params (send this get-chart-settings))
+               (metric (hash-ref params 'metric))
+               (format-value
+                (case metric
+                  ((0) (lambda (v) (duration->string (* v 3600))))
+                  ((1) (lambda (v) (distance->string (* v 1000) #t)))
+                  ((2) (lambda (v) (format "~a activities" (exact-round v))))
+                  ((3) (lambda (v) (format "~a stress" (exact-round v)))))))
+          (define-values (series slot) (xposition->histogram-slot x skip gap))
+          (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
+            (let ((row (list-ref chart-data slot)))
+              (when (> (vector-length row) 1)
+                (match-define (vector timestamp wtime stime btime rtime) row)
+                (define total (+ wtime stime btime rtime))
+                (define (->percent-str val)
+                  (string-append (~r (* 100 (/ val total)) #:precision 1) " %"))
+                (when (<= y total)
+                  (unless (eq? cached-hslot slot)
+                    (set! cached-hslot slot)
+                    (set! cached-badge
+                          (make-hover-badge
+                           (list (list "Weights" (format-value wtime) (->percent-str wtime))
+                                 (list "Swim" (format-value stime) (->percent-str stime))
+                                 (list "Bike" (format-value btime) (->percent-str btime))
+                                 (list "Run" (format-value rtime) (->percent-str rtime))
+                                 (list "Total" (format-value (+ wtime stime btime rtime)))))))
+                  (when cached-badge
+                    (add-renderer (pu-label x y cached-badge)))))))))
       (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
@@ -335,19 +312,18 @@
       (newline out)
 
       (for ((datum chart-data) #:when (> (vector-length datum) 1))
-        (match-define (vector timestamp wtime stime btime rtime) datum)        
+        (match-define (vector timestamp wtime stime btime rtime) datum)
         (write-string
          (format "~a, ~a, ~a, ~a, ~a~%" timestamp wtime stime btime rtime))
          out))
 
     (define (maybe-fetch-data)
       (unless data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
-            (let* ((start (trivol-params-start-date params))
-                   (end (trivol-params-end-date params))
-                   (group-by (trivol-params-group-by params))
-                   (metric (trivol-params-metric params))
+            (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+            (let* ((group-by (hash-ref params 'group-by))
+                   (metric (hash-ref params 'metric))
                    (timestamps (generate-timestamps start end group-by)))
               (set! sql-query
                     (case metric

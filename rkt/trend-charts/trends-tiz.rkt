@@ -35,8 +35,6 @@
 
 (define histogram-gap 0.5)
 
-(struct tiz-params tc-params (start-date end-date group-by sport zone-metric))
-
 (define tiz-chart-settings%
   (class edit-dialog-base%
     (init-field database [default-name "TIZ"] [default-title "Time in Zone"])
@@ -62,53 +60,44 @@
       (new choice% [parent grouping-gb] [label "Zone "]
            [choices '("Heart Rate" "Power")]))
 
-    (define/public (get-restore-data)
-      (list
-       (send name-field get-value)
-       (send title-field get-value)
-       (send date-range-selector get-restore-data)
-       (send group-by-choice get-selection)
-       (send sport-choice get-selection)
-       (send zone-metric-choice get-selection)))
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'group-by (send group-by-choice get-selection)
+       'sport (case (send sport-choice get-selection)
+                ((0) 1)
+                ((1) 2)
+                (else #f))
+       'zone-metric (case (send zone-metric-choice get-selection)
+                      ((0) 1)
+                      ((1) 3)
+                      (else 1))))
 
-    (define/public (restore-from data)
+    (define/public (put-chart-settings data)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (match-define (list d0 d1 d2 d3 d4 d5) data)
-      (send name-field set-value d0)
-      (send title-field set-value d1)
-      (send date-range-selector restore-from d2)
-      (send group-by-choice set-selection d3)
-      (send sport-choice set-selection d4)
-      (send zone-metric-choice set-selection d5))
+      (send name-field set-value (hash-ref data 'name))
+      (send title-field set-value (hash-ref data 'title))
+      (send date-range-selector restore-from (hash-ref data 'date-range))
+      (send group-by-choice set-selection (hash-ref data 'group-by))
+      (send sport-choice set-selection
+            (case (hash-ref data 'sport)
+              ((1) 0)
+              ((2) 1)
+              (else 0)))
+      (send zone-metric-choice set-selection
+            (case (hash-ref data 'zone-metric)
+              ((1) 0)
+              ((3) 1)
+              (else 0))))
 
     (define/public (show-dialog parent)
       (when database
         (send date-range-selector set-seasons (db-get-seasons database)))
-      (if (send this do-edit parent)
-          (get-settings)
-          #f))
-
-    (define/public (get-settings)
-      (let ((dr (send date-range-selector get-selection)))
-        (if dr
-            (let ((start-date (car dr))
-                  (end-date (cdr dr)))
-              (when (eqv? start-date 0)
-                (set! start-date (get-true-min-start-date database)))
-              (tiz-params
-               (send name-field get-value)
-               (send title-field get-value)
-               start-date end-date
-               (send group-by-choice get-selection)
-               (case (send sport-choice get-selection) ; TODO: not nice, use data from database
-                 ((0) 1)                               ; Running
-                 ((1) 2))                              ; Cycling
-               (case (send zone-metric-choice get-selection)
-                 ((0) 1)                  ; Heart rate
-                 ((1) 3))                 ; Power
-               ))
-            #f)))
+      (and (send this do-edit parent) (get-chart-settings)))
 
     ))
 
@@ -170,7 +159,7 @@
         (set! zmax (max zmax (max-zone z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))))))
 
   (define zcolors (drop (take (zone-colors) zmax) zmin))
-  
+
   (define plot-colors (map cdr zcolors))
   (define plot-labels (map symbol->string (map car zcolors)))
 
@@ -241,7 +230,7 @@
 
     (define/override (invalidate-data)
       (set! data-valid? #f))
-    
+
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
           (hash-ref events 'session-created #f)
@@ -256,7 +245,7 @@
     (define (export-data-as-csv out formatted?)
       (write-string
        "Timestamp, Z0, Z1, Z2, Z3, Z4, Z5, Z6, Z7, Z8, Z9, Z10" out)
-      (newline out)      
+      (newline out)
       (for ((datum chart-data) #:when (> (vector-length datum) 1))
         (match-define (vector timestamp z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10) datum)
         (write-string
@@ -287,7 +276,7 @@
       (define (add-renderer r) (set! renderers (cons r renderers)))
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
-      
+
       (when (good-hover? x y event)
         (define-values (series slot) (xposition->histogram-slot x skip gap))
         (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
@@ -300,7 +289,7 @@
                   (set! cached-hslot slot)
                   (set! cached-badge
                         (make-hover-badge
-                         (append 
+                         (append
                           (for/list (((duration index) (in-indexed (in-vector row 1))) #:when (> duration 0))
                             (list (format "Zone ~a" index)
                                   (duration->string (* duration 3600))
@@ -325,16 +314,17 @@
 
     (define (maybe-fetch-data)
       (unless data-valid?
-        (let ((params (send this get-params)))
+        (let ((params (send this get-chart-settings)))
           (when params
-            (let* ((start (tiz-params-start-date params))
-                   (end (tiz-params-end-date params))
-                   (group-by (tiz-params-group-by params))
-                   (sport (tiz-params-sport params))
-                   (zone (tiz-params-zone-metric params))
+            (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+            (let* ((group-by (hash-ref params 'group-by))
+                   (sport (hash-ref params 'sport))
+                   (zone (hash-ref params 'zone-metric))
                    (timestamps (generate-timestamps start end group-by)))
               (set! sql-query (make-sql-query group-by))
               (set! sql-query-result (get-data database sql-query sport zone start end))
+              (when (= (length sql-query-result) 0)
+                (printf "empty query for ~a~%" sql-query))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
