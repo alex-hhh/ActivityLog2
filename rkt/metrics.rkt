@@ -861,5 +861,5 @@ select X.session_id
                          aggregate-scatter/c))
  (aggregate-scatter-bounds/quantile (-> aggregate-scatter/c positive? bounds/c))
  (aggregate-scatter-bounds (-> aggregate-scatter/c number? number? bounds/c))
- (aggregate-scatter-slr (-> aggregate-scatter/c slr?)))
+ (aggregate-scatter-slr (-> aggregate-scatter/c (or/c #f slr?))))
 

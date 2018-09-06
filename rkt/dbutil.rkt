@@ -3,7 +3,7 @@
 ;;               and other small helpers
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,17 +15,27 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/contract
-         file/gzip
+(require db
          file/gunzip
-         json)
+         file/gzip
+         json
+         racket/contract
+         racket/file
+         racket/format
+         racket/runtime-path
+         "utilities.rkt"
+         (for-syntax racket/base))
 
 ;; Contract for the progress callback passed to db-open
 (define progress-callback/c
   (-> string? exact-positive-integer? exact-positive-integer? any/c))
 
 (provide (struct-out db-exn-bad-version)
-         db-exn-bad-version-message)
+         ;; define-sql-statement need runtime-path to be present, so provide
+         ;; it for all our clients.
+         (all-from-out racket/runtime-path)
+         db-exn-bad-version-message
+         define-sql-statement)
 
 (provide/contract
  [db-open (->*
@@ -48,11 +58,6 @@
  [compressed-string->jsexpr (-> bytes? jsexpr?)]
 
  )
-
-(require db
-         "utilities.rkt"
-         racket/file
-         racket/format)
 
 ;; Read the next SQL statement from INPUT-PORT.  The statement is assumed to
 ;; be terminated by the #\; character.
@@ -201,6 +206,41 @@
       (query-value db stmt table-name))))
 
 
+;;................................................. define-sql-statement ....
+
+;; Define a `virtual-statement` containing an SQL statement read from a file.
+;; This macro is used as (define-sql-statement name file) and defines name to
+;; be a function of no arguments which returns a `virtual-statement` when
+;; invoked.  The SQL statement will be read from the specified file the first
+;; time the function is called.
+;;
+;; This is intended to be used instead of defining SQL statements in the
+;; Racket source code as strings.  They can be defined in separate files where
+;; they can be nicely formatted, commented and tested in the sqlite command
+;; prompt.
+
+(define-syntax (define-sql-statement stx)
+  (syntax-case stx ()
+    [(_ name path)
+     ;; Unfortunately, PATH cannot be used directly here, as it will need to
+     ;; be relative to the location of *this* file if running the program in
+     ;; place, but it will need to be relative to the location of the file
+     ;; calling this macro when building an executable.
+     ;;
+     ;; https://groups.google.com/forum/#!topic/racket-users/svMKLFh_VC4
+     (let-values ([(dir fn _) (split-path (syntax-source stx))])
+       (with-syntax ([dir (or dir 'same)])
+         #'(begin
+             (define-runtime-path rpath (build-path dir path))
+             (define name
+               (let ([vq #f])
+                 (lambda ()
+                   (unless vq
+                     (let ([s (call-with-input-file rpath read-next-statement)])
+                       (set! vq (virtual-statement (lambda (_) s)))))
+                   vq))))))]))
+
+
 ;;...................................................... database backup ....
 
 ;; Implement a simple backup strategy for the activity log databases: we copy
@@ -297,6 +337,9 @@
         (backup-database db-file backup)
         (dbglog "database backup completed")))))
 
+
+;;....................................................... sql-column-ref ....
+
 ;; Reference a column in the SQL result set ROW.  If the referenced value is
 ;; sql-null?, replace it with the value of IF-NULL (which defaults to #f).
 ;;
@@ -307,7 +350,7 @@
     (if (sql-null? v) if-null v)))
 
 
-;....................................................... json utilities ....
+;;....................................................... json utilities ....
 
 ;; Take a JSEXPR and return a compressed string from it.  It is intended to be
 ;; stored in the database.

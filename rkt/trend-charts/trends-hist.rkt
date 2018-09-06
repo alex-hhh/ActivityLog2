@@ -489,8 +489,8 @@
       ;; We assume the data is ready, and don't do anything if it is not.
       (let ((data cached-data)
             (params (send this get-chart-settings)))
-        (when (and params data)
-          (let ((rt (make-renderer-tree data params)))
+        (when (and params histogram-data data)
+          (let ((rt (make-renderer-tree histogram-data data params)))
             (when rt
               (save-plot-to-file file-name width height (first (hist-axis data)) params rt))))))
 

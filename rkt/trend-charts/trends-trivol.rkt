@@ -314,8 +314,8 @@
       (for ((datum chart-data) #:when (> (vector-length datum) 1))
         (match-define (vector timestamp wtime stime btime rtime) datum)
         (write-string
-         (format "~a, ~a, ~a, ~a, ~a~%" timestamp wtime stime btime rtime))
-         out))
+         (format "~a, ~a, ~a, ~a, ~a~%" timestamp wtime stime btime rtime)
+         out)))
 
     (define (maybe-fetch-data)
       (unless data-valid?

@@ -339,7 +339,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           (hash-ref events 'session-updated #f)))
 
     (define/override (export-data-to-file file formatted?)
-      (when tt-data
+      (when (and tt-data (> (df-row-count tt-data) 0))
         (call-with-output-file file
           (lambda (out) (export-data-as-csv out formatted?))
           #:mode 'text #:exists 'truncate)))
@@ -350,7 +350,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
       (define actual-series
         (for/list ([series all-series] #:when (df-contains? tt-data series))
           series))
-      (apply df-write/csv out tt-data actual-series))
+      (apply df-write/csv tt-data out actual-series))
 
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)

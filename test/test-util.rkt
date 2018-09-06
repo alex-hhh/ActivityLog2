@@ -23,8 +23,18 @@
          "../rkt/intervals.rkt"
          "../rkt/session-df.rkt")
 
-(define (with-database thunk)
+(define (with-fresh-database thunk)
   (let ((db (open-activity-log 'memory)))
+    (set-current-database db)
+    (clear-session-df-cache)
+    (dynamic-wind
+      (lambda () (void))
+      ;; NOTE: cannot really catch errors as error trace will loose context
+      (lambda () (thunk db))
+      (lambda () (disconnect db)))))
+
+(define (with-database path thunk)
+  (let ((db (open-activity-log path)))
     (set-current-database db)
     (clear-session-df-cache)
     (dynamic-wind
@@ -129,4 +139,4 @@
              ;;(printf "check time-in-zone done~%")
              )))))))
 
-(provide with-database db-import-activity-from-file/check)
+(provide with-fresh-database with-database db-import-activity-from-file/check)

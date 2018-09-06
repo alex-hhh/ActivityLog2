@@ -19,16 +19,18 @@
          "../rkt/data-frame/df.rkt"
          "../rkt/session-df.rkt"
          "../rkt/series-meta.rkt"
-         "../rkt/weather.rkt")
+         "../rkt/weather.rkt"
+         "../rkt/utilities.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
+(set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 
 (define (do-basic-checks file series-count row-count
                          #:extra-df-checks (extra-df-checks #f))
   (when (file-exists? file)
     (define start (current-milliseconds))
     (printf "File ~a, ~a data-points ..." file row-count)(flush-output)
-    (with-database
+    (with-fresh-database
       (lambda (db)
         (db-import-activity-from-file/check
          file db

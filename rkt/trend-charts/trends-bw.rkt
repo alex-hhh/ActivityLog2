@@ -19,78 +19,185 @@
          racket/class
          racket/gui/base
          racket/match
+         racket/hash
+         math/statistics
          "../database.rkt"
          "../fmt-util.rkt"
          "../plot-util.rkt"
          "../widgets/main.rkt"
+         "../data-frame/df.rkt"
+         "../data-frame/sql.rkt"
+         "../data-frame/csv.rkt"
+         "../data-frame/least-squares-fit.rkt"
+         "../data-frame/statistics.rkt"
+         "../data-frame/describe.rkt"
+         "../data-frame/colors.rkt"
+         "../utilities.rkt"
+         "../dbutil.rkt"
          "trends-chart.rkt")
 
 (provide bw-trends-chart%)
 
-(define bw-chart-settings%
-  (class* edit-dialog-base% (chart-settings-interface<%>)
-    (init-field database
-                [default-name "Trends"]
-                [default-title "Trends Chart"])
+;; SQL query to retrieve bodyweight data from the database
+(define-sql-statement sql-query "../../sql/queries/tc-bodyweight.sql")
 
-    (super-new [title "Chart Settings"]
-               [icon (edit-icon)]
-               [min-height 10])
+;; Read bodyweight data from the database and return a data frame with the
+;; contents.  PARAMS define the parameters for the query, as returned by
+;; `chart-settings-dialog%/get-chart-settings`.  In addition to the bodyweight
+;; data, the least squares fit and the plot bounds (min and max timestamps and
+;; bodyweight) are added as properties of the returned data frame.
+(define (read-data db params)
+  (match-define (cons start end) (hash-ref params 'timestamps))
+  (define trendline (hash-ref params 'trendline))
+  (define df (df-read/sql db (sql-query) start end))
+  (if (> (df-row-count df) 0)
+      (begin
+        (df-put-property
+         df
+         'least-squares-fit
+         (case trendline
+           ((none) #f)
+           ((linear)
+            (df-least-squares-fit df "timestamp" "body_weight" #:mode 'linear))
+           ((poly-2)
+            (df-least-squares-fit df "timestamp" "body_weight"
+                                  #:mode 'polynomial #:polynomial-degree 2))
+           ((poly-3)
+            (df-least-squares-fit df "timestamp" "body_weight"
+                                  #:mode 'polynomial #:polynomial-degree 3))
+           (else
+            (dbglog "unknown least squares fit mode: %s" trendline)
+            #f)))
 
-    (define name-gb (make-group-box-panel (send this get-client-pane)))
-    (define name-field (new text-field% [parent name-gb] [label "Name "]))
-    (send name-field set-value default-name)
-    (define title-field (new text-field% [parent name-gb] [label "Title "]))
-    (send title-field set-value default-title)
+        ;; Compute X and Y limits for the plot, otherwise some points
+        ;; will be right on the edge of the plot.
+        (let ((bwstats (df-statistics df "body_weight")))
+          (df-put-property df 'bwmin (statistics-min bwstats))
+          (df-put-property df 'bwmax (statistics-max bwstats))
+          (df-put-property df 'bwrange (- (statistics-max bwstats)
+                                          (statistics-min bwstats))))
+        (let ((tsmin (df-ref df 0 "timestamp"))
+              (tsmax (df-ref df (sub1 (df-row-count df)) "timestamp")))
+          (df-put-property df 'tsmin tsmin)
+          (df-put-property df 'tsmax tsmax)
+          (df-put-property df 'tsrange (- tsmax tsmin)))
 
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
+        (df-set-sorted df "timestamp" <)
 
-    (define grouping-gb (make-group-box-panel (send this get-client-pane)))
-    (define group-by-choice
-      (new choice% [parent grouping-gb] [label "Group By "]
-           [choices '("Week" "Month" "Year")]))
+        ;; Add a date series to the data frame, this makes the resulting CVS
+        ;; easier to use.  The series is lazy and will only be materialized if
+        ;; the data is exported.
+        (df-add-lazy
+           df "date" '("timestamp")
+           (lambda (v)
+             (match-define (list ts) v)
+             (date-time->string ts)))
 
-    (define/public (get-chart-settings)
-      (hash
-       'name (send name-field get-value)
-       'title (send title-field get-value)
-       'date-range (send date-range-selector get-restore-data)
-       'timestamps (send date-range-selector get-selection)
-       'group-by (send group-by-choice get-selection)))
+        df)
+      #f))
 
-    (define/public (put-chart-settings data)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
-      (send name-field set-value (hash-ref data 'name))
-      (send title-field set-value (hash-ref data 'title))
-      (send date-range-selector restore-from (hash-ref data 'date-range))
-      (send group-by-choice set-selection (hash-ref data 'group-by)))
+;; Return the closest entry in the data frame DF for the TIMESTAMP/BODYWEIGHT
+;; pair.  This is used by the hover callback to find the closest point to
+;; highlight, and TIMESTAMP/BODYWEIGHT are plot coordinates.
+(define (lookup-closest-entry df timestamp bodyweight)
+  (define tsrange (df-get-property df 'tsrange 1))
+  (define bwrange (df-get-property df 'bwrange 1))
 
-    (define/public (show-dialog parent)
-      (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
-      (and (send this do-edit parent) (get-chart-settings)))
+  ;; Find the normalized Cartesian distance between TS/BW and
+  ;; TIMESTAMP/BODYWEIGHT.  We use the normalized distance, because there is a
+  ;; big difference in magnitudes of timestamps (UNIX timestamps) vs
+  ;; bodyweight.
+  (define (distance ts bw)
+    (let ((delta-ts (/ (- timestamp ts) tsrange))
+          (delta-bw (/ (- bodyweight bw) bwrange)))
+      (+ (* delta-ts delta-ts) (* delta-bw delta-bw))))
 
-    ))
+  ;; Find the closest position for TIMESTAMP in the data frame
+  (define index (df-index-of df "timestamp" timestamp))
 
-(define (get-data db sql-query start-date end-date group-by)
-  (let* ((filter-width (* 24 60 60 (case group-by ((0) 7) ((1) 30) ((2) 365))))
-         (filter (make-low-pass-filter filter-width #f)))
-    (for/list (([timestamp bw] (in-query db sql-query start-date end-date)))
-      (filter (vector timestamp bw)))))
+  ;; Iterate a few points around INDEX to find the closest point...
+  (match-define (list d ts bw)
+    (df-fold df '("timestamp" "body_weight")
+             '(#f #f #f)
+             (lambda (accum val)
+               (match-define (list min-distance-sqared ts bw) accum)
+               (match-define (list ts0 bw0) val)
+               (define distance-squared (distance ts0 bw0))
+               (cond ((eq? min-distance-sqared #f)
+                      (list distance-squared ts0 bw0))
+                     ((< distance-squared min-distance-sqared)
+                      (list distance-squared ts0 bw0))
+                     (#t
+                      accum)))
+             #:start (max (- index 5) 0)
+             #:stop (min (df-row-count df) (+ index 5))))
 
-(define (get-entry-for-day bw-data timestamp)
-  (for/or ((today bw-data)
-           (tomorrow (cdr bw-data)))
-    ;; (printf "today ~a; tomorrow ~a; timestamp ~a~%" today tomorrow timestamp)
-    (and (< (vector-ref today 0) timestamp (vector-ref tomorrow 0))
-         (cons today tomorrow))))
+  ;; We will always find a closest point, but only return something if it is
+  ;; actually close to the point...
+  (and (< d 0.0001) (vector ts bw)))
 
-(define *sea-green* '(#x2e #x8b #x57))
+;; Construct a hover callback function for the the bodyweight plot.
+;; Highlights the BW measurement closest to the cursor and displays the data
+;; and actual measurement in a label next to the value.
+(define (plot-hover-callback df)
+  (lambda (snip event x y)
+    (define info '())
+    (define (add-info tag val) (set! info (cons (list tag val) info)))
+    (define renderers '())
+    (define (add-renderer r) (set! renderers (cons r renderers)))
 
-(define (make-renderer-tree bw-data)
-  (list (tick-grid) (lines bw-data #:color *sea-green* #:width 3.0)))
+    (when (good-hover? x y event)
+      (let ((entry (lookup-closest-entry df x y)))
+        (when entry
+          (add-renderer (points (list entry)
+                                #:sym 'fullcircle
+                                #:size (* (point-size) 3.0)
+                                #:fill-color *trendline-color*
+                                #:color *trendline-color*
+                                #:alpha 1.0))
+          ;; (add-renderer (pu-vrule x))
+          (match-define (vector ts bw) entry)
+          (add-info "Date" (calendar-date->string ts))
+          (add-info "Bodyweight" (weight->string bw #t))
+          (unless (null? info)
+            (add-renderer (pu-label x y (make-hover-badge info)))))))
+
+    (set-overlay-renderers snip renderers)))
+
+(define *bw-color* (make-object color% #x2e #x8b #x57))
+(define *trendline-color* (complement *bw-color*))
+
+;; Make a plot renderer tree for the bodyweight data in the data frame DF.
+;; Fit line is added if least squares fit data is available in the data frame.
+(define (make-renderer-tree df)
+
+  (define xadjust (* 0.02 (df-get-property df 'tsrange 0)))
+  (define xmin (- (df-get-property df 'tsmin 0) xadjust))
+  (define xmax (+ (df-get-property df 'tsmax 0) xadjust))
+
+  (define yadjust (* 0.1 (df-get-property df 'bwrange 0)))
+  (define ymin (- (df-get-property df 'bwmin 0) yadjust))
+  (define ymax (+ (df-get-property df 'bwmax 0) yadjust))
+
+  (define pts (points (df-select* df "timestamp" "body_weight")
+                      #:sym 'fullcircle
+                      #:size (* (point-size) 2)
+                      #:fill-color *bw-color*
+                      #:color *bw-color*
+                      #:alpha 0.8
+                      #:x-min xmin
+                      #:x-max xmax
+                      #:y-min ymin
+                      #:y-max ymax))
+
+  (define fit (df-get-property df 'least-squares-fit #f))
+
+  (if fit
+      (list (tick-grid)
+            (function fit #:width 4 #:style 'long-dash #:color *trendline-color*)
+            pts)
+      (list (tick-grid)
+            pts)))
 
 (define (generate-plot output-fn renderer-tree)
   (parameterize ([plot-x-ticks (pmc-date-ticks)]
@@ -110,30 +217,84 @@
      (plot-file renderer-tree file-name #:width width #:height height))
    renderer-tree))
 
+;; Display the settings dialog for the bodyweight trends chart
+(define chart-settings-dialog%
+  (class* edit-dialog-base% (chart-settings-interface<%>)
+    (init-field database
+                [default-name "Trends"]
+                [default-title "Trends Chart"])
+
+    (super-new [title "Chart Settings"]
+               [icon (edit-icon)]
+               [min-height 10])
+
+    (define name-gb (make-group-box-panel (send this get-client-pane)))
+    (define name-field (new text-field% [parent name-gb] [label "Name "]))
+    (send name-field set-value default-name)
+    (define title-field (new text-field% [parent name-gb] [label "Title "]))
+    (send title-field set-value default-title)
+
+    (define time-gb (make-group-box-panel (send this get-client-pane)))
+    (define date-range-selector (new date-range-selector% [parent time-gb]))
+
+    (define trendline
+      '(("none" . none)
+        ("linear" . linear)
+        ("2nd degree polynomial" . poly-2)
+        ("3rd degree polynomial" . poly-3)))
+
+    (define trendline-gb (make-group-box-panel (send this get-client-pane)))
+    (define trendline-choice
+      (new choice% [parent trendline-gb] [label "Trendline "]
+           [choices (map car trendline)]))
+
+    (define/public (get-chart-settings)
+      (hash
+       'name (send name-field get-value)
+       'title (send title-field get-value)
+       'date-range (send date-range-selector get-restore-data)
+       'timestamps (send date-range-selector get-selection)
+       'trendline (cdr (list-ref trendline (send trendline-choice get-selection)))))
+
+    (define/public (put-chart-settings data)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database)))
+      (let ((name (hash-ref data 'name ""))
+            (title (hash-ref data 'title ""))
+            (dr (hash-ref data 'date-range #f))
+            (tl (hash-ref data 'trendline 'none)))
+        (send name-field set-value name)
+        (send title-field set-value title)
+        (when dr
+          (send date-range-selector restore-from dr))
+        (define index (for/first ([(v x) (in-indexed trendline)]
+                                  #:when (eq? tl (cdr v)))
+                        x))
+        (send trendline-choice set-selection index)))
+
+    (define/public (show-dialog parent)
+      (when database
+        (send date-range-selector set-seasons (db-get-seasons database)))
+      (and (send this do-edit parent) (get-chart-settings)))
+
+    ))
+
 (define bw-trends-chart%
   (class trends-chart%
     (init-field database)
     (super-new)
 
-    (define data-valid? #f)
-
-    (define bw-query
-      (virtual-statement
-       (lambda (dbsys)
-         "select timestamp, body_weight as bw
-            from ATHLETE_METRICS
-           where timestamp between ? and ?")))
-
-    (define bw-data #f)                 ; fetched from the database
+    ;; Data frame holding bodyweight data, retrieved from the database
+    (define df #f)
 
     (define/override (make-settings-dialog)
-      (new bw-chart-settings%
+      (new chart-settings-dialog%
            [default-name "BodyWeight"]
            [default-title "Body Weight"]
            [database database]))
 
     (define/override (invalidate-data)
-      (set! data-valid? #f))
+      (set! df #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'athlete-metrics-deleted #f)
@@ -141,62 +302,25 @@
           (hash-ref events 'athlete-metrics-created #f)))
 
     (define/override (export-data-to-file file formatted?)
-      (when bw-data
-        (call-with-output-file file export-data-as-csv
-          #:mode 'text #:exists 'truncate)))
-
-    (define (export-data-as-csv out)
-      ;; NOTE: we write out the filtered bodyweight, as plotted on the graph.
-      (write-string "Timestamp, Bodyweight (filtered)" out)
-      (newline out)
-      (for ((datum bw-data))
-        (match-define (vector timestamp bw) datum)
-        (write-string (format "~a, ~a~%" timestamp bw) out)))
-
-    (define (plot-hover-callback snip event x y)
-      (define info '())
-      (define (add-info tag val) (set! info (cons (list tag val) info)))
-      (define renderers '())
-      (define (add-renderer r) (set! renderers (cons r renderers)))
-      
-      (when (good-hover? x y event)
-        (let ((entry (get-entry-for-day bw-data x)))
-          (when entry
-            (add-renderer (pu-vrule x))
-            (match-define (vector today bw1) (car entry))
-            (match-define (vector tomorrow bw2) (cdr entry))
-            (define bw (+ bw1 (* (- bw2 bw1) (/ (- x today) (- today tomorrow)))))
-            (add-info "Date" (calendar-date->string today))
-            (add-info "Bodyweight" (weight->string bw #t))
-            (unless (null? info)
-              (add-renderer (pu-label x y (make-hover-badge info)))))))
-
-      (set-overlay-renderers snip renderers))
+      (when df
+        (df-write/csv df file "date" "timestamp" "body_weight")))
 
     (define/override (put-plot-snip canvas)
-      (maybe-fetch-data)
-      (if data-valid?
-          (let ((snip (insert-plot-snip
-                       canvas
-                       (make-renderer-tree bw-data))))
-            (set-mouse-event-callback snip plot-hover-callback))
+      (unless df
+        (let ((params (send this get-chart-settings)))
+          (when params
+            (set! df (read-data database params)))))
+      (if df
+          (let ((snip (insert-plot-snip canvas (make-renderer-tree df))))
+            (set-mouse-event-callback snip (plot-hover-callback df)))
           (begin
             (send canvas set-snip #f)
             (send canvas set-background-message "No data to plot"))))
 
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
-      (when data-valid?
-        (save-plot-to-file file-name width height
-                           (make-renderer-tree bw-data))))
-
-    (define (maybe-fetch-data)
-      (unless data-valid?
-        (let ((params (send this get-chart-settings)))
-          (when params
-            (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
-            (let ((group-by (hash-ref params 'group-by)))
-              (set! bw-data (get-data database bw-query start end group-by))
-              (set! data-valid? (> (length bw-data) 0)))))))
+      (when df
+        (define rt (make-renderer-tree df))
+        (save-plot-to-file file-name width height rt)))
 
     ))

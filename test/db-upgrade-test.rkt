@@ -15,9 +15,11 @@
 (require db
          racket/file
          rackunit
-         "../rkt/dbapp.rkt")
+         "../rkt/dbapp.rkt"
+         "../rkt/utilities.rkt")
 
 ;;(require rackunit/gui)
+(set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 
 (define test-dir "./test-db")
 

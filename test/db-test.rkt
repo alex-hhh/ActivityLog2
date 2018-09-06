@@ -26,9 +26,11 @@
          "../rkt/workout-editor/wk-db.rkt"
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
+         "../rkt/utilities.rkt"
          "test-util.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
+(set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 
 
 ;;............................................................ test data ....
@@ -211,7 +213,7 @@ select count(T.id),
    "Cycling Dynamics"
 
    (test-case "Cycling dynamics import / export"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (db-import-activity-from-file/check a9 db #:basic-checks-only? #t)
          (check = 1 (activity-count db))
@@ -226,7 +228,7 @@ select count(T.id),
   (test-suite
    "Database Patch 26"
    (test-case "V_SPORT_ZONE_FOR_SESSION and V_CRITICAL_POWER_FOR_SESSION"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          ;; Put some sport zones and CP values in the database.  We don't care
          ;; about the actual values, only their validity dates
@@ -444,7 +446,7 @@ where S.id = CPFS.session_id
   (test-suite
    "Workouts"
    (test-case "Workout store-fetch-delete"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (check-not-exn
           (lambda ()
@@ -468,7 +470,7 @@ where S.id = CPFS.session_id
 
    (test-case "Importing first activity"
      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
-       (with-database
+       (with-fresh-database
          (lambda (db)
            (fill-sport-zones db)
            (printf "About to import ~a~%" file)(flush-output)
@@ -477,7 +479,7 @@ where S.id = CPFS.session_id
            (db-check-tile-code db)))))
 
    (test-case "Subsequent imports"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (fill-sport-zones db)
          (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
@@ -486,7 +488,7 @@ where S.id = CPFS.session_id
          (check = 8 (activity-count db)))))
 
    (test-case "Import manual activity"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (check-not-exn
           (lambda ()
@@ -498,7 +500,7 @@ where S.id = CPFS.session_id
               (check-eqv? (df-row-count df) 0)))))))
 
    (test-case "Get Sport Zones"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (for ((sport (in-list (query-list db "select id from E_SPORT"))))
            (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))

@@ -194,7 +194,11 @@
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
         (in-series c start stop (if (<= start stop) 1 -1)))))
-  (in-values-sequence (apply in-parallel generators)))
+  ;; When there are no series, the `(apply in-parallel '())` call will result
+  ;; in an infinite loop.
+  (if (null? generators)
+      (in-values-sequence (in-parallel '()))
+      (in-values-sequence (apply in-parallel generators))))
 
 ;; Return a sequence that produces values from a list of SERIES between START
 ;; and STOP rows.  The sequence produces values, each one corresponding to the
@@ -214,7 +218,11 @@
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
         (in-series c start stop (if (<= start stop) 1 -1)))))
-  (apply in-parallel generators))
+  ;; When there are no series, the `(apply in-parallel '())` call will result
+  ;; in an infinite loop.
+  (if (null? generators)
+      (in-parallel '())
+      (apply in-parallel generators)))
 
 ;; Return a vector where each element is a vector containing values from
 ;; multiple SERIES between the START and STOP rows of the data frame.

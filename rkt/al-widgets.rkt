@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -69,13 +69,16 @@
 (define sport-selector%
   (class object%
     (init parent [label "Sport: "])
-    (init-field [callback #f] [sports-in-use-only? #t])
+    (init-field [callback #f]
+                [sports-in-use-only? #t]
+                [sport-filter values])
     (super-new)
 
-    (define sports 
-      (if sports-in-use-only?
-          (get-sport-names-in-use)
-          (get-sport-names)))
+    (define sports
+      (filter sport-filter
+              (if sports-in-use-only?
+                  (get-sport-names-in-use)
+                  (get-sport-names))))
 
     (define (get-sport-ids selection)
       (let ((sport (list-ref sports selection)))
@@ -96,7 +99,8 @@
                          sports)]))
 
     (define/public (get-selection)
-      (get-sport-ids (send the-selector get-selection)))
+      (define idx (send the-selector get-selection))
+      (and idx (get-sport-ids idx)))
 
     (define/public (enable enable?)
       (send the-selector enable enable?))
@@ -364,7 +368,7 @@ values (?, ?)" session-id id))
        (split "Hill Climbs" 'hill-climbs on-climb-splits)
        (split "Hill Descents" 'hill-descents on-descent-splits)
        (split "Best Efforts" 'best-splits on-best-splits)))
-             
+
     (define choice
       (new choice% [parent parent]
            [label label]
@@ -424,7 +428,7 @@ values (?, ?)" session-id id))
 (define (mk-qcolumn name extractor formatter)
   (qcolumn
    name
-   (lambda (lap) 
+   (lambda (lap)
      (let ((value (extractor lap)))
        (if value (formatter (extractor lap)) "")))
    (lambda (lap)
@@ -645,7 +649,7 @@ values (?, ?)" session-id id))
    256 *bike-mini-lap-fields*
 
    5 *swim-mini-lap-fields*))
-   
+
 (define *default-mini-lap-fields* *bike-mini-lap-fields*)
 
 (define (get-lap-field-definitions sport)
@@ -688,11 +692,11 @@ values (?, ?)" session-id id))
       (let ((lap-num 0)
             (lap-num-pretty 0))
         (for/list ([lap (in-list laps)])
-          (cons 
+          (cons
            (cons 'lap-num
                  (begin (set! lap-num (+ lap-num 1)) lap-num))
            (cons
-            (cons 'lap-num-pretty 
+            (cons 'lap-num-pretty
                   (if (or (not (lap-distance lap)) (> (lap-distance lap) 0))
                       (begin
                         (set! lap-num-pretty (+ lap-num-pretty 1))
@@ -782,7 +786,7 @@ values (?, ?)" session-id id))
 
     (define/public (set-lap lap)
       (send lb set-data (number-swim-lengths lap)))
-    
+
     (define/public (save-visual-layout)
       (send lb save-visual-layout))
 
@@ -821,7 +825,7 @@ values (?, ?)" session-id id))
         (when (eq? 'windows (system-type 'os))
           (set! text (regexp-replace* "\n" text "\r\n")))
         (when file
-          (call-with-output-file file 
+          (call-with-output-file file
             (lambda (o) (write-string text o))
             #:mode 'text #:exists 'replace))))
 
@@ -849,7 +853,7 @@ values (?, ?)" session-id id))
         (let ((client-pane (new vertical-panel% [parent p]
                                 [border 0] [spacing 10]
                                 [alignment '(left top)])))
-          (set! contents-text-field 
+          (set! contents-text-field
                 (new text-field% [parent client-pane] [label ""] [style '(multiple)])))
 
         (let ((bp (new horizontal-pane% [parent p] [border 0]
@@ -883,5 +887,3 @@ values (?, ?)" session-id id))
   (unless the-sql-export-dialog
     (set! the-sql-export-dialog (new sql-query-export-dialog%)))
   the-sql-export-dialog)
-
-

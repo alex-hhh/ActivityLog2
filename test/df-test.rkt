@@ -529,7 +529,7 @@
 
      )))
 
-(define (with-database thunk)
+(define (with-fresh-database thunk)
   (let ((db (sqlite3-connect #:database 'memory #:mode 'create)))
     (dynamic-wind
       (lambda () (void))
@@ -542,7 +542,7 @@
    "`dfdb` test suite"
 
    (test-case "`dfdb` test cases"
-     (with-database
+     (with-fresh-database
        (lambda (db)
          (query-exec db "create table T(a real, b real, c text)")
          (query-exec db "insert into T(a, b, c) values (?, ?, ?)" 1 2 "alpha")
@@ -566,6 +566,16 @@
                (delete-file csv-test-file)))
    (test-case "`csv` test cases"
      (define df (make-data-frame))
+
+     ;; Check that df-write/csv does not go into an infinite loop when writing
+     ;; out an empty data frame (it used to :-) )
+     (define t (thread (lambda ()
+                         (call-with-output-string
+                          (lambda (out) (df-write/csv df out))))))
+     (check-true (not (eq? #f (sync/timeout 10.0 t)))
+                 "infinite loop in df-write/csv")
+     (kill-thread t)
+     
      (define s1 (make-series "s,1" #:data #(1 1/2 3 #f 5) #:na #f))
      (define s2 (make-series "s,2" #:data #("one" "two" "th\"ree" #f "") #:na ""))
      (df-add-series df s1)

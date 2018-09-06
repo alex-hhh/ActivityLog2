@@ -32,7 +32,8 @@
  "trends-tt.rkt"
  "trends-bavg.rkt"
  "trends-hist.rkt"
- "trends-scatter.rkt")
+ "trends-scatter.rkt"
+ "trends-ae.rkt")
 
 (provide view-trends%)
 
@@ -48,6 +49,7 @@
 (define-runtime-path trends-mmax-file "../../img/trends/trends-mmax.png")
 (define-runtime-path trends-hist-file "../../img/trends/trends-hist.png")
 (define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
+(define-runtime-path trends-ae-file "../../img/trends/trends-ae.png")
 
 ;; A trends chart declaration.  Contains some description and a sample image,
 ;; plus the class to be instantiated for the actual trends chart.
@@ -59,55 +61,62 @@
    description))
 
 (define chart-types
-  (list
-   (tdecl
-    "Body Weight" 'bw bw-trends-chart%
-    trends-bw-file
-    "Plot body weight over time")
+  (sort
+   (list
+    (tdecl
+     "Body Weight" 'bw bw-trends-chart%
+     trends-bw-file
+     "Plot body weight over time")
 
-   (tdecl
-    "Traning Volume (multisport)" 'trivol trivol-trends-chart%
-    trends-trivol-file
-    "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength)")
+    (tdecl
+     "Traning Volume (multisport)" 'trivol trivol-trends-chart%
+     trends-trivol-file
+     "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength)")
 
-   (tdecl
-    "Traning Volume" 'vol vol-trends-chart%
-    trends-vol-file
-    "Show training volume (time, distance, or number of activities) over time for an activity type"
+    (tdecl
+     "Traning Volume" 'vol vol-trends-chart%
+     trends-vol-file
+     "Show training volume (time, distance, or number of activities) over time for an activity type"
+     )
+
+    (tdecl
+     "Time in Zone" 'tiz tiz-trends-chart%
+     trends-tiz-file
+     "Show time spent in each heart rate zone for a selected activity type over time")
+
+    (tdecl
+     "Performance" 'pmc pmc-trends-chart%
+     trends-pmc-file
+     "Plot form, fitness and fatigue over time.")
+
+    (tdecl
+     "Aerobic Efficiency" 'ae ae-trends-chart%
+     trends-ae-file
+     "Plot Aerobic Efficiency over time. For running this is the ratio of heart rate to speed, for cycling it is the ratio of heart rate to power.")
+
+    (tdecl
+     "Training Times" 'tt tt-trends-chart%
+     trends-tt-file
+     "Plot the time of day over weekday when each activity occured.")
+
+    (tdecl
+     "Best Avg" 'bavg mmax-trends-chart%
+     trends-mmax-file
+     "Plot the mean maximal for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity.")
+
+    (tdecl
+     "Histogram" 'hist hist-trends-chart%
+     trends-hist-file
+     "Plot a histogram for the data series from selected activities."
+     )
+
+    (tdecl
+     "Scatter Plot" 'scatter scatter-trends-chart%
+     trends-scatter-file
+     "Scatter Plot for two data series from selected activities."
+     )
     )
-
-   (tdecl
-    "Time in Zone" 'tiz tiz-trends-chart%
-    trends-tiz-file
-    "Show time spent in each heart rate zone for a selected activity type over time")
-
-   (tdecl
-    "Performance" 'pmc pmc-trends-chart%
-    trends-pmc-file
-    "Plot form, fitness and fatigue over time.")
-
-   (tdecl
-    "Training Times" 'tt tt-trends-chart%
-    trends-tt-file
-    "Plot the time of day over weekday when each activity occured.")
-
-   (tdecl
-    "Best Avg" 'bavg mmax-trends-chart%
-    trends-mmax-file
-    "Plot the mean maximal for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity")
-
-   (tdecl
-    "Histogram" 'hist hist-trends-chart%
-    trends-hist-file
-    "Plot a histogram for the data series from selected activities."
-    )
-
-   (tdecl
-    "Scatter Plot" 'scatter scatter-trends-chart%
-    trends-scatter-file
-    "Scatter Plot for two data series from selected activities."
-    )
-   ))
+   string<? #:key tdecl-name))
 
 ;; Keep the loaded preview images for the chart types in a cache, we don't
 ;; load them at start up, since they might never be needed, but once loaded we

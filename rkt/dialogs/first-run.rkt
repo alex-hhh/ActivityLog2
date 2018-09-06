@@ -97,7 +97,7 @@
       (let ((db-file (build-path (get-default-dir) "ActivityLog.db")))
         (when (file-exists? db-file)
           (let loop ((try 1))
-            (let ((file (build-path (get-default-dir) (format "ActivityLog-~a.db"))))
+            (let ((file (build-path (get-default-dir) (format "ActivityLog-~a.db" try))))
               (if (file-exists? file)
                   (loop (+ try 1))
                   (set! db-file file)))))

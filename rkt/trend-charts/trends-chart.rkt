@@ -55,7 +55,9 @@
 (define session-filter%
   (class object%
     (init parent)
-    (init-field database [sport-selected-callback #f])
+    (init-field database
+                [sport-selected-callback #f]
+                [sport-filter values])
     (super-new)
 
     (define gb (make-group-box-panel parent))
@@ -65,7 +67,8 @@
       (new sport-selector%
            [parent left-pane]
            [sports-in-use-only? #t]
-           [callback sport-selected-callback]))
+           [callback sport-selected-callback]
+           [sport-filter sport-filter]))
 
     (define date-range-selector
       (new date-range-selector% [parent left-pane]))

@@ -23,7 +23,7 @@
          racket/match
          racket/math
          "bsearch.rkt"
-         "color-util.rkt")
+         "colors.rkt")
 
 ;; Delay the data in DATA-SERIES by AMOUNT.  Data-series is a sequence of
 ;; 3-element vectors: #(X Y TIMESTAMP).  For each item, this function replaces
@@ -126,30 +126,6 @@
     (when alpha
       (add-arg '#:alpha alpha))
     (keyword-apply points kwd val data-series '())))
-
-;; Compute colors for the keys of a scatter group renderer.  KEYS is a sorted
-;; list of numbers (the groups ranks for the group renderer).  The BASE-COLOR
-;; is used to compute a range of colors from lightest for the smallest rank to
-;; darkest for the highest rank.  Returns a hash map mapping each key to a
-;; color value.
-(define (make-key-colors keys base-color)
-  ;; NOTE: keys are sorted and should not contain duplicates
-
-  (define range                         ; make sure range is never 0
-    (if (< (length keys) 2)
-        1
-        (- (last keys) (first keys))))
-  (match-define (list h s l) (apply rgb->hsl/255 (->pen-color base-color)))
-  (define min-l 0.3)
-  (define max-l 0.8)
-  (define l-range (- max-l min-l))
-  (for/hash ((key (in-list keys)))
-    (let* ((pct (/ (- key (first keys)) range))
-           (new-l (+ min-l (* (- 1 pct) l-range))))
-      (match-define (list r g b) (hsl->rgb/255 h s new-l))
-      (values
-       key
-       (make-object color% r g b)))))
 
 ;; Make a scatter plot renderer for GROUP, as returned by `group-samples`. The
 ;; color of the dots will vary depending on the number of items at that point.

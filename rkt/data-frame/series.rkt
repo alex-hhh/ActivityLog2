@@ -58,7 +58,7 @@
     (cond ((equal? v na)
            (df-raise "check-valid-sort: ~a contains NA / values @~a" name index))
           ((and (> index beg) (not (cmpfn vprev v)))
-           (df-raise "check-valid-sort:: ~a not really sorted @~a (~a vs ~a)"
+           (df-raise "check-valid-sort: ~a not really sorted @~a (~a vs ~a)"
                      name index vprev v)))))
 
 ;; Check that all the values in the series C match the contract function

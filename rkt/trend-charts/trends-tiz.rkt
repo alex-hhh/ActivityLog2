@@ -323,8 +323,6 @@
                    (timestamps (generate-timestamps start end group-by)))
               (set! sql-query (make-sql-query group-by))
               (set! sql-query-result (get-data database sql-query sport zone start end))
-              (when (= (length sql-query-result) 0)
-                (printf "empty query for ~a~%" sql-query))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))

@@ -292,24 +292,21 @@
      ;; TODO: handle dual scatter
      meta1
      meta2
-     data
+     (and (> (hash-count data) 0) data)
      bounds
      qbounds
      slr)))
 
 (define (make-render-tree data params)
-  (let ((rt (list (tick-grid))))
-    (when (scatter-data data)
-      (set! rt
-            (cons (scatter-group-renderer
-                   (scatter-data data)
-                   #:color (send (scatter-axis2 data) plot-color))
-                  rt)))
-    (when (scatter-slr data)
-      (set! rt
-            (cons (slr-renderer (scatter-slr data))
-                  rt)))
-    (reverse rt)))
+  (if (scatter-data data)
+      (let ((rt (list (tick-grid)
+                      (scatter-group-renderer
+                       (scatter-data data)
+                       #:color (send (scatter-axis2 data) plot-color)))))
+        (when (scatter-slr data)
+          (set! rt (cons (slr-renderer (scatter-slr data)) rt)))
+        (reverse rt))
+      #f))
 
 (define (generate-plot output-fn data params rt)
   (let ((outlier-handling (hash-ref params 'ohandling))
@@ -382,12 +379,13 @@
           (hash-ref events 'session-updated-data #f)))
 
     (define/override (export-data-to-file file formatted?)
-      (when cached-data
+      (when (and cached-data (scatter-data cached-data))
         (call-with-output-file file export-data-as-csv
           #:mode 'text #:exists 'truncate)))
 
     (define (export-data-as-csv out)
-      (error "Not implemented"))
+      ;; TODO: implement it
+      (void))
 
     (define/override (put-plot-snip canvas)
       (send canvas set-snip #f)

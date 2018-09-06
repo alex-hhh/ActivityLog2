@@ -27,6 +27,7 @@
  (put-pref (-> symbol? any/c any/c))
  (get-pref (-> symbol? any/c any/c))
 
+ (set-dbglog-to-standard-output (-> boolean? any/c))
  (dbglog (->* (string?) () #:rest (listof any/c) any/c))
  (ignore-errors (->* ((-> any/c)) (#:name string?) any/c))
  (dbglog-exception (-> string? any/c any/c))
@@ -36,6 +37,7 @@
                       #:log-finish boolean?)
                      any/c))
 
+ (set-worker-thread-count (-> (and/c integer? positive?) any/c))
  (queue-task (-> string? procedure? any/c))
  (shutdown-workers (-> any/c))
 
@@ -166,6 +168,15 @@
 
 
 (define the-log-port #f)                    ; port to which all log messages go
+(define log-to-standard-output #f)          ; when #t dbglog also prints to stdout
+
+(define (set-dbglog-to-standard-output flag)
+  (set! log-to-standard-output flag)
+  ;; Start counting lines on the current output port, so we know when to open
+  ;; a fresh line in `dbglog`.
+  (when log-to-standard-output
+    (unless (port-counts-lines? (current-output-port))
+      (port-count-lines! (current-output-port)))))
 
 ;; Open the log file if needed.  We use a single log file in append mode, we
 ;; don't expect the file to grow too much so we don't recyle it.  If it
@@ -206,12 +217,28 @@
 ;; efficient to log many things...
 (define (dbglog format-string . args)
   (define msg (apply format format-string args))
+  (define ts (get-current-timestamp))
   (maybe-init-the-log-port)
-  (write-string (get-current-timestamp) the-log-port)
-  (write-string " " the-log-port)
-  (write-string msg the-log-port)
-  (write-string "\n" the-log-port)
-  (flush-output the-log-port))
+  (define (do-log port)
+    (write-string (get-current-timestamp) port)
+    (write-string " " port)
+    (write-string msg port)
+    (write-string "\n" port)
+    (flush-output port))
+  (do-log the-log-port)
+  (when log-to-standard-output
+    (let ((out (current-output-port)))
+      ;; Turn on line counting (if not already on) and write a new line before
+      ;; the log message, if needed -- this ensures all log messages are on
+      ;; lines of their own...  We also do this here, in case
+      ;; `current-output-port` has changed since
+      ;; `set-dbglog-to-standard-output` was called.
+      (unless (port-counts-lines? out)
+        (port-count-lines! out))
+      (define-values (line column position) (port-next-location out))
+      (when (and column (not (zero? column)))
+        (write-string "\n" out))
+      (do-log out))))
 
 ;; Log an exception, WHO is prepended to the log message, can be the function
 ;; name that calls `dbglog-exception'
@@ -259,6 +286,17 @@
 ;; by SHUTDOWN-WORKERS.
 (define the-workers '())
 
+(define num-worker-threads 5)
+
+;; Set the number of worker threads to use in the application.  The default
+;; should be fine, but the tests set this to 1 to be able to check for a few
+;; things.
+(define (set-worker-thread-count c)
+  (unless (= c num-worker-threads)
+    (shutdown-workers)
+    (set! num-worker-threads c)
+    (maybe-init-workers)))
+
 ;; Create a worker thread to execute tasks.  Uncaught exceptions from the
 ;; tasks are logged using dbglog facilities
 (define (make-worker-thread id request-channel)
@@ -282,7 +320,7 @@
     ;; worth starting too many of them.  Theis main purpose is to free up the
     ;; GUI thread from long operations.
     (set! the-workers
-          (for/list ([id (in-range 5)])
+          (for/list ([id (in-range num-worker-threads)])
             (make-worker-thread id the-request-channel)))))
 
 ;; Queue a task to one of the worker threads. NOTE: since there are multiple

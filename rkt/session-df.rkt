@@ -196,23 +196,25 @@
             (df-put-property df 'laps xlaps))
           (df-put-property df 'laps '()))))
 
-  ;; If we have a "dst" series, mark it as sorted, but first make sure it does
-  ;; not contain invalid values and it is monotonically growing (a lot of code
-  ;; depends on this).
+  ;; If we have a "dst" series, mark it as sorted.
   (when (df-contains? df "dst")
-    (if (df-has-na? df "dst")
-        ;; If there are NA values in the dst series, patch it up...
-        (let ((data (df-select df "dst")))
-          (unless (vector-ref data 0)
-            (vector-set! data 0 0))
-          (for ([index (in-range 1 (vector-length data))])
-            (let ((item (vector-ref data index)))
-              (unless (and item (>= item (vector-ref data (sub1 index))))
-                (vector-set! data index (vector-ref data (sub1 index))))))
-          ;; NOTE: we replace the old one here
-          (df-add-series df (make-series "dst" #:data data #:cmpfn <=)))
-        ;; ... otherwise, just mark it as sorted
-        (df-set-sorted df "dst" <=)))
+    (with-handlers
+      (((lambda (e) #t)
+        (lambda (e)
+          ;; df-set-sorted will raise an exception if the dst series contains
+          ;; NA's or it is not fully sorted.  We fix it in that case and try
+          ;; again.
+          (define prev-value (df-ref df 0 "dst"))
+          (when (df-is-na? df "dst" prev-value)
+            (df-set! df 0 0 "dst")
+            (set! prev-value 0))
+          (for ([index (in-range 1 (df-row-count df))])
+            (let ((value (df-ref df index "dst")))
+              (if (or (df-is-na? df "dst" value) (<= value prev-value))
+                  (df-set! df index prev-value "dst")
+                  (set! prev-value value))))
+          (df-set-sorted df "dst" <=))))
+      (df-set-sorted df "dst" <=)))
 
   (add-timer-series df)
   (add-elapsed-series df)
