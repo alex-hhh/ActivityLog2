@@ -74,7 +74,6 @@
  (get-series/ordered (-> data-frame? (listof string?)))
  (session-df (-> connection? number? data-frame?))
  (reorder-sids (-> (listof integer?) (listof integer?)))
- (clear-session-df-cache (->* () ((or/c integer? #f)) any/c))
  (is-teleport? (-> data-frame? number? boolean?))
  (add-grade-series (-> data-frame? any/c)))
 
@@ -1397,6 +1396,7 @@
 ;; quickly if we have a large number of SIDS for which we will request a data
 ;; frame (e.g. when aggregate metrics are calculated).
 (define (reorder-sids sids)
+  (process-events)
 
   (define (present-in-cache sid)
     (or (hash-ref df-cache sid #f)
@@ -1457,6 +1457,7 @@
 ;; Return the data frame for a session id SID.  Data frames are cached in
 ;; memory, so retrieving the same one again should be fast.
 (define (session-df db sid)
+  (process-events)
   (cond ((hash-ref df-cache sid #f)
          => (lambda (df) (refresh-df sid df)))
         ((hash-ref df-cache2 sid #f)
@@ -1499,18 +1500,16 @@
       (df-put-property df 'dirty-wbal #t))
     (log-event 'session-updated-data sid)))
 
-(define dummy
-  (let ((s (make-log-event-source)))
-    (thread/dbglog
-     #:name "session df change processor"
-     ;; NOTE there might be multithreading race conditions here...
-     (lambda ()
-       (let loop ((item (async-channel-get s)))
-         (when item
-           (match-define (list tag data) item)
-           (cond
-             ((eq? tag 'measurement-system-changed)
-              (clear-session-df-cache))
-             ((eq? tag 'critical-power-parameters-changed)
-              (mark-wbal-dirty)))
-           (loop (async-channel-get s))))))))
+(define log-event-source (make-log-event-source))
+
+(define (process-events)
+  (let loop ((item (async-channel-try-get log-event-source)))
+    (when item
+      (match-define (list tag data) item)
+      (case tag
+        ((measurement-system-changed database-opened)
+         (clear-session-df-cache))
+        ((session-updated session-updated-data session-deleted)
+         (clear-session-df-cache data))
+        ((critical-power-parameters-changed) (mark-wbal-dirty)))
+      (loop (async-channel-try-get log-event-source)))))

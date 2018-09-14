@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex HarsÃ¡nyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,9 +20,11 @@
          racket/contract
          racket/draw
          racket/list
-         racket/runtime-path
+         racket/match
+         racket/async-channel
          "dbapp.rkt"
          "dbutil.rkt"
+         "utilities.rkt"
          "color-theme.rkt")
 
 (define (color? c) (is-a? c color%))
@@ -157,9 +159,26 @@
                                     sport-names)))))
       (set! *sport-names* (reverse sport-names)))))
 
-(add-db-open-callback init-sport-charms)
+(define log-event-source (make-log-event-source))
+
+(define (maybe-init-sport-charms)
+
+  (let loop ((item (async-channel-try-get log-event-source)))
+    (when item
+      (match-define (list tag data) item)
+      (when (eq? tag 'database-opened)
+        (set! *sport-info* #f)
+        (set! *sub-sport-info* #f)
+        (set! *swim-stroke-names* #f)
+        (set! *sport-names* '()))
+      (loop (async-channel-try-get log-event-source))))
+  
+  (unless *sport-info*
+    (when (current-database)
+      (init-sport-charms (current-database)))))
 
 (define (get-sport-info sport sub-sport)
+  (maybe-init-sport-charms)
   (if (or (not sub-sport) (= sub-sport 0))
       (if (hash? *sport-info*)
           (hash-ref *sport-info* sport #f)
@@ -202,11 +221,13 @@
      (cc-superimpose (colorize r (get-sport-color sport sub-sport)) b))))
 
 (define (get-swim-stroke-name swim-stroke-id)
+  (maybe-init-sport-charms)
   (hash-ref *swim-stroke-names*
             swim-stroke-id
             "Unknown"))
 
 (define (get-swim-stroke-names)
+  (maybe-init-sport-charms)
   (for/list (((k v) (in-hash *swim-stroke-names*)))
     (cons k v)))
 
@@ -215,6 +236,7 @@
         (#t "gray")))
 
 (define (get-sport-names)
+  (maybe-init-sport-charms)
   *sport-names*)
 
 ;; Implementation detail: We add the "generic" sports to the list if any of
@@ -222,6 +244,7 @@
 ;; 17) we add the "Swimming" activity (5, #f)
 
 (define (get-sport-names-in-use)
+  (maybe-init-sport-charms)
   (let ((in-use (query-rows (current-database) "select distinct S.sport_id, S.sub_sport_id from A_SESSION S")))
     (filter (lambda (s)
               (let ((sport (vector-ref s 1))

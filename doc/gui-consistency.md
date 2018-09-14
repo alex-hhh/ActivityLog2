@@ -11,6 +11,8 @@ takes two arguments: a symbol representing a generic type of change and some
 data corresponding to that change.  Currently, the following events are
 logged:
 
+* `database-opened` DB -- logged when a new database has been opened.  The
+  data part is the new database (this can also be #f).
 * `session-created` SID -- logged when a new session is created.  The data
   part is the session ID
 * `session-updated` SID -- logged when the summary data of a session is

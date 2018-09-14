@@ -2,7 +2,7 @@
 ;; dbapp.rkt -- open the application database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex HarsÃ¡nyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,9 +28,7 @@
  [schema-version (-> exact-positive-integer?)]
  [current-database (-> (or/c #f connection?))]
  [set-current-database (-> (or/c #f connection?) any/c)]
- [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)]
- [add-db-open-callback (-> (-> connection? any/c) any/c)]
- [del-db-open-callback (-> (-> connection? any/c) any/c)])
+ [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)])
 
 (define (fail-with msg)
   (raise (make-exn:fail msg (current-continuation-marks))))
@@ -67,25 +65,16 @@
    27 p28-file
    28 p29-file))
 
-;; List of function to call after a new database was sucesfully opened.
-(define db-open-callbacks '())
-
-(define (add-db-open-callback proc)
-  (set! db-open-callbacks (cons proc db-open-callbacks)))
-
-(define (del-db-open-callback proc)
-  (set! db-open-callbacks (remove proc db-open-callbacks)))
-
 (define the-current-database #f)
 
 (define (set-current-database db)
   (unless (or (eq? db #f) (connection? db))
     (fail-with "bad value for current-database"))
-  (when db
-    (for ([cb db-open-callbacks]) (cb db)))
-  (set! the-current-database db))
+  (set! the-current-database db)
+  ;; NOTE: send this message even when DB is #f
+  (log-event 'database-opened db))
 
-;; The current database connection, if any.  NOTE: needs to be explicitely
+;; The current database connection, if any.  NOTE: needs to be explicitly
 ;; set. `open-activity-log' will not set it!
 (define (current-database) the-current-database)
 

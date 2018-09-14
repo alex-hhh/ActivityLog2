@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -129,7 +129,6 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (send (get-edit-session-summary-dialog) show-dialog toplevel db sid)
-          (clear-session-df-cache sid) ; remove this session from the cache
           (log-event 'session-updated sid)
           (send target after-update sid))))
 
@@ -145,7 +144,6 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (clear-session-df-cache sid) ; remove this session from the cache
         (interactive-fixup-elevation db sid toplevel)
         (log-event 'session-updated sid)
         (log-event 'session-updated-data sid)
@@ -161,7 +159,6 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                                 (get-session-headline db sid))
                         #f "Clear" "Cancel" toplevel '(caution default=3))))
           (when (equal? mresult 2)
-            (clear-session-df-cache sid) ; remove this session from the cache
             (clear-corrected-elevation-for-session db sid)
             (log-event 'session-updated sid)
             (log-event 'session-updated-data sid)
@@ -182,7 +179,6 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (when (equal? sport '(5 . 17))  ; lap swimming
           (when (send (get-lap-swim-editor) begin-edit toplevel db sid)
-            (clear-session-df-cache sid) ; remove this session from the cache
             (log-event 'session-updated sid)
             (log-event 'session-updated-data sid)
             (send target after-update sid)))))
@@ -207,7 +203,6 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                           #f "Delete" "Cancel" toplevel '(caution default=3))))
             (when (equal? mresult 2)
               (db-delete-session sid db)
-              (clear-session-df-cache sid) ; remove this session from the cache
               (log-event 'session-deleted sid)
               (send target after-delete sid))))))
 

@@ -2,7 +2,7 @@
 ;;; metrics.rkt -- calculate aggregate metrics for activities
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -102,6 +102,7 @@
 ;; caches (db or in memory) if possible, otherwise it is computed and also
 ;; stored in the cache.
 (define (get-mean-max sid series (inverted? #f))
+  (process-events)
   (or (hash-ref mmax-cache (cons sid series) #f)
       ;; Try the database cache
       (let ((mmax (db-fetch-mmax (current-database) sid series)))
@@ -289,6 +290,7 @@
 ;; It is retrieved from one of the caches (db or in memory) if possible,
 ;; otherwise it is computed and also stored in the cache.
 (define (get-histogram sid series)
+  (process-events)
   (or (hash-ref hist-cache (cons sid series) #f)
       ;; Try the database cache
       (let ((hist (db-fetch-hist (current-database) sid series)))
@@ -476,6 +478,7 @@
 ;; It is retrieved from one of the caches (db or in memory) if possible,
 ;; otherwise it is computed and also stored in the cache.
 (define (get-scatter sid series1 series2)
+  (process-events)
   (or (hash-ref scatter-cache (vector sid series1 series2) #f)
       ;; Try the database cache
       (let ((scatter (db-fetch-scatter (current-database) sid series1 series2)))
@@ -788,19 +791,17 @@ select X.session_id
   (hash-remove! hist-cache sid)
   (hash-remove! scatter-cache sid))
 
-(define dummy
-  (let ((s (make-log-event-source)))
-    (thread/dbglog
-     #:name "session df change processor"
-     ;; NOTE there might be multithreading race conditions here...
-     (lambda ()
-       (let loop ((item (async-channel-get s)))
-         (when item
-           (match-define (list tag data) item)
-           (case tag
-             ((measurement-system-changed) (clear-ms-dependent-metrics))
-             ((session-updated-data) (clear-metrics-for-sid data)))
-           (loop (async-channel-get s))))))))
+(define log-event-source (make-log-event-source))
+
+(define (process-events)
+  (let loop ((item (async-channel-try-get log-event-source)))
+    (when item
+      (match-define (list tag data) item)
+      (case tag
+        ((measurement-system-changed) (clear-ms-dependent-metrics))
+        ((database-opened) (clear-metrics-cache))
+        ((session-updated-data) (clear-metrics-for-sid data)))
+      (loop (async-channel-try-get log-event-source)))))
 
 ;; Session-id, timestamp, duration , value.  This is a different layout than
 ;; the mean-max/c defined in data-frame.rkt
@@ -833,7 +834,6 @@ select X.session_id
                                 (#:label-ids (or/c #f (listof exact-nonnegative-integer?))
                                  #:equipment-ids (or/c #f (listof exact-nonnegative-integer?)))
                                 (listof exact-nonnegative-integer?)))
- (clear-metrics-cache (-> any/c))
  (aggregate-mmax (->* ((listof exact-nonnegative-integer?) string?)
                       (#:inverted? boolean? #:progress-callback (or/c #f (-> real? any/c)))
                       aggregate-mmax/c))
