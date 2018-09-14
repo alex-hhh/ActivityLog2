@@ -22,6 +22,7 @@
   (class object%
     (init-field
      title
+     [description #f]
      [icon #f]
      [can-cancel? #t]
      [min-width 400])
@@ -53,9 +54,11 @@
       (let ((pane (new vertical-panel%
                        [parent toplevel-window] [border 20] [spacing 5]
                        [alignment '(left top)])))
-        (let ((pane (new horizontal-pane% [parent pane])))
+        (let ((pane (new vertical-pane% [parent pane] [spacing 10] [alignment '(left top)])))
           (new message% [parent pane] [label title]
-               [font (send the-font-list find-or-create-font 12 'default 'normal 'normal)]))
+               [font (send the-font-list find-or-create-font 12 'default 'normal 'normal)])
+          (when description
+            (new message% [parent pane] [label description] [stretchable-width #t] [min-width 200])))
         (let ((pane (new horizontal-pane% [parent pane] [border 0] [spacing 20])))
           (when icon
             (new message% [parent pane] [label icon]
@@ -118,7 +121,7 @@
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send dialog-pane reparent toplevel)
           (set! toplevel-window toplevel))
-        (send update-button set-label "Begin Update")
+        (send update-button set-label "Begin")
         (send update-button enable #t)
         (send cancel-button enable #t)
         (send message-box set-label "")

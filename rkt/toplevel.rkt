@@ -46,7 +46,8 @@
          "widgets/main.rkt"
          "widgets/map-widget/map-tiles.rkt"
          "widgets/map-widget/map-util.rkt"
-         "workout-editor/view-workouts.rkt")
+         "workout-editor/view-workouts.rkt"
+         "metrics.rkt")
 
 (provide toplevel-window%)
 
@@ -397,6 +398,12 @@
        [callback
         (lambda (m e)
           (send toplevel vacuum-database))])
+
+  (new menu-item%
+       [parent tools-menu] [label "Delete cached data..."]
+       [callback
+        (lambda (m e)
+          (send toplevel delete-cached-data))])
 
   )
 
@@ -951,25 +958,56 @@
 
       (define progress-dialog
         (new progress-dialog%
-             [title "Optimize database (vacuum and analyze)"]
+             [title "Optimize database"]
+             [description "Run vacuum and analyze on the database"]
              [can-cancel? #f]
              [icon (sql-export-icon)]))
 
       (define (task progress-dialog)
         (dbglog "vacuum-database started (main database)")
         (send progress-dialog set-message "Vacuum database ...")
+        (send progress-dialog set-progress 0)
         (query-exec database "vacuum")
         (dbglog "analyze-database started (main database)")
+        (send progress-dialog set-progress 33)
         (send progress-dialog set-message "Analyze database ...")
         (query-exec database "analyze")
         ;; The command below forces the statistics to be reloaded in the
         ;; current session.
         (query-exec database "analyze sqlite_master")
         (dbglog "vacuum-database started (tile cache database)")
+        (send progress-dialog set-progress 66)
         (send progress-dialog set-message "Vacuum tile cache database ...")
         (vacuum-tile-cache-database)
+        (send progress-dialog set-progress 100)
         (dbglog "vacuum-database completed")
         (send progress-dialog set-message "Completed."))
+
+      (when database
+        (send progress-dialog run tl-frame task)))
+
+    (define/public (delete-cached-data)
+
+      (define progress-dialog
+        (new progress-dialog%
+             [title "Delete Cache Data"]
+             [description "All trend chart data will have to be recalculated, but it will not affect activity data."]
+             [can-cancel? #f]
+             [icon (sql-export-icon)]))
+
+      (define (task progress-dialog)
+        (dbglog "delete-cached-data started")
+        (send progress-dialog set-progress 0)
+        (query-exec database "delete from BAVG_CACHE")
+        (send progress-dialog set-progress 25)
+        (query-exec database "delete from HIST_CACHE")
+        (send progress-dialog set-progress 50)
+        (query-exec database "delete from SCATTER_CACHE")
+        (send progress-dialog set-progress 75)
+        (clear-metrics-cache)
+        (send progress-dialog set-progress 100)
+        (send progress-dialog set-message "Completed.")
+        (dbglog "delete-cached-data completed"))
 
       (when database
         (send progress-dialog run tl-frame task)))

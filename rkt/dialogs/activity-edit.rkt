@@ -252,7 +252,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (let* ((sn (get-series/ordered df)))
                   (call-with-output-file fname (lambda (port) (apply df-write/csv df port sn))
                     #:mode 'text #:exists 'truncate/replace ))
-                (message-box "Failed to fetch data frame" "Failed to fetch data frame"
+                (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
                              toplevel '(ok stop)))))))
 
     (define (on-export-gpx m e)
