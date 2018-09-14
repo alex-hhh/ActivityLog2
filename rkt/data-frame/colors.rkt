@@ -222,6 +222,14 @@
        key
        (make-object color% r g b)))))
 
+;; Pick a hopefully nice color based on the integer ID -- this is used to pick
+;; a default color for XDATA series based on their database ID, the colors
+;; picked are such that two adjacent IDs have colors that are relatively far
+;; apart...
+(define (pick-color id)
+  (let ((hue (remainder (* id 127) 360)))
+    (mix-neutral (hsl->color hue 1.0 0.5))))
+
 (provide/contract
  [mix-colors (->* ((is-a?/c color%) (is-a?/c color%) (between/c 0 1))
                   (#:mix-alpha? boolean?)
@@ -236,4 +244,6 @@
  [desaturate-neutral (-> (is-a?/c color%) (is-a?/c color%))]
  [contrast-of (-> (is-a?/c color%) (is-a?/c color%))]
  [make-palette (-> real? (and/c integer? positive?) (listof (is-a?/c color%)))]
- [make-key-colors (-> (listof real?) plot-color/c (hash/c real? (is-a?/c color%)))])
+ [make-key-colors (-> (listof real?) plot-color/c (hash/c real? (is-a?/c color%)))]
+ [pick-color (-> exact-nonnegative-integer? (is-a?/c color%))])
+
