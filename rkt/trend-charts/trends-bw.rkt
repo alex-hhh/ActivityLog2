@@ -14,12 +14,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
-         plot/no-gui
+(require plot/no-gui
          racket/class
          racket/gui/base
          racket/match
-         racket/hash
          math/statistics
          "../database.rkt"
          "../fmt-util.rkt"
@@ -30,7 +28,6 @@
          "../data-frame/csv.rkt"
          "../data-frame/least-squares-fit.rkt"
          "../data-frame/statistics.rkt"
-         "../data-frame/describe.rkt"
          "../data-frame/colors.rkt"
          "../utilities.rkt"
          "../dbutil.rkt"
@@ -52,22 +49,28 @@
   (define df (df-read/sql db (sql-query) start end))
   (if (> (df-row-count df) 0)
       (begin
-        (df-put-property
-         df
-         'least-squares-fit
-         (case trendline
-           ((none) #f)
-           ((linear)
-            (df-least-squares-fit df "timestamp" "body_weight" #:mode 'linear))
-           ((poly-2)
-            (df-least-squares-fit df "timestamp" "body_weight"
-                                  #:mode 'polynomial #:polynomial-degree 2))
-           ((poly-3)
-            (df-least-squares-fit df "timestamp" "body_weight"
-                                  #:mode 'polynomial #:polynomial-degree 3))
-           (else
-            (dbglog "unknown least squares fit mode: %s" trendline)
-            #f)))
+        ;; `df-least-squares-fit` will raise exceptions if it cannot calculate
+        ;; the fit line (e.g. if there are not enough points).  Rather than
+        ;; checking for things like `matrix-invertible?` and other "low level"
+        ;; stuff, we silently ignore problems with calculating the fit line.
+        (with-handlers
+          (((lambda (e) #t) (lambda (e) (void))))
+          (df-put-property
+           df
+           'least-squares-fit
+           (case trendline
+             ((none) #f)
+             ((linear)
+              (df-least-squares-fit df "timestamp" "body_weight" #:mode 'linear))
+             ((poly-2)
+              (df-least-squares-fit df "timestamp" "body_weight"
+                                    #:mode 'polynomial #:polynomial-degree 2))
+             ((poly-3)
+              (df-least-squares-fit df "timestamp" "body_weight"
+                                    #:mode 'polynomial #:polynomial-degree 3))
+             (else
+              (dbglog "unknown least squares fit mode: %s" trendline)
+              #f))))
 
         ;; Compute X and Y limits for the plot, otherwise some points
         ;; will be right on the edge of the plot.
@@ -88,10 +91,10 @@
         ;; easier to use.  The series is lazy and will only be materialized if
         ;; the data is exported.
         (df-add-lazy
-           df "date" '("timestamp")
-           (lambda (v)
-             (match-define (list ts) v)
-             (date-time->string ts)))
+         df "date" '("timestamp")
+         (lambda (v)
+           (match-define (list ts) v)
+           (date-time->string ts)))
 
         df)
       #f))
@@ -100,8 +103,14 @@
 ;; pair.  This is used by the hover callback to find the closest point to
 ;; highlight, and TIMESTAMP/BODYWEIGHT are plot coordinates.
 (define (lookup-closest-entry df timestamp bodyweight)
-  (define tsrange (df-get-property df 'tsrange 1))
-  (define bwrange (df-get-property df 'bwrange 1))
+
+  ;; Ensure these ranges are never zero, as we will divide with them...
+  (define tsrange
+    (let ((v (df-get-property df 'tsrange 1)))
+      (if (zero? v) 1 v)))
+  (define bwrange
+    (let ((v (df-get-property df 'bwrange 1)))
+      (if (zero? v) 1 v)))
 
   ;; Find the normalized Cartesian distance between TS/BW and
   ;; TIMESTAMP/BODYWEIGHT.  We use the normalized distance, because there is a

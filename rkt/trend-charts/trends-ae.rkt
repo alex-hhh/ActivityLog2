@@ -1,5 +1,4 @@
 #lang racket/base
-
 ;; trends-ae.rkt -- aerobic efficiency trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
@@ -18,15 +17,13 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require db/base
-         plot/no-gui
+(require plot/no-gui
          racket/class
          racket/gui/base
          racket/match
          racket/hash
          math/statistics
          racket/format
-         "../database.rkt"
          "../fmt-util.rkt"
          "../plot-util.rkt"
          "../widgets/main.rkt"
@@ -35,7 +32,6 @@
          "../data-frame/csv.rkt"
          "../data-frame/least-squares-fit.rkt"
          "../data-frame/statistics.rkt"
-         "../data-frame/describe.rkt"
          "../data-frame/colors.rkt"
          "../utilities.rkt"
          "../dbutil.rkt"
@@ -76,22 +72,28 @@
       (> (df-row-count df) 0)
       (begin
         (df-put-property df 'running? running?)
-        (df-put-property
-         df
-         'least-squares-fit
-         (case trendline
-           ((none) #f)
-           ((linear)
-            (df-least-squares-fit df "timestamp" "ae" #:mode 'linear))
-           ((poly-2)
-            (df-least-squares-fit df "timestamp" "ae"
-                                  #:mode 'polynomial #:polynomial-degree 2))
-           ((poly-3)
-            (df-least-squares-fit df "timestamp" "ae"
-                                  #:mode 'polynomial #:polynomial-degree 3))
-           (else
-            (dbglog "unknown least squares fit mode: %s" trendline)
-            #f)))
+        ;; `df-least-squares-fit` will raise exceptions if it cannot calculate
+        ;; the fit line (e.g. if there are not enough points).  Rather than
+        ;; checking for things like `matrix-invertible?` and other "low level"
+        ;; stuff, we silently ignore problems with calculating the fit line.
+        (with-handlers
+          (((lambda (e) #t) (lambda (e) (void))))
+          (df-put-property
+           df
+           'least-squares-fit
+           (case trendline
+             ((none) #f)
+             ((linear)
+              (df-least-squares-fit df "timestamp" "ae" #:mode 'linear))
+             ((poly-2)
+              (df-least-squares-fit df "timestamp" "ae"
+                                    #:mode 'polynomial #:polynomial-degree 2))
+             ((poly-3)
+              (df-least-squares-fit df "timestamp" "ae"
+                                    #:mode 'polynomial #:polynomial-degree 3))
+             (else
+              (dbglog "unknown least squares fit mode: %s" trendline)
+              #f))))
 
         ;; Compute X and Y limits for the plot, otherwise some points
         ;; will be right on the edge of the plot.
@@ -127,8 +129,14 @@
 ;; to this mouse position.  The function will return #f if the mouse is too
 ;; far away from any point in the data frame.
 (define (lookup-closest-entry df timestamp aerobic-efficiency)
-  (define tsrange (df-get-property df 'tsrange 1))
-  (define aerange (df-get-property df 'aerange 1))
+
+  ;; Ensure these ranges are never 0, as we divide by them
+  (define tsrange
+    (let ((v (df-get-property df 'tsrange 1)))
+      (if (zero? v) 1 v)))
+  (define aerange
+    (let ((v (df-get-property df 'aerange 1)))
+      (if (zero? v) 1 v)))
 
   ;; Find the normalized Cartesian distance between TS/AE and TIMESTAMP/AE.
   ;; We use the normalized distance, because there is a big difference in
@@ -174,7 +182,7 @@
     (define (add-info tag val) (set! info (cons (list tag val) info)))
     (define renderers '())
     (define (add-renderer r) (set! renderers (cons r renderers)))
-    
+
     (when (good-hover? x y event)
       (let ((entry (lookup-closest-entry df x y)))
         (when entry
@@ -197,9 +205,9 @@
                 (add-info "Avg Heart Rate" (heart-rate->string/bpm hr))
                 (add-info "Aerobic Efficiency" (~r #:precision 3 ae)))
               (match-let ([(vector duration distance pwr np hr ae)
-                          (df-lookup
-                           df "timestamp"
-                           '("duration" "distance" "power" "npower" "heart_rate" "ae") ts)])
+                           (df-lookup
+                            df "timestamp"
+                            '("duration" "distance" "power" "npower" "heart_rate" "ae") ts)])
                 (add-info "Duration" (duration->string duration))
                 (add-info "Distance" (distance->string distance #t))
                 (add-info "Avg Heart Rate" (heart-rate->string/bpm hr))

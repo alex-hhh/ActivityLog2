@@ -1,10 +1,9 @@
 #lang racket
-
 ;; trends-test.rkt -- test the trend charts
-;; 
+;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
 ;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
-;; 
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
 ;; Software Foundation, either version 3 of the License, or (at your option)
@@ -17,6 +16,25 @@
 ;;
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+;;;; Commentary
+
+;; This file tests the trend charts, at least that the code can run without
+;; any exceptions and it produces some output. For each trend chart, it tests
+;; that it can construct a plot snip, it can export the plot as an image and
+;; it can export the plot data as a CSV file.  The tests run in two
+;; environments:
+;;
+;; 1) An empty database (I had too many errors, since I never test this case
+;; during developent, as my database is full of activities)
+;;
+;; 2) A database containing actual data.
+;;
+;; a single "settings" hash is used for each chart, but new ones can be added
+;; if bugs are found and this code would exercise them.  Also, if charts need
+;; to be updated in the future, this file could provide a basis for testing
+;; the upgrade code.
 
 (require racket/gui/base
          rackunit
@@ -36,27 +54,11 @@
          "../rkt/trend-charts/trends-scatter.rkt"
          "test-util.rkt")
 
-;; This file tests the trend charts, at least that the code can run without
-;; any exceptions and it produces some output.  A few notes:
-;;
-;; For each trend chart, two things are tested:
-;;
-;; 1) running the trend chart on an empty database (I had too many errors,
-;; since I never test this case during developent, as my database is full of
-;; activities)
-;;
-;; 2) running the trend chart on a complete database.
-;;
-;; a single "settings" hash is used for each chart, but new ones can be added
-;; if bugs are found and this code would exercise them.  Also, if charts need
-;; to be updated in the future, this file could provide a basis for testing
-;; the upgrade code.
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 (set-worker-thread-count 1)            ; use 1 worker thread, so we can
-                                       ; determine when tasks finish (See
-                                       ; `do-tc-check`)
-
+; determine when tasks finish (See
+; `do-tc-check`)
 
 (define ae-settings
   (hash
@@ -136,7 +138,7 @@
    'sport '(#f . #f)
    'labels '()
    'equipment '()
-   'series "cad"   
+   'series "cad"
    'estimate-cp?  #f
    'ae-start 720
    'ae-end 1200
@@ -184,7 +186,7 @@
   (send f reflow-container)
   c)
 
-(define test-snip-canvas% 
+(define test-snip-canvas%
   (class snip-canvas% (init parent) (super-new [parent parent])
     (define num-set-background-message-calls 0)
     (define num-snips-set 0)
@@ -577,4 +579,3 @@
 (module+ test
   (require rackunit/text-ui)
   (run-tests trend-charts-test-suite 'verbose))
-
