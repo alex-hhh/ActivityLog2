@@ -1121,13 +1121,20 @@
 
     ;; Reduce the number of points in the data to make it more manageable for
     ;; the plots.  We don't simplify small data sets (1000 points or less)
-    (when (and simplify-data (> (vector-length data) 1000))
-      (define eps (expt 10 (- (send x-axis fractional-digits))))
-      ;; simplify data more aggressively for large data sets, but limit it
-      ;; somehow...
-      (define mult (min 10 (max 1.0 (/ limit 5000))))
+    (when (and simplify-data (> limit 1000))
+      (define yrange
+        (let ((stats (for/fold ([stats empty-statistics])
+                               ([item (in-vector data)])
+                       (update-statistics stats (vector-ref item 1)))))
+          (statistics-range stats)))
+      (define ychange-per-pixel (/ yrange 250)) ; assume plot is 250 pixels high
+      (define xrange
+        (- (vector-ref (vector-ref data (sub1 limit)) 0)
+           (vector-ref (vector-ref data 0) 0)))
+      (define xchange-per-pixel (/ xrange 1000)) ; assume plot is 1000 pixels wide
+      (define eps (min xchange-per-pixel ychange-per-pixel))
       (set! data (rdp-simplify data
-                               #:epsilon (* eps mult)
+                               #:epsilon eps
                                #:destroy-original? #t
                                #:keep-positions stop-indices)))
 
