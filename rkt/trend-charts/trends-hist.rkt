@@ -30,12 +30,14 @@
  "trends-chart.rkt"
  "../widgets/main.rkt"
  "../al-widgets.rkt"
- "../series-meta.rkt"
+ "../session-df/native-series.rkt"
+ "../session-df/series-metadata.rkt"
  "../metrics.rkt"
  "../utilities.rkt"
  "../plot-util.rkt"
  "../fmt-util.rkt"
- "../data-frame/histogram.rkt")
+ "../data-frame/histogram.rkt"
+ "../sport-charms.rkt")
 
 (provide hist-trends-chart%)
 
@@ -266,7 +268,7 @@
          ;; Series can be "lteff+rteff" for dual series!
          (series (string-split (hash-ref params 'series) "+")))
     (hist
-     (for/list ([s series]) (find-meta-for-series s (is-lap-swimming? (hash-ref params 'sport))))
+     (for/list ([s series]) (find-series-metadata s (is-lap-swimming? (hash-ref params 'sport))))
      (for/list ([s series]) (aggregate-hist candidates s #:progress-callback progress)))))
 
 ;; Prepare a histogram ready for rendering or export based on histogram DATA

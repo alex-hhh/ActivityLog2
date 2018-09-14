@@ -26,7 +26,7 @@
          "../data-frame/scatter.rkt"
          "../data-frame/slr.rkt"
          "../plot-util.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 

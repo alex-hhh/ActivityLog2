@@ -1,8 +1,9 @@
 #lang racket/base
-;; series-meta.rkt -- helper classes for plotting various data series
+;; native-series.rkt -- define series metadata objects for series that are
+;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,10 +23,11 @@
          racket/format
          racket/contract
          pict
-         "fmt-util.rkt"
-         "sport-charms.rkt"
-         "pdmodel.rkt"
-         (prefix-in ct: "color-theme.rkt"))
+         "../fmt-util.rkt"
+         "../sport-charms.rkt"
+         "../pdmodel.rkt"
+         "series-metadata.rkt"
+         (prefix-in ct: "../color-theme.rkt"))
 
 ;; Fonts and colors for the Power-Duration information pane
 
@@ -96,164 +98,7 @@
                      (loop dlow tlow dmid tmid))))))))
 
 
-;;..................................................... axis definitions ....
-
-(define zone-labels '(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
-
-(define (zone->label z)
-  (define index (max 0 (min (sub1 (length zone-labels)) (exact-truncate z))))
-  (list-ref zone-labels index))
-
-;; We use too many ways to represent sport ids :-(
-(define (sport-id sport)
-  (cond ((number? sport) sport)
-        ((vector? sport) (vector-ref sport 0))
-        ((cons? sport) (car sport))
-        (#t #f)))
-
-(define (sub-sport-id sport)
-  (cond ((number? sport) #f)
-        ((vector? sport) (vector-ref sport 1))
-        ((cons? sport) (cdr sport))
-        (#t #f)))
-
-(define (sport-zones sport sid metric)
-  (if sid
-      (get-session-sport-zones sid metric)
-      (get-sport-zones (sport-id sport) (sub-sport-id sport) metric)))
-
-(define (is-runnig? sport)
-  (eqv? (sport-id sport) 1))
-
-(define (is-cycling? sport)
-  (eqv? (sport-id sport) 2))
-
-(define (is-lap-swimming? sport)
-  (and (eqv? (sport-id sport) 5)
-       (eqv? (sub-sport-id sport) 17)))
-
-(define (is-swimming? sport)
-  (eqv? (sport-id sport) 5))
-
-(provide is-runnig? is-cycling? is-lap-swimming? is-swimming?)
-
-;; Provides meta data information about a series in a data frame, mostly
-;; related on how to plot values of this series.
-(define series-metadata%
-  (class object% (init) (super-new)
-    ;; When #t, we attempt to detect stop points and generate additional data
-    ;; points with 0 Y values, this makes graphs look nicer.
-    (define/public (has-stop-detection?) #f)
-
-    ;; Whether to filter values in this series using a low pass filter.
-    ;; Whether filtering happens or not is defined on an Y axis (e.g. we may
-    ;; want to filter heart rate but not elevation).
-    (define/public (should-filter?) #f)
-
-    ;; The width of the low pass filter.  The filter width is determined by
-    ;; the X axis (e.g. distance and time will have different widths).
-    (define/public (filter-width) #f)
-
-    ;; Return the base multiplier for determining the final bucket width in a
-    ;; histogram.  This value is multiplied with the user specified bucket
-    ;; size.  It is used when measurements have fractional values which are
-    ;; significant, as actual bucket sizes have 1 as the default and minimum
-    ;; value.
-    (define/public (histogram-bucket-slot) 1.0)
-
-    ;; Returns #t if BEST-AVG values for this series are "better" when they
-    ;; are smaller.  This is used for series like pace, where a smaller value
-    ;; means you are running faster, or for series which need to be minimized,
-    ;; for example ground contact time or vertical oscillation.
-    (define/public (inverted-mean-max?) #f)
-
-    ;; Return the ticks to use for plotting values of this series.
-    (define/public (plot-ticks) (linear-ticks))
-
-    ;; Returns the text to display for this series when it appears in various
-    ;; selection boxes.
-    (define/public (headline) (axis-label))
-
-    ;; Return a string to use as the axis label when this series is used in a
-    ;; plot.
-    (define/public (axis-label) (raise "no axis label defined"))
-
-    ;; Return a string to use as the legend value on a plot for this series
-    (define/public (plot-label) #f)
-
-    (define color #f)
-
-    ;; Return the color to use for plotting this series.  We look it up in the
-    ;; (series-colors) ALIST for a tag the same as (series-name)
-    (define/public (plot-color)
-      (unless color
-        (let* ((tag (string->symbol (series-name)))
-               (color-item (assq tag (ct:series-colors))))
-          (when color-item
-            (set! color (cdr color-item))))
-        ;; Could not find it, use a default
-        (unless color
-          (set! color (make-object color% 0 148 255))))
-      color)
-
-    ;; When true, color the plot by swim stroke colors.  Only makes sense for
-    ;; swimming activities.
-    (define/public (plot-color-by-swim-stroke?) #f)
-
-    ;; Return the Y range for ploting this series.  Returns a (cons LOW HIGH),
-    ;; either of them can be #f, in which case the range is automatically
-    ;; detected.  This can be used to force Y ranges for certain series (for
-    ;; example the balance series can be centered arount 50%, regardless of
-    ;; the data in the plot).
-    (define/public (y-range) #f)
-
-    ;; Return the name of the series in the data frame
-    (define/public (series-name) #f)
-
-    ;; Return the number of fractional digits to keep when truncating values
-    ;; in this series.
-    (define/public (fractional-digits) 0)
-
-    ;; Value to replace missing values in this series
-    (define/public (missing-value) 0)
-
-    ;; Return a function that can classify values for this series into
-    ;; discrete elements (tags), returns #f if there is no such function
-    (define/public (factor-fn sport (sid #f)) #f)
-
-    ;; Return an alist mapping factor names to colors
-    (define/public (factor-colors) (ct:factor-colors))
-
-    ;; Return #t if we can estimate Critical Power for this data series.
-    (define/public (have-cp-estimate?) #f)
-    ;; Estimate CP for this data series given a best-avg function (as returned
-    ;; by `aggregate-bavg') and search parameters (a CP2PARAMS instance).
-    ;; Returns a CP2 structure.
-    (define/public (cp-estimate bavg-fn params) #f)
-    ;; Return a PD function for the supplied critical power parameters (a CP2
-    ;; instance)
-    (define/public (pd-function cp-params) #f)
-    ;; Return a pict displaying information about the supplied critical power
-    ;; parameters (a CP2 instance).
-    (define/public (pd-data-as-pict cp-params bavgfn) #f)
-
-    ;; Return a function (-> number? string?) which formats a value of this
-    ;; series into a string.
-    (define/public (value-formatter)
-      (lambda (p)
-        (if (rational? p)
-            (~r p #:precision (fractional-digits))
-            (~a p))))
-
-    ;; Return the name of the values in this series (e.g. "Pace", "Power",
-    ;; etc).
-    (define/public (name)
-      "Unnamed")
-
-    ))
-
-(provide series-metadata%)
-
+;;........................................................ axis-distance ....
 
 (define axis-distance
   (new (class series-metadata% (init) (super-new)
@@ -270,8 +115,11 @@
                (lambda (x) (distance->string (* x 1000) #t))
                (lambda (x) (distance->string (* x 1609) #t))))
          )))
-
+(register-series-metadata axis-distance)
 (provide axis-distance)
+
+
+;;.................................................... axis-elapsed-time ....
 
 (define axis-elapsed-time
   (new (class series-metadata% (init) (super-new)
@@ -283,7 +131,11 @@
          (define/override (name) "Elapsed Time")
          (define/override (value-formatter) duration->string)
          )))
+(register-series-metadata axis-elapsed-time)
 (provide axis-elapsed-time)
+
+
+;;...................................................... axis-timer-time ....
 
 (define axis-timer-time
   (new (class series-metadata% (init) (super-new)
@@ -295,7 +147,11 @@
          (define/override (series-name) "timer")
          (define/override (value-formatter) duration->string)
          )))
+(register-series-metadata axis-timer-time)
 (provide axis-timer-time)
+
+
+;;........................................................... axis-speed ....
 
 (define axis-speed
   (new (class series-metadata% (init) (super-new)
@@ -322,9 +178,13 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          )))
+(register-series-metadata axis-speed)
 (provide axis-speed)
 
-(define axis-pace%
+
+;;............................................................ axis-pace ....
+
+(define pace-series-metadata%
   (class series-metadata% (init) (super-new)
     (define/override (plot-ticks) (time-ticks #:formats '("~M:~f")))
     (define/override (axis-label)
@@ -452,17 +312,26 @@
             "")))
     ))
 
-(define axis-pace (new axis-pace%))
+(provide pace-series-metadata%)
+(define axis-pace (new pace-series-metadata%))
+(register-series-metadata axis-pace)
 (provide axis-pace)
 
+
+;;............................................................. axis-gap ....
+
 (define axis-gap
-  (new (class axis-pace% (init) (super-new)
+  (new (class pace-series-metadata% (init) (super-new)
          (define/override (series-name) "gap")
          (define/override (name) "GAP")
          (define/override (axis-label)
            (if (eq? (al-pref-measurement-system) 'metric)
                "Grade Adjusted Pace (min/km)" "Grade Adjusted Pace (min/mi)")))))
+(register-series-metadata axis-gap)
 (provide axis-gap)
+
+
+;;...................................................... axis-speed-zone ....
 
 (define axis-speed-zone
   (new (class series-metadata% (init) (super-new)
@@ -478,7 +347,11 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          )))
+(register-series-metadata axis-speed-zone)
 (provide axis-speed-zone)
+
+
+;;....................................................... axis-elevation ....
 
 (define axis-elevation
   (new (class series-metadata% (init) (super-new)
@@ -492,7 +365,11 @@
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
          )))
+(register-series-metadata axis-elevation)
 (provide axis-elevation)
+
+
+;;............................................. axis-corrected-elevation ....
 
 (define axis-corrected-elevation
   (new (class series-metadata% (init) (super-new)
@@ -506,7 +383,11 @@
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
          )))
+(register-series-metadata axis-corrected-elevation)
 (provide axis-corrected-elevation)
+
+
+;;........................................................... axis-grade ....
 
 (define axis-grade
   (new (class series-metadata% (init) (super-new)
@@ -517,9 +398,14 @@
          (define/override (name) "Slope")
          (define/override (fractional-digits) 2)
          )))
+(register-series-metadata axis-grade)
 (provide axis-grade)
 
-;; A grade definition where lower grades are better.  This is usefull for
+
+;;.................................................. axis-grade-inverted ....
+
+
+;; A grade definition where lower grades are better.  This is useful for
 ;; activities with lots of descent (e.g. Skiiing)
 (define axis-grade-inverted
   (new (class series-metadata% (init) (super-new)
@@ -529,7 +415,11 @@
          (define/override (fractional-digits) 1)
          (define/override (name) "Slope")
          (define/override (inverted-mean-max?) #t))))
+;; WARNING! do not register this series!
 (provide axis-grade-inverted)
+
+
+;;.......................................................... axis-hr-bpm ....
 
 (define axis-hr-bpm
   (new (class series-metadata% (init) (super-new)
@@ -550,7 +440,11 @@
 
 
          )))
+(register-series-metadata axis-hr-bpm)
 (provide axis-hr-bpm)
+
+
+;;.......................................................... axis-hr-pct ....
 
 (define axis-hr-pct
   (new (class series-metadata% (init) (super-new)
@@ -560,7 +454,11 @@
          (define/override (name) "HR Percent")
          (define/override (fractional-digits) 1)
          )))
+(register-series-metadata axis-hr-pct)
 (provide axis-hr-pct)
+
+
+;;......................................................... axis-hr-zone ....
 
 (define axis-hr-zone
   (new (class series-metadata% (init) (super-new)
@@ -575,7 +473,11 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          )))
+(register-series-metadata axis-hr-zone)
 (provide axis-hr-zone)
+
+
+;;......................................................... axis-cadence ....
 
 (define axis-cadence
   (new (class series-metadata% (init) (super-new)
@@ -607,7 +509,11 @@
                  (#t #f)))
 
          )))
+(register-series-metadata axis-cadence)
 (provide axis-cadence)
+
+
+;;.......................................................... axis-stride ....
 
 (define axis-stride
   (new (class series-metadata% (init) (super-new)
@@ -622,7 +528,11 @@
          (define/override (series-name) "stride")
          (define/override (fractional-digits) 2)
          )))
+(register-series-metadata axis-stride)
 (provide axis-stride)
+
+
+;;.......................................................... axis-vratio ....
 
 (define axis-vratio
   (new (class series-metadata% (init) (super-new)
@@ -645,7 +555,11 @@
            (and (is-runnig? sport) vratio-factor))
 
          )))
+(register-series-metadata axis-vratio)
 (provide axis-vratio)
+
+
+;;............................................ axis-vertical-oscillation ....
 
 (define axis-vertical-oscillation
   (new (class series-metadata% (init) (super-new)
@@ -670,7 +584,11 @@
            (and (is-runnig? sport) vosc-factor))
 
          )))
+(register-series-metadata axis-vertical-oscillation)
 (provide axis-vertical-oscillation)
+
+
+;;..................................................... axis-stance-time ....
 
 (define axis-stance-time
   (new (class series-metadata% (init) (super-new)
@@ -691,7 +609,11 @@
            (and (is-runnig? sport) gct-factor))
 
          )))
+(register-series-metadata axis-stance-time)
 (provide axis-stance-time)
+
+
+;;............................................. axis-stance-time-percent ....
 
 (define axis-stance-time-percent
   (new (class series-metadata% (init) (super-new)
@@ -703,13 +625,17 @@
          (define/override (name) "GCT percent")
          (define/override (fractional-digits) 1)
          )))
+(register-series-metadata axis-stance-time-percent)
 (provide axis-stance-time-percent)
 
-(define axis-power
-  (new (class series-metadata% (init) (super-new)
-         (define/override (axis-label) "Power (watts)")
-         (define/override (should-filter?) #t)
-         (define/override (series-name) "pwr")
+
+;;............................................... power-series-metadata% ....
+
+(define power-series-metadata%
+  (class series-metadata% (init) (super-new)
+    (define/override (axis-label) "Power (watts)")
+    (define/override (should-filter?) #t)
+    (define/override (series-name) "pwr")
          (define/override (name) "Power")
 
          (define/override (factor-fn sport (sid #f))
@@ -777,11 +703,16 @@
 
            (cc-superimpose
             (filled-rounded-rectangle (+ (pict-width p) 15) (+ (pict-height p) 15) -0.1
-                                      #:draw-border? #f #:color pd-background)
-            p))
+                                 #:draw-border? #f #:color pd-background)
+       p))
 
-         )))
-(provide axis-power)
+    ))
+(define axis-power (new power-series-metadata%))
+(register-series-metadata axis-power)
+(provide axis-power power-series-metadata%)
+
+
+;;.......................................................... axis-torque ....
 
 (define axis-torque
   (new (class series-metadata% (init) (super-new)
@@ -790,7 +721,11 @@
          (define/override (series-name) "torque")
          (define/override (name) "Torque")
          )))
+(register-series-metadata axis-torque)
 (provide axis-torque)
+
+
+;;............................................................ axis-wbal ....
 
 (define axis-wbal
   (new (class series-metadata% (init) (super-new)
@@ -799,7 +734,11 @@
          (define/override (series-name) "wbal")
          (define/override (name) "WBal")
          )))
+(register-series-metadata axis-wbal)
 (provide axis-wbal)
+
+
+;;........................................................... axis-wbali ....
 
 (define axis-wbali
   (new (class series-metadata% (init) (super-new)
@@ -808,7 +747,11 @@
          (define/override (series-name) "wbali")
          (define/override (name) "Wbali")
          )))
+(register-series-metadata axis-wbali)
 (provide axis-wbali)
+
+
+;;...................................................... axis-power-zone ....
 
 (define axis-power-zone
   (new (class series-metadata% (init) (super-new)
@@ -824,7 +767,11 @@
          (define/override (factor-colors) (ct:zone-colors))
 
          )))
+(register-series-metadata axis-power-zone)
 (provide axis-power-zone)
+
+
+;;.............................................. axis-left-right-balance ....
 
 (define axis-left-right-balance
   (new (class series-metadata% (init) (super-new)
@@ -852,7 +799,11 @@
                #f))
 
          )))
+(register-series-metadata axis-left-right-balance)
 (provide axis-left-right-balance)
+
+
+;;....................................... axis-left-torque-effectiveness ....
 
 (define axis-left-torque-effectiveness
   (new (class series-metadata% (init) (super-new)
@@ -865,7 +816,11 @@
          (define/override (series-name) "lteff")
          (define/override (fractional-digits) 1)
          )))
+(register-series-metadata axis-left-torque-effectiveness)
 (provide axis-left-torque-effectiveness)
+
+
+;;...................................... axis-right-torque-effectiveness ....
 
 (define axis-right-torque-effectiveness
   (new (class series-metadata% (init) (super-new)
@@ -877,8 +832,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rteff")
          (define/override (fractional-digits) 1))))
-
+(register-series-metadata axis-right-torque-effectiveness)
 (provide axis-right-torque-effectiveness)
+
+
+;;........................................... axis-left-pedal-smoothness ....
 
 (define axis-left-pedal-smoothness
   (new (class series-metadata% (init) (super-new)
@@ -891,7 +849,11 @@
          (define/override (series-name) "lpsmth")
          (define/override (fractional-digits) 1)
          )))
+(register-series-metadata axis-left-pedal-smoothness)
 (provide axis-left-pedal-smoothness)
+
+
+;;.......................................... axis-right-pedal-smoothness ....
 
 (define axis-right-pedal-smoothness
   (new (class series-metadata% (init) (super-new)
@@ -903,7 +865,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (series-name) "rpsmth")
          (define/override (fractional-digits) 1))))
+(register-series-metadata axis-right-pedal-smoothness)
 (provide axis-right-pedal-smoothness)
+
+
+;;..................................... axis-left-platform-centre-offset ....
 
 (define axis-left-platform-centre-offset
   (new (class series-metadata% (init) (super-new)
@@ -913,7 +879,11 @@
          (define/override (plot-label) "Left Pedal")
          (define/override (name) "PCO Left")
          (define/override (series-name) "lpco"))))
+(register-series-metadata axis-left-platform-centre-offset)
 (provide axis-left-platform-centre-offset)
+
+
+;;.................................... axis-right-platform-centre-offset ....
 
 (define axis-right-platform-centre-offset
   (new (class series-metadata% (init) (super-new)
@@ -923,7 +893,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PCO Right")
          (define/override (series-name) "rpco"))))
+(register-series-metadata axis-right-platform-centre-offset)
 (provide axis-right-platform-centre-offset)
+
+
+;;.......................................... axis-left-power-phase-start ....
 
 (define axis-left-power-phase-start
   (new (class series-metadata% (init) (super-new)
@@ -934,7 +908,11 @@
          (define/override (name) "PP Start Left")
          (define/override (series-name) "lpps")
          )))
+(register-series-metadata axis-left-power-phase-start)
 (provide axis-left-power-phase-start)
+
+
+;;............................................ axis-left-power-phase-end ....
 
 (define axis-left-power-phase-end
   (new (class series-metadata% (init) (super-new)
@@ -944,7 +922,11 @@
          (define/override (plot-label) "Left Pedal")
          (define/override (name) "PP End Left")
          (define/override (series-name) "lppe"))))
+(register-series-metadata axis-left-power-phase-end)
 (provide axis-left-power-phase-end)
+
+
+;;.......................................... axis-left-power-phase-angle ....
 
 (define axis-left-power-phase-angle
   (new (class series-metadata% (init) (super-new)
@@ -954,7 +936,11 @@
          (define/override (plot-label) "Left Pedal")
          (define/override (name) "PP Left")
          (define/override (series-name) "lppa"))))
+(register-series-metadata axis-left-power-phase-angle)
 (provide axis-left-power-phase-angle)
+
+
+;;......................................... axis-right-power-phase-start ....
 
 (define axis-right-power-phase-start
   (new (class series-metadata% (init) (super-new)
@@ -965,7 +951,11 @@
          (define/override (name) "PP Start Right")
          (define/override (series-name) "rpps")
          )))
+(register-series-metadata axis-right-power-phase-start)
 (provide axis-right-power-phase-start)
+
+
+;;........................................... axis-right-power-phase-end ....
 
 (define axis-right-power-phase-end
   (new (class series-metadata% (init) (super-new)
@@ -975,7 +965,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PP End Right")
          (define/override (series-name) "rppe"))))
+(register-series-metadata axis-right-power-phase-end)
 (provide axis-right-power-phase-end)
+
+
+;;......................................... axis-right-power-phase-angle ....
 
 (define axis-right-power-phase-angle
   (new (class series-metadata% (init) (super-new)
@@ -985,7 +979,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PP Right")
          (define/override (series-name) "rppa"))))
+(register-series-metadata axis-right-power-phase-angle)
 (provide axis-right-power-phase-angle)
+
+
+;;..................................... axis-left-peak-power-phase-start ....
 
 (define axis-left-peak-power-phase-start
   (new (class series-metadata% (init) (super-new)
@@ -996,7 +994,11 @@
          (define/override (name) "PPP Start Left")
          (define/override (series-name) "lppps")
          )))
+(register-series-metadata axis-left-peak-power-phase-start)
 (provide axis-left-peak-power-phase-start)
+
+
+;;....................................... axis-left-peak-power-phase-end ....
 
 (define axis-left-peak-power-phase-end
   (new (class series-metadata% (init) (super-new)
@@ -1006,7 +1008,11 @@
          (define/override (plot-label) "Left Pedal")
          (define/override (name) "PPP End Left")
          (define/override (series-name) "lpppe"))))
+(register-series-metadata axis-left-peak-power-phase-end)
 (provide axis-left-peak-power-phase-end)
+
+
+;;..................................... axis-left-peak-power-phase-angle ....
 
 (define axis-left-peak-power-phase-angle
   (new (class series-metadata% (init) (super-new)
@@ -1016,7 +1022,11 @@
          (define/override (name) "PPP Left")
          (define/override (plot-label) "Left Pedal")
          (define/override (series-name) "lpppa"))))
+(register-series-metadata axis-left-peak-power-phase-angle)
 (provide axis-left-peak-power-phase-angle)
+
+
+;;.................................... axis-right-peak-power-phase-start ....
 
 (define axis-right-peak-power-phase-start
   (new (class series-metadata% (init) (super-new)
@@ -1026,7 +1036,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PPP Start Right")
          (define/override (series-name) "rppps"))))
+(register-series-metadata axis-right-peak-power-phase-start)
 (provide axis-right-peak-power-phase-start)
+
+
+;;...................................... axis-right-peak-power-phase-end ....
 
 (define axis-right-peak-power-phase-end
   (new (class series-metadata% (init) (super-new)
@@ -1036,7 +1050,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PPP End Right")
          (define/override (series-name) "rpppe"))))
+(register-series-metadata axis-right-peak-power-phase-end)
 (provide axis-right-peak-power-phase-end)
+
+
+;;.................................... axis-right-peak-power-phase-angle ....
 
 (define axis-right-peak-power-phase-angle
   (new (class series-metadata% (init) (super-new)
@@ -1046,7 +1064,11 @@
          (define/override (plot-label) "Right Pedal")
          (define/override (name) "PPP Right")
          (define/override (series-name) "rpppa"))))
+(register-series-metadata axis-right-peak-power-phase-angle)
 (provide axis-right-peak-power-phase-angle)
+
+
+;;....................................................... axis-swim-pace ....
 
 (define axis-swim-pace
   (new (class series-metadata% (init) (super-new)
@@ -1153,7 +1175,11 @@
             p))
 
          )))
+(register-series-metadata axis-swim-pace #t)
 (provide axis-swim-pace)
+
+
+;;...................................................... axis-swim-swolf ....
 
 (define axis-swim-swolf
   (new (class series-metadata% (init) (super-new)
@@ -1162,7 +1188,11 @@
          (define/override (series-name) "swolf")
          (define/override (name) "SWOLF")
          )))
+(register-series-metadata axis-swim-swolf #t)
 (provide axis-swim-swolf)
+
+
+;;............................................... axis-swim-stroke-count ....
 
 (define axis-swim-stroke-count
   (new (class series-metadata% (init) (super-new)
@@ -1171,7 +1201,11 @@
          (define/override (series-name) "strokes")
          (define/override (name) "Strokes")
          )))
+(register-series-metadata axis-swim-stroke-count #t)
 (provide axis-swim-stroke-count)
+
+
+;;.............................................. axis-swim-stroke-length ....
 
 (define axis-swim-stroke-length
   (new (class series-metadata% (init) (super-new)
@@ -1182,7 +1216,11 @@
          (define/override (histogram-bucket-slot) 0.01)
          (define/override (name) "Stroke Length")
          )))
+(register-series-metadata axis-swim-stroke-length #t)
 (provide axis-swim-stroke-length)
+
+
+;;................................................ axis-swim-avg-cadence ....
 
 (define axis-swim-avg-cadence
   (new (class series-metadata% (init) (super-new)
@@ -1206,7 +1244,11 @@
          (define/override (histogram-bucket-slot) 0.1)
          (define/override (fractional-digits) 1)
          )))
+(register-series-metadata axis-swim-avg-cadence #t)
 (provide axis-swim-avg-cadence)
+
+
+;;................................................... axis-swim-distance ....
 
 (define axis-swim-distance
   (new (class series-metadata% (init) (super-new)
@@ -1221,7 +1263,11 @@
                (lambda (x) (short-distance->string x #t))
                (lambda (x) (short-distance->string (* x 0.9144) #t))))
          )))
+(register-series-metadata axis-swim-distance #t)
 (provide axis-swim-distance)
+
+
+;;....................................................... axis-swim-time ....
 
 (define axis-swim-time
   (new (class series-metadata% (init) (super-new)
@@ -1231,75 +1277,5 @@
          (define/override (series-name) "elapsed")
          (define/override (value-formatter) duration->string)
          )))
+(register-series-metadata axis-swim-time #t)
 (provide axis-swim-time)
-
-(define all-series-meta
-  (list
-   axis-distance
-   axis-elapsed-time
-   axis-timer-time
-   axis-speed
-   axis-pace
-   axis-gap
-   axis-speed-zone
-   axis-elevation
-   axis-corrected-elevation
-   axis-grade
-   axis-grade-inverted
-   axis-hr-bpm
-   axis-hr-pct
-   axis-hr-zone
-   axis-cadence
-   axis-stride
-   axis-vratio
-   axis-vertical-oscillation
-   axis-stance-time
-   axis-stance-time-percent
-   axis-power
-   axis-torque
-   axis-power-zone
-   axis-left-right-balance
-   axis-left-torque-effectiveness
-   axis-right-torque-effectiveness
-   axis-left-pedal-smoothness
-   axis-right-pedal-smoothness
-   axis-left-platform-centre-offset
-   axis-right-platform-centre-offset
-   axis-left-power-phase-start
-   axis-left-power-phase-end
-   axis-left-power-phase-angle
-   axis-right-power-phase-start
-   axis-right-power-phase-end
-   axis-right-power-phase-angle
-   axis-left-peak-power-phase-start
-   axis-left-peak-power-phase-end
-   axis-left-peak-power-phase-angle
-   axis-right-peak-power-phase-start
-   axis-right-peak-power-phase-end
-   axis-right-peak-power-phase-angle
-   axis-swim-pace
-   axis-swim-swolf
-   axis-swim-stroke-count
-   axis-swim-stroke-length
-   axis-swim-avg-cadence
-   axis-swim-distance
-   axis-swim-time))
-
-(define swim-series-meta
-  (list axis-swim-pace
-        axis-swim-swolf
-        axis-swim-stroke-count
-        axis-swim-stroke-length
-        axis-swim-avg-cadence
-        axis-swim-distance
-        axis-swim-time))
-
-;; NOTE: `findf` returns #f if the series is not found.  We rely on the
-;; contract to check that, as this function is always expected to return a
-;; valid axis definition, and it should always be passed valid series names.
-(define (find-meta-for-series name (is-lap-swimming? #f))
-  (findf (lambda (meta) (equal? (send meta series-name) name))
-         (if is-lap-swimming? swim-series-meta all-series-meta)))
-
-(provide/contract
- (find-meta-for-series (->* (string?) (boolean?) (is-a?/c series-metadata%))))

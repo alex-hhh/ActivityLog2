@@ -25,9 +25,9 @@
          "../widgets/map-widget/map-widget.rkt"
          "../widgets/map-widget/map-util.rkt"
          "../widgets/map-widget/map-tiles.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
          "../data-frame/df.rkt"
-         "../session-df.rkt")
+         "../session-df/session-df.rkt")
 
 (provide map-panel%)
 

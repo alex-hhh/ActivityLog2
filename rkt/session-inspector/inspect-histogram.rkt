@@ -25,7 +25,7 @@
          "../data-frame/histogram.rkt"
          "../fmt-util.rkt"
          "../plot-util.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 

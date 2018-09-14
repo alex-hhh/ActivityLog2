@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,8 +26,7 @@
          "../database.rkt"
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
-         "../series-meta.rkt"
-         "../session-df.rkt"
+         "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"

@@ -23,7 +23,7 @@
          "../rkt/dbapp.rkt"
          "../rkt/metrics.rkt"
          "../rkt/pdmodel.rkt"
-         "../rkt/series-meta.rkt"
+         "../rkt/session-df/native-series.rkt"
          "../rkt/utilities.rkt")
 
 ;;(require rackunit/gui)

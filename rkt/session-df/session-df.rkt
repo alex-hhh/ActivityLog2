@@ -29,19 +29,19 @@
          math/statistics
          plot/utils
          plot/no-gui
-         "data-frame/df.rkt"
-         "data-frame/series.rkt"
-         "data-frame/scatter.rkt"
-         "data-frame/sql.rkt"
-         "data-frame/bsearch.rkt"
-         "data-frame/statistics.rkt"
-         "data-frame/rdp-simplify.rkt"
-         "fmt-util.rkt"
-         "sport-charms.rkt"
-         "series-meta.rkt"
-         "widgets/map-widget/map-util.rkt"
-         "utilities.rkt"
-         "gap.rkt")
+         "../data-frame/df.rkt"
+         "../data-frame/series.rkt"
+         "../data-frame/scatter.rkt"
+         "../data-frame/sql.rkt"
+         "../data-frame/bsearch.rkt"
+         "../data-frame/statistics.rkt"
+         "../data-frame/rdp-simplify.rkt"
+         "../fmt-util.rkt"
+         "../sport-charms.rkt"
+         "../widgets/map-widget/map-util.rkt"
+         "../utilities.rkt"
+         "series-metadata.rkt"
+         "../gap.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))

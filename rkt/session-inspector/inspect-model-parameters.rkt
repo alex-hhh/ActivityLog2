@@ -3,7 +3,7 @@
 ;; apply to the current session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,7 @@
          "../color-theme.rkt"
          "../dbapp.rkt"
          "../fmt-util.rkt"
-         "../series-meta.rkt"
+         "../sport-charms.rkt"
          "../data-frame/df.rkt")
 
 (provide model-parameters-panel%)

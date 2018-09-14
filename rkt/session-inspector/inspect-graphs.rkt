@@ -28,14 +28,15 @@
          "../fit-file/activity-util.rkt"
          "../al-widgets.rkt"
          "../fmt-util.rkt"
-         "../series-meta.rkt"
+         "../session-df/series-metadata.rkt"
+         "../session-df/native-series.rkt"
          "../sport-charms.rkt"
          "../data-frame/df.rkt"
          "../data-frame/bsearch.rkt"
          "../data-frame/statistics.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
-         "../session-df.rkt"
+         "../session-df/session-df.rkt"
          "../plot-util.rkt")
 
 (provide graph-panel%)

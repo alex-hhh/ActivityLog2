@@ -35,11 +35,10 @@
          "../data-frame/df.rkt"
          "../data-frame/scatter.rkt"
          "../plot-util.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
-
 (provide quadrant-plot-panel%)
 
 ;; speed is in mps, cadence is in SPM

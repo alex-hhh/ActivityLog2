@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,7 @@
          "data-frame/statistics.rkt"
          "data-frame/meanmax.rkt"
          "data-frame/df.rkt"
-         "session-df.rkt")
+         "session-df/session-df.rkt")
 
 (provide
  make-split-intervals

@@ -17,8 +17,9 @@
          rackunit
          "test-util.rkt"
          "../rkt/data-frame/df.rkt"
-         "../rkt/session-df.rkt"
-         "../rkt/series-meta.rkt"
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/session-df/series-metadata.rkt"
+         "../rkt/session-df/native-series.rkt"
          "../rkt/weather.rkt"
          "../rkt/utilities.rkt")
 

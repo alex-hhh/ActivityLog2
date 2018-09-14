@@ -32,8 +32,8 @@
          "data-frame/scatter.rkt"
          "data-frame/slr.rkt"
          "data-frame/df.rkt"
-         "series-meta.rkt"
-         "session-df.rkt"
+         "session-df/series-metadata.rkt"
+         "session-df/session-df.rkt"
          "utilities.rkt")
 
 ;; WARNING: a mean-max set and a histogram in this file has a different
@@ -237,7 +237,7 @@
 ;; stored in the database.
 (define (histogram/jsexpr df series)
   (let* ((lap-swim? (df-get-property df 'is-lap-swim?))
-         (meta (find-meta-for-series series lap-swim?))
+         (meta (find-series-metadata series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
          (hist (df-histogram df series #:bucket-width bw)))
     (for/list ((item hist) #:when (> (vector-ref item 1) 0))
@@ -412,8 +412,8 @@
         #f))
 
   (define (group data)
-    (let ((meta1 (find-meta-for-series series1 is-lap-swim?))
-          (meta2 (find-meta-for-series series2 is-lap-swim?)))
+    (let ((meta1 (find-series-metadata series1 is-lap-swim?))
+          (meta2 (find-series-metadata series2 is-lap-swim?)))
       (let ((gdata (group-samples data
                                   (send meta1 fractional-digits)
                                   (send meta2 fractional-digits))))
@@ -547,8 +547,8 @@
 ;; `make-scatter-group-renderer'
 (define (aggregate-scatter sids series1 series2 #:progress-callback (progress #f))
   (let* ((nitems (length sids))
-         (meta1 (find-meta-for-series series1))
-         (meta2 (find-meta-for-series series2))
+         (meta1 (find-series-metadata series1))
+         (meta2 (find-series-metadata series2))
          (frac-digits1 (send meta1 fractional-digits))
          (frac-digits2 (send meta2 fractional-digits))
          (scatter-hist (make-hash)))
@@ -861,5 +861,6 @@ select X.session_id
                          aggregate-scatter/c))
  (aggregate-scatter-bounds/quantile (-> aggregate-scatter/c positive? bounds/c))
  (aggregate-scatter-bounds (-> aggregate-scatter/c number? number? bounds/c))
- (aggregate-scatter-slr (-> aggregate-scatter/c (or/c #f slr?))))
+ (aggregate-scatter-slr (-> aggregate-scatter/c (or/c #f slr?)))
+ (clear-metrics-cache (-> any/c)))
 

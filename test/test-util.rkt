@@ -15,13 +15,18 @@
 
 (require db/base
          racket/list
+         racket/class
          rackunit
          "../rkt/data-frame/df.rkt"
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/import.rkt"
          "../rkt/intervals.rkt"
-         "../rkt/session-df.rkt")
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/session-df/series-metadata.rkt"
+         ;; Even though we don't need this, native series are not registered
+         ;; unless this module is required somewhere...
+         "../rkt/session-df/native-series.rkt")
 
 (define (with-fresh-database thunk)
   (let ((db (open-activity-log 'memory)))
@@ -65,6 +70,16 @@
   ;; stride and pace.
   (for ([s (in-list sn)] #:unless (member s '("stride" "pace")))
     (check-true (df-has-non-na? df s) (format "empty series found: ~a" s)))
+  ;; Check that metadata objects exist for all series (except a select few).
+  ;; This is especially important since metadata objects for XDATA series are
+  ;; created when the first such series is read in.
+  (define lap-swim? (df-get-property df 'is-lap-swim?))
+  (for ([s (in-list sn)]
+        #:unless (member s (if lap-swim?
+                               '("timestamp" "timer" "duration" "swim_stroke" "speed" "spd" "dst")
+                               '("timestamp" "lat" "lon" "dst" "spd" "gaspd"))))
+    (define metadata (find-series-metadata s lap-swim?))
+    (check-true (is-a? metadata series-metadata%) (format "missing metadata for ~a" sn)))
   ;; Remove the common series
   (set! sn (remove "timestamp" sn))
   (set! sn (remove "timer" sn))
@@ -112,7 +127,10 @@
                                             #:basic-checks-only? (bc #f)
                                             #:expected-row-count (rc #f)
                                             #:expected-series-count (sc #f)
-                                            #:extra-df-checks (df-check #f))
+                                            #:expected-session-count (nsessions #f)
+                                            #:extra-db-checks (db-check #f)
+                                            #:extra-df-checks (df-check #f)
+                                            #:delete-sessions? (delete? #f))
   (check-not-exn
    (lambda ()
      (let ((result (db-import-activity-from-file file db)))
@@ -122,19 +140,26 @@
          ;; Do some extra checks on this imported file
          (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
          ;; (printf "... done with the post import tasks~%")(flush-output)
-         (for ((sid (aid->sid (cdr result) db)))
+         (when db-check
+           (db-check db))
+         (define sids (aid->sid (cdr result) db))
+         (when nsessions
+           (check = (length sids) nsessions))
+         (for ((sid (in-list sids))
+               (expected-row-count (if (list? rc) (in-list rc) (in-cycle (in-value rc))))
+               (expected-series-count (if (list? sc) (in-list sc) (in-cycle (in-value sc)))))
            (let ((df (session-df db sid)))
-             ;; (printf "got the session~%")(flush-output)
              (check-session-df df
-                               #:expected-row-count rc
-                               #:expected-series-count sc)
-             ;; (printf "check session done~%")(flush-output)
+                               #:expected-row-count expected-row-count
+                               #:expected-series-count expected-series-count)
              (check-intervals df)
-             ;; (printf "check intervals done~%")(flush-output)
              (check-time-in-zone df db file)
              (when df-check
                (df-check df))
-             ;;(printf "check time-in-zone done~%")
-             )))))))
+             ))
+         (when delete?
+           (for ([sid (in-list sids)])
+             (check-not-exn (lambda () (db-delete-session sid db)))
+             (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid)))))))))
 
 (provide with-fresh-database with-database db-import-activity-from-file/check)

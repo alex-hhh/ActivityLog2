@@ -23,7 +23,7 @@
          racket/list
          racket/match
          "../utilities.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
          "../data-frame/meanmax.rkt"
          "../data-frame/df.rkt"
          "../dbapp.rkt"

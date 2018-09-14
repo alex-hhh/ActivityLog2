@@ -31,9 +31,11 @@
          "../metrics.rkt"
          "../pdmodel.rkt"
          "../plot-util.rkt"
-         "../series-meta.rkt"
+         "../session-df/native-series.rkt"
+         "../session-df/series-metadata.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
+         "../sport-charms.rkt"
          "trends-chart.rkt")
 
 (define default-axis-choices

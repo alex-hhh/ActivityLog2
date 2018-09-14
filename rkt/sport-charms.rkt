@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex HarsÃ¡nyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,6 +22,7 @@
          racket/list
          racket/match
          racket/async-channel
+         racket/math
          "dbapp.rkt"
          "dbutil.rkt"
          "utilities.rkt"
@@ -74,6 +75,13 @@
 (provide
  val->pct-of-max
  val->zone)
+
+(provide is-runnig?
+         is-cycling?
+         is-lap-swimming?
+         is-swimming?
+         zone->label
+         sport-zones)
 
 
 ;;...................................................... get-sport-color ....
@@ -413,3 +421,40 @@ select max(zone_id) from V_SPORT_ZONE
 
 (define (put-athlete-height height (db (current-database)))
   (query-exec db "update ATHLETE set height = ?" (or height sql-null)))
+
+(define zone-labels '(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
+
+(define (zone->label z)
+  (define index (max 0 (min (sub1 (length zone-labels)) (exact-truncate z))))
+  (list-ref zone-labels index))
+
+;; We use too many ways to represent sport ids :-(
+(define (sport-id sport)
+  (cond ((number? sport) sport)
+        ((vector? sport) (vector-ref sport 0))
+        ((cons? sport) (car sport))
+        (#t #f)))
+
+(define (sub-sport-id sport)
+  (cond ((number? sport) #f)
+        ((vector? sport) (vector-ref sport 1))
+        ((cons? sport) (cdr sport))
+        (#t #f)))
+
+(define (sport-zones sport sid metric)
+  (if sid
+      (get-session-sport-zones sid metric)
+      (get-sport-zones (sport-id sport) (sub-sport-id sport) metric)))
+
+(define (is-runnig? sport)
+  (eqv? (sport-id sport) 1))
+
+(define (is-cycling? sport)
+  (eqv? (sport-id sport) 2))
+
+(define (is-lap-swimming? sport)
+  (and (eqv? (sport-id sport) 5)
+       (eqv? (sub-sport-id sport) 17)))
+
+(define (is-swimming? sport)
+  (eqv? (sport-id sport) 5))

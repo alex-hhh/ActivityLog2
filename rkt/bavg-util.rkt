@@ -2,7 +2,7 @@
 ;; mmax-util.rkt -- utilities for Best Avg calculations
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,7 +16,8 @@
 (require racket/contract
          racket/class
          racket/match
-         "series-meta.rkt"
+         "session-df/series-metadata.rkt"
+         "session-df/native-series.rkt"
          "data-frame/df.rkt"
          "data-frame/meanmax.rkt"
          "metrics.rkt"

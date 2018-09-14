@@ -20,7 +20,7 @@
          "../database.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../session-df.rkt"
+         "../session-df/session-df.rkt"
          "../data-frame/csv.rkt"
          "../data-frame/gpx.rkt")
 
@@ -281,7 +281,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                   (lambda (port)
                     (df-write/gpx df port #:name (get-session-headline db sid)))
                   #:mode 'text #:exists 'truncate/replace )
-                (message-box "Failed to fetch data frame" "Failed to fetch data frame"
+                (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
                              toplevel '(ok stop)))))))
 
     (define (switch-to-view m e)

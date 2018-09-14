@@ -30,9 +30,9 @@
          "../rkt/data-frame/describe.rkt"
          "../rkt/data-frame/statistics.rkt"
          "../rkt/data-frame/meanmax.rkt"
-         "../rkt/session-df.rkt"
+         "../rkt/session-df/session-df.rkt"
          "../rkt/dbapp.rkt"
-         "../rkt/hrv.rkt"
+         "../rkt/session-df/hrv.rkt"
          "../rkt/fmt-util.rkt"
          "../rkt/database.rkt")
 
@@ -50,9 +50,9 @@
  (all-from-out "../rkt/data-frame/csv.rkt")
  (all-from-out "../rkt/data-frame/sql.rkt")
  (all-from-out "../rkt/data-frame/meanmax.rkt")
- (all-from-out "../rkt/hrv.rkt")
+ (all-from-out "../rkt/session-df/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
- (all-from-out "../rkt/session-df.rkt")
+ (all-from-out "../rkt/session-df/session-df.rkt")
  (all-from-out "../rkt/dbapp.rkt"))
 
 

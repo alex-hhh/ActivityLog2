@@ -2,7 +2,7 @@
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,7 @@
          "../dbutil.rkt"
          "edit-session-tss.rkt"
          "../sport-charms.rkt"
-         "../session-df.rkt"
+         "../session-df/session-df.rkt"
          "../widgets/main.rkt")
 
 (provide get-edit-session-summary-dialog)
@@ -273,5 +273,3 @@ select S.name as title,
     (set! the-edit-session-summary-dialog
           (new edit-session-summary-dialog%)))
   the-edit-session-summary-dialog)
-
-

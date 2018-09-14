@@ -20,7 +20,7 @@
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"
          "../rkt/fit-file/activity-util.rkt"
-         "../rkt/session-df.rkt"
+         "../rkt/session-df/session-df.rkt"
          "../rkt/sport-charms.rkt"
          "../rkt/weather.rkt"
          "../rkt/workout-editor/wk-db.rkt"

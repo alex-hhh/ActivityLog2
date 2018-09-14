@@ -28,10 +28,12 @@
  "../data-frame/scatter.rkt"
  "../data-frame/slr.rkt"
  "../al-widgets.rkt"
- "../series-meta.rkt"
+ "../session-df/native-series.rkt"
+ "../session-df/series-metadata.rkt"
  "../metrics.rkt"
  "../plot-util.rkt"
- "../utilities.rkt")
+"../utilities.rkt"
+"../sport-charms.rkt")
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
@@ -275,8 +277,8 @@
          ;; Series can be "lteff+rteff" for dual series!
          (series1 (string-split (hash-ref params 'series1) "+"))
          (series2 (string-split (hash-ref params 'series2) "+"))
-         (meta1 (find-meta-for-series (first series1) (is-lap-swimming? (hash-ref params 'sport))))
-         (meta2 (find-meta-for-series (first series2) (is-lap-swimming? (hash-ref params 'sport))))
+         (meta1 (find-series-metadata (first series1) (is-lap-swimming? (hash-ref params 'sport))))
+         (meta2 (find-series-metadata (first series2) (is-lap-swimming? (hash-ref params 'sport))))
          (data (aggregate-scatter candidates (first series1) (first series2)
                                   #:progress-callback progress))
          (bounds (aggregate-scatter-bounds
