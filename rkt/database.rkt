@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex HarsÃ¡nyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,8 @@
          racket/contract
          racket/match
          racket/async-channel
+         racket/port
+         racket/format
          "dbutil.rkt"
          "dbapp.rkt"
          "fit-file/fit-defs.rkt"
@@ -79,10 +81,12 @@
                  "select id from ACTIVITY where guid = ?"))))
     (lambda (guid db)
       (with-handlers (((lambda (e) #t) (lambda (e) #f)))
-                     (query-value db stmt guid)))))
+        (query-value db stmt guid)))))
+
+(define xdata-fields (make-parameter #f))
 
 (define db-insert-activity
-  (let ((stmt (virtual-statement 
+  (let ((stmt (virtual-statement
                (lambda (dbsys)
                  "insert into ACTIVITY(start_time, guid) values (?, ?)"))))
     (lambda (activity db)
@@ -92,13 +96,16 @@
          (let ((start-time (dict-ref activity 'start-time #f))
                (guid (dict-ref activity 'guid #f)))
            (query-exec db stmt start-time (or guid sql-null))
-           (let ((activity-id (db-get-last-pk "ACTIVITY" db))
-                 (sessions (assq 'sessions activity)))
-             (when sessions
-                   (for-each (lambda (session)
-                               (db-insert-session session activity-id db))
-                             (cdr sessions)))
-             activity-id)))))))
+           (define apps (xdata-synx-applications db activity))
+           (define fields (xdata-sync-fields db activity apps))
+           (parameterize ([xdata-fields fields])
+             (let ((activity-id (db-get-last-pk "ACTIVITY" db))
+                   (sessions (assq 'sessions activity)))
+               (when sessions
+                 (for-each (lambda (session)
+                             (db-insert-session session activity-id db))
+                           (cdr sessions)))
+               activity-id))))))))
 
 (define db-insert-section-summary
   (let ((stmt (virtual-statement
@@ -203,14 +210,14 @@
         ;; head line for the session, as that saved the sub-sport correctly.
         (when (equal? sub-sport 0) (set! sub-sport sql-null))
         
-        (query-exec 
-         db stmt activity-id summary-id name description 
+        (query-exec
+         db stmt activity-id summary-id name description
          start-time sport-id sub-sport pool-length pool-length-unit training-effect
-         training-stress-score intensity-factor))
+         training-stress-score intensity-factor)
+        (xdata-store-summary-values db session summary-id (xdata-fields)))
       (let ((session-id (db-get-last-pk "A_SESSION" db))
             (laps (assq 'laps session))
             (devices (assq 'devices session)))
-
         (when laps
               (for-each (lambda (lap) (db-insert-lap lap session-id db))
                         (cdr laps)))
@@ -225,10 +232,11 @@
     (lambda (lap session-id db)
       (let ((summary-id (db-insert-section-summary lap db))
             (start-time (dict-ref lap 'start-time sql-null)))
-        (query-exec db stmt session-id start-time summary-id))
+        (query-exec db stmt session-id start-time summary-id)
+        (xdata-store-summary-values db lap summary-id (xdata-fields)))
       (let ((lap-id (db-get-last-pk "A_LAP" db))
             (lengths (assq 'lengths lap)))
-      (when lengths
+        (when lengths
             (for-each (lambda (length) (db-insert-length length lap-id db))
                       (cdr lengths)))))))
 
@@ -239,7 +247,8 @@
     (lambda (length session-id db)
       (let ((summary-id (db-insert-section-summary length db))
             (start-time (dict-ref length 'start-time sql-null)))
-        (query-exec db stmt session-id start-time summary-id))
+        (query-exec db stmt session-id start-time summary-id)
+        (xdata-store-summary-values db length summary-id (xdata-fields)))
       (let ((length-id (db-get-last-pk "A_LENGTH" db))
             (track (assq 'track length)))
         (when track
@@ -289,7 +298,89 @@
                          (lambda (e)
                            (display (format "Failed to insert record: ~a, ~a~%" values e))
                            (raise e))))
-                       (apply query-exec db stmt length-id values))))))
+          (apply query-exec db stmt length-id values)
+          (define id (db-get-last-pk "A_TRACKPOINT" db))
+          (xdata-store-values db trackpoint id (xdata-fields)))))))
+
+
+;;......................................................... xdata-import ....
+
+;; Store any XDATA applications from ACTIVITY in the database and return a
+;; hash mapping the application index to the XDATA_APP.id key.  New entries
+;; are only created if they don't exist.
+(define (xdata-synx-applications db activity)
+  (define apps (dict-ref activity 'developer-data-ids #f))
+  (define result (make-hash))
+  (when apps
+    (for ([app (in-list apps)])
+      (define devid (dict-ref app 'developer-id sql-null))
+      (define appid (dict-ref app 'application-id #f))
+      (define appindex (dict-ref app 'developer-data-index #f))
+      (when (and appid appindex)
+        (define id (query-maybe-value db "select id from XDATA_APP where app_guid = ?" appid))
+        (unless id
+          (query-exec db "insert into XDATA_APP(app_guid, dev_guid) values(?, ?)" appid devid)
+          (set! id (db-get-last-pk "XDATA_APP" db)))
+        (hash-set! result appindex id))))
+  result)
+
+;; Store XDATA fields from ACTIVITY in the database and return a hash mapping
+;; the field key to the XDATA_FIELD.id.  Fields are only created if they don't
+;; already exist.  XDATA-APP-MAPPING is a hash returned by
+;; `xdata-synx-applications` and is used to find the XDATA_APP.id for each
+;; field.
+(define (xdata-sync-fields db activity xdata-app-mapping)
+  (define fields (dict-ref activity 'field-descriptions #f))
+  (define result (make-hash))
+  (when fields
+    (for ([field (in-list fields)])
+      (define name (dict-ref field 'field-name #f))
+      (define key (dict-ref field 'field-key #f))
+      (define units (dict-ref field 'units sql-null))
+      (define appindex (dict-ref field 'developer-data-index #f))
+      (define native-msg (dict-ref field 'native-msg-num sql-null))
+      (define native-field (dict-ref field 'native-field-num sql-null))
+      (when (and name appindex)
+        (define app (hash-ref xdata-app-mapping appindex #f))
+        (when app
+          (define id (query-maybe-value
+                      db "select id from XDATA_FIELD where app_id = ? and name = ?"
+                      app name))
+          (unless id
+            (query-exec db "insert into XDATA_FIELD(app_id, name, unit_name, native_message, native_field) values (?, ?, ?, ?, ?)"
+                        app name units native-msg native-field)
+            (set! id (db-get-last-pk "XDATA_FIELD" db)))
+          (hash-set! result (or key (string->symbol name)) id)))))
+  result)
+
+(define sql-insert-xdata-value
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into XDATA_VALUE(trackpoint_id, field_id, val) values(?, ?, ?)")))
+
+;; Insert XDATA values from RECORD into the database.  XDATA-FIELDS is a value
+;; returned by `xdata-sync-fields` and is used to find the XDATA_FIELD.id
+;; for each field.  ID is the A_TRACKPOINT.id for which we store the XDATA.
+(define (xdata-store-values db record id xdata-fields)
+  (for (([field-key field-id] (in-hash xdata-fields)))
+    (define val (dict-ref record field-key #f))
+    (when val
+      (query-exec db sql-insert-xdata-value id field-id val))))
+
+(define sql-insert-xdata-summary-value
+  (virtual-statement
+   (lambda (dbsys)
+     "insert into XDATA_SUMMARY_VALUE(summary_id, field_id, val) values(?, ?, ?)")))
+
+;; Insert XDATA summary values from RECORD into the database.  XDATA-FIELDS is
+;; a value returned by `xdata-sync-fields` and is used to find the
+;; XDATA_FIELD.id for each field.  ID is the SECTION_SUMMARY.id for which we
+;; store the XDATA.
+(define (xdata-store-summary-values db record id xdata-fields)
+  (for (([field-key field-id] (in-hash xdata-fields)))
+    (define val (dict-ref record field-key #f))
+    (when val
+      (query-exec db sql-insert-xdata-summary-value id field-id val))))
 
 
 ;;............................................ Equipment / Device import ....

@@ -41,6 +41,7 @@
          "../widgets/map-widget/map-util.rkt"
          "../utilities.rkt"
          "series-metadata.rkt"
+         "xdata-series.rkt"
          "../gap.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
@@ -262,6 +263,8 @@
            (add-wbald-series/gap df))
           ((eqv? (vector-ref sport 0) 2) ; biking
            (add-wbald-series df "pwr"))))
+
+  (read-xdata-series df db)
 
   ;; WARNING: don't check for empty series here (or any operation that
   ;; references all the series) as this will materialize all lazy series and

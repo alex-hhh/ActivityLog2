@@ -49,5 +49,5 @@ function download_file {
     rm -f -- $gcookies $ofile1 $ofile2
 }
 
-download_file "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo"
-download_file "1K8UsFT9962Gd195a71cPqzhK4O0RPK7y"
+download_file "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+download_file "1IfWTfzTowCqhgrPRysGlvzFkrqMCGgA3" # test-fit

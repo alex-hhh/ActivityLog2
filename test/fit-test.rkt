@@ -13,33 +13,179 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
+;;;; Commentary
+
+;; This code tests that the application can import correctly a variety of FIT
+;; files and that session data frames can be created from them with the
+;; correct data.  The FIT files are a collection of various "oddities" with
+;; faulty data and unusual data plus files containing XDATA series.  It
+;; requires fit files to be present in the `test-fit` folder, these are
+;; downloaded by the `.travis/download-test-data.sh` script.
+
 (require racket/format
          rackunit
+         db
          "test-util.rkt"
          "../rkt/data-frame/df.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/session-df/series-metadata.rkt"
          "../rkt/session-df/native-series.rkt"
          "../rkt/weather.rkt"
+         "../rkt/database.rkt"
          "../rkt/utilities.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 
 (define (do-basic-checks file series-count row-count
+                         #:expected-session-count (expected-session-count 1)
+                         #:extra-db-checks (extra-db-checks #f)
                          #:extra-df-checks (extra-df-checks #f))
   (when (file-exists? file)
     (define start (current-milliseconds))
     (printf "File ~a, ~a data-points ..." file row-count)(flush-output)
+    ;; Simple consistency check: if we expect more than one session,
+    ;; SERIES-COUNT and ROW-COUNT should be lists, one for each series.
+    (check-true (if (number? series-count)
+                    (= expected-session-count 1)
+                    (= expected-session-count (length series-count))))
+    (check-true (if (number? row-count)
+                    (= expected-session-count 1)
+                    (= expected-session-count (length row-count))))
     (with-fresh-database
       (lambda (db)
         (db-import-activity-from-file/check
          file db
+         #:expected-session-count expected-session-count
          #:expected-row-count row-count
          #:expected-series-count series-count
-         #:extra-df-checks extra-df-checks)))
+         #:extra-db-checks extra-db-checks
+         #:extra-df-checks extra-df-checks
+         #:delete-sessions? #t)))
     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output)))
+
+(define (do-multi-checks files
+                         #:extra-db-checks (extra-db-checks #f))
+  (when (for/and ([f (in-list files)]) (file-exists? f))
+    (printf "File multi-checks on ~a ..." files)(flush-output)
+    (define start (current-milliseconds))
+    (with-fresh-database
+      (lambda (db)
+        (for ([f (in-list files)])
+          (db-import-activity-from-file f db))
+        (when extra-db-checks
+          (extra-db-checks db))))
+    (define elapsed (/ (- (current-milliseconds) start) 1000.0))
+    (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output)))
+
+(define (check-run-power df)
+  (when (equal? (df-get-property df 'sport #f) #(1 #f))
+    (check-true (df-contains? df "pwr"))
+    #;(df-describe df)
+    ))
+
+(define (check-xdata-app-count db n)
+  (check = n (query-value db "select count(*) from XDATA_APP")
+         "xdata app count"))
+
+(define (check-xdata-app-present db app-guid)
+  (check = 1 (query-value db "select count(*) from XDATA_APP where app_guid = ?" app-guid)
+         (format "xdata app present: ~a" app-guid)))
+
+(define (check-xdata-field-count db n)
+  (check = n (query-value db "select count(*) from XDATA_FIELD")
+         "xdata field count"))
+
+(define (check-xdata-field-present db app-guid field-name)
+  (check = 1 (query-value db "
+select count(*)
+from XDATA_FIELD XF, XDATA_APP XA
+where XA.app_guid = ?
+  and XF.app_id = XA.id
+and XF.name = ?" app-guid field-name)
+         (format "xdata field present, app ~a, field ~a" app-guid field-name)))
+
+(define (check-xdata-trackpoint-values db app-guid field-name)
+  (check < 0 (query-value db "
+select count(*)
+ from XDATA_VALUE XV, XDATA_FIELD XF, XDATA_APP XA
+ where XV.field_id = XF.id and XF.app_id = XA.id
+   and XA.app_guid = ?
+   and XF.name = ?"
+                          app-guid field-name)
+         (format "xdata-has-trackpoint-values app ~a, field ~a" app-guid field-name)))
+
+(define (check-xdata-summary-values db app-guid field-name)
+  (check < 0 (query-value db "
+select count(*)
+ from XDATA_SUMMARY_VALUE XSV, XDATA_FIELD XF, XDATA_APP XA
+ where XSV.field_id = XF.id and XF.app_id = XA.id
+   and XA.app_guid = ?
+   and XF.name = ?"
+                          app-guid field-name)
+         (format "xdata-has-summary-values app ~a, field ~a" app-guid field-name)))
+
+
+(define (check-stryd-xdata db)
+  (check-xdata-app-count db 1)
+  (check-xdata-app-present db "660a581e5301460c8f2f034c8b6dc90f")
+  (check-xdata-field-count db 7)
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Leg Spring Stiffness")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Form Power")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Elevation")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Vertical Oscillation")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Ground Time")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
+  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Power")
+
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Leg Spring Stiffness")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Form Power")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Elevation")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Vertical Oscillation")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Ground Time")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
+  (check-xdata-trackpoint-values
+   db "660a581e5301460c8f2f034c8b6dc90f" "Power")
+
+  )
+
+(define (check-outdoorsports-xdata db)
+  (check-xdata-app-count db 1)
+  (check-xdata-app-present db "27dfb7e5900f4c2d80abc57015f42124")
+  (check-xdata-field-count db 9)
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "total_caloriesAV")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "total_calories")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "BatteryUsed")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "avg_cadence")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "Time")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "Latitude")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "Longitude")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "eE")
+  (check-xdata-field-present db "27dfb7e5900f4c2d80abc57015f42124" "StrideDistance")
+
+  (check-xdata-trackpoint-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "eE")
+  (check-xdata-trackpoint-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "StrideDistance")
+
+  (check-xdata-summary-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "total_caloriesAV")
+  (check-xdata-summary-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "total_calories")
+  (check-xdata-summary-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "BatteryUsed")
+  (check-xdata-summary-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "avg_cadence")
+  (check-xdata-summary-values
+   db "27dfb7e5900f4c2d80abc57015f42124" "Time")
+  )
 
 (define fit-files-test-suite
   (test-suite
@@ -72,11 +218,84 @@
                         (check = (vector-length data2) (df-row-count df))))
      (do-basic-checks "./test-fit/f0012.fit" 6 47)
      (do-basic-checks "./test-fit/f0013.fit" 18 8253)
-     (do-basic-checks "./test-fit/f0014.fit" 19 155)
-     (do-basic-checks "./test-fit/f0015.fit" 19 4057)
-     (do-basic-checks "./test-fit/f0016.fit" 23 2119)
-     (do-basic-checks "./test-fit/f0017.fit" 16 3211)
-     
+     (do-basic-checks
+      "./test-fit/f0014.fit" 20 155
+      #:extra-db-checks
+      (lambda (db)
+        (check-xdata-app-count db 1)
+        (check-xdata-app-present db "f848e2ecad564dbd8e36eaf0316d5ea3")
+        (check-xdata-field-count db 1)
+        (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
+        ))
+     (do-basic-checks
+      "./test-fit/f0015.fit" 22 4057
+      #:extra-db-checks
+      (lambda (db)
+        (check-xdata-app-count db 2)
+        (check-xdata-app-present db "f848e2ecad564dbd8e36eaf0316d5ea3")
+        (check-xdata-app-present db "a7e5e2534392495ba0728883c92d7211")
+        (check-xdata-field-count db 4)
+        (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
+        (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal_min")
+        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "THb Sensor 188.000000 on L. Quad")
+        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "SmO2 Sensor 188.000000 on L. Quad")
+
+        (check-xdata-trackpoint-values
+         db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
+        (check-xdata-trackpoint-values
+         db "a7e5e2534392495ba0728883c92d7211" "THb Sensor 188.000000 on L. Quad")
+        (check-xdata-trackpoint-values
+         db "a7e5e2534392495ba0728883c92d7211" "SmO2 Sensor 188.000000 on L. Quad")
+        (check-xdata-summary-values
+         db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal_min")
+
+        ))
+     (do-basic-checks
+      "./test-fit/f0016.fit" 27 2119
+      #:extra-db-checks
+      (lambda (db)
+        (check-xdata-app-count db 1)
+        (check-xdata-app-present db "00000000000000000000000000000000")
+        (check-xdata-field-count db 4)
+        (check-xdata-field-present db "00000000000000000000000000000000" "Distance")
+        (check-xdata-field-present db "00000000000000000000000000000000" "Speed")
+        (check-xdata-field-present db "00000000000000000000000000000000" "Leg Spring Stiffness")
+        (check-xdata-field-present db "00000000000000000000000000000000" "Form Power")
+
+        (check-xdata-trackpoint-values
+         db "00000000000000000000000000000000" "Distance")
+        (check-xdata-trackpoint-values
+         db "00000000000000000000000000000000" "Speed")
+        (check-xdata-trackpoint-values
+         db "00000000000000000000000000000000" "Leg Spring Stiffness")
+        (check-xdata-trackpoint-values
+         db "00000000000000000000000000000000" "Form Power")
+        )
+      #:extra-df-checks check-run-power)
+     (do-basic-checks
+      "./test-fit/f0017.fit" 18 3211
+      #:extra-db-checks check-outdoorsports-xdata)
+     (do-basic-checks
+      "./test-fit/f0018.fit" '(16 16 37 16 30) '(583 30 10217 10 8612)
+      #:extra-db-checks check-stryd-xdata
+      #:expected-session-count 5)
+     (do-basic-checks
+      "./test-fit/f0019.fit" 24 4081
+      #:extra-db-checks check-stryd-xdata)
+     (do-multi-checks
+      ;; These two files contain data from the same XDATA app, the application
+      ;; should only be recorded once...
+      '("./test-fit/f0014.fit" "./test-fit/f0015.fit")
+      #:extra-db-checks
+      (lambda (db)
+        (check-xdata-app-count db 2)
+        (check-xdata-app-present db "f848e2ecad564dbd8e36eaf0316d5ea3")
+        (check-xdata-app-present db "a7e5e2534392495ba0728883c92d7211")
+        (check-xdata-field-count db 4)
+        (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
+        (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal_min")
+        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "THb Sensor 188.000000 on L. Quad")
+        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "SmO2 Sensor 188.000000 on L. Quad")))
      )))
 
 (module+ test

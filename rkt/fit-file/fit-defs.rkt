@@ -164,6 +164,8 @@
     (84 . stance-time-balance)
     (85 . stride-length)))
 
+(provide *record-fields*)
+
 (define *lap-fields*
   '((254 . message-index)
     (253 . timestamp)
@@ -518,7 +520,7 @@
 
 (define *developer-id-fields*
   '((0 . developer-id)
-    (1 . appliction-id)
+    (1 . application-id)
     (2 . manufacturer-id)
     (3 . developer-data-index)
     (4 . application-version)))

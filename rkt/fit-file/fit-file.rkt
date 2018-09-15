@@ -21,6 +21,53 @@
 ;;
 ;; The structure of a FIT file is described in the FIT SDK which you can
 ;; download form https://www.thisisant.com/resources/fit/
+;;
+;; DEVELOPER FIELDS SUPPORT (FIT 2.0)
+;;
+;; This code supports reading FIT files with developer fields -- these are
+;; recorded by 3rd party devices, such as running power and blood oxygen
+;; monitors.  Activities containing such fields can be read with the following
+;; limitations:
+;;
+;; An activity will record 3rd party applications in the 'developer-data-id
+;; entry, which contains a list defining the application identifier (16 byte
+;; value) to an application index.  It looks like this:
+;;
+;; (developer-data-ids
+;;    ((start-time . 1530870414)
+;;     (developer-id . "ffffffffffffffffffffffffffffffff")
+;;     (application-id . "27dfb7e5900f4c2d80abc57015f42124")
+;;     (application-version . 9)
+;;     (developer-data-index . 0)))
+;;
+;; Fields are defined in the 'field-descriptions entry.  For each field, we
+;; have the application index, the field number, the native field number (if
+;; this field corresponds to a native field in the record), the type, a name
+;; and a unit.  In addition, there is a field-key entry (added by this code)
+;; which will be used to identify the fields in the various data records
+;; (sessions, laps, lengths or track points).  It looks like this:
+;;
+;; (field-descriptions
+;;    ((start-time . 1530870414)
+;;     (field-name . "eE")
+;;     (field-key . 27dfb7e5900f4c2d80abc57015f42124-1)
+;;     (units . #"c/hr")
+;;     (native-msg-num . 20)
+;;     (developer-data-index . 0)
+;;     (field-def-number . 1)
+;;     (fit-base-type . 132))
+;;    ((start-time . 1530870414)
+;;     (field-name . "StrideDistance")
+;;     (field-key . 27dfb7e5900f4c2d80abc57015f42124-0)
+;;     (units . #"ft or m")
+;;     (native-msg-num . 20)
+;;     (developer-data-index . 0)
+;;     (field-def-number . 0)
+;;     (fit-base-type . 136)))
+;;
+;; From the example above, trackpoints will contain a key of
+;; 27dfb7e5900f4c2d80abc57015f42124-0 for the stride distance value of that
+;; point.
 
 (require racket/class
          racket/file
@@ -29,6 +76,7 @@
          racket/math
          racket/port
          racket/dict
+         racket/format
          "activity-util.rkt"
          "fit-defs.rkt"
          "../utilities.rkt")
@@ -435,10 +483,20 @@
   (define message-readers (make-hash))
   ;; Map a dev-data index to the basic FIT field type for that field.
   (define dev-field-types (make-hash))
+  (define app-defs (make-hash))
 
-  (define (dev-field-name message-data)
-    (let ((n (dict-ref message-data 'field-name #f)))
-      (and n (string->symbol (bytes->string/latin-1 n)))))
+  (define (dev-field-key ddi number name)
+    (let ((app-id (hash-ref app-defs ddi #f)))
+      (if app-id
+          (string->symbol (string-append app-id "-" (~a number)))
+          (string->symbol (bytes->string/utf-8 name)))))
+
+  (define (make-string-id id)
+    (apply string-append
+           (for/list ([i (in-vector id)])
+             (if (number? i)
+                 (~r i #:precision 0 #:base 16 #:min-width 2 #:pad-string "0")
+                 "ff"))))
 
   (define (read-next-record)
     (let* ((hdr (or (send fit-stream read-next-value 'uint8) 255))
@@ -465,17 +523,51 @@
                      (message-data ((cdr reader) fit-stream)))
                  ;; (printf "DATA CONTENTS: ~a~%" message-data)
                  (cond ((eq? message-id 'developer-data-id)
-                        #f)
+                        ;; A developer-data-id message "announces" a new XDATA
+                        ;; application.  We convert the developer-id and
+                        ;; application-id fields from an array of bytes to
+                        ;; string guid and also record this application in
+                        ;; APP-DEFS
+                        (let ((devid (dict-ref message-data 'developer-id #f))
+                              (appid (dict-ref message-data 'application-id #f))
+                              (ddi (dict-ref message-data 'developer-data-index #f)))
+                          (when appid
+                            (define app-key (make-string-id appid))
+                            (set! message-data
+                                  (cons (cons 'application-id app-key)
+                                        (dict-remove message-data 'application-id)))
+                            (when ddi
+                              (hash-set! app-defs ddi app-key)))
+                          (when devid
+                            (set! message-data
+                                  (cons (cons 'developer-id (make-string-id devid))
+                                        (dict-remove message-data 'developer-id))))))
                        ((eq? message-id 'field-description)
-                        (let ((ddi (dict-ref message-data 'developer-data-index #f))
-                              (type (dict-ref message-data 'fit-base-type #f))
-                              (number (dict-ref message-data 'field-def-number #f))
-                              (name (dev-field-name message-data)))
-                          (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list name type)))))
-                 ;; NOTE: developer data ID and field description messages are
+                        ;; A field-description message "announces" a new XDATA
+                        ;; field.  The field will be present in the records
+                        ;; using a unique key (see below). The key is also
+                        ;; added to the field as a 'field-key entry for easier
+                        ;; processing of XDATA later on.
+                        (let* ((ddi (dict-ref message-data 'developer-data-index #f))
+                               (type (dict-ref message-data 'fit-base-type #f))
+                               (number (dict-ref message-data 'field-def-number #f))
+                               (name (dict-ref message-data 'field-name #f))
+                               (units (dict-ref message-data 'units #f))
+                               (key (dev-field-key ddi number name)))
+                          (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list key type))
+                          (set! message-data (cons (cons 'field-key key) message-data))
+                          (when name
+                            (set! message-data
+                                  (cons (cons 'field-name (bytes->string/utf-8 name))
+                                        (dict-remove message-data 'field-name))))
+                          (when units
+                            (set! message-data
+                                  (cons (cons 'units (bytes->string/utf-8 units))
+                                        (dict-remove message-data 'units)))))))
+                 ;; Developer data ID and field description messages are also
                  ;; sent to the dispatcher, which will be responsibe for
-                 ;; interpreting these fields.  note that the decoder will use
-                 ;; the field name, not the field ID.
+                 ;; interpreting these fields.  The decoder will use the
+                 ;; field-key, not the field ID.
                  (send dispatcher dispatch
                        message-id
                        (if (eq? htype 'compressed-timestamp)
@@ -914,6 +1006,7 @@
 
     (define/override (on-developer-data-id data)
       (set! developer-data-ids (cons data developer-data-ids)))
+
     (define/override (on-field-description data)
       (set! field-descriptions (cons data field-descriptions)))
 
