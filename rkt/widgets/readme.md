@@ -2,7 +2,9 @@ This directory contains GUI widgets built on top of the racket GUI library.
 
 * `map-widget%` -- implements a widget that displays a map, based on Open
   Street Map tiles.  It can also display a track on this map, plus markers.
-  Supports normal panning and zooming functionality.
+  Supports normal panning and zooming functionality.  This widget is also
+  available as a separate package on [pkgs.racket-lang.org]
+  (https://pkgs.racket-lang.org/package/data-frame).
   
 * `notes-input-field%` -- implements a widget that allows editing nodes or a
   description text.  The widget displays "Save"/"Revert" buttons only when the

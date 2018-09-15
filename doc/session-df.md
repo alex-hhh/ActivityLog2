@@ -169,6 +169,14 @@ For more information about the "wbal" series, see the implementation notes on
 * **strokes** is the number of strokes in the length
 * **swolf** is the SWOLF metric (duration + strokes)
 
+### XDATA Series
+
+The data frame contains series for each of the [XDATA](./xdata.md) fields
+stored for that session.  The names used for the actual series are defined in
+a `xdata-defs.json` file (see [XDATA](./xdata.md) for details).  If an XDATA
+field is not present in this file, the name of the data series will be in the
+format "xdata-ID" where ID is a number.
+
 ## Processing of Data in the Data Frame
 
 The series in the data frame are created from data in the A_TRACKPOINT table,
