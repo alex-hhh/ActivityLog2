@@ -32,6 +32,7 @@
          "../pdmodel.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/xdata-series.rkt"
          "../session-df/series-metadata.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
@@ -107,6 +108,7 @@
     (define last-lap-swim-selection #f)
     ;; last selection on the default series
     (define last-non-lap-swim-selection #f)
+    (define axis-choices #f)
 
     (define (install-axis-choices new-choices selection)
       (set! axis-choices
@@ -130,10 +132,14 @@
         (if lap-swimming?
             (begin
               (set! last-non-lap-swim-selection (send series-selector get-selection))
-              (install-axis-choices swim-axis-choices last-lap-swim-selection))
+              (install-axis-choices
+               (append swim-axis-choices (get-available-xdata-metadata database))
+               last-lap-swim-selection))
             (begin
               (set! last-lap-swim-selection (send series-selector get-selection))
-              (install-axis-choices default-axis-choices last-non-lap-swim-selection))))
+              (install-axis-choices
+               (append default-axis-choices (get-available-xdata-metadata database))
+               last-non-lap-swim-selection))))
       (set! lap-swimming-series? lap-swimming?))
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
@@ -265,15 +271,10 @@
     (define (on-heat-percentile p)
       #f)
 
-    (define axis-choices
-      (sort default-axis-choices string<? #:key (lambda (x) (send x axis-label))))
-
-    (send series-selector clear)
-    (for ([a axis-choices])
-      (let ((n (send a axis-label)))
-        (send series-selector append n)))
-    (on-series-selected (send series-selector get-selection))
-
+    (install-axis-choices
+     (append default-axis-choices (get-available-xdata-metadata database))
+     #f)
+    
     (define/override (has-valid-data?)
       (or (not (send estimate-cp-checkbox is-enabled?))
           (not (send estimate-cp-checkbox get-value))
@@ -361,10 +362,8 @@
 
 (define (fetch-data database params progress-callback)
   (let* ((lap-swimming? (is-lap-swimming? (hash-ref params 'sport)))
-         (axis-choices (if lap-swimming? swim-axis-choices default-axis-choices))
          (candidates (candidate-sessions database params))
-         (axis-index (find-axis axis-choices (hash-ref params 'series))))
-    (define axis (if axis-index (list-ref axis-choices axis-index) #f))
+         (axis (find-series-metadata (hash-ref params 'series) lap-swimming?)))
     (unless axis (error "no axis for series"))
     (define data (get-aggregate-mmax candidates axis progress-callback))
     (define heat-map

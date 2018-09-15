@@ -27,6 +27,7 @@
          "../data-frame/slr.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/xdata-series.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -658,9 +659,9 @@
       (set! export-file-name #f)
       (define lap-swimming? (df-get-property data-frame 'is-lap-swim?))
       (set! axis-choices
-            (filter-axis-list
-             data-frame
-             (if lap-swimming? swim-axis-choices default-axis-choices)))
+            (let ((md (append (if lap-swimming? swim-axis-choices default-axis-choices)
+                              (get-available-xdata-metadata))))
+              (filter-axis-list data-frame md)))
       (install-axis-choices axis-choices)
       (restore-params-for-sport)
       (send delay-amount-field enable (not lap-swimming?))

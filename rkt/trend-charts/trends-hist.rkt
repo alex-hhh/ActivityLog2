@@ -31,6 +31,7 @@
  "../widgets/main.rkt"
  "../al-widgets.rkt"
  "../session-df/native-series.rkt"
+ "../session-df/xdata-series.rkt"
  "../session-df/series-metadata.rkt"
  "../metrics.rkt"
  "../utilities.rkt"
@@ -140,10 +141,14 @@
         (if lap-swimming?
             (begin
               (set! last-non-lap-swim-selection (send series-selector get-selection))
-              (install-axis-choices swim-axis-choices last-lap-swim-selection))
+              (install-axis-choices
+               (append swim-axis-choices (get-available-xdata-metadata database))
+               last-lap-swim-selection))
             (begin
               (set! last-lap-swim-selection (send series-selector get-selection))
-              (install-axis-choices default-axis-choices last-non-lap-swim-selection))))
+              (install-axis-choices
+               (append default-axis-choices (get-available-xdata-metadata database))
+               last-non-lap-swim-selection))))
       (set! lap-swimming-series? lap-swimming?))
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
@@ -194,7 +199,9 @@
        (send bucket-width-field has-valid-value?)
        (send outlier-trim-field has-valid-value?)))
 
-    (install-axis-choices default-axis-choices #f)
+    (install-axis-choices
+     (append default-axis-choices (get-available-xdata-metadata database))
+     #f)
 
     (define (get-selected-series-name)
       (let* ((index (send series-selector get-selection))

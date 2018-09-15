@@ -24,6 +24,7 @@
          racket/match
          "../utilities.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/xdata-series.rkt"
          "../data-frame/meanmax.rkt"
          "../data-frame/df.rkt"
          "../dbapp.rkt"
@@ -305,9 +306,9 @@
     (define (get-best-rt-generation) best-rt-generation)
 
     (define (install-axis-choices)
-      (let ((alist (if (df-get-property data-frame 'is-lap-swim?)
-                       swim-axis-choices
-                       default-axis-choices)))
+      (let ((alist (append (if (df-get-property data-frame 'is-lap-swim?)
+                               swim-axis-choices default-axis-choices)
+                           (get-available-xdata-metadata))))
         (set! axis-choices (filter-axis-list data-frame alist)))
       (send axis-choice-box clear)
       (send aux-axis-choice-box clear)

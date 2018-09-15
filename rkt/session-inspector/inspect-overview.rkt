@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
          racket/math
          math/statistics
          racket/dict
+         racket/format
          "../fit-file/activity-util.rkt"
          "../al-widgets.rkt"
          "../fmt-util.rkt"
@@ -392,6 +393,29 @@
   (cond ((assoc sport *sport-badge-definitions*) => cdr)
 	(#t *default-badge-definitions*)))
 
+(define (make-xdata-badge-definition db)
+  (define q
+    "select id, name, unit_name from XDATA_FIELD order by name")
+  (define fields
+    (for/list (([id name unit] (in-query db q)))
+      (badge-field-def
+       name
+       (lambda (session)
+         (let ([sid (dict-ref session 'database-id #f)])
+           (and sid
+                (query-maybe-value db "
+select val 
+  from XDATA_SUMMARY_VALUE XSV, A_SESSION S
+ where S.id = ? 
+   and S.summary_id = XSV.summary_id
+   and XSV.field_id = ?" sid id))))
+       (lambda (v)
+         (string-append
+          (~r #:precision 2 v)
+          " "
+          unit)))))
+  (badge-def "XDATA" 100 *color-16* fields))
+
 ;; Make PICT to have TARGET-WIDTH by adding space to the right.  Do nothing if
 ;; PICT is wider than TARGET-WIDTH.
 (define (pad-right pict target-width)
@@ -630,7 +654,7 @@
     (define/augment (on-display-size)
       (arrange-badges))
 
-    (define/public (set-session session df)
+    (define/public (set-session session df (xdata-badges #f))
       (with-edit-sequence
        (lambda ()
          (remove-all-snips)
@@ -638,6 +662,13 @@
            (let ((snip (new badge-snip% [badge-definition bdef] [session session] [data-frame df])))
              (when (send snip good?)
                (insert snip))))
+         (when xdata-badges
+           (let ((xdata-snip (new badge-snip%
+                                  [badge-definition xdata-badges]
+                                  [session session]
+                                  [data-frame df])))
+             (when (send xdata-snip good?)
+               (insert xdata-snip))))
          (arrange-badges))))
 
     (send this set-selection-visible #f)
@@ -727,7 +758,8 @@
 
     (define/public (set-session session df)
       (set! the-session #f) ; prevent saving of data to the wrong session
-      (send badge-pb set-session session df)
+      (send badge-pb set-session session df
+            (make-xdata-badge-definition the-database))
       (let ((session-id (dict-ref session 'database-id #f)))
         (when session-id
           (send labels-field setup-for-session the-database session-id)

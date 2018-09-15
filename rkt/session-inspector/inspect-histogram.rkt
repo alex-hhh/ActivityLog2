@@ -26,6 +26,7 @@
          "../fmt-util.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/xdata-series.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -431,11 +432,12 @@
 
     ;; Restore the selected axis and its parameters for the current sport.
     (define (restore-params-for-sport)
+      (define max-y-choice (sub1 (send y-axis-choice get-number)))
       (when (current-sport)
         (let ((name (hash-ref axis-by-sport (current-sport) #f)))
           (let ((index (find-axis name axis-choices)))
-            (set! y-axis-index (or index 0)))))
-      (when (<= y-axis-index 0 (sub1 (send y-axis-choice get-number)))
+            (set! y-axis-index (min (or index 0) max-y-choice)))))
+      (when (<= 0 y-axis-index max-y-choice)
         (send y-axis-choice set-selection y-axis-index))
       (set! export-file-name #f)
       (restore-params-for-axis))
@@ -476,9 +478,9 @@
       (save-params-for-sport)
       (set! data-frame df)
       (set! axis-choices
-            (filter-axis-list
-             data-frame
-             (if (lap-swimming?) swim-axis-choices default-axis-choices)))
+            (let ((md (append (if (lap-swimming?) swim-axis-choices default-axis-choices)
+                              (get-available-xdata-metadata))))
+              (filter-axis-list data-frame md)))
       (install-axis-choices axis-choices)
       (if (> (length axis-choices) 0)
           (begin

@@ -29,6 +29,7 @@
  "../data-frame/slr.rkt"
  "../al-widgets.rkt"
  "../session-df/native-series.rkt"
+ "../session-df/xdata-series.rkt"
  "../session-df/series-metadata.rkt"
  "../metrics.rkt"
  "../plot-util.rkt"
@@ -147,15 +148,15 @@
             (begin
               (set! last-non-lap-swim-selection1 (send series1-selector get-selection))
               (set! last-non-lap-swim-selection2 (send series2-selector get-selection))
-              (install-axis-choices swim-axis-choices
-                                    last-lap-swim-selection1
-                                    last-lap-swim-selection2))
+              (install-axis-choices
+               (append swim-axis-choices (get-available-xdata-metadata database))
+               last-lap-swim-selection1 last-lap-swim-selection2))
             (begin
               (set! last-lap-swim-selection1 (send series1-selector get-selection))
               (set! last-lap-swim-selection2 (send series2-selector get-selection))
-              (install-axis-choices default-axis-choices
-                                    last-non-lap-swim-selection1
-                                    last-non-lap-swim-selection2))))
+              (install-axis-choices
+               (append default-axis-choices (get-available-xdata-metadata database))
+               last-non-lap-swim-selection1 last-non-lap-swim-selection2))))
       (set! lap-swimming-series? lap-swimming?))
 
     (define name-gb (make-group-box-panel (send this get-client-pane)))
@@ -199,7 +200,8 @@
     (define/override (has-valid-data?)
       (send outlier-percentile-field has-valid-value?))
 
-    (install-axis-choices default-axis-choices #f #f)
+    (install-axis-choices
+     (append default-axis-choices (get-available-xdata-metadata database)) #f #f)
 
     (define (get-selected-series-name series-selector)
       (let* ((index (send series-selector get-selection))

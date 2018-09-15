@@ -30,6 +30,7 @@
          "../fmt-util.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
          "../data-frame/df.rkt"
          "../data-frame/bsearch.rkt"
@@ -1610,6 +1611,26 @@
     ))
 
 
+;......................................................... xdata-graph% ....
+
+(define xdata-graph%
+  (class graph-view%
+    (init-field parent metadata)
+
+    (let ((sn (send metadata series-name))
+          (hl (send metadata headline)))
+      (super-new [parent parent]
+                 [tag (string->symbol (string-append "activity-log:" sn))]
+                 [text (string-append hl " ")]))
+
+    (send this set-y-axis metadata)
+
+    (define/override (is-valid-for? data-frame)
+      (df-contains? data-frame (send metadata series-name)))
+
+    ))
+
+
 ;;............................................ select-data-series-dialog% ....
 
 ;; A dialog box used to select the data series that are displayed in the
@@ -1849,6 +1870,14 @@
    (new swim-stroke-count-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
    (new swim-cadence-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
+(define (make-xdata-graphs parent hover-callback)
+  (for/list ([md (get-available-xdata-metadata)])
+    (new xdata-graph%
+         [parent parent]
+         [style '(deleted)]
+         [hover-callback hover-callback]
+         [metadata md])))
+
 (define graph-panel%
   (class object%
     (init parent)
@@ -2021,25 +2050,34 @@
                               [alignment '(left top)]))
 
     (define default-graphs-1 #f)
+    (define swim-graphs-1 #f)
+    (define xdata-graphs-1 #f)
+
+    (define (hover-callback y)
+      (when default-graphs-1
+        (for ((g (in-list default-graphs-1)))
+          (send g draw-marker-at y)))
+      (when swim-graphs-1
+        (for ((g (in-list swim-graphs-1)))
+          (send g draw-marker-at y)))
+      (when xdata-graphs-1
+        (for ((g (in-list xdata-graphs-1)))
+          (send g draw-marker-at y))))
+    
     (define (default-graphs)
       (unless default-graphs-1
-        (set! default-graphs-1 (make-default-graphs graphs-panel
-                                                    (lambda (y)
-                                                      (when default-graphs-1
-                                                        (for ((g (in-list default-graphs-1)))
-                                                          (send g draw-marker-at y)))))))
+        (set! default-graphs-1 (make-default-graphs graphs-panel hover-callback)))
       default-graphs-1)
 
-    (define swim-graphs-1 #f)
     (define (swim-graphs)
       (unless swim-graphs-1
-        (set! swim-graphs-1 (make-swim-graphs graphs-panel
-                                              (lambda (y)
-                                                (when swim-graphs-1
-                                                  (for ((g (in-list swim-graphs-1)))
-                                                    (send g draw-marker-at y))))
-                                              )))
+        (set! swim-graphs-1 (make-swim-graphs graphs-panel hover-callback)))
       swim-graphs-1)
+
+    (define (xdata-graphs)
+      (unless xdata-graphs-1
+        (set! xdata-graphs-1 (make-xdata-graphs graphs-panel hover-callback)))
+      xdata-graphs-1)
 
     (define sds-dialog #f)
 
@@ -2049,8 +2087,10 @@
           (set! sds-dialog (new select-data-series-dialog%)))
         (let ((toplevel (send panel get-top-level-window))
               (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
-              (all-graphs (if (is-lap-swimming? data-frame)
-                              (swim-graphs) (default-graphs))))
+              (all-graphs (append
+                           (if (is-lap-swimming? data-frame)
+                               (swim-graphs) (default-graphs))
+                           (xdata-graphs))))
           (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
                  => (lambda (ngraps)
                       (hash-set! graphs-by-sport
@@ -2063,6 +2103,7 @@
       (send interval-choice save-visual-layout)
       (for-each (lambda (g) (send g save-visual-layout)) (default-graphs))
       (for-each (lambda (g) (send g save-visual-layout)) (swim-graphs))
+      (for-each (lambda (g) (send g save-visual-layout)) (xdata-graphs))
       (put-pref
        the-pref-tag
        (hash
@@ -2081,10 +2122,13 @@
         (define visible (hash-ref graphs-by-sport (session-sport session) #f))
 
         (define candidates
-          (if (is-lap-swimming? data-frame)
-              (swim-graphs)
-              (for/list ([g (default-graphs)] #:when (send g is-valid-for? data-frame))
-                g)))
+          (append
+           (if (is-lap-swimming? data-frame)
+               (swim-graphs)
+               (for/list ([g (default-graphs)] #:when (send g is-valid-for? data-frame))
+                 g))
+           (for/list ([g (xdata-graphs)] #:when (send g is-valid-for? data-frame))
+             g)))
 
         ;; NOTE: a #f value for VISIBLE means all graphs are visible.  The '()
         ;; value means that no graphs are visible.
@@ -2119,6 +2163,8 @@
                   graphs)))
 
     (define/public (set-session session df)
+      ;; Rebuild xdata graphs, as new series might have been created...
+      (set! xdata-graphs-1 #f)
       (set! the-session session)
       (set! data-frame df)
 
