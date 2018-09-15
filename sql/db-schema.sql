@@ -1,7 +1,7 @@
 -- db-schema.sql -- database schema for ActivityLog2
 --
 -- This file is part of ActivityLog2, an fitness activity tracker
--- Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+-- Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(29);
+insert into SCHEMA_VERSION(version) values(30);
 
 
 --........................................................ Enumerations ....
@@ -314,6 +314,79 @@ create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
 -- larger index size.
 create index IX1_A_TRACKPOINT
   on A_TRACKPOINT(tile_code, position_lat, position_long, altitude);
+
+
+--............................................................... Xdata ....
+
+-- Garmin allows third party applications to run on their devices and record
+-- extra bits of data.  Each application will have an entry in this table,
+-- created when we first encounter an application in a FIT file.  Technically,
+-- a third party application is identified by a 16 byte developer id and a 16
+-- byte application id, but in all the files that I have seen, the developer
+-- id is set to FF, so the application id uniquely identifies a third party
+-- application in the Garmin world.
+--
+-- The application name is not recorded in the FIT file, so it will have to be
+-- set by the user.
+create table XDATA_APP (
+  id integer not null primary key autoincrement,
+  app_guid text unique not null,
+  dev_guid text
+);
+
+create index IX0_XDATA_APP on XDATA_APP(app_guid);
+
+-- Each XDATA application can define one or more fields in which it records
+-- data.  We list them here.  Fields have an unique name withing an
+-- application GUID, but not necessarily with other applications.
+create table XDATA_FIELD (
+  id integer not null primary key autoincrement,
+  app_id integer not null,
+  name text not null,
+  unit_name text,
+  -- the native message where this field can appear.  We are mostly interested
+  -- here in message 20, which is a data record.
+  native_message integer,
+  -- the native field for which this field corresponds, for example a running
+  -- power application might indicate that this is a "power"(7) field. This
+  -- can be NULL, indicating that the developer field does not correspond to
+  -- any native field.
+  native_field integer,
+  foreign key (app_id) references XDATA_APP(id)
+);
+
+create unique index IX0_XDATA_FIELD on XDATA_FIELD(app_id, name);
+
+-- An XDATA value attached to a track point record.
+create table XDATA_VALUE (
+  id integer not null primary key autoincrement,
+  trackpoint_id integer not null,
+  field_id integer not null,
+  val real,
+  foreign key (field_id) references XDATA_FIELD(id),
+  foreign key (trackpoint_id) references A_TRACKPOINT(id) on delete cascade
+);
+
+-- Add the 'val' option to this index, to make it a covering index when we use
+-- the query to fetch values for a sessions track points.  This will
+-- effectively double the data storage needed for the XDATA_VALUE table, but
+-- it is already almost double even if we leave 'val' out.  Also, I am happy
+-- to trade off disk space for speed.
+create index IX0_XDATA_VALUE on XDATA_VALUE(trackpoint_id, field_id, val);
+
+-- A summary XDATA value (representing XDATA values added to sessions, laps
+-- and lengths).  It is attached to a SECTION_SUMMARY row, which in turn is
+-- referenced by a A_SESSION, A_LAP or A_LENGTH row.
+create table XDATA_SUMMARY_VALUE (
+  id integer not null primary key autoincrement,
+  summary_id integer not null,
+  field_id integer not null,
+  val real,
+  foreign key (field_id) references XDATA_FIELD(id),
+  foreign key (summary_id) references SECTION_SUMMARY(id) on delete cascade
+);
+
+create index IX0_XDATA_SUMMARY_VALUE on XDATA_SUMMARY_VALUE(summary_id, field_id);
 
 
 --......................................................... Sport Zones ....

@@ -1,0 +1,60 @@
+[
+    {
+        "app_id" : "660a581e5301460c8f2f034c8b6dc90f",
+        "app_name" : "Stryd",
+        "fields" : [
+            {
+                "name" : "Leg Spring Stiffness",
+                "series" : "stryd_lss",
+                "fractional_digits" : 2,
+                "histogram_bucket_slot" : 0.01
+            },
+            {
+                "name" : "Form Power",
+                "series" : "stryd_form_pwr",
+                "parent" : "power"
+            },
+            {
+                "name" : "Elevation",
+                "series" : "stryd_alt",
+                "fractional_digits" : 2,
+                "missing_value" : null,
+                "histogram_bucket_slot" : 0.01
+            },
+            {
+                "name" : "Vertical Oscillation",
+                "series" : "stryd_vosc",
+                "fractional_digits" : 2,
+                "histogram_bucket_slot" : 0.01
+            },
+            {
+                "name" : "Ground Time",
+                "series" : "stryd_gct"
+            },
+            {
+                "name" : "Cadence",
+                "series" : "stryd_cad"
+            },
+            {
+                "name" : "Power",
+                "series" : "stryd_pwr"
+            }
+        ]
+    },
+    {
+        "app_id" : "27dfb7e5900f4c2d80abc57015f42124",
+        "app_name" : "Outdoor Sports+",
+        "fields" : [
+            {
+                "name" : "eE",
+                "series" : "osp_ee"
+            },
+            {
+                "name" : "StrideDistance",
+                "series" : "osp_stride",
+                "fractional_digits" : 2,
+                "histogram_bucket_slot" : 0.01
+            }
+        ]
+    }
+]
