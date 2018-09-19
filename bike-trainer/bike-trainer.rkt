@@ -80,7 +80,14 @@
     (when file-name
       (let ((df (call-with-input-file file-name df-read/gpx)))
         (async-channel-put ch df)         ; send it to the simulation task
-      ))))
+        ))))
+
+(define (on-connect-to-trainer b e)
+  (define-values (in out) (tcp-connect "localhost" 7500))
+  ;; (close-output-port out)
+  (thread (lambda () (read-telemetry in ch)))
+  ;; send the output port to the simulation task
+  (async-channel-put ch out))
 
 (define (on-start-simulation b e)
   (async-channel-put ch 'play))
@@ -102,6 +109,11 @@
        [label "Load GPX Track..."]
        [parent button-pane]
        [callback on-load-gpx-track]))
+(define connect-to-trainer-button
+  (new button%
+       [label "Connect to Trainer..."]
+       [parent button-pane]
+       [callback on-connect-to-trainer]))
 (define start-button
   (new button%
        [label "Start"]
@@ -136,7 +148,7 @@
 
 ;;............................................................ GUI setup ....
 
-(define margin 2)                       ; space between snips
+(define margin 4)                       ; space between snips
 
 ;; Add SNIPS to the pasteboard% PB and line them up at the top.
 (define (place-snips pb . snips)
@@ -274,6 +286,7 @@
          (reset-telemetry-snips)
          (loop (sim-state-set-data-frame state task)))
         ((output-port? task)
+         (send message-snip set-message "Connected to trainer")
          (loop (sim-state-set-control state task)))
         ((telemetry? task)
          (let ((delta (sim-state-delta state)))
