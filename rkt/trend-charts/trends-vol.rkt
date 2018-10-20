@@ -280,6 +280,8 @@
           (when params
             (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
             (match-define (cons sport sub-sport) (hash-ref params 'sport))
+            (when (eqv? start 0)
+              (set! start (get-true-min-start-date database)))
             (let* ((group-by (hash-ref params 'group-by))
                    (metric (hash-ref params 'metric))
                    (timestamps (generate-timestamps start end group-by)))

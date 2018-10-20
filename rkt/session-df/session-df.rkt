@@ -1136,10 +1136,13 @@
            (vector-ref (vector-ref data 0) 0)))
       (define xchange-per-pixel (/ xrange 1000)) ; assume plot is 1000 pixels wide
       (define eps (min xchange-per-pixel ychange-per-pixel))
-      (set! data (rdp-simplify data
-                               #:epsilon eps
-                               #:destroy-original? #t
-                               #:keep-positions stop-indices)))
+      ;; rdp-simplify does not accept an epsilon of 0, but it would be useless
+      ;; anyway, as this would not remove any data points anyway
+      (when (> eps 0)
+        (set! data (rdp-simplify data
+                                 #:epsilon eps
+                                 #:destroy-original? #t
+                                 #:keep-positions stop-indices))))
 
     data))
 

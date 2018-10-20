@@ -33,7 +33,7 @@
                          (or/c #f aggregate-mmax/c)))
  (get-aggregate-mmax-heat-map (-> (listof exact-positive-integer?)
                                   aggregate-mmax/c
-                                  (and/c real? positive?)
+                                  (and/c real? (between/c 0 1))
                                   (is-a?/c series-metadata%)
                                   (listof (vector/c (and/c real? positive?)
                                                     (and/c real? positive?)))))

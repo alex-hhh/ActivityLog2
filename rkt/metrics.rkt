@@ -211,7 +211,7 @@
           (match-define (list sid2 ts2 duration2 value2) (car b2))
           (cond ((< duration1 duration2)
                  (loop (cdr b1) b2))
-                ((> duration1 duration1)
+                ((> duration1 duration2)
                  (loop b1 (cdr b2)))
                 (#t
                  (if inverted?
@@ -220,14 +220,20 @@
                      (when (>= value2 (* value1 pct))
                        (hash-update! heat-map duration1 add1 0)))
                  (loop (cdr b1) (cdr b2))))))))
-  (if as-percentage?
-      (let ((nsids (length sids)))
+  ;; NOTE: each heat map item should contain a non-zero heat map value: there
+  ;; should be at least one duration that was at the heatmap, the duration
+  ;; that generated the MMAX!
+  (define result
+    (if as-percentage?
+        (let ((nsids (length sids)))
+          (for/list ((item ammax))
+            (match-define (list sid ts duration value) item)
+            (vector duration (exact->inexact (/ (hash-ref! heat-map duration 0) nsids)))))
         (for/list ((item ammax))
           (match-define (list sid ts duration value) item)
-          (vector duration (exact->inexact (/ (hash-ref! heat-map duration 0) nsids)))))
-      (for/list ((item ammax))
-        (match-define (list sid ts duration value) item)
-        (vector duration (hash-ref! heat-map duration 0)))))
+          (vector duration (hash-ref! heat-map duration 0)))))
+  result)
+
 
 
 ;;................................................................. hist ....
@@ -843,11 +849,12 @@ select X.session_id
  (aggregate-mmax->spline-fn (-> aggregate-mmax/c
                                 (or/c #f (-> real? (or/c #f real?)))))
  (aggregate-mmax-heat-map (->* (aggregate-mmax/c
-                                (and/c real? positive?)
+                                (and/c real? (between/c 0 1))
                                 (listof exact-nonnegative-integer?)
                                 string?)
                                (#:inverted? boolean? #:as-percentage? boolean?)
-                               (listof (vector/c (and/c real? positive?) (and/c real? positive?)))))
+                               (listof (vector/c (and/c real? positive?)
+                                                 (and/c real? positive?)))))
  (aggregate-hist (->* ((listof exact-nonnegative-integer?) string?)
                       (#:progress-callback (or/c #f (-> real? any/c)))
                       aggregate-hist/c))

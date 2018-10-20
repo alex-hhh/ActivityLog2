@@ -322,6 +322,8 @@
         (let ((params (send this get-chart-settings)))
           (when params
             (match-define (cons start end) (hash-ref params 'timestamps (cons 0 0)))
+            (when (eqv? start 0)
+              (set! start (get-true-min-start-date database)))
             (let* ((group-by (hash-ref params 'group-by))
                    (metric (hash-ref params 'metric))
                    (timestamps (generate-timestamps start end group-by)))

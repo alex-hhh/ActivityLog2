@@ -144,7 +144,7 @@
    'ae-end 1200
    'an-start 120
    'an-end 300
-   'heat-percent 'empty
+   'heat-percent 0.95
    'show-heat? #t
    'zero-base? #f))
 
@@ -241,7 +241,12 @@
 ;; Check that the CSV file is valid (contains some data)
 (define (check-csv-file file)
   (define df (df-read/csv file))
-  (check > (df-row-count df) 0))
+  (let ((nrows (df-row-count df)))
+    (check > nrows 0)                   ; file is not empty
+    ;; Check that there is no runaway time period in the chart TRIVOL, VOL and
+    ;; TIZ plots had bugs which bought in data from the "beginning of time"
+    ;; (1970), when "all days" was selected, with all zeroes of course.
+    (check < nrows 10000)))
 
 (define trend-charts-test-suite
   (test-suite
