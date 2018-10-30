@@ -2,7 +2,7 @@
 ;; color-theme.rkt -- support for color themes
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,7 @@
          racket/match
          "utilities.rkt")
 
-(define-runtime-path the-theme-file "./default-theme.rktd")
+(define-runtime-path the-theme-file "../sql/default-theme.rktd")
 (define the-theme-data #f)
 (define the-zone-colors #f)
 (define the-factor-colors #f)

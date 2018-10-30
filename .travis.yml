@@ -28,14 +28,14 @@ env:
     # branches.  See als https://docs.travis-ci.com/user/encryption-keys/.
     - secure: "UrtMaEd9RcXMSEaOK/0VJh7W5L1MIAIjcZnh38pHt/xDIRDCXhMNxkMCS6ra00UwrFaw1l3VcI5mNYWY1JP6Fct1LbU2AY+sKoNNkld5OigNUrx1eXhtzXy8a1T0gX0kJhWvPVAActRwnaWjmhUblH1UAOWOvfcX4laekAVXbSJOVCBKSQl7HNl0xJBm0TriAZtWg+pumTG93e2+3hza6cWQ0tJHqn1kwBmD6aKTJLpd05IU3g6bl/+4cOGosnOaD8L/fDjA51Hl5kwHXPxTrNkoLqRdrCfX+q5vF9D6qG6VdS4lxiNKDTCvnKQ8TZXsvF+WIvIaQSR8CrqqO5pfZWHQNkMJ6jIFrLrV77xx5fa4wWamOgeoZ2GhkXjlg/0qVTVU30h4qZbijbP7byyyErLKujklIYJPgRcgp8ok7pMs4qyqMK7lWyrwYQ7lc/e0PvS/stz8tGSVMboHsVFcP1IlQHAaQJK7Nlk3Pzxktx9CtOHOn/DW7Bw+eRd/zF24GqZKBwxB5VbgBWxpPfukWUwejo/uIevMGGSDnPOmNXvWeQL0LJ8C6qKUSfaH9+5YGwkev46MH41KyWfyekqjbASxNx3MU7SXeFrwT/5jQVENhD/zAUVMVk4Nr6YmAWm1iD66RvpJ/Y3lHn0roQ3CUVKWsHR/l5cNd8SYx5RT7nU="
   matrix:
-    - RACKET_VERSION=7.0
+    - RACKET_VERSION=7.1
 matrix:
   allow_failures:
     - env: RACKET_VERSION=HEAD
     - env: RACKET_VERSION=RELEASE
   fast_finish: true
 before_install:
-  - bash ./.travis/install-racket.sh
+  - bash ./etc/scripts/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 install: true
 before_script:
@@ -45,7 +45,8 @@ before_script:
   # it is only needed after the build, we don't sleep here (the download test
   # data + build take about 6 minutes currently).
   - bash -e /etc/init.d/xvfb start
-  - bash ./.travis/download-test-data.sh
+  - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+  - bash ./etc/scripts/fetch.sh -C test "1IfWTfzTowCqhgrPRysGlvzFkrqMCGgA3" # test-fit
 script:
   - racket build.rkt
   - raco test test/df-test.rkt
@@ -65,5 +66,5 @@ after_success:
   # We only check this if the build succeded (it is not an error to have
   # unnecessary requires), and the result has to be inspected in Travis to see
   # if anything needs to be done.  This is really a code quality metric.
-  - bash ./.travis/check-requires.sh -l 1
+  - bash ./etc/scripts/check-requires.sh -l 1
 after_script: 

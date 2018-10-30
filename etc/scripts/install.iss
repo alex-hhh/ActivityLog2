@@ -41,7 +41,7 @@ AllowNoIcons=yes
 OutputBaseFilename=ActivityLog2Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
-LicenseFile=LICENSE
+LicenseFile=..\..\LICENSE
 OutputDir=.
 
 [Languages]
@@ -51,9 +51,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "LICENSE"; DestDir: "{app}"
+Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\LICENSE"; DestDir: "{app}"
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

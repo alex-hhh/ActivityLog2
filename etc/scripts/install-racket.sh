@@ -15,8 +15,8 @@ RACKET_MINIMAL=${RACKET_MINIMAL:=0}
 
 # Helper variables to construct the download URL.
 BASE="https://mirror.racket-lang.org/installers"
-HBASE="http://plt.eecs.northwestern.edu/snapshots/current/installers"
-PBASE="http://pre-release.racket-lang.org/installers"
+HBASE="https://plt.eecs.northwestern.edu/snapshots/current/installers"
+PBASE="https://pre-release.racket-lang.org/installers"
 V=$RACKET_VERSION
 [[ "$RACKET_MINIMAL" = "1" ]] && M="minimal-" || M=""
 
