@@ -100,7 +100,7 @@
      "Plot the time of day over weekday when each activity occured.")
 
     (tdecl
-     "Best Avg" 'bavg mmax-trends-chart%
+     "Mean Max" 'bavg mmax-trends-chart%
      trends-mmax-file
      "Plot the mean maximal for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity.")
 

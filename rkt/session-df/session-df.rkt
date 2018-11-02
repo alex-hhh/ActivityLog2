@@ -40,6 +40,7 @@
          "../sport-charms.rkt"
          "../widgets/map-widget/map-util.rkt"
          "../utilities.rkt"
+         "../dbutil.rkt"
          "series-metadata.rkt"
          "xdata-series.rkt"
          "../gap.rkt")
@@ -83,65 +84,10 @@
 
 ;;.............................................. make-session-data-frame ....
 
-(define fetch-trackpoins
-  "select T.timestamp as timestamp,
-       T.position_lat as lat,
-       T.position_long as lon,
-       round(T.altitude, 3) as alt,
-       round(T.corrected_altitude, 3) as calt,
-       T.distance as dst,
-       T.cadence as cad,
-       T.speed as spd,
-       T.heart_rate as hr,
-       T.power as pwr,
-       T.vertical_oscillation as vosc,
-       T.stance_time as gct,
-       T.stance_time_percent as pgct,
-       T.left_right_balance as lrbal,
-       T.left_torque_effectiveness as lteff,
-       T.right_torque_effectiveness as rteff,
-       T.left_pedal_smoothness as lpsmth,
-       T.right_pedal_smoothness as rpsmth,
-       T.left_pco as lpco,
-       T.right_pco as rpco,
-       T.left_pp_start as lpps,
-       T.left_pp_end as lppe,
-       T.right_pp_start as rpps,
-       T.right_pp_end as rppe,
-       T.left_ppp_start as lppps,
-       T.left_ppp_end as lpppe,
-       T.right_ppp_start as rppps,
-       T.right_ppp_end as rpppe
-  from A_TRACKPOINT T, A_LENGTH L, A_LAP P
- where T.length_id = L.id
-   and L.lap_id = P.id
-   and P.session_id = ?
- order by T.timestamp")
-
-;; NOTE: we calculate the cadence as length time / total strokes, as this
-;; produces a fractional cadence which looks nicer on the various graphs.
-(define fetch-trackpoins/swim
-  "select L.start_time as timestamp,
-       (select max(T.distance) from A_TRACKPOINT T where T.length_id = L.id) as dst,
-       ifnull(SS.total_timer_time, 0) as duration,
-       SS.avg_speed as spd,
-       round(60.0 * SS.total_cycles / SS.total_timer_time, 1) as cad,
-       SS.swim_stroke_id as swim_stroke,
-       SS.total_cycles as strokes
-  from A_LENGTH L, A_LAP P, SECTION_SUMMARY SS
- where L.lap_id = P.id
-   and L.summary_id = SS.id
-   and P.session_id = ?
- order by L.start_time")
-
-(define fetch-sport
-  "select sport_id, sub_sport_id from A_SESSION where id = ?")
-
-(define fetch-lap-timestamps
-  "select P.start_time
-  from A_LAP P
- where P.session_id = ?
- order by P.start_time")
+(define-sql-statement fetch-trackpoins "../../sql/queries/trackpoints.sql")
+(define-sql-statement fetch-trackpoins/swim "../../sql/queries/swim-trackpoints.sql")
+(define-sql-statement fetch-sport "../../sql/queries/session-sport.sql")
+(define-sql-statement fetch-lap-timestamps "../../sql/queries/lap-timestamps.sql")
 
 ;; Create a data-frame% from the session's trackpoints.  Some data series come
 ;; from the database (e.g. heart rate), some are calculated (e.g. heart rate
@@ -149,7 +95,7 @@
 (define (make-session-data-frame db session-id)
 
   (define sport
-    (let ([row (query-maybe-row db fetch-sport session-id)])
+    (let ([row (query-maybe-row db (fetch-sport) session-id)])
       (if row
           (match-let (((vector sport-id sub-sport-id) row))
             (vector (if (sql-null? sport-id) #f sport-id)
@@ -164,7 +110,7 @@
   (define df
     (df-read/sql
      db
-     (if is-lap-swim? fetch-trackpoins/swim fetch-trackpoins)
+     (if is-lap-swim? (fetch-trackpoins/swim) (fetch-trackpoins))
      session-id))
 
   ;; Delete all empty series (e.g "gct" for a cycling activity)
@@ -190,7 +136,7 @@
     ;; points, don't put these laps in the data frame
     (let ((row-count (df-row-count df)))
       (if (> row-count 0)
-          (let* ([laps (query-list db fetch-lap-timestamps session-id)]
+          (let* ([laps (query-list db (fetch-lap-timestamps) session-id)]
                  [maxts (df-ref df (sub1 row-count) "timestamp")]
                  [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
             (df-put-property df 'laps xlaps))

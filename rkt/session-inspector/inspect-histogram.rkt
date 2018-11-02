@@ -187,6 +187,7 @@
     ;; Data from the session we inspect
     (define data-frame #f)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
+    (define refresh-generation 0)
     (define plot-rt #f)                 ; plot render tree
     (define histogram-data #f)
     ;; The name of the file used by 'on-interactive-export-image'. This is
@@ -231,11 +232,13 @@
 
     (define (on-y-axis-changed new-index)
       (unless (equal? y-axis-index new-index)
+        (set! inhibit-refresh #t)
         (save-params-for-axis)
         (set! y-axis-index new-index)
         (restore-params-for-axis)
         (set! export-file-name #f)
         (maybe-enable-color-by-zone-checkbox)
+        (set! inhibit-refresh #f)
         (refresh-plot)))
 
     (define (on-show-as-percentage flag)
@@ -319,6 +322,7 @@
         (set! plot-rt #f)
         (send plot-pb set-background-message "Working...")
         (send plot-pb set-snip #f)
+        (set! refresh-generation (add1 refresh-generation))
         ;; Capture all relevant vars, as we are about to queue up a separate
         ;; task
         (let ((axis (list-ref axis-choices y-axis-index))
@@ -327,7 +331,8 @@
               (zeroes? include-zeroes?)
               (cbz? color-by-zone?)
               (trim outlier-trim)
-              (bw bucket-width))
+              (bw bucket-width)
+              (generation refresh-generation))
           (queue-task
            "inspect-histogram%/refresh-plot"
            (lambda ()
@@ -368,12 +373,17 @@
                           (#t #f))))
                (queue-callback
                 (lambda ()
-                  (if rt
-                      (begin
-                        (set! plot-rt rt)
-                        (set! histogram-data (or combined-histograms h1))
-                        (put-plot-snip))
-                      (send plot-pb set-background-message "No data to plot"))))))))))
+                  ;; Discard this snip if a new refresh was started after we
+                  ;; finished this one -- possibly because the user is
+                  ;; changing settings too fast, and plot calculation takes
+                  ;; too long.
+                  (when (eqv? refresh-generation generation)
+                    (if rt
+                        (begin
+                          (set! plot-rt rt)
+                          (set! histogram-data (or combined-histograms h1))
+                          (put-plot-snip))
+                        (send plot-pb set-background-message "No data to plot")))))))))))
 
     ;; Save the axis specific plot parameters for the current axis
     (define (save-params-for-axis)

@@ -351,6 +351,7 @@
     ;; LSTATE plot.
     (define rstate empty-spstate)
     (define inhibit-refresh #f)         ; when #t, refresh-plot will do nothing
+    (define refresh-generation 0)
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when one of the axis
     ;; changes.
@@ -514,6 +515,7 @@
         (send plot-right-pb set-background-message "Working...")
         (send plot-left-pb set-snip #f)
         (send plot-right-pb set-snip #f)
+        (set! refresh-generation (add1 refresh-generation))
         ;; Capture all relavant vars, as we are about to queue up a separate
         ;; task
         (let* ((x (list-ref axis-choices x-axis-index))
@@ -523,7 +525,8 @@
                (old-rstate rstate)
                (damt delay-amount)
                (opct (if outlier-percentile (/ outlier-percentile 100.0) #f))
-               (dual? (or (list? x) (list? y)))) ; #t if we have two plots
+               (dual? (or (list? x) (list? y))) ; #t if we have two plots
+               (generation refresh-generation) )
 
           (send plot-pane change-children
                 (lambda (old)
@@ -550,11 +553,16 @@
                  (let ((new-lstate (update-spstate old-lstate df x y damt opct)))
                    (queue-callback
                     (lambda ()
-                      (set! lstate new-lstate)
-                      (set! rstate empty-spstate)
-                      (if (spstate-rt lstate)
-                          (put-plot-snip)
-                          (send plot-left-pb set-background-message "No data to plot")))))))))))
+                      ;; Discard this snip if a new refresh was started after
+                      ;; we finished this one -- possibly because the user is
+                      ;; changing settings too fast, and plot calculation
+                      ;; takes too long.
+                      (when (eqv? generation refresh-generation)
+                        (set! lstate new-lstate)
+                        (set! rstate empty-spstate)
+                        (if (spstate-rt lstate)
+                            (put-plot-snip)
+                            (send plot-left-pb set-background-message "No data to plot"))))))))))))
 
     ;; Store the plot parameters for the current sport, this includes axis
     ;; selection and the parameters for the current axis selection.

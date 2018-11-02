@@ -18,10 +18,8 @@
 (require plot/no-gui
          racket/class
          racket/list
-         racket/math
          racket/draw
          racket/format
-         racket/contract
          pict
          "../fmt-util.rkt"
          "../sport-charms.rkt"
@@ -720,6 +718,7 @@
          (define/override (should-filter?) #t)
          (define/override (series-name) "torque")
          (define/override (name) "Torque")
+         (define/override (fractional-digits) 2)
          )))
 (register-series-metadata axis-torque)
 (provide axis-torque)

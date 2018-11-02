@@ -291,6 +291,7 @@
     (define plot-rt #f)                 ; plot render tree
     (define zone-rt #f)                 ; sport zone render tree
     (define inhibit-refresh #f)
+    (define refresh-generation 0)
     (define outlier-percentile #f)
     (define outlier-handling 'mark)
     ;; The name of the file used by 'on-interactive-export-image'. This is
@@ -345,12 +346,14 @@
         (set! plot-rt #f)
         (send plot-pb set-background-message "Working...")
         (send plot-pb set-snip #f)
-        ;; Capture all relavant vars, as we are about to queue up a separate
+        (set! refresh-generation (add1 refresh-generation))
+        ;; Capture all relevant vars, as we are about to queue up a separate
         ;; task
         (let ((x x-axis)
               (y y-axis)
               (df data-frame)
-              (opct (if outlier-percentile (/ outlier-percentile 100.0) #f)))
+              (opct (if outlier-percentile (/ outlier-percentile 100.0) #f))
+              (generation refresh-generation))
           (queue-task
            "quadrant-plot-panel%/refresh-plot"
            (lambda ()
@@ -378,13 +381,17 @@
                      #:color (send y-axis plot-color))))
              (queue-callback
               (lambda ()
-                (set! plot-rt rt)
-                (set! data-series ds)
-                (set! data-bounds bounds)
-                (set! quantile-bounds qbounds)
-                (unless plot-rt
-                  (send plot-pb set-background-message "No data to plot"))
-                (put-plot-snip))))))))
+                ;; Discard this snip if a new refresh was started after we
+                ;; finished this one -- possibly because the user is changing
+                ;; settings too fast, and plot calculation takes too long.
+                (when (eqv? generation refresh-generation)
+                  (set! plot-rt rt)
+                  (set! data-series ds)
+                  (set! data-bounds bounds)
+                  (set! quantile-bounds qbounds)
+                  (unless plot-rt
+                    (send plot-pb set-background-message "No data to plot"))
+                  (put-plot-snip)))))))))
 
     (define (save-params-for-sport)
       (when data-frame

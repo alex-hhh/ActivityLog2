@@ -32,7 +32,8 @@
  "../utilities.rkt"
  "../data-frame/df.rkt"
  "../data-frame/series.rkt"
- "../data-frame/colors.rkt")
+ "../data-frame/colors.rkt"
+ "../dbutil.rkt")
 
 (provide/contract
  (read-xdata-series (-> data-frame? connection? any/c))
@@ -80,20 +81,13 @@
       (set! result fdef)))
   result)
 
-(define sql-query
-  "select XA.app_guid as guid,
-       coalesce(XF.native_message, -1) as native_message,
-       coalesce(XF.native_field, -1) as native_field,
-       coalesce(XF.name, 'Unnamed') as name,
-       coalesce(XF.unit_name, 'Unlabeled') as units
-  from XDATA_FIELD XF, XDATA_APP XA
- where XF.id = ? and XF.app_id = XA.id")
+(define-sql-statement sql-query "../../sql/queries/xdata-field.sql")
 
 ;; Construct a series metadata object from an XDATA field.  This object
 ;; provides information such as what headline and axis label to use for the
 ;; plots as well as defaults for some operations
 (define (make-xdata-series-metadata db field-id)
-  (define row (query-maybe-row db sql-query field-id))
+  (define row (query-maybe-row db (sql-query) field-id))
   (unless row
     (raise-argument-error 'field-id "valid XDATA_FIELD.id" field-id))
   (match-define (vector app-id nm nf name units) row)
@@ -177,17 +171,7 @@
     (hash-set! the-xdata-registry field-id metadata))
   metadata)
 
-(define xdata-values-query
-  "select T.timestamp, XV.field_id, XV.val
-  from XDATA_VALUE XV,
-       A_TRACKPOINT T,
-       A_LENGTH L,
-       A_LAP P
- where XV.trackpoint_id = T.id
-   and T.length_id = L.id
-   and L.lap_id = P.id
-  and P.session_id = ?
-order by T.timestamp")
+(define-sql-statement xdata-values-query "../../sql/queries/xdata-values.sql")
 
 ;; When a new database is opened, remove the XDATA series that were added in
 ;; the previous one.  This needs to be called from `read-xdata-series` and
@@ -219,7 +203,7 @@ order by T.timestamp")
   (define position #f)
   (define xdata-series (make-hash))
 
-  (for (([ts field value] (in-query db xdata-values-query sid)))
+  (for (([ts field value] (in-query db (xdata-values-query) sid)))
     (unless (equal? current-ts ts)
       (set! current-ts ts)
       (set! position (df-index-of df "timestamp" ts)))

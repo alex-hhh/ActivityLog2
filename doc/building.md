@@ -1,10 +1,9 @@
-
 The simplest way to run ActivityLog2 from source is to start DrRacket, open
 the file "run.rkt" and click on the "Run" button, or press "Ctrl-R". You can
 also run ActivityLog2 from the command line using the following command:
 
     racket run.rkt
-    
+
 The above will take a long time, especially the first time it is run.  You can
 also build a standalone distribution, see below.
 
@@ -35,7 +34,8 @@ post](https://alex-hhh.github.io/2018/01/changing-built-in-racket-packages.html)
 ### Inno Setup
 
 To create a windows installer you will need to install [Inno
-Setup](http://www.jrsoftware.org/isinfo.php) and compile the "setup.iss" file.
+Setup](http://www.jrsoftware.org/isinfo.php) and compile the
+[etc/scripts/setup.iss](../etc/scripts/setup.iss) file.
 
 ## API Keys for web services
 

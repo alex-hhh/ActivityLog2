@@ -64,26 +64,26 @@
 (define (read-next-statement input-port)
   (let ((out (open-output-string))
         (in-string? #f))
-    
+
     ;; Return the next character in the input stream PORT, collapsing all
     ;; whitespace to a single space and skipping all comments.  Comments start
     ;; with "--" and extend until the end of the line.  Strings are being
     ;; tracked for.
     (define (get-next-char)
       (let ((ch (read-char input-port)))
-        
+
         (when (eqv? ch #\')
           (set! in-string? (not in-string?)))
-        
+
         (cond ((eqv? ch eof) ch)
-              
+
               ((and (char-whitespace? ch)
                     (let ((ch-next (peek-char input-port)))
                       (or (eqv? ch-next eof)
                           (char-whitespace? ch-next))))
                ;; Colapse all whitespace into one single space
                (get-next-char))
-              
+
               ((and (not in-string?)
                     (eqv? ch #\-)
                     (eqv? (peek-char input-port) #\-))
@@ -91,10 +91,10 @@
                (for ((v (in-producer (lambda () (read-char input-port)) #\newline)))
                  (begin #f))
                #\ )
-              
+
               ((char-whitespace? ch) #\ ) ; all whitespace converted to space
               (#t ch))))
-    
+
     ;; read from the input stream using GET-NEXT-CHAR until a semi-colon (#\;)
     ;; is seen.  Intermediate read chars are written to OUT.  The full
     ;; statement is returned, or #f on EOF.
@@ -107,7 +107,7 @@
               (#t
                (write-char ch out)
                (loop)))))
-       
+
     (loop)))
 
 ;; Read SQL statements from INPUT-PORT, and return them as a list
@@ -286,7 +286,7 @@
        (~a month #:width 2 #:align 'right #:pad-string "0")
        "-"
        (~a day #:width 2 #:align 'right #:pad-string "0"))))
-  
+
 ;; Return a backup file name for DB-FILE.  This is done by adding the week
 ;; start timestamp to the file name and making DB-BACKUP-DIR as the directory.
 ;; If UNIQUE-NAME is #t a unique database backup name will be generated.
@@ -368,4 +368,3 @@
     (gunzip-through-ports in out)
     (let ((str (bytes->string/utf-8 (get-output-bytes out))))
       (string->jsexpr str))))
-
