@@ -8,15 +8,17 @@ Import swim, bike and run and other activities from .FIT files.  Display
 plots, scatter plots, histograms, maps and other views for activities.  Show
 reports and trends from activity data and track equipment usage.
 
-Download pre-built releases from
-the [releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or
-see [doc/building.md](doc/building.md) for how to build your own.
+Download pre-built releases from the
+[releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or see
+[docs/building.md](doc/building.md) for how to build your own.
 
-<p align="center">
-<img align="center" width="800" 
-     alt="session view" 
-     src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs4ffy8" />
-</p>
+See also the [CHANGES](./docs/CHANGES.md),
+[CONTRIBUTING](./docs/CONTRIBUTING.md) and
+[CODE_OF_CONDUCT](./docs/CODE_OF_CONDUCT.md) files.
+
+<p align="center"> <img align="center" width="800" alt="session view"
+src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs4ffy8"
+/> </p>
 
 ## Features
 

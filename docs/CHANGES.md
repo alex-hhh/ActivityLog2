@@ -1,13 +1,30 @@
+# Release 1.6.0
+
+This release introduces support for XDATA, which is data recorded by third
+party applications and sensors, such as running power.  For more details on
+the implementation see [doc/xdata.md](doc/xdata.md).
+
+The code base was also reorganized, and many tests and improvements were added
+to the code, these should have no user visible changes.  In addition to this,
+the following minor fixes were added:
+
+* The activity view panel will display a log message when the current filter
+  does not select any activities.
+* Better handling of gaps in GPS recording
+* Add support for trend-lines for bodyweight chart
+* New trends chart: Aerobic Efficiency
+* Fix issue #25: the histogram plot will not forget its settings
+
 # Release 1.5.2
 
 This release contains the following bug fixes and improvements:
 
 * "Lengths For Lap" label for Swim sessions is now vertical, it looks much
   nicer.
-  
+
 * improvements to map drawing and fixing an issue where maps would not display
   correctly on high DPI displays (issue #29)
-  
+
 * reduce flicker when graphs view is opened for the first time for a session.
 
 * fixed a bug where histogram trends could not be computed for the "Grade
@@ -48,7 +65,7 @@ release:
 
 * When no Tau is defined for the critical power parameters, the "Model
   Parameters" page will display the "implicit tau" which is W' / CP.
-  
+
 # Release 1.3.0
 
 In addition to general bug-fixes, the following improvements were made in this
@@ -71,7 +88,7 @@ to be manually refreshed with Ctrl-R.
 
 The activity view filter settings are now remembered between application
 restarts.
-  
+
 Label and equipment filters change meaning from ANY to ALL.  For example,
 adding two labels to the filter will now display sessions that have *both*
 labels assigned.  Previously it would display sessions that have either one of
@@ -88,12 +105,12 @@ in a trend chart.
 
 Histogram plots format time as "hh:mm:ss" instead of displaying time in
 seconds only (potentially showing values like 10000 seconds)
-  
+
 Issue #17, fix Best-Avg calculations for running and swimming activities
 
 Issue #12, the session view has a new "Model Parameters" tab which shows the
 sport zones and critical power parameters used for that session
-  
+
 Issue #20, the Best Avg plot is now shown for lap swimming activities
 
 Issue #13, the Critical Power curve is shown on the Best-Avg plot for a
