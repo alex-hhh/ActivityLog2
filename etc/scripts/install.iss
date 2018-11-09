@@ -38,11 +38,11 @@ AppComments=Analyze data from swim bike and run activities
 DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputBaseFilename=..\..\ActivityLog2Setup-{#MyAppVersion}
+OutputBaseFilename=ActivityLog2Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 LicenseFile=..\..\LICENSE
-OutputDir=.
+OutputDir=..\..\
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
