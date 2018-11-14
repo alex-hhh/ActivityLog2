@@ -2,7 +2,7 @@
 
 This release introduces support for XDATA, which is data recorded by third
 party applications and sensors, such as running power.  For more details on
-the implementation see [doc/xdata.md](doc/xdata.md).
+the implementation see [docs/xdata.md](docs/xdata.md).
 
 The code base was also reorganized, and many tests and improvements were added
 to the code, these should have no user visible changes.  In addition to this,
