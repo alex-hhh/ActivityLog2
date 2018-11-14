@@ -18,6 +18,7 @@
          racket/class
          racket/gui/base
          racket/match
+         racket/runtime-path
          math/statistics
          "../database.rkt"
          "../fmt-util.rkt"
@@ -36,7 +37,8 @@
 (provide bw-trends-chart%)
 
 ;; SQL query to retrieve bodyweight data from the database
-(define-sql-statement sql-query "../../sql/queries/tc-bodyweight.sql")
+(define-runtime-path sql-query-path "../../sql/queries/tc-bodyweight.sql")
+(define sql-query (define-sql-statement sql-query-path))
 
 ;; Read bodyweight data from the database and return a data frame with the
 ;; contents.  PARAMS define the parameters for the query, as returned by

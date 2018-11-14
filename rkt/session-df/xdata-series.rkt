@@ -81,7 +81,8 @@
       (set! result fdef)))
   result)
 
-(define-sql-statement sql-query "../../sql/queries/xdata-field.sql")
+(define-runtime-path sql-query-path "../../sql/queries/xdata-field.sql")
+(define sql-query (define-sql-statement sql-query-path))
 
 ;; Construct a series metadata object from an XDATA field.  This object
 ;; provides information such as what headline and axis label to use for the
@@ -171,7 +172,8 @@
     (hash-set! the-xdata-registry field-id metadata))
   metadata)
 
-(define-sql-statement xdata-values-query "../../sql/queries/xdata-values.sql")
+(define-runtime-path xdata-values-query-path "../../sql/queries/xdata-values.sql")
+(define xdata-values-query (define-sql-statement xdata-values-query-path))
 
 ;; When a new database is opened, remove the XDATA series that were added in
 ;; the previous one.  This needs to be called from `read-xdata-series` and

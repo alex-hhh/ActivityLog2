@@ -26,6 +26,7 @@
          racket/list
          racket/draw
          racket/async-channel
+         racket/runtime-path
          math/statistics
          plot/utils
          plot/no-gui
@@ -84,10 +85,17 @@
 
 ;;.............................................. make-session-data-frame ....
 
-(define-sql-statement fetch-trackpoins "../../sql/queries/trackpoints.sql")
-(define-sql-statement fetch-trackpoins/swim "../../sql/queries/swim-trackpoints.sql")
-(define-sql-statement fetch-sport "../../sql/queries/session-sport.sql")
-(define-sql-statement fetch-lap-timestamps "../../sql/queries/lap-timestamps.sql")
+(define-runtime-path fetch-trackpoins-path "../../sql/queries/trackpoints.sql")
+(define fetch-trackpoins (define-sql-statement fetch-trackpoins-path))
+
+(define-runtime-path fetch-trackpoins/swim-path "../../sql/queries/swim-trackpoints.sql")
+(define fetch-trackpoins/swim (define-sql-statement fetch-trackpoins/swim-path))
+
+(define-runtime-path fetch-sport-path "../../sql/queries/session-sport.sql")
+(define fetch-sport (define-sql-statement fetch-sport-path))
+
+(define-runtime-path fetch-lap-timestamps-path "../../sql/queries/lap-timestamps.sql")
+(define fetch-lap-timestamps (define-sql-statement fetch-lap-timestamps-path))
 
 ;; Create a data-frame% from the session's trackpoints.  Some data series come
 ;; from the database (e.g. heart rate), some are calculated (e.g. heart rate
