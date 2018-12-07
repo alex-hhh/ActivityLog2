@@ -333,7 +333,7 @@
 (define (df-lookup/interpolated
          df base-series series value
          #:interpolate (interpolate (lambda (t v1 v2)
-                                      (+ (* t v1) (* (- 1 t) v2)))))
+                                      (+ (* (- 1 t) v1) (* t v2)))))
   (define index (df-index-of df base-series value))
   (define slist (if (list? series) series (list series)))
   (cond ((<= index 0)

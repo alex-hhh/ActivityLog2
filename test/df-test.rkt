@@ -478,8 +478,7 @@
      (check equal? (df-lookup* df "col1" "col2" 1 4) '(3 0))
      (check equal? (df-lookup* df "col1" '("col1" "col2") 1 4) '(#(1 3) #(4 0)))
 
-     (check equal? (df-lookup/interpolated df "col1" "col2" 2.5) 1.5)
-
+     (check < (abs (- (df-lookup/interpolated df "col1" "col2" 2.2) 1.8)) 0.001)
      (check = (df-ref df 1 "col1") 2)
      (check equal? (df-ref* df 1 "col1" "col2") #(2 2))
 
