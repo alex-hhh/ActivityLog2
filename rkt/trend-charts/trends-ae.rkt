@@ -24,6 +24,7 @@
          racket/hash
          math/statistics
          racket/format
+         racket/runtime-path
          "../fmt-util.rkt"
          "../plot-util.rkt"
          "../widgets/main.rkt"
@@ -39,8 +40,11 @@
 
 (provide ae-trends-chart%)
 
-(define-sql-statement sql-running "../../sql/queries/tc-aeff-running.sql")
-(define-sql-statement sql-cycling "../../sql/queries/tc-aeff-cycling.sql")
+(define-runtime-path sql-running-path "../../sql/queries/tc-aeff-running.sql")
+(define sql-running (define-sql-statement sql-running-path))
+
+(define-runtime-path sql-cycling-path "../../sql/queries/tc-aeff-cycling.sql")
+(define sql-cycling (define-sql-statement sql-cycling-path))
 
 (define *run-color* (mix-neutral (make-object color% 0 0 255)))
 (define *cycle-color* (mix-neutral (make-object color% 255 0 0)))
@@ -183,7 +187,7 @@
     (define renderers '())
     (define (add-renderer r) (set! renderers (cons r renderers)))
 
-    (when (good-hover? x y event)
+    (when (good-hover? snip x y event)
       (let ((entry (lookup-closest-entry df x y)))
         (when entry
           (add-renderer (points (list entry)

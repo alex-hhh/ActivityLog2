@@ -219,26 +219,13 @@
 ;; they can be nicely formatted, commented and tested in the sqlite command
 ;; prompt.
 
-(define-syntax (define-sql-statement stx)
-  (syntax-case stx ()
-    [(_ name path)
-     ;; Unfortunately, PATH cannot be used directly here, as it will need to
-     ;; be relative to the location of *this* file if running the program in
-     ;; place, but it will need to be relative to the location of the file
-     ;; calling this macro when building an executable.
-     ;;
-     ;; https://groups.google.com/forum/#!topic/racket-users/svMKLFh_VC4
-     (let-values ([(dir fn _) (split-path (syntax-source stx))])
-       (with-syntax ([dir (or dir 'same)])
-         #'(begin
-             (define-runtime-path rpath (build-path dir path))
-             (define name
-               (let ([vq #f])
-                 (lambda ()
-                   (unless vq
-                     (let ([s (call-with-input-file rpath read-next-statement)])
-                       (set! vq (virtual-statement (lambda (_) s)))))
-                   vq))))))]))
+(define (define-sql-statement path)
+  (let ([vq #f])
+    (lambda ()
+      (unless vq
+        (let ([s (call-with-input-file path read-next-statement)])
+          (set! vq (virtual-statement (lambda (_) s)))))
+      vq)))
 
 
 ;;...................................................... database backup ....

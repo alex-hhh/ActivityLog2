@@ -268,7 +268,7 @@
 
     (define (plot-hover-callback snip event x y)
       (define renderer #f)
-      (when (good-hover? x y event)
+      (when (good-hover? snip x y event)
         (define dual?
           (list? (list-ref axis-choices y-axis-index)))
         (define skip (if dual? 2.5 1.0))

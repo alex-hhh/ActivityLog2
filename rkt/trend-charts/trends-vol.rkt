@@ -227,7 +227,7 @@
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
 
-      (when (good-hover? x y event)
+      (when (good-hover? snip x y event)
         (define params (send this get-chart-settings))
         (define metric (hash-ref params 'metric))
         (define format-value

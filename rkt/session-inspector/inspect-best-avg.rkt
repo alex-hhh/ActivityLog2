@@ -375,7 +375,7 @@
               (add-info name (format-fn py))
               (set! markers (cons (vector x py) markers))))))
 
-      (when (good-hover? x y event)
+      (when (good-hover? snip x y event)
         (add-renderer (pu-vrule x))
 
         ;; The aux values need special treatment: they are scaled to match the

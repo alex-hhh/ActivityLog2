@@ -517,7 +517,7 @@
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
 
-      (when (and (good-hover? x y event) cached-data)
+      (when (and (good-hover? snip x y event) cached-data)
         (let ((params (send this get-chart-settings))
               (fmtval (send (tmmax-axis cached-data) value-formatter)))
           (add-renderer (pu-vrule x))

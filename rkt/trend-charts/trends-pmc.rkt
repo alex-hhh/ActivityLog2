@@ -405,7 +405,7 @@
       (define (add-info tag val) (set! info (cons (list tag val) info)))
       (define renderers '())
       (define (add-renderer r) (set! renderers (cons r renderers)))
-      (when (good-hover? x y event)
+      (when (good-hover? snip x y event)
         (let ((entry (get-pmc-data-for-timestamp pmc-data x))
               (params (send this get-chart-settings)))
           (when entry
