@@ -1,4 +1,3 @@
-
 # Travis CI build and test file for ActivityLog2.  The aim is to check that
 # the application builds correctly, and automated tests pass.  The build step
 # runs build.rkt which also creates a distribution (in the past, creating a
@@ -21,7 +20,7 @@ env:
   global:
     - RACKET_DIR=~/racket
     - DISPLAY=:99.0            # needed by the unit tests, see comment on xvfb
-    
+
     # This environment variable is only decrypted on builds that are from the
     # original repository.(this actually makes sense, if you think about it)
     # -- tests that depend on private data will only run on the official
@@ -29,9 +28,11 @@ env:
     - secure: "UrtMaEd9RcXMSEaOK/0VJh7W5L1MIAIjcZnh38pHt/xDIRDCXhMNxkMCS6ra00UwrFaw1l3VcI5mNYWY1JP6Fct1LbU2AY+sKoNNkld5OigNUrx1eXhtzXy8a1T0gX0kJhWvPVAActRwnaWjmhUblH1UAOWOvfcX4laekAVXbSJOVCBKSQl7HNl0xJBm0TriAZtWg+pumTG93e2+3hza6cWQ0tJHqn1kwBmD6aKTJLpd05IU3g6bl/+4cOGosnOaD8L/fDjA51Hl5kwHXPxTrNkoLqRdrCfX+q5vF9D6qG6VdS4lxiNKDTCvnKQ8TZXsvF+WIvIaQSR8CrqqO5pfZWHQNkMJ6jIFrLrV77xx5fa4wWamOgeoZ2GhkXjlg/0qVTVU30h4qZbijbP7byyyErLKujklIYJPgRcgp8ok7pMs4qyqMK7lWyrwYQ7lc/e0PvS/stz8tGSVMboHsVFcP1IlQHAaQJK7Nlk3Pzxktx9CtOHOn/DW7Bw+eRd/zF24GqZKBwxB5VbgBWxpPfukWUwejo/uIevMGGSDnPOmNXvWeQL0LJ8C6qKUSfaH9+5YGwkev46MH41KyWfyekqjbASxNx3MU7SXeFrwT/5jQVENhD/zAUVMVk4Nr6YmAWm1iD66RvpJ/Y3lHn0roQ3CUVKWsHR/l5cNd8SYx5RT7nU="
   matrix:
     - RACKET_VERSION=7.1
+    - RACKET_VERSION=HEADCS
 matrix:
   allow_failures:
     - env: RACKET_VERSION=HEAD
+    - env: RACKET_VERSION=HEADCS
     - env: RACKET_VERSION=RELEASE
   fast_finish: true
 before_install:
@@ -67,4 +68,4 @@ after_success:
   # unnecessary requires), and the result has to be inspected in Travis to see
   # if anything needs to be done.  This is really a code quality metric.
   - bash ./etc/scripts/check-requires.sh -l 1
-after_script: 
+after_script:

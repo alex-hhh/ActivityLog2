@@ -113,7 +113,7 @@
     (date->seconds
      (date 0 0 0
            (date-day now) (date-month now) (date-year now)
-           0 0 0 (date-time-zone-offset now)))))
+           0 0 (date-dst? now) (date-time-zone-offset now)))))
 
 ;; Default time periods for the "Show bests" plot.
 (define default-periods

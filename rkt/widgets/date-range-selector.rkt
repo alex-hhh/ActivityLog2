@@ -25,7 +25,9 @@
     (date->seconds
      (date 0 0 0
            1 1 (date-year now)
-           0 0 0 (date-time-zone-offset now)))))
+           0 0
+           (date-dst? now)
+           (date-time-zone-offset now)))))
 
 ;; Return the UNIX timestamp of the start of the previous year (midnight 1
 ;; Jan)
@@ -34,7 +36,9 @@
     (date->seconds
      (date 0 0 0
            1 1 (- (date-year now) 1)
-           0 0 0 (date-time-zone-offset now)))))
+           0 0
+           (date-dst? now)
+           (date-time-zone-offset now)))))
 
 ;; Return the UNIX timestamp of the start of the current month
 (define (this-month-start)
@@ -42,7 +46,9 @@
     (date->seconds
      (date 0 0 0
            1 (date-month now) (date-year now)
-           0 0 0 (date-time-zone-offset now)))))
+           0 0
+           (date-dst? now)
+           (date-time-zone-offset now)))))
 
 ;; Return the UNIX timestamp of the start of the previous month
 (define (last-month-start)
@@ -52,7 +58,8 @@
     (date->seconds
      (date 0 0 0
            1 (if (= month 1) 12 (- month 1)) (if (= month 1) (- year 1) year)
-           0 0 0
+           0 0
+           (date-dst? now)
            (date-time-zone-offset now)))))
 
 ;; Return the UNIX timestamp of the start of the current week (week starts on
@@ -79,7 +86,9 @@
     (date->seconds
      (date 0 0 0
            (date-day now) (date-month now) (date-year now)
-           0 0 0 (date-time-zone-offset now)))))
+           0 0
+           (date-dst? now)
+           (date-time-zone-offset now)))))
 
 ;; Return the UNIX timestamp for the start of a day, 7 days ago
 (define (last-7-days-start)

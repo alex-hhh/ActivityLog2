@@ -295,7 +295,9 @@
     (date->seconds
      (date 0 0 0
            1 (date-month d) (date-year d)
-           0 0 0 (date-time-zone-offset d)))))
+           0 0
+           (date-dst? d)
+           (date-time-zone-offset d)))))
 
 (define (next-month-start timestamp)
   (let* ((d (seconds->date timestamp))
@@ -307,21 +309,27 @@
            1
            (if december? 1 (+ 1 month))
            (if december? (+ 1 year) year)
-           0 0 0 (date-time-zone-offset d)))))
+           0 0
+           (date-dst? d)
+           (date-time-zone-offset d)))))
 
 (define (year-start timestamp)
   (let ((d (seconds->date timestamp)))
     (date->seconds
      (date 0 0 0
            1 1 (date-year d)
-           0 0 0 (date-time-zone-offset d)))))
+           0 0
+           (date-dst? d)
+           (date-time-zone-offset d)))))
 
 (define (next-year-start timestamp)
   (let ((d (seconds->date timestamp)))
     (date->seconds
      (date 0 0 0
            1 1 (+ 1 (date-year d))
-           0 0 0 (date-time-zone-offset d)))))
+           0 0
+           (date-dst? d)
+           (date-time-zone-offset d)))))
 
 (define months '("XXX" "Jan" "Feb" "Mar"
                  "Apr" "May" "Jun" "Jul" "Aug"

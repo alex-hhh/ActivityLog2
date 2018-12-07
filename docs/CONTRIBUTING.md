@@ -1,4 +1,4 @@
-## Reporting issues, questions, or requesting engancements
+## Reporting issues, questions, or requesting enhancements
 
 This project uses [GitHub
 Issues](https://github.com/alex-hhh/ActivityLog2/issues) for tracking defects
