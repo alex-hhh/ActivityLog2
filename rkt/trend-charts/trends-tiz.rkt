@@ -277,7 +277,7 @@
       (define skip (discrete-histogram-skip))
       (define gap histogram-gap)
 
-      (when (good-hover? x y event)
+      (when (good-hover? snip x y event)
         (define-values (series slot) (xposition->histogram-slot x skip gap))
         (when (and chart-data series slot (= series 0) (< slot (length chart-data)))
           (let ((row (list-ref chart-data slot)))

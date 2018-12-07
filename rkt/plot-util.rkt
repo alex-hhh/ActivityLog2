@@ -207,12 +207,42 @@
 ;; Return #t when the X, Y and EVENT passed on to a plot mouse callback are
 ;; valid to display hover information.  They are valid when X and Y are not #f
 ;; (they are #f when they are inside the plot snip but not on the plot itself,
-;; for example in the axes area).  The mouse event must also be a motion
-;; event.
-(define (good-hover? x y event)
+;; for example in the axes area).  The mouse event must also be a motion event
+;; and the SNIP must be directly under the mouse with no other snips above it.
+(define (good-hover? snip x y event)
+
+  ;; Return the editor which owns SNIP
+  (define (get-editor snip)
+    (let ([admin (send snip get-admin)])
+      (and admin (send admin get-editor))))
+
+  ;; Find the snip which is at the EVENT location in EDITOR (this is the
+  ;; topmost snip in the editor)
+  (define (find-snip editor event)
+    (let ((ex (box (send event get-x)))
+          (ey (box (send event get-y))))
+      (send editor global-to-local ex ey)
+      (define snip (send editor find-snip (unbox ex) (unbox ey)))
+      snip))
+
+  ;; Return true if SNIP is the same snip as the one under the location of
+  ;; EVENT inside the editor.
+  (define (same-snip snip event)
+    (define other
+      (let ([editor (get-editor snip)])
+        (and editor (find-snip editor event))))
+    ;; NOTE: the equal? call will raise an exception when comparing a plot
+    ;; snip to a pict snip.  This is because the contract for the equal<%>
+    ;; interface for image-snip% expects another image-snip% as an
+    ;; argument. See also: https://github.com/racket/gui/issues/119
+    (with-handlers
+      (((lambda (e) #t) (lambda (e) #f)))
+      (equal? snip other)))
+
   (and (real? x) (real? y)
        (is-a? event mouse-event%)
-       (eq? (send event get-event-type) 'motion)))
+       (eq? (send event get-event-type) 'motion)
+       (same-snip snip event)))
 
 ;; Draw MSG using FONT in the center of DC
 (define (draw-centered-message dc msg font)

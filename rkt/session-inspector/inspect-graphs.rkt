@@ -713,7 +713,7 @@
           (set-overlay-renderers the-plot-snip rt))))
 
     (define (plot-hover-callback snip event x y)
-      (if (good-hover? x y event)
+      (if (good-hover? snip x y event)
           (hover-callback x)
           (hover-callback #f)))
 

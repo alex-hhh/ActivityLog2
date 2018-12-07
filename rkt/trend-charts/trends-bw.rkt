@@ -157,7 +157,7 @@
     (define renderers '())
     (define (add-renderer r) (set! renderers (cons r renderers)))
 
-    (when (good-hover? x y event)
+    (when (good-hover? snip x y event)
       (let ((entry (lookup-closest-entry df x y)))
         (when entry
           (add-renderer (points (list entry)
