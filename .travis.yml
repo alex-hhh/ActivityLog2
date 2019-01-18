@@ -46,7 +46,7 @@ before_script:
   # data + build take about 6 minutes currently).
   - bash -e /etc/init.d/xvfb start
   - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-  - bash ./etc/scripts/fetch.sh -C test "1IfWTfzTowCqhgrPRysGlvzFkrqMCGgA3" # test-fit
+  - bash ./etc/scripts/fetch.sh -C test "1QfQ9kuK-tFFtdK-707WV4Mc0PmUf_2Bf" # test-fit
 script:
   - racket build.rkt
   - raco test test/df-test.rkt

@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -410,10 +410,13 @@ select val
    and S.summary_id = XSV.summary_id
    and XSV.field_id = ?" sid id))))
        (lambda (v)
-         (string-append
-          (~r #:precision 2 v)
-          " "
-          unit)))))
+         (cond ((string? v) v)
+               ((bytes? v) (bytes->string/utf-8 v))
+               (#t
+                (string-append
+                 (~r #:precision 2 v)
+                 " "
+                 unit)))))))
   (badge-def "XDATA" 100 *color-16* fields))
 
 ;; Make PICT to have TARGET-WIDTH by adding space to the right.  Do nothing if
