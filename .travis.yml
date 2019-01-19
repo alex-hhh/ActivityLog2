@@ -37,6 +37,9 @@ matrix:
 before_install:
   - bash ./etc/scripts/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
+  # Print some useful warnings during complilation.  It would be good if these
+  # would be made errors...
+  - export PLTSTDERR='error warning@optimizer'
 install: true
 before_script:
   # the X virtual frame buffer is needeed to run the tests, since they require

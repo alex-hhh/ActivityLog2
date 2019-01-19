@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -723,7 +723,7 @@
        (if a (if (> a 180.0) (- a 360) a) #f)))
     ;; Get rid if this series if it became empty
     (unless (df-has-non-na? df series-name)
-      (df-del-series series-name))))
+      (df-del-series df series-name))))
 
 (define (add-lpppa-series df)
   (when (df-contains? df "lppps" "lpppe")

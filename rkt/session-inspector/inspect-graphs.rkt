@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -843,7 +843,7 @@
               (if (pd-hlivl plot-data)
                   (match-let (((list xmin xmax color) (pd-hlivl plot-data)))
                     (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color))))
-                  (set-overlay-renderers #f))))))
+                  (set-overlay-renderers the-plot-snip #f))))))
 
     (define/public (get-data-frame) (ps-df plot-state))
 
