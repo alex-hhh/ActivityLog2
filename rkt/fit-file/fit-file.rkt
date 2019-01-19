@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1028,7 +1028,8 @@
                                        the-session))))))
 
       (define (add-session-laps session)
-        (let ((timestamp (dict-ref session 'timestamp #f)))
+        (let ((timestamp (dict-ref session 'timestamp
+                                   (lambda () (get-current-timestamp)))))
           (let-values ([(our-laps rest)
                         (splitf-at laps
                                    (lambda (v)
@@ -1038,7 +1039,8 @@
 
       (when (or (> (length records) 0)
                 (> (length lengths) 0))
-        (dbglog "fit-file: records and lengths without enclosing lap")
+        (dbglog "fit-file: ~a records and ~a lengths without enclosing lap"
+                (length records) (length lengths))
         (on-lap `((timestamp . ,(get-current-timestamp))))
         ;; Compute the summary data for the newly added lap
         (let ((new-lap (car laps)))
