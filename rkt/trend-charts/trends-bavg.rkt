@@ -3,7 +3,7 @@
 ;; trends-bavg.rkt -- aggregate best-average chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -511,39 +511,42 @@
             (write-string (format ", ~a" (vector-ref h 1)) out)))
         (newline out)))
 
-    (define (plot-hover-callback snip event x y)
-      (define info '())
-      (define (add-info tag value) (set! info (cons (list tag value) info)))
-      (define renderers '())
-      (define (add-renderer r) (set! renderers (cons r renderers)))
+    (define (make-plot-hover-callback)
+      (define params (send this get-chart-settings))
+      (define format-value
+        (send (tmmax-axis cached-data) value-formatter (hash-ref params 'sport)))
 
-      (when (and (good-hover? snip x y event) cached-data)
-        (let ((params (send this get-chart-settings))
-              (fmtval (send (tmmax-axis cached-data) value-formatter)))
+      (lambda  (snip event x y)
+        (define info '())
+        (define (add-info tag value) (set! info (cons (list tag value) info)))
+        (define renderers '())
+        (define (add-renderer r) (set! renderers (cons r renderers)))
+
+        (when (and (good-hover? snip x y event) cached-data)
           (add-renderer (pu-vrule x))
           (let ((closest (lookup-duration (tmmax-data cached-data) x)))
             (when closest
               (match-define (cons (list sid1 ts1 d1 v1) (list sid2 ts2 d2 v2)) closest)
               (add-renderer (pu-markers (list (vector d1 v1) (vector d2 v2))))
               (add-info #f (date-time->string (get-session-start-time sid2)))
-              (add-info "Point 2" (string-append (fmtval v2) " @ " (duration->string d2)))
+              (add-info "Point 2" (string-append (format-value v2) " @ " (duration->string d2)))
               (add-info #f (date-time->string (get-session-start-time sid1)))
-              (add-info "Point 1" (string-append (fmtval v1) " @ " (duration->string d1)))))
+              (add-info "Point 1" (string-append (format-value v1) " @ " (duration->string d1)))))
           (let ((cpfn (tmmax-cp-fn cached-data)))
             (when cpfn
               (let ((my (cpfn x)))
                 (when my
-                  (add-info "Model" (fmtval my))))))
+                  (add-info "Model" (format-value my))))))
           (let ((plotfn (tmmax-plot-fn cached-data)))
             (when plotfn
               (let ((dy (plotfn x)))
                 (when dy
-                  (add-info (send (tmmax-axis cached-data) name) (fmtval dy)))))))
+                  (add-info (send (tmmax-axis cached-data) name) (format-value dy))))))
 
-        (add-info "Duration" (duration->string x))
-        (add-renderer (pu-label x y (make-hover-badge (reverse info)))))
+          (add-info "Duration" (duration->string x))
+          (add-renderer (pu-label x y (make-hover-badge (reverse info)))))
 
-      (set-overlay-renderers snip renderers))
+        (set-overlay-renderers snip renderers)))
 
     (define/override (put-plot-snip canvas)
       (set! generation (add1 generation))
@@ -571,7 +574,7 @@
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (define snip (insert-plot-snip canvas (tmmax-axis data) rt
                                                    min-x max-x min-y max-y))
-                    (when snip (set-mouse-event-callback snip plot-hover-callback))
+                    (when snip (set-mouse-event-callback snip (make-plot-hover-callback)))
                     (when (tmmax-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tmmax-cp-pict data)]))
                       (send canvas set-floating-snip pd-model-snip)

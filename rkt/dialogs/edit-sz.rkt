@@ -110,8 +110,14 @@
     (define zinput-panel
       (let* ((p (send this get-client-pane))
              (p1 (new horizontal-pane% [parent p] [alignment '(center center)])))
-        (new vertical-panel% [parent p1] [spacing 10] [border 10]
+        (new grid-pane% [columns 3] [parent p1] [spacing 10] [border 10]
              [stretchable-width #f] [alignment '(right center)])))
+
+    (define zinput-headers
+      (list
+       (new message% [label ""] [parent zinput-panel] [style '(deleted)])
+       (new message% [label "Zone Name"] [parent zinput-panel] [style '(deleted)])
+       (new message% [label "Starting Value"] [parent zinput-panel] [style '(deleted)])))
 
     ;; Message to display when no zones are defined
     (define no-zones-message
@@ -120,17 +126,20 @@
 
     ;; Make a zone input field with LABEL.
     (define (make-zinput label)
-      (new validating-input-field% [parent zinput-panel]
-           [label label] [style '(single deleted)]
-           [min-width 100] [stretchable-width #f]
-           [cue-text (zdef-cue-text zdefinition)]
-           [validate-fn (lambda (v)
-                          (or (= (string-length (string-trim v)) 0)
-                              ((zdef-str->val zdefinition) v)))]
-           [convert-fn (lambda (v)
-                         (if (= (string-length (string-trim v)) 0)
-                             'empty
-                             ((zdef-str->val zdefinition) v)))]))
+      (list
+       (new message% [label label] [parent zinput-panel] [style '(deleted)])
+       (new text-field% [label #f] [parent zinput-panel] [style '(single deleted)])
+       (new validating-input-field% [parent zinput-panel]
+            [label #f] [style '(single deleted)]
+            [min-width 100] [stretchable-width #f]
+            [cue-text (zdef-cue-text zdefinition)]
+            [validate-fn (lambda (v)
+                           (or (= (string-length (string-trim v)) 0)
+                               ((zdef-str->val zdefinition) v)))]
+            [convert-fn (lambda (v)
+                          (if (= (string-length (string-trim v)) 0)
+                              'empty
+                              ((zdef-str->val zdefinition) v)))])))
 
     ;; Update the number of zone input fields to NEW-COUNT.  This is done by
     ;; either removing or adding new fields, as needed.  Note that NEW-COUNT
@@ -151,7 +160,9 @@
                           (take-right zinputs 1))))
                (send zinput-panel change-children
                      (lambda (old)
-                       (if (> new-count 0) zinputs (list no-zones-message)))))
+                       (if (> new-count 0)
+                           (append zinput-headers (apply append zinputs))
+                           (list no-zones-message)))))
               ((< old-count new-count)
                ;; Add some inputs. If OLD-COUNT is 0, add the min/max fields
                ;; as well.
@@ -163,7 +174,8 @@
                       (for/list ((i (in-range old-count new-count)))
                         (make-zinput (format "Zone ~a" (+ 1 i))))
                       (take-right zinputs 1)))
-               (send zinput-panel change-children (lambda (old) zinputs))))))
+               (send zinput-panel change-children
+                     (lambda (old) (append zinput-headers (apply append zinputs))))))))
 
     ;; Setup the dialog box to display the ZONES: the correct number of zone
     ;; input fields are created and filled in and ZCOUNT-INPUT is also
@@ -174,20 +186,29 @@
         (on-zone-count-changed nzones)
         (for ((zval (in-list zones))
               (zinput (in-list zinputs)))
-          (send zinput set-cue-text (zdef-cue-text zdefinition))
-          (send zinput set-value ((zdef-val->str zdefinition) zval)))))
+          (match-define (list name value) zval)
+          (match-define (list label text zone) zinput)
+          (send text set-value name)
+          (send zone set-cue-text (zdef-cue-text zdefinition))
+          (send zone set-value (if value ((zdef-val->str zdefinition) value) "")))))
 
     ;; Return the zone definition from the values in the zone input fields.
     (define (collect-zones)
       (for/list ((input (in-list zinputs)))
-        (send input get-converted-value)))
+        (match-define (list label text zone) input)
+        (list
+         (send text get-value)
+         (send zone get-converted-value))))
 
     ;; Return true if ZONES are valid: they must contain only numbers and be
     ;; in ascending order.
     (define (valid-zones? zones)
       (if (> (length zones) 0)
-          (andmap (lambda (a b) (and (number? a) (number? b) (< a b)))
-                  (drop-right zones 1) (cdr zones))
+          (for/and ([a (in-list zones)]
+                    [b (in-list (cdr zones))])
+            (match-define (list a-name a-val) a)
+            (match-define (list b-name b-val) b)
+            (and (number? a-val) (number? b-val) (<= a-val b-val)))
           #t))
 
     ;; Return a list of invalid fields.  These are fields that either contain
@@ -198,21 +219,24 @@
       (when (> (length zinputs) 0)
         (for ((a (drop-right zinputs 1))
               (b (cdr zinputs)))
-          (let ((v1 (send a get-converted-value))
-                (v2 (send b get-converted-value)))
+          (match-define (list alabel atext azone) a)
+          (match-define (list blabel btext bzone) b)
+          (let ((v1 (send azone get-converted-value))
+                (v2 (send bzone get-converted-value)))
             ;; NOTE: don't mark 'empty filds as invalid
-            (when (eq? v1 #f) (set! invalid-zinputs (cons a invalid-zinputs)))
-            (when (eq? v2 #f) (set! invalid-zinputs (cons b invalid-zinputs)))
+            (when (eq? v1 #f) (set! invalid-zinputs (cons azone invalid-zinputs)))
+            (when (eq? v2 #f) (set! invalid-zinputs (cons bzone invalid-zinputs)))
             (when (and (number? v1) (number? v2))
               (when (> v1 v2)
-                (set! invalid-zinputs (cons a invalid-zinputs)))))))
+                (set! invalid-zinputs (cons azone invalid-zinputs)))))))
       invalid-zinputs)
 
     (define/override (has-valid-data?)
       (define invalid-zinputs (collect-invalid-fields))
 
       (for ((f (in-list zinputs)))
-        (send f mark-valid (not (member f invalid-zinputs))))
+        (match-define (list label text zone) f)
+        (send zone mark-valid (not (member zone invalid-zinputs))))
 
       ;; NOTE: the presence of INVALID-ZINPUTS indicates a problem, but the
       ;; absence does not mean all is fine, as we don't mark fields with empty
@@ -266,6 +290,12 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
    "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
    zone-id))
 
+(define (get-sport-zone db zone-id)
+  (for/list (([name value] (in-query db "select zone_name, zone_value 
+                                          from SPORT_ZONE_ITEM 
+                                         where sport_zone_id = ? order by zone_number" zone-id)))
+    (list (if (sql-null? name) "" (~a name)) value)))
+
 (define (get-sport-zone-metric db zone-id)
   (query-value
    db
@@ -311,6 +341,35 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
             sz-session-count)
    (qcolumn "Zones" sz-zones sz-zones)))
 
+;; Return a set of "default" zones for SPORT/METRIC.  This is used to get the
+;; zone names for a new zone definition, and it works like this:
+;;
+;; If some sport zones are already defined for the SPORT/METRIC combination,
+;; use those names, otherwise come up with some useful defaults -- the user
+;; can always change them later.
+;;
+(define (get-default-zones db sport metric)
+  (define zids (query-list db "select id
+                                from SPORT_ZONE
+                               where sport_id = ? and zone_metric_id = ? 
+                               order by valid_from desc" sport metric))
+  (cond
+    ((> (length zids) 0)
+     (for/list (([name] (in-query db "select zone_name 
+                                        from SPORT_ZONE_ITEM 
+                                       where sport_zone_id = ? 
+                                       order by zone_number" (car zids))))
+       (list name #f)))
+    (#t
+     ;; These defaults seem nice and apply for all metrics
+     '(("Resting" #f)
+       ("Active Recovery" #f)
+       ("Easy" #f)
+       ("Tempo" #f)
+       ("Threshold" #f)
+       ("VO2 Max" #f)
+       ("Maximum" #f)))))
+
 (define (delete-sport-zone db zone-id)
   (query-exec db "delete from TIME_IN_ZONE where sport_zone_id = ?" zone-id)
   (query-exec db "delete from SPORT_ZONE_ITEM where sport_zone_id = ?" zone-id)
@@ -323,11 +382,11 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                     values (?, ?, ?, ?)"
                 sport sql-null zmetric valid-from)
     (let ((zid (db-get-last-pk "SPORT_ZONE" db)))
-      (for ((zone (in-list zones))
-            (znum (in-range (length zones))))
+      (for ([(zdef znum) (in-indexed zones)])
+        (match-define (list text zone) zdef)
         (query-exec db
-                    "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
-                      values(?, ?, ?)" zid znum zone)))))
+                    "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_name, zone_value)
+                      values(?, ?, ?, ?)" zid znum text zone)))))
 
 ;; Return a list of session ID's that had their sport zones changed when we
 ;; changed validity times for the sport zones.  The TIME_IN_ZONE data for
@@ -506,7 +565,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                  (send this get-top-level-window)
                  sport
                  metric
-                 #f #f)
+                 #f (get-default-zones database sport metric))
            => (lambda (zones)
                 (maybe-start-transaction)
                 (put-sport-zone database sport metric (car zones) (cdr zones))
@@ -518,7 +577,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
           (let* ((sport (selected-sport))
                  (metric (selected-zone-metric))
                  (data (send szlb get-data-for-row selected-row))
-                 (zones (get-sport-zone-values database (sz-id data)))
+                 (zones (get-sport-zone database (sz-id data)))
                  (valid-from (sz-valid-from data)))
             (cond ((send (get-one-sz-edit-dialog)
                          show-dialog

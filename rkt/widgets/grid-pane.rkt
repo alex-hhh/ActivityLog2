@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,7 @@
 ;; stretchable.  As a special case, if all columns or rows are not
 ;; stretchable, but this pane is, than all columns/rows will be stretched.
 (define grid-pane%
-  (class pane%
+  (class panel%                         ; making it a panel% allows `change-children`
     (init-field columns)
     (super-new)
     (inherit border spacing get-alignment stretchable-width stretchable-height)

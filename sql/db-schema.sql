@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(30);
+insert into SCHEMA_VERSION(version) values(31);
 
 
 --........................................................ Enumerations ....
@@ -429,9 +429,15 @@ create unique index IX0_SPORT_ZONE
 -- For example, a 5 zone HR system will have 7 entries, where value 0 will be
 -- the minimum heart rate and value 6 will be the max heart rate.  Values 1 to
 -- 5 will define the actual zones.
+--
+-- Different names have been used for sport zones by different coaches (E.g
+-- zone 1 is named either "Endurance" or "Fat Burning Zone" depending on who
+-- you ask).  The zone_name field allows naming zones as the user pleases and
+-- these names will be used as labels in the GUI.
 create table SPORT_ZONE_ITEM (
   sport_zone_id integer not null,
   zone_number integer not null,
+  zone_name text,
   zone_value real not null,
   foreign key (sport_zone_id) references SPORT_ZONE(id) on delete cascade);
 

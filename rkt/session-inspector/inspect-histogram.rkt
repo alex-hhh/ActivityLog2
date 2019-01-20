@@ -358,17 +358,23 @@
                             combined-histograms
                             (send axis1 plot-label)
                             (send axis2 plot-label)
-                            #:x-value-formatter (send axis1 value-formatter)
+                            #:x-value-formatter (send axis1 value-formatter
+                                                      (df-get-property df 'sport)
+                                                      (df-get-property df 'session-id))
                             #:color1 (send axis1 plot-color)
                             #:color2 (send axis2 plot-color)))
                           (h1
                            (if factor-fn
                                (histogram-renderer/factors
                                 h1 factor-fn factor-colors
-                                #:x-value-formatter (send axis1 value-formatter))
+                                #:x-value-formatter (send axis1 value-formatter
+                                                          (df-get-property df 'sport)
+                                                          (df-get-property df 'session-id)))
                                (list (histogram-renderer
                                       h1
-                                      #:x-value-formatter (send axis1 value-formatter)
+                                      #:x-value-formatter (send axis1 value-formatter
+                                                                (df-get-property df 'sport)
+                                                                (df-get-property df 'session-id))
                                       #:color (send axis1 plot-color)))))
                           (#t #f))))
                (queue-callback

@@ -47,9 +47,10 @@
 (define-runtime-path p28-file "../sql/migrations/p28-equipment.sql")
 (define-runtime-path p29-file "../sql/migrations/p29-workouts.sql")
 (define-runtime-path p30-file "../sql/migrations/p30-xdata.sql")
+(define-runtime-path p31-file "../sql/migrations/p31-named-zones.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 30)
+(define (schema-version) 31)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -65,7 +66,8 @@
    26 p27-file
    27 p28-file
    28 p29-file
-   29 p30-file))
+   29 p30-file
+   30 p31-file))
 
 (define the-current-database #f)
 

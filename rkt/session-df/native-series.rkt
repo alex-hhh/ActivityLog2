@@ -20,6 +20,7 @@
          racket/list
          racket/draw
          racket/format
+         racket/math
          pict
          "../fmt-util.rkt"
          "../sport-charms.rkt"
@@ -107,7 +108,7 @@
          (define/override (series-name) "distance")
          (define/override (fractional-digits) 2)
          (define/override (name) "Distance")
-         (define/override (value-formatter)
+         (define/override (value-formatter sport (sid #f))
            ;; Unfortunate hack!
            (if (eq? (al-pref-measurement-system) 'metric)
                (lambda (x) (distance->string (* x 1000) #t))
@@ -127,7 +128,7 @@
          (define/override (axis-label) "Elapsed Time (hour:min)")
          (define/override (series-name) "elapsed")
          (define/override (name) "Elapsed Time")
-         (define/override (value-formatter) duration->string)
+         (define/override (value-formatter sport (sid #f)) duration->string)
          )))
 (register-series-metadata axis-elapsed-time)
 (provide axis-elapsed-time)
@@ -143,7 +144,7 @@
          (define/override (axis-label) "Time (hour:min)")
          (define/override (name) "Time")
          (define/override (series-name) "timer")
-         (define/override (value-formatter) duration->string)
+         (define/override (value-formatter sport (sid #f)) duration->string)
          )))
 (register-series-metadata axis-timer-time)
 (provide axis-timer-time)
@@ -303,7 +304,7 @@
                                  #:draw-border? #f #:color pd-background)
        p))
 
-    (define/override (value-formatter)
+    (define/override (value-formatter sport (sid #f))
       (lambda (p)
         (if (> p 0)
             (pace->string (convert-pace->m/s p))
@@ -343,6 +344,13 @@
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
+         (define/override (value-formatter sport (sid #f))
+           (define zn (sport-zone-names sport sid 2))
+           (lambda (n)
+             (if (real? n)
+                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
+                   (list-ref zn index))
+                 #f)))
 
          )))
 (register-series-metadata axis-speed-zone)
@@ -469,6 +477,13 @@
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
+         (define/override (value-formatter sport (sid #f))
+           (define zn (sport-zone-names sport sid 1))
+           (lambda (n)
+             (if (real? n)
+                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
+                   (list-ref zn index))
+                 #f)))
 
          )))
 (register-series-metadata axis-hr-zone)
@@ -764,6 +779,13 @@
          (define/override (factor-fn sport (sid #f))
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
+         (define/override (value-formatter sport (sid #f))
+           (define zn (sport-zone-names sport sid 3))
+           (lambda (n)
+             (if (real? n)
+                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
+                   (list-ref zn index))
+                 #f)))
 
          )))
 (register-series-metadata axis-power-zone)
@@ -1080,7 +1102,7 @@
          (define/override (series-name) "pace")
          (define/override (inverted-mean-max?) #t)
          (define/override (name) "Pace")
-         (define/override (value-formatter)
+         (define/override (value-formatter sport (sid #f))
            (lambda (p)
              (if (> p 0)
                  (swim-pace->string (convert-swim-pace->m/s p))
@@ -1256,7 +1278,7 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Distance (meters)" "Distance (yards)"))
          (define/override (series-name) "distance")
-         (define/override (value-formatter)
+         (define/override (value-formatter sport (sid #f))
            ;; This is a hack!
            (if (eq? (al-pref-measurement-system) 'metric)
                (lambda (x) (short-distance->string x #t))
@@ -1274,7 +1296,7 @@
          (define/override (axis-label) "Time (hour:min)")
          (define/override (name) "Time")
          (define/override (series-name) "elapsed")
-         (define/override (value-formatter) duration->string)
+         (define/override (value-formatter sport (sid #f)) duration->string)
          )))
 (register-series-metadata axis-swim-time #t)
 (provide axis-swim-time)

@@ -3,7 +3,7 @@
 ;; supported for swimming activites.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -296,6 +296,9 @@
     (define (current-sport)
       (if data-frame (df-get-property data-frame 'sport) #f))
 
+    (define (session-id)
+      (if data-frame (df-get-property data-frame 'session-id) #f))
+
     (define (get-series-axis)
       (list-ref axis-choices selected-axis))
 
@@ -359,58 +362,65 @@
         (set! zero-base? flag)
         (refresh-plot)))
 
-    (define (plot-hover-callback snip event x y)
-      (define info '())
-      (define renderers '())
-      (define markers '())
-      (define (add-renderer r) (set! renderers (cons r renderers)))
+    (define (make-plot-hover-callback)
+      (define axis (get-series-axis))
+      (define format-value (send axis value-formatter (current-sport) (session-id)))
+      (define axis-name (send axis name))
+      (define format-aux-value
+        (let ((aux (get-aux-axis)))
+          (and aux (send aux value-formatter (current-sport) (session-id)))))
+      (define aux-axis-name
+        (let ((aux (get-aux-axis)))
+          (and aux (send aux name))))
 
-      (define (add-info tag value)
-        (set! info (cons (list tag value) info)))
+      (lambda (snip event x y)
+        (define info '())
+        (define renderers '())
+        (define markers '())
+        (define (add-renderer r) (set! renderers (cons r renderers)))
 
-      (define (add-data-point name yfn format-fn)
-        (when yfn
-          (let ((py (yfn x)))
-            (when py
-              (add-info name (format-fn py))
-              (set! markers (cons (vector x py) markers))))))
+        (define (add-info tag value)
+          (set! info (cons (list tag value) info)))
 
-      (when (good-hover? snip x y event)
-        (add-renderer (pu-vrule x))
+        (define (add-data-point name yfn format-fn)
+          (when yfn
+            (let ((py (yfn x)))
+              (when py
+                (add-info name (format-fn py))
+                (set! markers (cons (vector x py) markers))))))
 
-        ;; The aux values need special treatment: they are scaled to match the
-        ;; main axis coordinate system, this works for the plot itself, but we
-        ;; need to convert the value back for display.
-        (when (and mean-max-aux-plot-fn mean-max-aux-invfn)
-          (let* ((ay (mean-max-aux-plot-fn x))
-                 (aux-axis (get-aux-axis))
-                 (format-value (send aux-axis value-formatter)))
-            (when ay
-              (let ((actual-ay ((invertible-function-f mean-max-aux-invfn) ay)))
-                (add-info (send aux-axis name) (format-value actual-ay))
-                (set! markers (cons (vector x ay) markers))))))
+        (when (good-hover? snip x y event)
+          (add-renderer (pu-vrule x))
 
-        (define axis (get-series-axis))
-        (define format-value (send axis value-formatter))
-        (add-data-point "Model" mean-max-pd-fn format-value)
+          ;; The aux values need special treatment: they are scaled to match the
+          ;; main axis coordinate system, this works for the plot itself, but we
+          ;; need to convert the value back for display.
+          (when (and mean-max-aux-plot-fn mean-max-aux-invfn)
+            (let* ((ay (mean-max-aux-plot-fn x)))
+              (when ay
+                (let ((actual-ay ((invertible-function-f mean-max-aux-invfn) ay)))
+                  (add-info aux-axis-name (format-aux-value actual-ay))
+                  (set! markers (cons (vector x ay) markers))))))
 
-        ;; Find the closest point on the bests plot and put the date on which
-        ;; it was achieved.  Technically, the hover will be between two such
-        ;; measurements, but for simplicity we show only the one that it is
-        ;; closest to the mouse.  The trends-mmax plot shows both points.
-        (when bests-data
-          (let ((closest (lookup-duration/closest bests-data x)))
-            (when closest
-              (define sid (car closest))
-              (add-info #f (date-time->string (get-session-start-time sid))))))
-        (add-data-point "Best" best-fn format-value)
-        (add-data-point (send axis name) mean-max-plot-fn format-value)
-        (add-info "Duration" (duration->string x))
-        (unless (empty? info)
-          (add-renderer (pu-markers markers))
-          (add-renderer (pu-label x y (make-hover-badge (reverse info))))))
+          (add-data-point "Model" mean-max-pd-fn format-value)
 
-      (set-overlay-renderers snip renderers))
+          ;; Find the closest point on the bests plot and put the date on which
+          ;; it was achieved.  Technically, the hover will be between two such
+          ;; measurements, but for simplicity we show only the one that it is
+          ;; closest to the mouse.  The trends-mmax plot shows both points.
+          (when bests-data
+            (let ((closest (lookup-duration/closest bests-data x)))
+              (when closest
+                (define sid (car closest))
+                (add-info #f (date-time->string (get-session-start-time sid))))))
+          (add-data-point "Best" best-fn format-value)
+          (add-data-point axis-name mean-max-plot-fn format-value)
+          (add-info "Duration" (duration->string x))
+          (unless (empty? info)
+            (add-renderer (pu-markers markers))
+            (add-renderer (pu-label x y (make-hover-badge (reverse info))))))
+
+        (set-overlay-renderers snip renderers)))
 
 
     (define (put-plot-snip)
@@ -442,7 +452,7 @@
                                                    #:x-min min-x #:x-max max-x
                                                    #:y-min min-y #:y-max max-y
                                                    ))
-                      (set-mouse-event-callback snip plot-hover-callback)))
+                      (set-mouse-event-callback snip (make-plot-hover-callback))))
                   (parameterize ([plot-x-ticks (mean-max-ticks)]
                                  [plot-x-label "Duration"]
                                  [plot-x-transform log-transform]
@@ -453,7 +463,7 @@
                     (define snip (plot-to-canvas rt plot-pb
                                                  #:x-min min-x #:x-max max-x
                                                  #:y-min min-y #:y-max max-y))
-                    (set-mouse-event-callback snip plot-hover-callback)))
+                    (set-mouse-event-callback snip (make-plot-hover-callback))))
               (when (and cp-data (send mean-max-axis have-cp-estimate?) mean-max-data)
                 ;; NOTE: this is inefficient, as the plot-fn is already
                 ;; computed in the `mean-max-renderer` and we are computing it

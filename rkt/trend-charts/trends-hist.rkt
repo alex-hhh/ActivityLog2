@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -332,23 +332,26 @@
          (> (vector-length histogram) 0)
          (or (not dual?) (= 3 (vector-length (vector-ref histogram 0))))))
 
+  (define format-value
+    (send axis1 value-formatter (hash-ref params 'sport)))
+
   (and (valid?)
        (list
         (tick-grid)
         (cond (dual?
                (histogram-renderer/dual
                 histogram (send axis1 plot-label) (send axis2 plot-label)
-                #:x-value-formatter (send axis1 value-formatter)
+                #:x-value-formatter format-value
                 #:color1 (send axis1 plot-color)
                 #:color2 (send axis2 plot-color)))
               (factor-fn
                (histogram-renderer/factors
                 histogram factor-fn factor-colors
-                #:x-value-formatter (send axis1 value-formatter)))
+                #:x-value-formatter format-value))
              (#t
               (histogram-renderer
                histogram
-               #:x-value-formatter (send axis1 value-formatter)
+               #:x-value-formatter format-value
                #:color (send axis1 plot-color)))))))
 
 (define (generate-plot output-fn axis params renderer-tree)
@@ -427,7 +430,7 @@
            out)
           (write-string (format "Value, Rank ~a~%" (send axis1 series-name)) out))
 
-      (define format-value (send axis1 value-formatter))
+      (define format-value (send axis1 value-formatter (hash-ref params 'sport)))
       (define ndigits (if (hash-ref params 'show-as-pct?)
                           2
                           (send axis1 fractional-digits)))

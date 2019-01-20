@@ -3,7 +3,7 @@
 ;; series-metadata.rkt --meta data about data series in session data frames
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -107,7 +107,14 @@
     (define/public (missing-value) 0)
 
     ;; Return a function that can classify values for this series into
-    ;; discrete elements (tags), returns #f if there is no such function
+    ;; discrete elements (tags), returns #f if there is no such function.  The
+    ;; method accepts SPORT and a session id (SID) arguments, allowing factor
+    ;; functions to be sport and/or session specific.  This is currently used
+    ;; to provide factor functions based on sport zones -- the SID allows
+    ;; retrieving a sport zone that was valid at the time when the session
+    ;; occurred.  An implementation can ignore these arguments if they don't
+    ;; make sense, and it should also be prepared to handle both of them being
+    ;; #f
     (define/public (factor-fn sport (sid #f)) #f)
 
     ;; Return an alist mapping factor names to colors
@@ -127,8 +134,14 @@
     (define/public (pd-data-as-pict cp-params bavgfn) #f)
 
     ;; Return a function (-> number? string?) which formats a value of this
-    ;; series into a string.
-    (define/public (value-formatter)
+    ;; series into a string.  The method accepts SPORT and a session id (SID)
+    ;; arguments, allowing formatters to be sport and/or session specific.
+    ;; This is currently used to provide formatters based on sport zones --
+    ;; the SID allows retrieving a sport zone that was valid at the time when
+    ;; the session occurred.  An implementation can ignore these arguments if
+    ;; they don't make sense, and it should also be prepared to handle both of
+    ;; them being #f
+    (define/public (value-formatter sport (sid #f))
       (lambda (p)
         (if (rational? p)
             (~r p #:precision (fractional-digits))

@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -81,7 +81,8 @@
          is-lap-swimming?
          is-swimming?
          zone->label
-         sport-zones)
+         sport-zones
+         sport-zone-names)
 
 
 ;;...................................................... get-sport-color ....
@@ -319,6 +320,19 @@ select max(zone_id) from V_SPORT_ZONE
             #f))
       #f))
 
+(define (get-sport-zone-names sport sub-sport zone-metric [timestamp #f])
+  (if (current-database)
+      (let ((zid (get-zone-definition-id sport sub-sport zone-metric timestamp)))
+        (if zid
+            (query-list
+             (current-database)
+             "select coalesce(zone_name, 'Zone ' || zone_number) as zone_name
+                from SPORT_ZONE_ITEM
+               where sport_zone_id = ?
+               order by zone_number"
+             zid)
+            #f))
+      #f))
 
 (define (get-session-sport-zones session-id zone-metric)
   (if (current-database)
@@ -328,6 +342,21 @@ select max(zone_id) from V_SPORT_ZONE
               (query-list
                (current-database)
                "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
+               zid)
+              #f)))
+      #f))
+
+(define (get-session-sport-zone-names session-id zone-metric)
+  (if (current-database)
+      (begin
+        (let ((zid (get-zone-definition-id-for-session session-id zone-metric)))
+          (if zid
+              (query-list
+               (current-database)
+               "select coalesce(zone_name, 'Zone ' || zone_number)
+                  from SPORT_ZONE_ITEM
+                 where sport_zone_id = ?
+                order by zone_number"
                zid)
               #f)))
       #f))
@@ -445,6 +474,11 @@ select max(zone_id) from V_SPORT_ZONE
   (if sid
       (get-session-sport-zones sid metric)
       (get-sport-zones (sport-id sport) (sub-sport-id sport) metric)))
+
+(define (sport-zone-names sport sid metric)
+  (if sid
+      (get-session-sport-zone-names sid metric)
+      (get-sport-zone-names (sport-id sport) (sub-sport-id sport) metric)))
 
 (define (is-runnig? sport)
   (eqv? (sport-id sport) 1))

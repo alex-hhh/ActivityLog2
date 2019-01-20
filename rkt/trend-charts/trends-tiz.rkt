@@ -29,7 +29,8 @@
  "trends-chart.rkt"
  "../fmt-util.rkt"
  "../color-theme.rkt"
- "../plot-util.rkt")
+ "../plot-util.rkt"
+ "../sport-charms.rkt")
 
 (provide tiz-trends-chart%)
 
@@ -133,7 +134,7 @@
 (define (get-data db sql-query sport zone-metric start end)
   (query-rows db sql-query sport zone-metric start end))
 
-(define (generate-plot output-fn data)
+(define (generate-plot output-fn data zone-names)
 
   (define (min-zone . zones)
     (let loop ((zones zones)
@@ -161,7 +162,12 @@
   (define zcolors (drop (take (zone-colors) zmax) zmin))
 
   (define plot-colors (map cdr zcolors))
-  (define plot-labels (map symbol->string (map car zcolors)))
+  (define plot-labels
+    (let ((zd (if (< (length zone-names) zmax)
+                  (append zone-names (for/list ([index (in-range (length zone-names) (add1 zmax))])
+                                      (format "Zone ~a" index)))
+                  zone-names)))
+      (drop (take zd zmax) zmin)))
 
   (define (select-zones . zones)
     (drop (take zones zmax) zmin))
@@ -194,15 +200,16 @@
                       #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
-(define (insert-plot-snip canvas data)
+(define (insert-plot-snip canvas data zone-names)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-to-canvas
       renderer-tree canvas
       #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
-   data))
+   data
+   zone-names))
 
-(define (save-plot-to-file file-name width height data)
+(define (save-plot-to-file file-name width height data zone-names)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-file renderer-tree file-name #:width width #:height height
@@ -210,7 +217,8 @@
                 #:x-max max-x
                 #:y-min min-y
                 #:y-max max-y))
-   data))
+   data
+   zone-names))
 
 (define tiz-trends-chart%
   (class trends-chart%
@@ -221,6 +229,7 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
+    (define zone-names #f)
 
     (define/override (make-settings-dialog)
       (new tiz-chart-settings%
@@ -291,7 +300,9 @@
                         (make-hover-badge
                          (append
                           (for/list (((duration index) (in-indexed (in-vector row 1))) #:when (> duration 0))
-                            (list (format "Zone ~a" index)
+                            (list (if (< index (length zone-names))
+                                      (list-ref zone-names index)
+                                      (format "Zone ~a" index))
                                   (duration->string (* duration 3600))
                                   (string-append (~r (* 100 (/ duration total)) #:precision 1) " %")))
                           (list (list "Total" (duration->string (* total 3600))))))))
@@ -301,7 +312,7 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (let ((snip (insert-plot-snip canvas chart-data)))
+          (let ((snip (insert-plot-snip canvas chart-data zone-names)))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas set-snip #f)
@@ -310,7 +321,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-        (save-plot-to-file file-name width height chart-data)))
+        (save-plot-to-file file-name width height chart-data zone-names)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -328,6 +339,7 @@
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
+                (set! zone-names (sport-zone-names sport #f zone))
                 (set! data-valid? #t)))))))
 
     ))

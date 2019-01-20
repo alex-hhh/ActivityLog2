@@ -303,8 +303,12 @@
   (define xseries (send x-axis series-name))
   (define yseries1 (send y-axis series-name))
   (define yseries2 (if y-axis2 (send y-axis2 series-name) #f))
-  (define xfmt (send x-axis value-formatter))
-  (define yfmt (send y-axis value-formatter))
+  (define xfmt (send x-axis value-formatter
+                     (df-get-property df 'sport)
+                     (df-get-property df 'session-id)))
+  (define yfmt (send y-axis value-formatter
+                     (df-get-property df 'sport)
+                     (df-get-property df 'session-id)))
   (define y1 (or (df-lookup df xseries yseries1 x)
                  (send y-axis missing-value)))
   (define y2 (if yseries2
