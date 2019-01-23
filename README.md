@@ -10,7 +10,7 @@ reports and trends from activity data and track equipment usage.
 
 Download pre-built releases from the
 [releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or see
-[docs/building.md](doc/building.md) for how to build your own.
+[docs/building.md](docs/building.md) for how to build your own.
 
 See also the [CHANGES](./docs/CHANGES.md),
 [CONTRIBUTING](./docs/CONTRIBUTING.md) and
@@ -27,7 +27,7 @@ src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs
 * Show data charts, histograms, scatter plots, best-average plots
 * Show GPS track on a map, with several map tile styles
 * Show hill climbs and best sections (e.g. best 5k, best 20 min power)
-* Elevation correction (see [Notes](./doc/elevation-correction.md))
+* Elevation correction (see [Notes](./docs/elevation-correction.md))
 * Show weather information for sessions with GPS data
 * Fix recording errors in swim activities (merge or split lengths, fix stroke
   type)
@@ -39,7 +39,7 @@ src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs
 * Shows firmware version and battery voltage for all sensors (e.g HRM or Bike
   Cadence sensor), displays a warning on low battery.
 * Track body weight, and other metrics
-* Estimate [Critical Power](./doc/critical-power.md)
+* Estimate [Critical Power](./docs/critical-power.md)
 * [Generate workout files](https://alex-hhh.github.io/2018/05/running-and-cycling-workout-editor.html)
   for downloading to the Garmin device.
 
