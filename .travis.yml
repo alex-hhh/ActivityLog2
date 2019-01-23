@@ -21,10 +21,16 @@ env:
     - RACKET_DIR=~/racket
     - DISPLAY=:99.0            # needed by the unit tests, see comment on xvfb
 
+    # Print some useful warnings during complilation.  It would be good if
+    # these would be made errors...
+
+    - PLTSTDERR='error warning@optimizer'
+
     # This environment variable is only decrypted on builds that are from the
     # original repository.(this actually makes sense, if you think about it)
     # -- tests that depend on private data will only run on the official
     # branches.  See als https://docs.travis-ci.com/user/encryption-keys/.
+
     - secure: "UrtMaEd9RcXMSEaOK/0VJh7W5L1MIAIjcZnh38pHt/xDIRDCXhMNxkMCS6ra00UwrFaw1l3VcI5mNYWY1JP6Fct1LbU2AY+sKoNNkld5OigNUrx1eXhtzXy8a1T0gX0kJhWvPVAActRwnaWjmhUblH1UAOWOvfcX4laekAVXbSJOVCBKSQl7HNl0xJBm0TriAZtWg+pumTG93e2+3hza6cWQ0tJHqn1kwBmD6aKTJLpd05IU3g6bl/+4cOGosnOaD8L/fDjA51Hl5kwHXPxTrNkoLqRdrCfX+q5vF9D6qG6VdS4lxiNKDTCvnKQ8TZXsvF+WIvIaQSR8CrqqO5pfZWHQNkMJ6jIFrLrV77xx5fa4wWamOgeoZ2GhkXjlg/0qVTVU30h4qZbijbP7byyyErLKujklIYJPgRcgp8ok7pMs4qyqMK7lWyrwYQ7lc/e0PvS/stz8tGSVMboHsVFcP1IlQHAaQJK7Nlk3Pzxktx9CtOHOn/DW7Bw+eRd/zF24GqZKBwxB5VbgBWxpPfukWUwejo/uIevMGGSDnPOmNXvWeQL0LJ8C6qKUSfaH9+5YGwkev46MH41KyWfyekqjbASxNx3MU7SXeFrwT/5jQVENhD/zAUVMVk4Nr6YmAWm1iD66RvpJ/Y3lHn0roQ3CUVKWsHR/l5cNd8SYx5RT7nU="
   matrix:
     - RACKET_VERSION=7.1
@@ -38,9 +44,6 @@ matrix:
 before_install:
   - bash ./etc/scripts/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
-  # Print some useful warnings during complilation.  It would be good if these
-  # would be made errors...
-  - export PLTSTDERR='error warning@optimizer'
 install: true
 before_script:
   # the X virtual frame buffer is needeed to run the tests, since they require
@@ -50,7 +53,7 @@ before_script:
   # data + build take about 6 minutes currently).
   - bash -e /etc/init.d/xvfb start
   - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-  - bash ./etc/scripts/fetch.sh -C test "1QfQ9kuK-tFFtdK-707WV4Mc0PmUf_2Bf" # test-fit
+  - bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
 script:
   - racket build.rkt
   - raco test test/df-test.rkt

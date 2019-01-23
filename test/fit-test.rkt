@@ -128,33 +128,30 @@ select count(*)
 
 
 (define (check-stryd-xdata db)
+  (define app-id "660a581e5301460c8f2f034c8b6dc90f")
   (check-xdata-app-count db 1)
-  (check-xdata-app-present db "660a581e5301460c8f2f034c8b6dc90f")
+  (check-xdata-app-present db app-id)
   (check-xdata-field-count db 7)
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Leg Spring Stiffness")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Form Power")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Elevation")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Vertical Oscillation")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Ground Time")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
-  (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Power")
+  (for ([field '("Leg Spring Stiffness"
+                 "Form Power" "Elevation" "Vertical Oscillation"
+                 "Ground Time" "Cadence" "Power")])
+    (check-xdata-field-present db app-id field))
 
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Leg Spring Stiffness")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Form Power")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Elevation")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Vertical Oscillation")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Ground Time")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
-  (check-xdata-trackpoint-values
-   db "660a581e5301460c8f2f034c8b6dc90f" "Power")
+  (for ([field '("Leg Spring Stiffness"
+                 "Form Power" "Elevation" "Vertical Oscillation"
+                 "Ground Time" "Cadence" "Power")])
+    (check-xdata-trackpoint-values db app-id field)))
 
-  )
+(define (check-garmin-run-power-data db)
+  (define app-id "741afa11025048e286b514bd47e29391")
+  (check-xdata-app-count db 1)
+  (check-xdata-app-present db app-id)
+  (check-xdata-field-count db 5)
+  ;; NOTE: the RP_SD field is an array of 5 values, see issue #42, we
+  ;; currently discard this field, as it is unclear what to do with it.
+  (for ([field '("RP_SD" "RP_WindEnabled" "RP_AvgPower" "RP_AvgLapPower" "RP_Power")])
+    (check-xdata-field-present db app-id field))
+  (check-xdata-trackpoint-values db app-id "RP_Power"))
 
 (define (check-outdoorsports-xdata db)
   (check-xdata-app-count db 1)
@@ -283,6 +280,9 @@ select count(*)
       "./test-fit/f0019.fit" 24 4081
       #:extra-db-checks check-stryd-xdata)
      (do-basic-checks "./test-fit/f0022.fit" 13 1868)
+     (do-basic-checks
+      "./test-fit/f0023.fit" 24 2138
+      #:extra-db-checks check-garmin-run-power-data)
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
       ;; should only be recorded once...

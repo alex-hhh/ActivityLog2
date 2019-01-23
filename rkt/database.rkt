@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -364,7 +364,7 @@
 (define (xdata-store-values db record id xdata-fields)
   (for (([field-key field-id] (in-hash xdata-fields)))
     (define val (dict-ref record field-key #f))
-    (when val
+    (when (and val (or (number? val) (string? val) (bytes? val)))
       (query-exec db sql-insert-xdata-value id field-id val))))
 
 (define sql-insert-xdata-summary-value
@@ -379,7 +379,7 @@
 (define (xdata-store-summary-values db record id xdata-fields)
   (for (([field-key field-id] (in-hash xdata-fields)))
     (define val (dict-ref record field-key #f))
-    (when val
+    (when (and val (or (number? val) (string? val) (bytes? val)))
       (query-exec db sql-insert-xdata-summary-value id field-id val))))
 
 
