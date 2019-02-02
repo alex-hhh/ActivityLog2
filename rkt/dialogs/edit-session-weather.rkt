@@ -2,7 +2,7 @@
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -38,6 +38,9 @@
     (init)
     (super-new [title "Session Weather"] [icon (weather-icon)])
 
+    (define db #f)
+    (define sid #f)
+
     ;; A message% object where we display any errors while fetching weather
     ;; data.
     (define info-message #f)
@@ -60,10 +63,6 @@
     ;; the station.
     (define weather-station #f)
 
-    ;; When (eq? weather-source 'nearby), this contains a list of (cons
-    ;; wstation distance) objects
-    (define nearby-stations '())
-
     ;; list of wobs objects (weather observations) for the current wstation
     (define observations '())
 
@@ -71,8 +70,7 @@
     ;; observation timestamp.
     (define wsource-choice #f)
     (define wselection-pane #f)
-    (define wstation-field #f)
-    (define wstation-choice #f)
+    (define fetch-weather-button #f)
     (define wobs-choice #f)
 
     ;; Widgets used to select weather data values.  When (memq? weather-source
@@ -115,28 +113,15 @@
         (set! wsource-choice
               (new choice% [parent hp]
                    [label "Source: "]
-                   [choices '("Nearby" "Weather Station" "Manual")]
+                   [choices '("DarkSky.net" "Manual")]
                    [callback (lambda (c e)
                                (let ((sel (send c get-selection)))
                                  (on-weather-source-changed
-                                  (list-ref '(nearby weather-station manual) sel))))]))
+                                  (list-ref '(nearby manual) sel))))]))
         (set! wselection-pane (make-horizontal-pane hp #f))
-        (set! wstation-field
-              (new validating-input-field%
-                   [parent wselection-pane] [label ""]
-                   [style '(single deleted)]
-                   [cue-text "pws:NAME or COUNTRY/NAME"]
-                   [convert-fn values]
-                   [valid-value-cb
-                    (lambda (v)
-                      (on-new-wstation (send wstation-field get-converted-value)))]
-                   [validate-fn (lambda (v) #t)]))
-        (set! wstation-choice
-              (new choice% [parent wselection-pane]
-                   [label ""]
-                   [min-width 250]
-                   [choices '("None")]
-                   [callback (lambda (c e) (on-wstation-selected (send c get-selection)))]))
+        (set! fetch-weather-button (new button% [parent wselection-pane]
+                                        [label "Fetch Weather Data"]
+                                        [callback (lambda (b e) (on-fetch-weather-data))]))
         (set! wobs-choice
               (new choice% [parent wselection-pane]
                    [label ""]
@@ -184,34 +169,52 @@
 
       )
 
+    (define (on-fetch-weather-data)
+      (when (and db sid)
+        (send fetch-weather-button enable #f)
+        (thread
+         (lambda ()
+           (with-handlers
+             (((lambda (e) #t)
+               (lambda (e)
+                 (queue-callback
+                  (lambda ()
+                    (send info-message set-label
+                          (if (exn? e)
+                              (exn-message e)
+                              "Unknown error while fetching weather"))
+                    (send fetch-weather-button enable #t))))))
+             (let ((observations (get-daily-observations-for-session db sid)))
+               (queue-callback
+                (lambda ()
+                  (send fetch-weather-button enable #t)
+                  (setup-observations observations)))))))))
+
+    (define (on-observation-selected index)
+      (setup-weather-fields (list-ref observations index) #t))
+
+    (define (setup-observations new-observations)
+      (send wobs-choice clear)
+      (send wobs-choice enable #t)
+      (set! observations (sort new-observations < #:key wobs-ts))
+      (for ((o (in-list observations)))
+        (send wobs-choice append (time-of-day->string (wobs-ts o))))
+      (clear-weather-fields)
+      ;; Find the best observation that matches START-TIME and select it.
+      (let loop ((idx 0) (obs observations))
+        (unless (null? obs)
+          (if (>= (wobs-ts (car obs)) start-time)
+              (begin
+                (send wobs-choice set-selection idx)
+                (setup-weather-fields (car obs) #t))
+              (loop (add1 idx) (cdr obs))))))
+
     (define (on-weather-source-changed new-source)
       (unless (eq? new-source weather-source)
         (case new-source
           ((nearby)
            (send wselection-pane change-children
-                 (lambda (old) (list wstation-choice wobs-choice)))
-           (let ((index (send wobs-choice get-selection)))
-             (when index
-               (setup-weather-fields (list-ref observations index) #t)))
-           (enable-manual-edit #f))
-
-          ((weather-station)
-           (send wselection-pane change-children
-                 (lambda (old) (list wstation-field wobs-choice)))
-           ;; Init the field based on the previous weather source
-           (case weather-source
-             ((nearby)
-              (when (> (length nearby-stations) 0)
-                (let* ((index (send wstation-choice get-selection))
-                       (wstation (car (list-ref nearby-stations index))))
-                  (send wstation-field set-value
-                        (let ((type (wstation-type wstation))
-                              (ident (wstation-ident wstation)))
-                          (string-append (if (symbol? type) (symbol->string type) type)
-                                         ":" ident))))))
-             ((manual)
-              (clear-weather-fields)
-              (on-new-wstation (send wstation-field get-converted-value))))
+                 (lambda (old) (list fetch-weather-button wobs-choice)))
            (enable-manual-edit #f))
 
           ((manual)
@@ -226,49 +229,6 @@
            (enable-manual-edit #t)))
         (set! weather-source new-source)))
 
-    ;; Called when the user types the NAME (in the format pws:IDENT or
-    ;; icao:IDENT) of a weather station.  Note that we also act as a
-    ;; validation function, as such, we return #f if we fail to setup the
-    ;; weather station
-    (define (on-new-wstation name)
-      ;; We might be delay called when the source is not 'weather-station,
-      ;; don't change anything in that case.
-      (when (eq? weather-source 'weather-station)
-        (with-busy-cursor
-         (lambda ()
-           (send wstation-field mark-valid #f)
-           (send wobs-choice enable #f)
-           (when (and name (not (string=? name "")))
-             (with-handlers
-               (((lambda (e) #t)
-                 (lambda (e)
-                   (send info-message set-label
-                         (if (exn? e) (exn-message e) "Unknown error while fetching weather"))
-                   (clear-weather-fields))))
-               (let ((obs (get-observations-for-station name start-time)))
-                 (send info-message set-label "")
-                 (when obs
-                   (setup-observations obs)
-                   (send wobs-choice enable #t)
-                   (send wstation-field mark-valid #t)))))))))
-
-    (define (on-wstation-selected index)
-      (with-busy-cursor
-        (lambda ()
-          (with-handlers
-            (((lambda (e) #t)
-              (lambda (e)
-                (send info-message set-label
-                      (if (exn? e) (exn-message e) "Unknown error while fetching weather"))
-                (clear-weather-fields))))
-            (let* ((wstation (car (list-ref nearby-stations index)))
-                   (obs (get-observations-for-station wstation start-time)))
-              (setup-observations obs)
-              (send info-message set-label ""))))))
-
-    (define (on-observation-selected index)
-      (setup-weather-fields (list-ref observations index) #t))
-
     (define (set-wind-direction wdir)
       (if wdir
           (let ((label (degrees->wind-rose wdir)))
@@ -282,52 +242,6 @@
     (define (get-wind-direction)
       ;; this is a hack :-)
       (* (/ 360 (length wind-rose)) (send wind-direction-field get-selection)))
-
-    ;; Fill WSTATION-CHOICE with weather stations that are close to the GPS
-    ;; track of the session id, SID. DB is the activity log database.  The
-    ;; list of weather stations is also stored in NEARBY-STATIONS.
-    (define (setup-nearby-wstations db sid)
-      (send wstation-choice clear)
-      (set! nearby-stations '())
-
-      (with-handlers
-        (((lambda (e) #t)
-          (lambda (e)
-            (send info-message set-label
-                  (if (exn? e) (exn-message e) "Unknown error while fetching weather"))
-            (clear-weather-fields))))
-        
-        (set! nearby-stations (get-nearby-wstations-for-session db sid))
-        (for ((w (in-list nearby-stations)))
-          (send wstation-choice append
-                (format "~a (~a, ~a)"
-                        (wstation-name (car w))
-                        (wstation-ident (car w))
-                        (distance->string (cdr w) #t))))
-        (unless (null? nearby-stations)
-          (let ((obs (get-observations-for-station
-                      (car (car nearby-stations)) start-time)))
-            (when obs (setup-observations obs))))
-        (send info-message set-label "")))
-
-    ;; Fill WOBS-CHOICE with observation data, which is also stored in
-    ;; OBSERVATIONS.
-    (define (setup-observations new-observations)
-      (send wobs-choice clear)
-      (send wobs-choice enable #t)
-      (set! observations (sort new-observations < #:key wobs-ts))
-      (for ((o (in-list observations)))
-        (send wobs-choice append
-              (time-of-day->string (wobs-ts o))))
-      (clear-weather-fields)
-      ;; Find the best observation that matches START-TIME and select it.
-      (let loop ((idx 0) (obs observations))
-        (unless (null? obs)
-          (if (> (wobs-ts (car obs)) start-time)
-              (begin
-                (send wobs-choice set-selection idx)
-                (setup-weather-fields (car obs) #t))
-              (loop (+ idx 1) (cdr obs))))))
 
     ;; Setup values in the weather fields, based on data in WOBS.  If
     ;; UNIT-LABEL is #t, the values will have unit labels (temperature, speed,
@@ -387,32 +301,6 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
         (set! start-time (sql-column-ref row 3 0))
         (send activity-start-time set-label (date-time->string start-time))))
 
-    ;; NOTE: WSTATION is a string, as stored in the SESSION_WEATHER table.  It
-    ;; is used to look up a weather station, but there is a chance that it
-    ;; might not be found.  Return #t if a weather station was selected, #f
-    ;; otherwise
-    (define (maybe-select-wstation wstation timestamp)
-      (let loop ((idx 0) (ws nearby-stations))
-        (if (null? ws)
-            #f
-            (if (equal? wstation (wstation-ident (car (car ws))))
-                (begin
-                  (send wstation-choice set-selection idx)
-                  (on-wstation-selected idx)
-                  (maybe-select-observation timestamp)
-                  #t)
-                (loop (+ idx 1) (cdr ws))))))
-
-    (define (maybe-select-observation timestamp)
-      (let ((ts (if (equal? timestamp 0) start-time timestamp)))
-        (let loop ((idx 0) (obs observations))
-          (unless (null? obs)
-            (if (>= (wobs-ts (car obs)) ts)
-                (begin
-                  (send wobs-choice set-selection idx)
-                  (on-observation-selected idx))
-                (loop (+ idx 1) (cdr obs)))))))
-
     (define (setup-activity-weather db sid)
       (let ((row (query-maybe-row db "
 select wstation, timestamp,
@@ -430,36 +318,24 @@ from SESSION_WEATHER where session_id =?" sid)))
             (set! weather-source #f)
             (cond ((equal? wstation "")
                    (on-weather-source-changed 'manual)
-                   (send wsource-choice set-selection 2)
-                   (let ((wo (wobs (sql-column-ref row 1 0)
-                                   (sql-column-ref row 2 0)
-                                   (sql-column-ref row 3 0)
-                                   (sql-column-ref row 4 0)
-                                   (sql-column-ref row 5 0)
-                                   (sql-column-ref row 6 0)
-                                   (sql-column-ref row 7 0)
-                                   (sql-column-ref row 8 0))))
-                     (setup-weather-fields wo #f)))
-                  ((maybe-select-wstation wstation timestamp)
-                   (on-weather-source-changed 'nearby)
-                   (send wsource-choice set-selection 0))
+                   (send wsource-choice set-selection 1))
                   (#t
-                   (on-weather-source-changed 'weather-station)
-                   (send wsource-choice set-selection 1)
-                   (send wstation-field set-value wstation)
-                   (on-new-wstation wstation)
-                   (maybe-select-observation timestamp)
-                   ))))))
+                   (on-weather-source-changed 'nearby)
+                   (send wsource-choice set-selection 0)))
+            (let ((wo (wobs (sql-column-ref row 1 0)
+                            (sql-column-ref row 2 0)
+                            (sql-column-ref row 3 0)
+                            (sql-column-ref row 4 0)
+                            (sql-column-ref row 5 0)
+                            (sql-column-ref row 6 0)
+                            (sql-column-ref row 7 0)
+                            (sql-column-ref row 8 0))))
+              (setup-observations (list wo)))))))
 
     (define (save-weather-data database sid)
       (cond ((eq? weather-source 'nearby)
-             (let ((wstation (car (list-ref nearby-stations (send wstation-choice get-selection))))
-                   (wobs (list-ref observations (send wobs-choice get-selection))))
-               (update-session-weather database sid wstation wobs)))
-            ((eq? weather-source 'weather-station)
-             (let ((wstation (send wstation-field get-value))
-                   (wobs (list-ref observations (send wobs-choice get-selection))))
-               (update-session-weather database sid wstation wobs)))
+             (let ((wobs (list-ref observations (send wobs-choice get-selection))))
+               (update-session-weather database sid "#dark-sky" wobs)))
             ((eq? weather-source 'manual)
              (let ((wo (wobs start-time
                              (send temperature-field get-converted-value)
@@ -473,10 +349,7 @@ from SESSION_WEATHER where session_id =?" sid)))
 
     (define/override (has-valid-data?)
       (case weather-source
-        ((nearby) (and (> (length nearby-stations) 0)
-                       (> (length observations) 0)))
-        ((weather-station)
-         (> (length observations) 0))
+        ((nearby) (> (length observations) 0))
         ((manual)
          (and (send temperature-field has-valid-value?)
               (send dew-point-field has-valid-value?)
@@ -486,20 +359,16 @@ from SESSION_WEATHER where session_id =?" sid)))
               (send baromethric-pressure-field has-valid-value?)))
         (else #f)))
 
-    (define/public (begin-edit parent database sid)
-      ;; First clear any previous data
-      (send wstation-field set-value "")
-      (send wstation-choice clear)
-      (send wobs-choice clear)
-      (set! observations '())
-      (set! weather-station #f)
-      (set! nearby-stations '())
+    (define/public (begin-edit parent database session-id)
       (clear-weather-fields)
+      (send fetch-weather-button enable #t)
+      (set! db database)
+      (set! sid session-id)
 
       (if (allow-weather-download)
-          (if (wu-api-key)
+          (if (ds-api-key)
               (send info-message set-label "")
-              (send info-message set-label "No Wundergdound API key set"))
+              (send info-message set-label "No DarkSky.net API key set"))
           (send info-message set-label "Weather data download disabled"))
 
       (with-busy-cursor
@@ -507,17 +376,18 @@ from SESSION_WEATHER where session_id =?" sid)))
           ;; Setup nearby weather stations and set 'nearby as the default
           ;; setup.
           (setup-activity-info database sid)
-          (setup-nearby-wstations database sid)
           (send wsource-choice set-selection 0)
           (on-weather-source-changed 'nearby)
           ;; Retrieve previous weather data, if any, for this activity and
           ;; setup dialog mode accordingly.
           (setup-activity-weather database sid)))
-         
+
       (let ((result (send this do-edit parent)))
         (when (and result (has-valid-data?))
           (save-weather-data database sid)
           (log-event 'weather-data-changed sid))
+        (set! db #f)
+        (set! sid #f)
         result))
 
     ))

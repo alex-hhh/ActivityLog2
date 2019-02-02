@@ -2,7 +2,7 @@
 ;; about-frame.rkt -- show the about dialog for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -85,7 +85,7 @@
   
   (insert-newline editor)
   (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
-  (insert-text editor "Copyright (C) 2015 - 2017, Alex Harsanyi")
+  (insert-text editor "Copyright (C) 2015 - 2017, Alex Harsányi")
   (insert-newline editor)
   (insert-newline editor)
   (insert-text editor "Project source: ")
@@ -121,7 +121,7 @@
   (insert-newline editor)
   (insert-reference editor "Icons from Icons8" "https://www.icons8.com")
   (insert-newline editor)
-  (insert-reference editor "Weather data from Wunderground" "http://www.wunderground.com/")
+  (insert-reference editor "Weather data from Dark Sky" "https://www.darksky.net/poweredby")
   (insert-newline editor)
   (insert-reference editor "Maps from Thunderforest" "http://www.thunderforest.com/")
   (insert-newline editor)

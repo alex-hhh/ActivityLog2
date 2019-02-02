@@ -1,4 +1,3 @@
-
 Garmin allowed third party applications to run on their devices and these
 application can either collect data from new sensors (such as a Stryd running
 power meter), or add various calculated values to the data recorded by the
@@ -85,11 +84,11 @@ the `make-xdata-series-metadata` function):
 
 * Basic information about the XDATA field is retrieved in the database (such
   as the name and the application GUID).
-  
+
 * Based on the application GUID and the field name, a field definition is
   looked up in the "xdata-defs.json" file -- this file provides information
   such as the "headline" to use for a field.
-  
+
 * A new `series-metadata%` class is created which returns values either from
   the field definition JSON file or provides default values.
 
@@ -123,12 +122,12 @@ Each application JSON object has three fields:
 
 * `app_id` -- represents the GUID for the application, as stored in the
   database or the FIT file
-  
+
 * `app_name` -- a user defined name for the application
 
 * `fields` -- represents an array of field objects, which define metadata for
   each XDATA field of that application
-  
+
 Each field is a JSON object that looks as shown below. In this example, the
 default values are shown and any defaults could be omitted from the field.
 
@@ -156,7 +155,7 @@ default values are shown and any defaults could be omitted from the field.
   end user except when exporting data frames as CSV files, in which case it is
   shown as the header for the CSV column.  See also notes on renaming fields
   below.
-  
+
 * `headline` -- represents the text to display in GUI selection boxes.  If
   missing, a default text is constructed by concatenating "XDATA", the field
   name and the field units.
@@ -195,7 +194,7 @@ default values are shown and any defaults could be omitted from the field.
   default of 0 is good for most cases, but the "false" value has the special
   meaning to remove missing values from processing altogether -- this needs to
   be set when 0 is a valid value, for example for the altitude series.
-  
+
 ### On changing values on the `xdata-defs.json` file
 
 There are several considerations when editing the xdata-defs.json file and
@@ -207,13 +206,13 @@ changing field definitions, these are outlined below.
   series will have to be deleted and re-created.  Renaming data series will
   also leave "garbage" in the `BAVG_CACHE`, `HIST_CACHE` and `SCATTER_CACHE`
   tables.
-  
+
 * `fractional_digits`, `histogram_bucket_slot` and `inverted_mean_max` are
   used to store cached data for trend charts in the `BAVG_CACHE`, `HIST_CACHE`
   and `SCATTER_CACHE` tables, if these values change, the existing cache
   entries will not be changed and mixing data produced with different
   parameters will result in meaningless plots.
-  
+
 The conclusion is that whenever any of these values change, the cached data
 should also be deleted from the "Tools/Delete Cached Data" menu.
 

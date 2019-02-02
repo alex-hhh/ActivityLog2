@@ -635,8 +635,8 @@ create table SESSION_WEATHER (
   temperature real,                 -- celsius
   dew_point real,                   -- celsius
   humidity real,                    -- percentage: 0 .. 100
-  wind_speed real,                  -- km/h
-  wind_gusts real,                  -- km/h
+  wind_speed real,                  -- m/s
+  wind_gusts real,                  -- m/s
   wind_direction real,              -- degrees 0 - N, 90 - E, 180 - S, 270 - W
   pressure real,
   foreign key (session_id) references A_SESSION(id) on delete cascade
