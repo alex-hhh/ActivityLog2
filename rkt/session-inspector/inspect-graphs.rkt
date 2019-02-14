@@ -664,7 +664,7 @@
 
       (parameterize ([plot-x-transform (get-x-transform)]
                      [plot-x-ticks (get-x-axis-ticks)]
-                     [plot-x-label (send x-axis axis-label)]
+                     [plot-x-label #f]
                      [plot-y-ticks (send y-axis plot-ticks)]
                      [plot-y-label (send y-axis axis-label)])
         (output-fn (full-render-tree))))
