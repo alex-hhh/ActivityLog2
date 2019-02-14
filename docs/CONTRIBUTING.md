@@ -19,6 +19,10 @@ available.
 
 ## Contributing code or documentation
 
+The [build.md](./build.md) file contains information about building the
+application, and links to some documents describing how things work.  You
+might find it helpful if you want to work on the code.
+
 This project uses the normal GitHub Fork and Pull Request mechanism.  To
 contribute changes to the project create a pull request.  As with issues,
 please provide a good description of your changes.

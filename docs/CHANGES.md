@@ -1,3 +1,24 @@
+# Release 1.7.0
+
+* Weather data is now fetched from DarkSky.net, as the previous provider,
+  Wunderground is retiring their service.  See issue #33.
+
+* Fix bug which prevented import of activities containing Garmin Run Power
+  data field, see issue #42.  Also fixed import for some other activities that
+  contain Garmin IQ data.
+
+* Add support for named sport zones.  Each sport zone now can have a name
+  defined, and this name is used in all places where sport zones are used
+  (e.g. as values for histogram plots and as hover tags for plots)
+
+* Fixed bug which displayed mouse hover information over plot legends, causing
+  incorrect image re-draw.
+
+Other minor fixes, you can find the detailed log for the changes in this
+version using the command:
+
+    git log v1.6.1..v1.7.0
+
 # Release 1.6.0
 
 This release introduces support for XDATA, which is data recorded by third
