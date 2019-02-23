@@ -9,11 +9,14 @@ trigger:
 pool:
   vmImage: 'Ubuntu-16.04'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+variables:
+  RACKET_DIR: $(Agent.BuildDirectory)/racket
+  RACKET_VERSION: 7.2
+  DISPLAY: :99.0
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+steps:
+- script: bash ./etc/scripts/install-racket.sh
+  displayName: 'Installing Racket RACKET_VERSION'
+
+- script: $(RACKET_DIR)/bin/racket build.rkt
+  displayName: 'Building Application'
