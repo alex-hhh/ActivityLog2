@@ -16,7 +16,23 @@ variables:
 
 steps:
 - script: bash ./etc/scripts/install-racket.sh
-  displayName: 'Installing Racket RACKET_VERSION'
+  displayName: 'Installing Racket $(RACKET_VERSION)'
+
+- script: |
+    bash -e /etc/init.d/xvfb start
+    bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+    bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+  displayName: "Preparing environment and fetching test data files"
 
 - script: $(RACKET_DIR)/bin/racket build.rkt
   displayName: 'Building Application'
+
+- script: |
+    raco test test/df-test.rkt
+    raco test test/db-test.rkt
+    raco test test/db-upgrade-test.rkt
+    raco test test/trends-test.rkt
+    raco test test/aggregate-test.rkt
+    raco test test/fit-test.rkt
+  displayName: "Running Tests"
+
