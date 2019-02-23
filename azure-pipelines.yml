@@ -25,6 +25,8 @@ steps:
 - script: |
     bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
     bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+  env:
+    TESTDATAPW: $(TESTDATAPW)
   displayName: "Downloading test data files"
 
 - script: |
