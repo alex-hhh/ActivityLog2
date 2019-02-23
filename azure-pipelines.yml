@@ -19,9 +19,8 @@ steps:
   displayName: 'Installing Racket $(RACKET_VERSION)'
 
 - script: |
-    sudo apt-get install xvfb
-    bash -e /etc/init.d/xvfb start
-  displayName: "Installing and setting up other applications"
+    /usr/bin/Xvfb :99 -screen 0 1280x1024x24 &
+  displayName: "Starting Xvfb on DISPLAY=$(DISPLAY)"
 
 - script: |
     bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
