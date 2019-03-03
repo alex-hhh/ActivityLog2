@@ -39,7 +39,7 @@
   (let ((p (send editor last-position)))
     (send editor insert (make-object string-snip% text))
     (send editor change-style hyperlink-style p (send editor last-position))
-    (send editor set-clickback 
+    (send editor set-clickback
           p (send editor last-position)
           (lambda (editor s e) (callback))
           hyperlink-style)))
@@ -82,10 +82,10 @@
   (define logo-snip
     (make-object image-snip% (read-bitmap logo-file)))
   (send editor insert logo-snip)
-  
+
   (insert-newline editor)
   (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
-  (insert-text editor "Copyright (C) 2015 - 2017, Alex Harsányi")
+  (insert-text editor "Copyright (C) 2015 - 2019, Alex Harsányi")
   (insert-newline editor)
   (insert-newline editor)
   (insert-text editor "Project source: ")
@@ -139,4 +139,3 @@
   (send t lock #t)
   f)
 (provide make-about-frame)
-
