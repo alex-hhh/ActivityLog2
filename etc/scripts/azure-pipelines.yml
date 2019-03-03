@@ -3,9 +3,6 @@
 
 # YAML schema reference: https://aka.ms/yaml
 
-trigger:
-- master
-
 pool:
   vmImage: 'Ubuntu-16.04'
 
@@ -13,6 +10,7 @@ variables:
   RACKET_DIR: $(Agent.BuildDirectory)/racket
   RACKET_VERSION: 7.2
   DISPLAY: :99.0
+  PLTSTDERR: 'error warning@optimizer'
 
 steps:
 
