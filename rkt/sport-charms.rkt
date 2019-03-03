@@ -54,7 +54,9 @@
                                                   positive-number? ; WPRIME
                                                   (or/c #f positive-number?) ; TAU
                                                   )))]
- [put-sport-zones (-> sport-id? sport-id? zone-metric? sport-zones? any/c)]
+ [put-sport-zones (->* (sport-id? sport-id? zone-metric? sport-zones?)
+                       (#:valid-from positive-number?)
+                       any/c)]
  [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
  [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
  [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
@@ -138,7 +140,7 @@
 (define (init-sport-charms db)
 
   (let ((h (make-hash)))
-    (for (((id name icon) 
+    (for (((id name icon)
            (in-query db "select id, name, icon from E_SPORT where id != 254")))
       (hash-set! h id (sport-info id #f name icon)))
     (set! *sport-info* h))
@@ -148,7 +150,7 @@
            (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
       (hash-set! h id (sport-info id parent-id name icon)))
     (set! *sub-sport-info* h))
-  
+
   (let ((h (make-hash)))
     (for (((id name)
            (in-query db "select id, name from E_SWIM_STROKE")))
@@ -162,7 +164,7 @@
                                 sport-names))
         (for ((sub-sport (in-hash-values *sub-sport-info*)))
           (when (eqv? (sport-info-id sport) (sport-info-parent-id sub-sport))
-            (set! sport-names (cons (vector 
+            (set! sport-names (cons (vector
                                      (sport-info-name sub-sport)
                                      (sport-info-id sport) (sport-info-id sub-sport))
                                     sport-names)))))
@@ -181,7 +183,7 @@
         (set! *swim-stroke-names* #f)
         (set! *sport-names* '()))
       (loop (async-channel-try-get log-event-source))))
-  
+
   (unless *sport-info*
     (when (current-database)
       (init-sport-charms (current-database)))))
@@ -210,7 +212,7 @@
 
 (define (get-sport-bitmap sport sub-sport)
   (let ((info (get-sport-info sport sub-sport)))
-    (hash-ref *large-bitmaps* 
+    (hash-ref *large-bitmaps*
               (if info (sport-info-icon info) *default-bitmap*)
               (hash-ref *large-bitmaps* *default-bitmap*))))
 
@@ -226,7 +228,7 @@
                                       (+ (pict-height b) 10)
                                       -0.05
                                       #:draw-border? #f)))
-    (pict->bitmap 
+    (pict->bitmap
      (cc-superimpose (colorize r (get-sport-color sport sub-sport)) b))))
 
 (define (get-swim-stroke-name swim-stroke-id)
@@ -264,7 +266,7 @@
                                    (u-sub-sport (vector-ref u 1)))
                                (set! u-sport (if (sql-null? u-sport) #f u-sport))
                                (set! u-sub-sport (if (sql-null? u-sub-sport) #f u-sub-sport))
-                               (and (eq? sport u-sport) 
+                               (and (eq? sport u-sport)
                                     (or (eq? sub-sport #f)
                                         (eq? sub-sport u-sub-sport)))))
                            in-use))))
@@ -274,29 +276,29 @@
 
   ;; Use most recent zone, if none was specified
   (unless timestamp (set! timestamp (current-seconds)))
-  
+
   (define q1 "
-select max(zone_id) from V_SPORT_ZONE 
- where sport_id = ? 
-   and sub_sport_id = ? 
+select max(zone_id) from V_SPORT_ZONE
+ where sport_id = ?
+   and sub_sport_id = ?
    and zone_metric_id = ?
    and ? between valid_from and valid_until")
 
   (define q2 "
-select max(zone_id) from V_SPORT_ZONE 
- where sport_id = ? 
-   and sub_sport_id is null 
+select max(zone_id) from V_SPORT_ZONE
+ where sport_id = ?
+   and sub_sport_id is null
    and zone_metric_id = ?
    and ? between valid_from and valid_until")
 
   (define (get-zid)
     (cond ((and sport sub-sport)
-           (or (query-maybe-value 
+           (or (query-maybe-value
                 (current-database) q1 sport sub-sport zone-metric timestamp)
                (query-maybe-value
                 (current-database) q2 sport zone-metric timestamp)))
           (sport
-           (query-maybe-value 
+           (query-maybe-value
             (current-database) q2 sport zone-metric timestamp))
           (#t
            #f)))
@@ -308,7 +310,7 @@ select max(zone_id) from V_SPORT_ZONE
   (define q1
     "select zone_id from V_SPORT_ZONE_FOR_SESSION where session_id = ? and zone_metric_id = ?")
   (query-maybe-value (current-database) q1 session zone-metric))
-  
+
 (define (get-sport-zones sport sub-sport zone-metric [timestamp #f])
   (if (current-database)
       (let ((zid (get-zone-definition-id sport sub-sport zone-metric timestamp)))
@@ -377,29 +379,30 @@ select max(zone_id) from V_SPORT_ZONE
             #f))
       #f))
 
-(define (put-sport-zones sport sub-sport zone-metric zones)
+(define (put-sport-zones sport sub-sport zone-metric zones
+                         #:valid-from (valid-from (current-seconds)))
   (call-with-transaction
    (current-database)
    (lambda ()
      (when (> (length zones) 3)
-       (query-exec (current-database) 
+       (query-exec (current-database)
                    "insert into SPORT_ZONE(sport_id, sub_sport_id, zone_metric_id, valid_from)
                     values (?, ?, ?, ?)"
-                   sport (if sub-sport sub-sport sql-null) zone-metric (current-seconds))
+                   sport (if sub-sport sub-sport sql-null) zone-metric valid-from)
        (let ((zid (db-get-last-pk "SPORT_ZONE" (current-database))))
          (for ((zone (in-list zones))
                (znum (in-range (length zones))))
            (query-exec (current-database)
                        "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
                       values(?, ?, ?)" zid znum zone)))))))
-                     
+
 (define (val->pct-of-max val zones)
   (let ((max (last zones)))
     (* (/ val max) 100.0)))
 
 
 (define (val->zone val zones)
-  
+
   (define (classify val low high)
     (cond ((<= val low) 0.0)
           ((>= val high) 1.0)

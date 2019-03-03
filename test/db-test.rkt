@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,6 +27,7 @@
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
          "../rkt/utilities.rkt"
+         "../rkt/time-in-zone.rkt"
          "test-util.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
@@ -102,14 +103,13 @@ select count(*)
         or position_long is not null)")))
     (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
 
-(define (fill-sport-zones db)
-  (put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220))
-  (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220))
-  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600))
-  ;; put-sport-zones will setup sport zones to be valid from the time or their
-  ;; call.  Make all sport zones valid from the "beginning of time"
-  (query-exec db "update sport_zone set valid_from = 0"))
-
+(define (fill-sport-zones db #:valid-from (valid-from (current-seconds)))
+  (put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220)
+                   #:valid-from valid-from)
+  (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220)
+                   #:valid-from valid-from)
+  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)
+                   #:valid-from valid-from))
 
 
 ;;.................................... cycling dynamics import and fetch ....
@@ -472,16 +472,31 @@ where S.id = CPFS.session_id
      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
        (with-fresh-database
          (lambda (db)
-           (fill-sport-zones db)
+           (fill-sport-zones db #:valid-from 1)
            (printf "About to import ~a~%" file)(flush-output)
-           (db-import-activity-from-file/check file db)
+           (db-import-activity-from-file/check
+            file db
+            #:extra-df-checks
+            (lambda (df)
+              (define sid (df-get-property df 'session-id))
+              (define ts (query-value
+                          db
+                          "select start_time from A_SESSION where id = ?"
+                          sid))
+              ;; Add a new set of time zones, which affect this session, than
+              ;; re-calculate the metrics.  `check-time-in-zone' will verify
+              ;; that there are no duplicate TIZ information for the same
+              ;; metric
+              (fill-sport-zones db #:valid-from (- ts 100))
+              (update-time-in-zone-data sid db)
+              (check-time-in-zone df db file)))
            (check = 1 (activity-count db))
            (db-check-tile-code db)))))
 
    (test-case "Subsequent imports"
      (with-fresh-database
        (lambda (db)
-         (fill-sport-zones db)
+         (fill-sport-zones db #:valid-from 1)
          (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
            (printf "About to import ~a~%" file)(flush-output)
            (db-import-activity-from-file/check file db))

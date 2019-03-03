@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -88,6 +88,14 @@
   ;; Check that we still got some actual data series left
   (check > (length sn) 0 "no meaningful series in session data frame"))
 
+(define tiz-query
+  "select distinct SZ.id, SZ.zone_metric_id
+     from TIME_IN_ZONE TIZ,
+          SPORT_ZONE SZ
+    where TIZ.sport_zone_id = SZ.id
+      and TIZ.session_id = ?
+  group by SZ.id, SZ.zone_metric_id")
+
 ;; Check that TIME-IN-ZONE data has been stored in the database for this
 ;; session.
 (define (check-time-in-zone df db file)
@@ -97,9 +105,16 @@
           (sid (df-get-property df 'session-id)))
       (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
         ;; Check that we have some time-in-zone data from the session
-        (let ((nitems (query-value db "select count(*) from TIME_IN_ZONE where session_id = ?" sid)))
-          (check > nitems 0
-                 (format "TIZ not present for ~a ~a" sport file)))))))
+
+        (let ((zones (query-rows db tiz-query sid)))
+          (check > (length zones) 0
+                 (format "TIZ not present for ~a ~a" sport file))
+          (define zmetrics (for/list ([r (in-list zones)]) (vector-ref r 1)))
+          ;; Check that there is a single set of TIZ data for each metric, we
+          ;; had a bug which created duplicate entries when updating zones.
+          (check equal? zmetrics (remove-duplicates zmetrics)
+                 (format "Duplicate ZONE metrics: ~a for sid ~a of ~a"
+                         zones sid file)))))))
 
 ;; Check that we can obtain intervals from a data frame.  For now, we only
 ;; check if the code runs without throwing any exceptions.
@@ -162,4 +177,7 @@
              (check-not-exn (lambda () (db-delete-session sid db)))
              (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid)))))))))
 
-(provide with-fresh-database with-database db-import-activity-from-file/check)
+(provide with-fresh-database
+         with-database
+         db-import-activity-from-file/check
+         check-time-in-zone)
