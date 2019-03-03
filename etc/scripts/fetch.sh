@@ -54,7 +54,7 @@ trap 'rm -f -- $ofile1' INT TERM HUP EXIT
 curl -LJ -o $ofile1 -b $gcookies "$gurl?export=download&confirm=$code&id=$file_id"
 ofile2=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
 trap 'rm -f -- $ofile2' INT TERM HUP EXIT
-openssl aes-256-cbc -d -k $TESTDATAPW -in $ofile1 -out $ofile2
+openssl aes-256-cbc -md md5 -d -k $TESTDATAPW -in $ofile1 -out $ofile2
 # We run in the root of the repo, but output test databases into the test
 # folder
 tar xvzf $ofile2 -C "${output_dir:-.}"
