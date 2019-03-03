@@ -1,3 +1,8 @@
+# Release 1.7.1
+
+* Fix bug which prevented entering manual weather information from an
+  activity.
+
 # Release 1.7.0
 
 * Weather data is now fetched from DarkSky.net, as the previous provider,
