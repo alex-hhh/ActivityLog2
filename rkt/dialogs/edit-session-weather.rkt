@@ -125,7 +125,7 @@
         (set! wobs-choice
               (new choice% [parent wselection-pane]
                    [label ""]
-                   [choices '("None")]
+                   [choices '()]
                    [callback (lambda (c e) (on-observation-selected (send c get-selection)))])))
 
       (define contents-gb (make-group-box-panel p))

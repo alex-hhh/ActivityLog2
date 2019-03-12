@@ -2,7 +2,7 @@
 ;; time-in-zone.rkt -- time spent in each sport zone for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -80,6 +80,11 @@
      "insert into TIME_IN_ZONE(session_id, sport_zone_id, zone_id, duration)
          values(?, ?, ?, ?)")))
 
+(define delete-all-tiz-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "delete from TIME_IN_ZONE where session_id = ?")))
+
 ;; Store time in zone data in the TIME_IN_ZONE table in the database.  SID is
 ;; the session id, ZID is the zone definition id, DATA is what
 ;; `time-in-hr-zone' or `time-in-power-zone' returns and DB is the database.
@@ -130,7 +135,7 @@ select P.id
   from A_LAP P
  where P.session_id = ?
  order by P.start_time")))
-  
+
 ;; Update the TIME_IN_ZONE table with data for a session.  Both heart rate and
 ;; power zones are updated (if available).  Previous data for this session is
 ;; deleted.
@@ -139,6 +144,11 @@ select P.id
          (sport (df-get-property session 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
          (hr-zone-id (get-zone-id sid 1 db)))
+
+    ;; Delete any Previous time in zone data first, note that the TIZ might
+    ;; change because the session might have been assigned a new set of zones
+    ;; (when zone validity dates have changed)
+    (query-exec db delete-all-tiz-stmt sid)
 
     ;; Time in zone
     (when (df-contains? session "pwr-zone")
@@ -150,7 +160,7 @@ select P.id
         (when data
           (store-time-in-zone sid hr-zone-id data db))))
 
-    ;; Training Stress Scrore
+    ;; Training Stress Score
     (maybe-update-session-tss sid session db)
 
     ;; Aerobic Decoupling
@@ -180,7 +190,7 @@ select P.id
       (define metrics (compute-hrv-metrics hrv))
       (when metrics
         (put-hrv-metrics metrics sid db)))
-    
+
     ))
 
 ;; Update the time in zone information for all sessions in the database.
@@ -209,6 +219,5 @@ select P.id
             (raise e))))
         (update-time-in-zone-data sid database)))
     (dbglog "interactive-update-time-in-zone-data complete"))
-  
-  (send progress-dialog run parent-window task))
 
+  (send progress-dialog run parent-window task))

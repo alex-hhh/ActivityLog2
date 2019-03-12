@@ -1,3 +1,11 @@
+# Release 1.7.1
+
+* Fix bug which prevented entering manual weather information from an
+  activity.
+
+* Fix bug which caused Time-In-Zone data to be duplicated when the sport zones
+  for an activity changed.
+
 # Release 1.7.0
 
 * Weather data is now fetched from DarkSky.net, as the previous provider,

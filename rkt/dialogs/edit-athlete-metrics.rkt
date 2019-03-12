@@ -2,7 +2,7 @@
 ;; edit-athlete-metrics.rkt -- edit or update bodyweight, sleep quality, etc
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -153,7 +153,7 @@
                  "select body_weight 
                     from ATHLETE_METRICS 
                    where timestamp = (select max(timestamp) from ATHLETE_METRICS)")))
-        (if bw
+        (if (and bw (not (sql-null? bw)))
             (send weight-field set-numeric-value bw)
             (send weight-field set-value "")))
       (let ((st (query-maybe-value
@@ -161,7 +161,7 @@
                  "select sleep_time 
                     from ATHLETE_METRICS 
                    where timestamp = (select max(timestamp) from ATHLETE_METRICS)")))
-        (if st
+        (if (and st (not (sql-null? st)))
             (send sleep-hours-field set-duration-value st)
             (send sleep-hours-field set-value "")))
       (send notes-field set-value ""))
