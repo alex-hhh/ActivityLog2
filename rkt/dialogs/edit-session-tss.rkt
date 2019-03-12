@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -148,7 +148,7 @@
 
     (define database #f)
     (define session-id #f)
-    (define session-df #f)
+    (define df #f)
     (define effort #f)                  ; as received by `get-session-effort'
 
     (define calculation-methods
@@ -318,9 +318,9 @@
                        ((not zones) 
                         (send notice set-label "No heart rate zones defined"))
                        (#t
-                        (unless session-df
-                          (set! session-df (session-df database session-id)))
-                        (set! computed-tss (compute-session-tss/hr session-df))))))
+                        (unless df
+                          (set! df (session-df database session-id)))
+                        (set! computed-tss (compute-session-tss/hr df))))))
               ((swim-tpace)
                (let ((sport (sql-column-ref effort 0 #f))
                      (dist (effort-distance effort))
