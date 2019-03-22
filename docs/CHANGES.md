@@ -1,5 +1,13 @@
 # Release 1.7.1
 
+This is a bug fix release, fixing the following bugs:
+
+* Fix bug which prevented editing effort based on Heart Rate zones, see issue
+  #45
+
+* Fix bug which prevented entering athlete metrics (bodyweight, etc) on an
+  empty database, see issue #44
+
 * Fix bug which prevented entering manual weather information from an
   activity.
 
