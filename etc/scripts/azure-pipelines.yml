@@ -1,72 +1,150 @@
-# Azure Pipelines build and test file for ActivityLog2.  The aim is to check
-# that the application builds correctly and automated tests pass.
+# Azure Pipelines build file for ActivityLog2.  See README.md for details.
 
-# YAML schema reference: https://aka.ms/yaml
+jobs:
 
-trigger:
-- master
+# ......................................................... LINUX BUILD ....
 
-pool:
-  vmImage: 'Ubuntu-16.04'
+  - job: Linux
+    pool:
+      vmImage: 'Ubuntu-16.04'
 
-variables:
-  RACKET_DIR: $(Agent.BuildDirectory)/racket
-  RACKET_VERSION: 7.2
-  DISPLAY: :99.0
-  PLTSTDERR: 'error warning@optimizer'
+    variables:
+      RACKET_DIR: $(Agent.BuildDirectory)/racket
+      RACKET_VERSION: 7.2
+      DISPLAY: :99.0
+      PLTSTDERR: 'error warning@optimizer'
 
-steps:
+    steps:
 
-- script: bash ./etc/scripts/install-racket.sh
-  displayName: 'Installing Racket $(RACKET_VERSION)'
+# .................................... Setup Build Environment -- Linux ....
 
-  # Xvfb is needed to run the tests.  Since it takes a while to start up, we
-  # run it early in the build.
+    - script: bash ./etc/scripts/install-racket.sh
+      displayName: 'Install Racket $(RACKET_VERSION)'
 
-  # NOTE: this task seems to hang for about 10 seconds, even though Xvfb is
-  # started in the background, not sure how to fix this.
+    - script: (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
+      displayName: "Start Xvfb for DISPLAY=$(DISPLAY)"
 
-- script: (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
-  displayName: "Starting Xvfb for DISPLAY=$(DISPLAY)"
+    - script: |
+        bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+        bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+      env:
+        TESTDATAPW: $(TESTDATAPW)
+      displayName: "Download Test Data"
 
-  # Some of the tests need test data which is downloaded from Google Drive --
-  # this data is private and it is encrypted.  This step requires a decryption
-  # key which is stored in Azure Pipelines and mapped to TESTDATAPW, but only
-  # for builds from the original repository, for builds from outside the
-  # repository, the test data will not be downloaded, and tests that depend on
-  # it will be bypassed silently (those tests will not fail).
+# .......................................... Build Application -- Linux ....
 
-- script: |
-    bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-    bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
-  env:
-    TESTDATAPW: $(TESTDATAPW)
-  displayName: "Downloading Test Data"
+# The build step runs build.rkt which also creates a distribution -- in the
+# past, creating a distribution has failed due to bad paths in
+# `define-runtime-path`, so now we do this step as well.
 
-  # The build step runs build.rkt which also creates a distribution -- in the
-  # past, creating a distribution has failed due to bad paths in
-  # `define-runtime-path`, so now we do this step as well.
+    - script: $(RACKET_DIR)/bin/racket build.rkt
+      displayName: 'Build Application'
 
-- script: $(RACKET_DIR)/bin/racket build.rkt
-  displayName: 'Building Application'
+# .................................................. Run Tests -- Linux ....
 
-  # We run each test suite as a separate step as it looks nice in the Azure
-  # Pipelines log.
+# We run each test suite as a separate step as it looks nice in the Azure
+# Pipelines log.
 
-- script: $(RACKET_DIR)/bin/raco test test/df-test.rkt
-  displayName: "Running Data Frame Tests (df-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/df-test.rkt
+      displayName: "Test Data Frame (df-test)"
 
-- script: $(RACKET_DIR)/bin/raco test test/db-test.rkt
-  displayName: "Running Database Import Tests (db-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/db-test.rkt
+      displayName: "Test Database Import (db-test)"
 
-- script: $(RACKET_DIR)/bin/raco test test/db-upgrade-test.rkt
-  displayName: "Running Database Upgrade Tests (db-upgrade-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/db-upgrade-test.rkt
+      displayName: "Test Database Upgrade (db-upgrade-test)"
 
-- script: $(RACKET_DIR)/bin/raco test test/trends-test.rkt
-  displayName: "Running Trends Chart Tests (trends-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/trends-test.rkt
+      displayName: "Test Trends Chart (trends-test)"
 
-- script: $(RACKET_DIR)/bin/raco test test/aggregate-test.rkt
-  displayName: "Running Agregate Data Tests (aggregate-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/aggregate-test.rkt
+      displayName: "Test Agregate Data (aggregate-test)"
 
-- script: $(RACKET_DIR)/bin/raco test test/fit-test.rkt
-  displayName: "Running File Import Tests (fit-test)"
+    - script: $(RACKET_DIR)/bin/raco test test/fit-test.rkt
+      displayName: "Test File Import (fit-test)"
+
+# ....................................................... WINDOWS BUILD ....
+
+  - job: Windows
+    pool:
+      vmImage: 'vs2015-win2012r2'
+
+    variables:
+
+      # RACKET_DIR: $(Agent.BuildDirectory)\racket
+      RACKET_VERSION: 7.2
+      PLTSTDERR: 'error warning@optimizer'
+
+    steps:
+# .................................. Setup Build Environment -- Windows ....
+
+    - powershell: .\etc\scripts\install-racket.ps1
+      displayName: "Install Racket $(RACKET_VERSION)"
+
+    - powershell: .\etc\scripts\install-inno-setup.ps1
+      displayName: "Install InnoSetup"
+
+    # It is a pleasant surprise that this script runs unmodified on a Windows
+    # machine.  It means that the test data can be downloaded and the full
+    # test suite can be run on Windows.
+
+    - bash: |
+        bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+        bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+      env:
+        TESTDATAPW: $(TESTDATAPW)
+      displayName: "Download Test Data"
+
+# ........................................ Build Application -- Windows ....
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        racket build.rkt
+      env:
+        AL2TFAPIKEY: $(AL2TFAPIKEY)
+        AL2DSAPIKEY: $(AL2DSAPIKEY)
+      displayName: "Build Application"
+
+# ................................................ Run Tests -- Windows ....
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/df-test.rkt
+      displayName: "Test Data Frame (df-test)"
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/db-test.rkt
+      displayName: "Test Database Import (db-test)"
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/db-upgrade-test.rkt
+      displayName: "Test Database Upgrade (db-upgrade-test)"
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/trends-test.rkt
+      displayName: "Test Trends Chart (trends-test)"
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/aggregate-test.rkt
+      displayName: "Test Agregate Data (aggregate-test)"
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/fit-test.rkt
+      displayName: "Test File Import (fit-test)"
+
+# ........................................ Publish Installer -- Windows ....
+
+    - task: CopyFiles@2
+      inputs:
+        targetFolder: $(Build.ArtifactStagingDirectory)
+        contents: ActivityLog2Setup-*.exe
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: $(Build.ArtifactStagingDirectory)
+        artifactName: ActivityLog2Setup

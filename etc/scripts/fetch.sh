@@ -44,19 +44,31 @@ if [ -z $file_id ]; then
     exit 1
 fi
 
+# Curl man page: https://curl.haxx.se/docs/manpage.html
+
 gurl=https://drive.google.com/uc
 gcookies=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
-trap 'rm -f -- $gcookies' INT TERM HUP EXIT
-curl -sc $gcookies "$gurl?export=download&id=$file_id" > /dev/null
+trap 'rm --force -- $gcookies' INT TERM HUP EXIT
+curl --silent \
+     --cookie-jar $gcookies \
+     "$gurl?export=download&id=$file_id" > /dev/null
+
 code="$(awk '/_warning_/ {print $NF}' $gcookies)"
 ofile1=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
-trap 'rm -f -- $ofile1' INT TERM HUP EXIT
-curl -LJ -o $ofile1 -b $gcookies "$gurl?export=download&confirm=$code&id=$file_id"
+
+trap 'rm --force -- $ofile1' INT TERM HUP EXIT
+
+curl --location \
+     --junk-session-cookies \
+     --cookie $gcookies \
+     --output $ofile1 \
+     "$gurl?export=download&confirm=$code&id=$file_id"
+
 ofile2=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
-trap 'rm -f -- $ofile2' INT TERM HUP EXIT
+trap 'rm --force -- $ofile2' INT TERM HUP EXIT
 openssl aes-256-cbc -md md5 -d -k $TESTDATAPW -in $ofile1 -out $ofile2
 # We run in the root of the repo, but output test databases into the test
 # folder
 tar xvzf $ofile2 -C "${output_dir:-.}"
 # Clean up after ourselves
-rm -f -- $gcookies $ofile1 $ofile2
+rm --force -- $gcookies $ofile1 $ofile2
