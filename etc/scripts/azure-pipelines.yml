@@ -29,7 +29,7 @@ jobs:
         bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
       env:
         TESTDATAPW: $(TESTDATAPW)
-      displayName: "Download Test Data"
+      displayName: "(Maybe) Download Test Data"
 
 # .......................................... Build Application -- Linux ....
 
@@ -93,7 +93,7 @@ jobs:
         bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
       env:
         TESTDATAPW: $(TESTDATAPW)
-      displayName: "Download Test Data"
+      displayName: "(Maybe) Download Test Data"
 
 # ........................................ Build Application -- Windows ....
 
@@ -139,12 +139,30 @@ jobs:
 
 # ........................................ Publish Installer -- Windows ....
 
+    # It appears that the download happens early in the build pipeline, before
+    # even the source is checked out, regardless of the position of the
+    # dowload task in the file...
+
+    - task: DownloadSecureFile@1
+      inputs:
+        secureFile: al2_sign_pub.asc
+
+    - task: DownloadSecureFile@1
+      inputs:
+        secureFile: al2_sign_sec.asc
+
+    - bash: |
+        bash ./etc/scripts/sign-release.sh
+      displayName: "(Maybe) Sign Installer"
+
     - task: CopyFiles@2
       inputs:
         targetFolder: $(Build.ArtifactStagingDirectory)
-        contents: ActivityLog2Setup-*.exe
+        contents: ActivityLog2Setup-*.*
+      displayName: "Move Installer Files to Staging Area"
 
     - task: PublishBuildArtifacts@1
       inputs:
         pathToPublish: $(Build.ArtifactStagingDirectory)
         artifactName: ActivityLog2Setup
+      displayName: "Publish Installer Artifacts"
