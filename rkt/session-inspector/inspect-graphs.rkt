@@ -741,6 +741,7 @@
                               (match-define (list xmin xmax color) (pd-hlivl npdata))
                               (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
                           (begin
+                            (set! the-plot-snip #f)
                             (send graph-canvas set-snip #f)
                             (send graph-canvas set-background-message "No data for plot...")))
                       (set! previous-plot-state pstate)
@@ -768,6 +769,7 @@
                             (match-define (list xmin xmax color) (pd-hlivl pdata))
                             (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
                         (begin
+                          (set! the-plot-snip #f)
                           (send graph-canvas set-snip #f)
                           (send graph-canvas set-background-message "No data for plot...")))
                     (void)))))))))
@@ -806,6 +808,7 @@
       (resume-flush)
       ;; When a new data frame is set, remove the old plot immediately, as it
       ;; is not relevant anymore.
+      (set! the-plot-snip #f)
       (send graph-canvas set-snip #f)
       (send graph-canvas set-background-message "Working...")
       (refresh))
