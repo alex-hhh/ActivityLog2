@@ -2,7 +2,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Hars√°nyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Hars·nyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -512,7 +512,7 @@
      ;; Check that it was indeed set!
      (check = (df-ref df 0 "col1") -1)
 
-     (check-not-exn
+     (check-not-exn
       (lambda ()
         (df-add-lazy
          df "col5" '("col1" "col2")
@@ -760,20 +760,23 @@
         (define result (rdp-simplify vzero))
         (check = (vector-length result) 0)))
 
-     (define vone (vector (vector 0 1)))
+     ;; NOTE: data passed in to `rdp-simplify` can have any number of extra
+     ;; parameters after the X, Y values.
+
+     (define vone (vector (vector 0 1 'a 'b)))
      (check-not-exn
       (lambda ()
         (define result (rdp-simplify vone))
         (check = (vector-length result) 1)
-        (check equal? (vector-ref result 0) (vector 0 1))))
+        (check equal? (vector-ref result 0) (vector 0 1 'a 'b))))
 
-     (define vtwo (vector (vector 0 1) (vector 0 2)))
+     (define vtwo (vector (vector 0 1 'a) (vector 0 2 'b 'c)))
      (check-not-exn
       (lambda ()
         (define result (rdp-simplify vtwo))
         (check = (vector-length result) 2)
-        (check equal? (vector-ref result 0) (vector 0 1))
-        (check equal? (vector-ref result 1) (vector 0 2))))
+        (check equal? (vector-ref result 0) (vector 0 1 'a))
+        (check equal? (vector-ref result 1) (vector 0 2 'b 'c))))
 
      ;; NOTE: it would be nice if we could test that rdp-simplify actually did
      ;; a sane simplification, rather than just reduce the number of points...
@@ -988,3 +991,4 @@
 (module+ test
   (require rackunit/text-ui)
   (run-tests data-frame-tests))
+
