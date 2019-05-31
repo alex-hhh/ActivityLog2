@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,6 +20,7 @@
          "data-frame/statistics.rkt"
          "data-frame/meanmax.rkt"
          "data-frame/df.rkt"
+         "data-frame/rdp-simplify.rkt"
          "session-df/session-df.rkt")
 
 (provide
@@ -271,183 +272,70 @@
 
 ;;................................................. make-climb-intervals ....
 
-;; Hold information about a climb or descent section in the data frame:
-;;
-;; START-IDX, END-IDX are indexes in the data frame for the start/end of the
-;; climb
-;;
-;; START-DST, END-DST are distance values in the "dst" series for the
-;; start/end of the climb.
-;;
-;; HDIFF is the height difference in the climb (always positive even if it is
-;; a descent)
-;;
-;; HARD-END? means that this climb cannot be joined with the next one, as it
-;; ends at a teleport point.
-(struct climb (start-idx end-idx start-dst end-dst hdiff hard-end?)
-  #:transparent)
-
-(define (climb-grade c)
-  (let ((dd (- (climb-end-dst c) (climb-start-dst c))))
-    (if (> dd 0)
-        (* 100.0 (/ (climb-hdiff c) dd))
-        0)))
-
-(define (climb-distance c)
-  (- (climb-end-dst c) (climb-start-dst c)))
-
-;; Return the size of the gap between climbs C1 and C2
-(define (climb-gap c1 c2)
-  (- (climb-start-dst c2) (climb-end-dst c1)))
-
-;; Return #t if there are teleport points between START and END.  TELEPORTS is
-;; a list of teleport indexes (*not* timestamps!) and START, END are indexes
-;; too...
-(define (have-teleports-between? teleports start end)
-  (for/first ([t (in-list teleports)] #:when (and (>= t start) (<= t end)))
-    #t))
-
-;; Return #t if climbs C1 and C2 should be joined.  They should be joined if
-;; the gap between them is small and there are no teleport points in the gap
-;; between them.
-(define (should-join? c1 c2 teleports-idx)
-  (let ((d1 (climb-distance c1))
-        (d2 (climb-distance c2))
-        (gap (climb-gap c1 c2)))
-    (define result
-      (and (<= (/ gap (+ d1 d2)) 0.15)
-           (not (have-teleports-between? teleports-idx
-                                         (climb-end-idx c1)
-                                         (climb-start-idx c2)))))
-    result))
-
-;; Join adjacent CLIMBS if they are closer than MJD.  Discard resulting climbs
-;; with a grade less than MG or a length less than ML
-(define (merge-adjacent-climbs climbs
-                               #:min-grade [mg 1.0]
-                               #:min-length [ml 50]
-                               #:teleports-idx [tli '()])
-
-  (define (merge c1 c2)
-    (climb
-     (climb-start-idx c1)
-     (climb-end-idx c2)
-     (climb-start-dst c1)
-     (climb-end-dst c2)
-     (+ (climb-hdiff c1) (climb-hdiff c2))
-     (climb-hard-end? c2)))
-
-  (define (good? c)
-    (and (>= (climb-distance c) ml)
-         (>= (climb-grade c) mg)))
-
-  (define (kons c l) (if (good? c) (cons c l) l))
-
-  (if (null? climbs)
-      '()
-      (let loop ((candidate (car climbs))
-                 (remaining (cdr climbs))
-                 (result '()))
-        (cond ((null? remaining)
-               (reverse (kons candidate result)))
-              ((climb-hard-end? candidate)
-               (loop (car remaining) (cdr remaining) (kons candidate result)))
-              (#t
-               (let ((next (car remaining)))
-                 (if (should-join? candidate next tli)
-                     (loop (merge candidate next) (cdr remaining) result)
-                     (loop (car remaining) (cdr remaining) (kons candidate result)))))))))
-
-;; Find climb sections (or descents if the DESCENTS? arg is #t) in the data
-;; frame DF.  Return a list of CLIMB structures, one for each climb.  MJD, MG
-;; and ML are passed on to MERGE-ADJACENT-CLIMBS
-(define (find-climbs df
-                     #:descents (descents? #f)
-                     #:min-grade [mg 1.0]
-                     #:min-length (ml 50))
-
-  ;; teleports are the timestamps where the recording was stopped, than the
-  ;; user traveled a significant distance and re-started the recording.  They
-  ;; are used intensively when recording ski runs; for other activities, this
-  ;; should hopefully be empty.  We don't consider climbs that cross teleport
-  ;; points.
-  (define teleports
-    (sort (filter (lambda (p) (is-teleport? df p))
-                  (or (df-get-property df 'stop-points) '()))
-          <))
-
-  ;; This is the position of the teleport points in the data frame
-  (define teleports-idx
-    (apply df-index-of* df "timestamp" teleports))
-
-  ;; Return #t if GRADE is on a climb (or descent if descents is #t)
-  (define (on-climb grade) (if descents? (< grade 0) (> grade 0)))
-
-  ;; Update END-IDX and END-DST in the climb C and calculate the HDIFF field.
-  ;; Also set the hard-end? field to the value of the HARD-END?
-  ;; argument. Returns an updated climb structure, does not update C itself.
-  (define (finalize c last-index hard-end?)
-    (define last-dst
-      (let ((idx (min last-index (sub1 (df-row-count df)))))
-        (df-ref df idx "dst")))
-    (match-define (cons ascent descent)
-      (cond ((df-contains? df "calt")
-             (total-cascent-cdescent df (climb-start-idx c) last-index))
-            ((df-contains? df "alt")
-             (total-ascent-descent df (climb-start-idx c) last-index))
-            (#t
-             (cons 0 0))))
-    (struct-copy climb c
-                 (end-idx last-index)
-                 (end-dst last-dst)
-                 (hdiff (if descents? (- descent ascent) (- ascent descent)))
-                 (hard-end? hard-end?)))
-
-  (define climbs '())
-  (define current-climb #f)
-  (define last-climb-idx 0)
-
-  ;; Call finalize on the current climb, add it to the list of climbs and
-  ;; reset the search.
-  (define (complete-current-climb hard-end?)
-    (when current-climb
-      (let ((uclimb (finalize current-climb last-climb-idx hard-end?)))
-        (set! climbs (cons uclimb climbs))))
-    (set! current-climb #f))
-
-  (for (([t g d] (in-data-frame df "timestamp" "grade" "dst"))
-        (index (in-range (df-row-count df)))
-        #:when (and t g d))
-    (unless (or (null? teleports) (<= t (car teleports)))
-      (complete-current-climb #t)  ; reached a teleport point, climbs end here
-      (set! teleports (cdr teleports)))
-
-    (if current-climb
-        ;; Current climb in progress, keep it on until the filtered grade is 0
-        (if (on-climb g)
-            (set! last-climb-idx index)
-            (complete-current-climb #f))
-        ;; Start a climb, but only if the grade is positive
-        (when (on-climb g)
-          (set! last-climb-idx index)
-          (set! current-climb (climb index index d d #f #f)))))
-
-  (complete-current-climb #f)           ; don't forget the last one
-  (merge-adjacent-climbs (reverse climbs) #:min-grade mg #:min-length ml #:teleports-idx teleports-idx))
-
-
-;; Return intervals based on the climb (or descent sections in the data frame
-;; DF.  See FIND-CLIMBS and MERGE-ADJACENT-CLIMBS for the meaning of the
-;; DESCENTS?, MJD, MH and FW arguments.
+;; Return intervals based on the climb (or descent sections) in the data frame
+;; DF.
 (define (make-climb-intervals df
                               #:descents (descents? #f)
                               #:min-grade (mg 0.5)
                               #:min-length (ml 100))
-  (if (df-contains? df "timestamp" "dst" "grade")
-      (let ((climbs (find-climbs df #:min-grade mg #:min-length ml #:descents descents?)))
-        (for/list ((c (in-list climbs)))
-          (make-interval-summary df (climb-start-idx c) (climb-end-idx c))))
-      '()))
+
+  ;; A segment between points p1 and p2 is valid if it is a climb or descent,
+  ;; as per DESCENTS?, and has a grade greater than the minimum grade MG.
+  (define (valid-segment? p1 p2)
+    (match-define (vector d1 a1 _ ...) p1)
+    (match-define (vector d2 a2 _ ...) p2)
+    (and (if descents? (> a1 a2) (< a1 a2))
+         (> d2 d1)
+         (> (abs (* (/ (- a2 a1) (- d2 d1)) 100.0)) mg)))
+
+  (define (do-it alt-series)
+    (define data (df-select* df "dst" alt-series "timestamp" #:filter valid-only))
+    (define-values (low high)
+      (for/fold ([low #f] [high #f])
+                ([item (in-vector data)])
+        (define a (vector-ref item 1))  ; altitude
+        (values
+         (if low (min a low) a)
+         (if high (max a high) a))))
+    (define epsilon (/ (- high low) 20))
+    (define peaks(rdp-simplify data #:epsilon epsilon #:destroy-original? #t))
+    (define segments
+      (if (> (vector-length peaks) 1)
+          (for/fold ([result '()])
+                    ([p1 (in-vector peaks 0)]
+                     [p2 (in-vector peaks 1)]
+                     #:when (valid-segment? p1 p2))
+            (if (null? result)
+                (cons (cons p1 p2) result)
+                (let ((previous (car result)))
+                  (if (eq? p1 (cdr previous))
+                      ;; concatenate two adjacent segments
+                      (cons (cons (car previous) p2) (cdr result))
+                      (cons (cons p1 p2) result)))))
+          '()))
+    (for/list ([s (in-list (reverse segments))])
+      (define d1 (vector-ref (car s) 2))
+      (define d2 (vector-ref (cdr s) 2))
+      (match-define (list start end) (df-index-of* df "timestamp" d1 d2))
+      (make-interval-summary df start end)))
+
+  (define intervals
+    (if (df-contains? df "timestamp" "dst")
+        (cond ((df-contains? df "calt") (do-it "calt"))
+              ((df-contains? df "alt") (do-it "alt"))
+              (#t '()))
+        '()))
+
+  (filter (lambda (i)
+            (let ([distance (dict-ref i 'total-distance)]
+                  [elevation (if descents?
+                                 (or (dict-ref i 'total-corrected-descent #f)
+                                     (dict-ref i 'total-descent))
+                                 (or (dict-ref i 'total-corrected-ascent #f)
+                                     (dict-ref i 'total-ascent)))])
+              (and (>= distance ml)
+                   (>= (abs (* (/ elevation distance) 100)) (abs mg)))))
+          intervals))
 
 
 ;;............................................. make-best-pace-intervals ....
