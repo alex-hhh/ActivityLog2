@@ -19,6 +19,11 @@ while other parts of the application can attach additional properties:
 * **sport** is a vector of sport-id and subsport-id, as defined in the `E_SPORT`
   and `E_SUB_SPORT` database tables.
 * **stop-points** is a list of timestamps where the recording was stopped.
+  The list is sorted, smallest timestamps first.
+* **teleport-points** is a list of timestamps where recording stopped and the
+  user moved a large distance between points.  Each teleport point is also a
+  stop point.  The list is sorted, smallest timestamp fist.  The list will be
+  empty if the data frame does not have GPS information.
 * **laps** is a list of timestamps where the laps start
 * **weight-series** is the name of the series that is used as a weight when
   operating on the data.  This is needed, as recordings do not necessarily
@@ -34,7 +39,7 @@ while other parts of the application can attach additional properties:
 * **tau** is the W' reconstitution time constant.  It represents the time it
   takes for 63% of W' to be recovered when the athlete stops exercising
   entirely.
-  
+
 For more information about the critical-power, wprime and tau properties, see
 the implementation notes on [Critical Power](./critical-power.md)
 

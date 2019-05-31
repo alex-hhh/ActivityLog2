@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,6 +19,7 @@
          racket/match
          racket/dict
          racket/contract
+         plot
          "../fit-file/activity-util.rkt"
          "../al-widgets.rkt"
          "inspect-graphs.rkt"
@@ -199,7 +200,7 @@
              [hover-callback (lambda (x) (on-hover x))])))
 
     (send elevation-graph zoom-to-lap zoom-to-lap?)
-    (send elevation-graph set-filter-amount 1)
+    (send elevation-graph set-filter-amount 0) ; no elevation filtering
 
     (define (on-hover x)
       (send elevation-graph draw-marker-at x)
@@ -313,9 +314,8 @@
       ;; the user traveled a significant distance and re-started the
       ;; recording.  They are used intensively when recording ski runs, for
       ;; other activities, this should hopefully be empty.
-      (define teleports
-        (filter (lambda (p) (is-teleport? data-frame p))
-                (df-get-property data-frame 'stop-points)))
+      (define teleports (df-get-property data-frame 'teleport-points))
+
       (define laps (df-get-property data-frame 'laps))
       (define start (vector-ref laps 0))
       (define start-idx 0)

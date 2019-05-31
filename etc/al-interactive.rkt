@@ -5,7 +5,7 @@
 ;; some convenience functions for retrieving data from it.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -53,7 +53,8 @@
  (all-from-out "../rkt/session-df/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df/session-df.rkt")
- (all-from-out "../rkt/dbapp.rkt"))
+ (all-from-out "../rkt/dbapp.rkt")
+ (all-from-out "../rkt/utilities.rkt"))
 
 
 ;;.............................................................. prelude ....

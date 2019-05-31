@@ -94,6 +94,7 @@ encounter load errors when trying to run ActivityLog2.
   containing session data.
 * [gui-consistency.md](./gui-consistency.md) describes how various GUI parts
   communicate changes between each other.
+* [hrv-notes](./hrv-notes.md) describes how to access HRV data in FIT files.
 
 ## Test suite
 
@@ -108,30 +109,54 @@ Tests can also be run manually using the following commands:
     raco test test/df-test.rkt
 
 Some tests require data that is private and you will not be able to run them
--- these tests run automatically on Travis.
+-- these tests run automatically on Azure Pipelines.  For the list of all the
+tests and how to run them, see the `test/` folder and the
+[azure-pipelines.yml](/etc/scripts/azure-pipelines.yml) build file.
 
 ## Debugging tips
 
-### Log messages and exceptions
+### Extra debugging options
+
+Some features can be enabled manually to help debug the application, they can
+be enabled by running a Racket program such as using "al-interactive.rkt" and
+using `put-pref` (and `get-pref` to obtain their state):
+
+```racket
+(require "al-interactive.rkt")
+(put-pref 'activity-log:debug:show-stop-points? #t)
+```
+
+The following options are deifned:
+
+* `activity-log:debug:show-stop-points?` -- when set to `#t`, the session
+  graphs and elevation graph on map view will show vertical lines for stop
+  points (blue) and teleport points (red).  See
+  [session-df.md](./session-df.md) for the meaning of these.
+
+### Log files
+
+ActivityLog2 uses a log file to record various debug information while it
+runs.  On a Windows machine, the log file is located in
+"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log", for other platforms, see
+`maybe-init-log-port` in [rkt/utilities.rkt](../rkt/utilities.rkt).  It is
+worth consulting this file when trying to diagnose problems as it usually
+contains more information than what it just reported to the user using the
+GUI.
 
 When ActivityLog2 throws an exception it can be logged in two places: the
-console or the log file.  On a Windows machine, the log file is located in
-"%APPDATA%/Local/ActivityLog/ActivityLogDbg.log", for other platforms, see
-`maybe-init-log-port` in [rkt/utilities.rkt](../rkt/utilities.rkt).  In
-particular, exceptions thrown from separate threads will be logged in the log
-file.
+console or the log file and exceptions thrown from separate threads will
+usually be logged to the log file.
 
 The `dbglog`, `dbglog-exception` and `thread/dbglog` functions, defined in
 "rtk/utilities.rkt" can also be used to add additional logging as needed.
-These log messages will go in the log file.
 
 ### Stack traces for exceptions
 
-By default, the exceptions that are logged will not contain a stack trace --
-this makes it difficult to identify where an exception occurred.  To enable
-stack traces in exceptions, first remove all your compiled files from the
-"compiled" folders, than run the command below.  This will take a long time to
-load and will run slow:
+By default, the exceptions that are logged will not contain a stack trace and
+it may be difficult to identify where an exception occurred.  To enable stack
+traces in exceptions, first remove all your compiled files from the "compiled"
+folders, than run the command below.  This will take a long time to load and
+will run slow:
 
     racket -l errortrace -t run.rkt
 

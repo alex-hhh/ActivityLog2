@@ -526,6 +526,10 @@
                 [style '()])
     (super-new)
 
+    (define show-stop-points?
+      (get-pref 'activity-log:debug:show-stop-points? (lambda () #f)))
+    (define stop-point-renderers '())
+
     (define previous-plot-state empty-ps)
     (define plot-state empty-ps)
     (define plot-data empty-pd)
@@ -640,7 +644,7 @@
           (when (ps-avg? ps)
             (let ((avg (get-average-renderer)))
               (when avg (set! render-tree (cons avg render-tree)))))
-          (reverse render-tree)))
+          (append stop-point-renderers (reverse render-tree))))
 
       (define (get-x-transform)
         (let ((ivl (ps-ivl ps))
@@ -776,6 +780,23 @@
 
     (define (refresh)
       (when (and (not flush-suspended?) show-graph?)
+
+        (when show-stop-points?
+          ;; NOTE: this code runs for every plot, even though it produces the
+          ;; same renderers, so it is inefficient.  Since this is a debug
+          ;; feature only, I will leave with the performance degradation.
+          (let ([df (ps-df plot-state)]
+                [xaxis (ps-x-axis plot-state)])
+            (when (and df xaxis)
+              (let* ([xseries (send xaxis series-name)]
+                     [sp (df-get-property df 'stop-points)]
+                     [tp (df-get-property df 'teleport-points)])
+                (set! stop-point-renderers
+                      (for/list ([p (in-list sp)])
+                        (let ([x (df-lookup df "timestamp" xseries p)])
+                          ;; Stop points are blue, teleport points are red
+                          (vrule x #:style 'short-dash #:color (if (member p tp) "red" "blue")))))))))
+
         (if (equal? (pd-token plot-data) (ps-token plot-state))
             (refresh-cached-bitmap)
             (refresh-plot))))
@@ -805,6 +826,7 @@
                (y-axis-index (hash-ref y-axis-by-sport sport 0)))
           (send y-axis-choice set-selection y-axis-index)
           (on-y-axis-selected y-axis-index)))
+      (set! stop-point-renderers '())   ; clear them, will be set in on-y-axis-selected
       (resume-flush)
       ;; When a new data frame is set, remove the old plot immediately, as it
       ;; is not relevant anymore.
@@ -2074,7 +2096,7 @@
       (when xdata-graphs-1
         (for ((g (in-list xdata-graphs-1)))
           (send g draw-marker-at y))))
-    
+
     (define (default-graphs)
       (unless default-graphs-1
         (set! default-graphs-1 (make-default-graphs graphs-panel hover-callback)))

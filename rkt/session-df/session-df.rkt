@@ -77,7 +77,6 @@
  (get-series/ordered (-> data-frame? (listof string?)))
  (session-df (-> connection? number? data-frame?))
  (reorder-sids (-> (listof integer?) (listof integer?)))
- (is-teleport? (-> data-frame? number? boolean?))
  (add-grade-series (-> data-frame? any/c)))
 
 (provide y-range/c factor-colors/c)
@@ -253,8 +252,15 @@
                  (set! timer (+ timer dt)))))
          timer)))
 
+    (set! stop-points (reverse stop-points))
+    (define teleport-points
+      (if (df-contains? df "lat" "lon")
+          (filter (lambda (p) (is-teleport? df p)) stop-points)
+          '()))
+
     (df-set-sorted df "timer" <=)
-    (df-put-property df 'stop-points (reverse stop-points))))
+    (df-put-property df 'stop-points stop-points)
+    (df-put-property df 'teleport-points teleport-points)))
 
 (define (add-elapsed-series df)
   (when (df-contains? df "timestamp")
@@ -1340,7 +1346,10 @@
 ;; recording again.
 (define (is-teleport? df timestamp)
   (let-values (([dt dd] (delta-time-and-distance df timestamp)))
-    (> dd 20)))
+    ;; NOTE that the value below has to account for GPS error as well, the
+    ;; user might not have moved 100 meters, but since it stopped, the GPS
+    ;; precision has dropped as well.
+    (> dd 100)))
 
 
 

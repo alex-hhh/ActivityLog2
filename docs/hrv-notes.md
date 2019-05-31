@@ -28,11 +28,11 @@ shortcut.  Evaluating the following program:
 
     #lang racket
     (require "al-interactive.rkt")
-    
+
 Will give an interactive prompt which allows loading, inspecting and saving
 HRV data into CSV files:
 
-    > 
+    >
     Opened C:\Users\alexh\AppData\Local\ActivityLog\Alex-AL.db
     scratch.rkt> ;; HINT: Use "Activity/Copy session id to clipboard" menu
     scratch.rkt> (define df (hrv->df 1717))
@@ -46,7 +46,7 @@ HRV data into CSV files:
       hrv           0           141         17040        607.45         348.7
       timestamp     0    1468032094    1468035492  1468033833.8       1107.83
     scratch.rkt> (df->csv df "hrv.csv")
-    scratch.rkt> 
+    scratch.rkt>
 
 The HRV data-frame% contains 4 series:
 
@@ -69,7 +69,7 @@ for subsets.  For example, to compute the metrics for the first 5 minutes of
 the activity:
 
     scratch.rkt> ;; HINT: 1468032094 is the min value of "timestamp", see df-describe
-    scratch.rkt> (match-define (list start end) 
+    scratch.rkt> (match-define (list start end)
                    (send df get-index* "timestamp" 1468032094 (+ 1468032094 300)))
     scratch.rkt> ;; HINT: see hrv-metrics struct definition (hrv.rkt) for the fields
     scratch.rkt> (compute-hrv-metrics df #:start start #:end end)
@@ -83,4 +83,4 @@ the activity:
      0.29187071498530853
      1014
      5209)
-    scratch.rkt> 
+    scratch.rkt>

@@ -12,7 +12,7 @@ reports and trends from activity data and track equipment usage.
 
 Download pre-built releases from the
 [releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or see
-[docs/building.md](docs/building.md) for how to build your own.
+[docs/README.md](docs/README.md) for how to build your own.
 
 See also the [CHANGES](./docs/CHANGES.md),
 [CONTRIBUTING](./docs/CONTRIBUTING.md) and
