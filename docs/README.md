@@ -94,7 +94,24 @@ encounter load errors when trying to run ActivityLog2.
   containing session data.
 * [gui-consistency.md](./gui-consistency.md) describes how various GUI parts
   communicate changes between each other.
-* [hrv-notes](./hrv-notes.md) describes how to access HRV data in FIT files.
+* [hrv-notes.md](./hrv-notes.md) describes how to access HRV data in FIT files.
+
+## Versioning Scheme
+
+The application uses the MAJOR.MINOR.PATCH.BUILD versioning scheme, where:
+
+* `MAJOR` represents the major version number, which should increment only on
+  a major application re-write (I don't expect that to happen.)
+* `MINOR` represents the minor version number, and it increments when new
+  features are added, or existing features are changed/updated
+* `PATCH` increments for bug-fixes, the special value "99" indicates an
+  unreleased version (e.g. 1.8.99)
+* `BUILD` is the Azure pipelines build id, and should be a unique number which
+  always increments for every Azure build, regardless of the other numbers.
+
+The file "version.txt" contains the current version number, without the BUILD
+part (e.g. 1.8.99), and the build script picks up the version from this file
+-- when changing version numbers, this is the only file that should change.
 
 ## Test suite
 

@@ -33,6 +33,12 @@ building an installer on Windows.  The scripts are:
   Drive file ID) and reads the password from the TESTDATAPW environment
   variable.
 
+* `sign-release.sh` is a script which will sign an installer using GPG.  The
+  windows installer is signed with keys stored in Azure DevOps.  **NOTE:**
+  while the code signing is probably correct (and hopefully secure), the keys
+  were just generated and signed by me, so there is not much trust in them, as
+  such, this is more of an exercise in how to sign build artifacts in Azure.
+
 * `azure-pipelines.yml` -- this is the Azure Pipelines build file for the
   application.
 

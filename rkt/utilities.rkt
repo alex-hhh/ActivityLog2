@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,8 @@
  (app-version (-> string?))
  (app-commit-id (-> string?))
  (app-build-timestamp (-> string?))
- 
+ (app-build-number (-> (or/c string? #f)))
+
  (data-directory (-> path-string?))
  (preferences-file (-> path-string?))
  (put-pref (-> symbol? any/c any/c))
@@ -80,8 +81,26 @@
                         "no version")))
                     ;; NOTE: version.txt is loaded from the current directory
                     ;; of the compilation, which is the toplevel directory.
-                    (let ((version (string-trim (file->string version-id-file #:mode 'text))))
-                      version)))]))
+                    (let ((version (string-trim (file->string version-id-file #:mode 'text)))
+                          ;; Azure Builds store a unique incrementing build id
+                          ;; in the BUILD_BUILDID environment variable.
+                          ;; Append it to the version number if we have it.
+                          ;; We use `string->number` so we won't be tricked by
+                          ;; silly environment variable values...
+                          (build-id (getenv "BUILD_BUILDID")))
+                      (if (and build-id (string->number build-id))
+                          (string-append version "." build-id)
+                          version))))]))
+
+(define-syntax (embedded-build-number stx)
+  (syntax-case stx ()
+    [_ #`(quote #,(with-handlers
+                    (((lambda (x) #t)
+                      (lambda (x)
+                        (printf "*** (embedded-version): ~a~%" (exn-message x))
+                        "no version")))
+                    ;; Azure build number
+                    (getenv "BUILD_BUILDNUMBER")))]))
 
 (begin-for-syntax
   (define-runtime-path build-id-file "../build-id.txt"))
@@ -122,6 +141,7 @@
 (define (app-version) (embedded-version))
 (define (app-commit-id) (embedded-commit-id))
 (define (app-build-timestamp) (embedded-timestamp))
+(define (app-build-number) (embedded-build-number))
 
 ;; Return the default place where data files are stored on this system.
 (define (get-pref-dir)
@@ -157,7 +177,7 @@
 ;; Store VALUE under NAME in the preferences file
 (define (put-pref name value)
   (put-preferences (list name)
-                   (list value) 
+                   (list value)
                    (lambda (p) (error 'lock-fail "Failed to get the pref file lock" p))
                    (preferences-file)))
 
@@ -190,10 +210,10 @@
 ;; Return the current timestamp as a string.  Includes milliseconds.  It is
 ;; used to put timestamps in the log messages.
 (define (get-current-timestamp)
-  
+
   (define (fmt val width)
     (~a val #:width width #:align 'right #:pad-string "0"))
-  
+
   (let ((ts (exact-round (current-inexact-milliseconds))))
     (let-values (([q r] (quotient/remainder ts 1000)))
       (let ((date (seconds->date q)))
@@ -262,8 +282,8 @@
 
 ;; Wrapper around `thread', log a message if THUNK throws an exception and
 ;; optionally log messages when the thread starts and finishes.
-(define (thread/dbglog thunk 
-                       #:name [name "*unnamed*"] 
+(define (thread/dbglog thunk
+                       #:name [name "*unnamed*"]
                        #:log-start [log-start #f]
                        #:log-finish [log-finish #f])
   (thread
@@ -397,4 +417,3 @@
 (define (notify-user level format-string . args)
   (define msg (apply format format-string args))
   (log-message user-notification-logger level #f msg #f #f))
-

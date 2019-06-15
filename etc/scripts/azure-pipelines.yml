@@ -10,7 +10,7 @@ jobs:
 
     variables:
       RACKET_DIR: $(Agent.BuildDirectory)/racket
-      RACKET_VERSION: 7.2
+      RACKET_VERSION: 7.3
       DISPLAY: :99.0
       PLTSTDERR: 'error warning@optimizer'
 
@@ -72,7 +72,7 @@ jobs:
     variables:
 
       # RACKET_DIR: $(Agent.BuildDirectory)\racket
-      RACKET_VERSION: 7.2
+      RACKET_VERSION: 7.3
       PLTSTDERR: 'error warning@optimizer'
 
     steps:

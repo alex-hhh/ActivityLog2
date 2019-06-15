@@ -2,7 +2,7 @@
 ;; build.rkt -- utilities for building the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -128,7 +128,13 @@
 
 (define (mkinstaller)
   (define version (string-trim (file->string "./version.txt" #:mode 'text)))
-  (system (format "\"~a\" /DMyAppVersion=~a etc/scripts/install.iss" issc-program version)))
+  ;; Azure Builds store a unique incrementing build id in the BUILD_BUILDID
+  ;; environment variable.  Append it to the version number if we have it.
+  (define build-id (getenv "BUILD_BUILDID"))
+  (define v (if (and build-id (string->number build-id))
+                (string-append version "." build-id)
+                version))
+  (system (format "\"~a\" /DMyAppVersion=~a etc/scripts/install.iss" issc-program v)))
 
 (module+ main
   ;; If this file is invoked from the command line, the application will be
