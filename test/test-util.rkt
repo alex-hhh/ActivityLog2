@@ -146,36 +146,34 @@
                                             #:extra-db-checks (db-check #f)
                                             #:extra-df-checks (df-check #f)
                                             #:delete-sessions? (delete? #f))
-  (check-not-exn
-   (lambda ()
-     (let ((result (db-import-activity-from-file file db)))
-       (check-pred cons? result "Bad import result format")
-       (check-eq? (car result) 'ok (format "~a" (cdr result)))
-       (unless bc
-         ;; Do some extra checks on this imported file
-         (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
-         ;; (printf "... done with the post import tasks~%")(flush-output)
-         (when db-check
-           (db-check db))
-         (define sids (aid->sid (cdr result) db))
-         (when nsessions
-           (check = (length sids) nsessions))
-         (for ((sid (in-list sids))
-               (expected-row-count (if (list? rc) (in-list rc) (in-cycle (in-value rc))))
-               (expected-series-count (if (list? sc) (in-list sc) (in-cycle (in-value sc)))))
-           (let ((df (session-df db sid)))
-             (check-session-df df
-                               #:expected-row-count expected-row-count
-                               #:expected-series-count expected-series-count)
-             (check-intervals df)
-             (check-time-in-zone df db file)
-             (when df-check
-               (df-check df))
-             ))
-         (when delete?
-           (for ([sid (in-list sids)])
-             (check-not-exn (lambda () (db-delete-session sid db)))
-             (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid)))))))))
+  (let ((result (db-import-activity-from-file file db)))
+    (check-pred cons? result "Bad import result format")
+    (check-eq? (car result) 'ok (format "~a" (cdr result)))
+    (unless bc
+      ;; Do some extra checks on this imported file
+      (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
+      ;; (printf "... done with the post import tasks~%")(flush-output)
+      (when db-check
+        (db-check db))
+      (define sids (aid->sid (cdr result) db))
+      (when nsessions
+        (check = (length sids) nsessions))
+      (for ((sid (in-list sids))
+            (expected-row-count (if (list? rc) (in-list rc) (in-cycle (in-value rc))))
+            (expected-series-count (if (list? sc) (in-list sc) (in-cycle (in-value sc)))))
+        (let ((df (session-df db sid)))
+          (check-session-df df
+                            #:expected-row-count expected-row-count
+                            #:expected-series-count expected-series-count)
+          (check-intervals df)
+          (check-time-in-zone df db file)
+          (when df-check
+            (df-check df))
+          ))
+      (when delete?
+        (for ([sid (in-list sids)])
+          (check-not-exn (lambda () (db-delete-session sid db)))
+          (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid)))))))
 
 (provide with-fresh-database
          with-database

@@ -42,6 +42,24 @@
         ]
     },
     {
+        "app_id" : "8e471b4dddf4481a9861d80f22113f9a",
+        "app_name" : "Stryd Pace",
+        "fields" : [
+            {
+                "name" : "Instantaneous Pace",
+                "series" : "stryd_ipace",
+                "fractional_digits" : 2,
+                "histogram_bucket_slot" : 0.1
+            },
+            {
+                "name" : "Instantaneous Speed",
+                "series" : "stryd_ispeed",
+                "fractional_digits" : 2,
+                "histogram_bucket_slot" : 0.1
+            }
+        ]
+    },
+    {
         "app_id" : "27dfb7e5900f4c2d80abc57015f42124",
         "app_name" : "Outdoor Sports+",
         "fields" : [

@@ -480,7 +480,7 @@
 
     (define/public (after-popdown)
       (let ((target (get-target-section)))
-        (and target (send target before-popup))))
+        (and target (send target after-popdown))))
 
     (define/public (switch-to-view)
       (send toplevel-application select-section 'activity-list))
@@ -540,7 +540,7 @@
 
     (define/public (after-popdown)
       (let ((target (get-target-section)))
-        (and target (send target before-popup))))
+        (and target (send target after-popdown))))
 
     (define/public (switch-to-view)
       (send toplevel-application select-section 'athlete-metrics))))

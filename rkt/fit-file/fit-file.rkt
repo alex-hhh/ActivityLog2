@@ -77,6 +77,9 @@
          racket/port
          racket/dict
          racket/format
+         file/gunzip
+         racket/runtime-path
+         json
          "activity-util.rkt"
          "fit-defs.rkt"
          "../utilities.rkt")
@@ -93,7 +96,8 @@
 (provide fit-workout-file%)
 (provide fit-sport-file%)
 (provide fit-settings-file%)
-
+;; this is only provided so that unit tests can be written for this.
+(provide fit-device-name)
 
 
 ;............................................................... basics ....
@@ -363,6 +367,15 @@
                      (file->bytes source #:mode 'binary))
                     ((input-port? source)
                      (port->bytes source)))])
+    (when (and (>= (bytes-length data) 3)
+               (= (bytes-ref data 0) #x1f)
+               (= (bytes-ref data 1) #x8b)
+               (= (bytes-ref data 2) #x08))
+      ;; This file is compressed using GZIP, decompress it first
+      (let ((in (open-input-bytes data))
+            (out (open-output-bytes)))
+        (gunzip-through-ports in out)
+        (set! data (get-output-bytes out))))
     (new fit-data-stream% [data data])))
 
 
@@ -1084,36 +1097,77 @@
     (read-fit-records stream builder)
     (send builder collect-activity)))
 
+;; This is a database mapping a manufacturer/product ids to product names.  It
+;; is kept outside of the code for easier updates.
+(define-runtime-path fit-product-defs-file "../../sql/fit-product-defs.json")
+(define the-fit-product-defs #f)
+(define (fit-product-defs)
+  (unless the-fit-product-defs
+    (set! the-fit-product-defs
+          (call-with-input-file fit-product-defs-file
+            (lambda (in) (read-json in #:null #f)))))
+  the-fit-product-defs)
+
+;; Return the basic device name corresponding to an ANTDEV device symbol
+(define (ant-device-name antdev)
+  (cond ((eq? antdev 'stride-speed-distance) "Footpod")
+        ((eq? antdev 'bike-speed-cadence) "Bike Speed-Cadence Sensor")
+        ((eq? antdev 'bike-cadence) "Bike Cadence Sensor")
+        ((eq? antdev 'bike-speed) "Bike Speed Sensor")
+        ((eq? antdev 'heart-rate) "Heart Rate Monitor")
+        ((eq? antdev 'bike-power) "Power Meter")
+        (#t (~a antdev))))
+
+;; Construct a device name from MANUFACTURER/PRODUCT ids and ANTDEV device
+;; symbol.  The rules are:
+;;
+;; * If the MANUFACTURER/PRODUCT pair is found in the `fit-product-defs-file`,
+;;   its name is returned
+;;
+;; * If only the MANUFACTURER id is found or PRODUCT is #f, the manufacturer
+;;   name is combined with the ant dev name (producing for example, Wahoo
+;;   Heart Rate Monitor)
+;;
+;; * A string with the manufacturer + product IDs is returned as a last
+;;   resort.
+;;
+(define (fit-device-name manufacturer product antdev)
+  (define m (for/first ([m (in-list (fit-product-defs))]
+                        #:when (equal? manufacturer (hash-ref m 'manufacturer_id #f)))
+              m))
+  (cond ((not m)
+         (format "~a/~a" manufacturer product))
+        ((not product)
+         (define mname (hash-ref m 'name (lambda () (~a manufacturer))))
+         (if antdev
+             (format "~a ~a" mname (ant-device-name antdev))
+             mname))
+        (#t
+         (let ((p (for/first ([p (in-list (hash-ref m 'products))]
+                              #:when
+                              (let ((id (hash-ref p 'product_id '())))
+                                (if (list? id) (member product id) (equal? product id))))
+                    p)))
+           (define (default-name)
+             (let ((mname (hash-ref m 'name (lambda () (~a manufacturer)))))
+                 (if antdev
+                     (format "~a ~a (~a)" mname (ant-device-name antdev) product)
+                     (format "~a (~a)" mname product))))
+           (if p
+               (hash-ref p 'name default-name)
+               (default-name))))))
+
 (define (fit-get-device-name device-info)
   ;; Return a convenient device name from a DEVICE-INFO record.  This function
   ;; is somewhat simplistic and will need to be made more generic, w.r.t
   ;; mapping manufacturer, product to actual product names.
-
   (let ((manufacturer (dict-ref device-info 'manufacturer #f))
         (product (dict-ref device-info 'product #f))
         (antdev (or (dict-ref device-info 'ant-device-type #f)
                     (dict-ref device-info 'antplus-device-type #f))))
-    (cond ((eq? antdev 'stride-speed-distance) "Footpod")
-          ((eq? antdev 'bike-speed-cadence) "Bike Speed-Cadence Sensor")
-          ((eq? antdev 'bike-cadence) "Bike Cadence Sensor")
-          ((eq? antdev 'bike-speed) "Bike Speed Sensor")
-          ;; NOTE: check for a HRM-RUN sensor by manufacturer+product, as the
-          ;; antdev reports it as a simple heart rate monitor.
-          ((or (and (eq? manufacturer 'garmin) (eq? product 'hrm-run))
-               (eq? product 'hrm-run-single-byte-product-id))
-           "Heart Rate Monitor (HRM-RUN)")
-          ((and (eq? manufacturer 'garmin) (eq? product 'hrm4))
-           "Heart Rate Monitor (HRM4)")
-          ((and (eq? manufacturer 'garmin)
-                (member product '(vector vector_s vector2 vector2_s))
-                (eq? antdev 'bike-power))
-           "Garmin Vector (Bike Power Meter)")
-          ((eq? antdev 'heart-rate) "Heart Rate Monitor")
-          ((and (eq? manufacturer 'garmin) (eq? product 'fr310xt)) "Garmin Forerunner 310XT")
-          ((and (eq? manufacturer 'garmin) (eq? product 'fr920xt)) "Garmin Forerunner 920XT")
-          ((and (eq? manufacturer 'garmin) (eq? product 'swim)) "Garmin Swim")
-          ((eq? antdev 'bike-power) "Power Meter")
-          (#t (format "~a/~a/~a" manufacturer product antdev)))))
+    (if (not manufacturer)
+        (ant-device-name antdev)
+        (fit-device-name manufacturer product antdev))))
 
 
 ;;..................................................... fit file writing ....

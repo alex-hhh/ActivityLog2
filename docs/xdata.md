@@ -141,7 +141,8 @@ default values are shown and any defaults could be omitted from the field.
     "fractional_digits" : 0,
     "histogram_bucket_slot" : 1,
     "inverted_mean_max" : false,
-    "missing_value" : 0
+    "missing_value" : 0,
+    "parent" : null
 }
 ```
 
@@ -194,6 +195,13 @@ default values are shown and any defaults could be omitted from the field.
   default of 0 is good for most cases, but the "false" value has the special
   meaning to remove missing values from processing altogether -- this needs to
   be set when 0 is a valid value, for example for the altitude series.
+
+* `parent` -- specifies which base series this field corresponds to and, if
+  specified, this xdata field will inherit all the defaults form that native
+  series.  There are only two meaningful values: "power" and "pace".  This
+  parameter is also useful for specifying that a series supports [Critical
+  Power](./critical-power.md) estimation (in fact it was added for this
+  reason).
 
 ### On changing values on the `xdata-defs.json` file
 

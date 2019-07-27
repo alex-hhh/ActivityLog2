@@ -26,7 +26,7 @@ jobs:
 
     - script: |
         bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-        bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+        bash ./etc/scripts/fetch.sh -C test "1lGGJf1DZSq-tBx9uR0983vpV-iZATlvh" # test-fit
       env:
         TESTDATAPW: $(TESTDATAPW)
       displayName: "(Maybe) Download Test Data"
@@ -44,6 +44,9 @@ jobs:
 
 # We run each test suite as a separate step as it looks nice in the Azure
 # Pipelines log.
+
+    - script: $(RACKET_DIR)/bin/raco test test/fit2-test.rkt
+      displayName: "Basic FIT file decoding tests (fit2-test)"
 
     - script: $(RACKET_DIR)/bin/raco test test/df-test.rkt
       displayName: "Test Data Frame (df-test)"
@@ -90,7 +93,7 @@ jobs:
 
     - bash: |
         bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-        bash ./etc/scripts/fetch.sh -C test "1s5de2Ij8Q-E7fDOwKzj0AB9CU5e3wWXY" # test-fit
+        bash ./etc/scripts/fetch.sh -C test "1lGGJf1DZSq-tBx9uR0983vpV-iZATlvh" # test-fit
       env:
         TESTDATAPW: $(TESTDATAPW)
       displayName: "(Maybe) Download Test Data"
@@ -106,6 +109,11 @@ jobs:
       displayName: "Build Application"
 
 # ................................................ Run Tests -- Windows ....
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files\Racket
+        raco test test/fit2-test.rkt
+      displayName: "Basic FIT file decoding tests (fit2-test)"
 
     - script: |
         set PATH=%PATH%;C:\Program Files\Racket
