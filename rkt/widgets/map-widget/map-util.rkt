@@ -35,7 +35,9 @@
          (struct-out map-tile)
          map-tile-equal?
          degrees->wind-rose
-         map-widget-logger)
+         map-widget-logger
+         zoom-level->mpp
+         mpp->zoom-level)
 
 ;; Logger used by the map widget to send various notification messages.  The
 ;; application should define a log-receiver to receive and display the
@@ -238,3 +240,21 @@
   (and (equal? (map-tile-zoom tile1) (map-tile-zoom tile2))
        (equal? (map-tile-x tile1) (map-tile-x tile2))
        (equal? (map-tile-y tile1) (map-tile-y tile2))))
+
+;; convert a zoom level to a "meters per pixel" value, this would be accurate
+;; at the equator, as under the mercantor projection, the meters per pixel
+;; value depends on the latitude.
+(: zoom-level->mpp (-> Positive-Integer Float))
+(define (zoom-level->mpp zoom-level)
+  (let ((n (expt 2 (+ 8 zoom-level))))
+    (/ (* 2 pi earth-radius) n)))
+
+;; convert a "meters per pixel" value to an approximate zoom level
+(: mpp->zoom-level (-> Float Positive-Integer))
+(define (mpp->zoom-level mpp)
+  (let ((n (fl/ (fl* (fl* 2.0 pi) earth-radius) mpp)))
+    ;; this conversion does not account for the fact that the mercantor
+    ;; projection is not uniform across the entire globe, as such the "meters
+    ;; per pixel" value would need to take latitude into account.  Instead we
+    ;; just subtract an extra 0.5 and truncate the result.
+    (max 1 (exact-truncate (fl- (fl/ (fllog n) (fllog 2.0)) 8.5)))))

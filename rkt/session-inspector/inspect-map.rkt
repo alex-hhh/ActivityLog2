@@ -169,8 +169,8 @@
            [callback (lambda (b e) (show-selected-lap-only (send b get-value)))])
       (set! zoom-slider
             (new slider% [parent p] [label "Zoom Level "]
-                 [min-value (get-min-zoom-level)]
-                 [max-value (get-max-zoom-level)]
+                 [min-value (min-zoom-level)]
+                 [max-value (max-zoom-level)]
                  [stretchable-width #f]
                  [min-width 200]
                  [style '(horizontal plain)]
@@ -192,7 +192,7 @@
                (send zoom-slider set-value zl)))
            [parent map-panel]))
 
-    (send map-view set-track-current-location #t)
+    (send map-view track-current-location #t)
 
     (define elevation-graph
       (let ((p (new horizontal-pane% [parent map-panel] [stretchable-height #f])))
@@ -204,8 +204,7 @@
 
     (define (on-hover x)
       (send elevation-graph draw-marker-at x)
-      (send map-view set-current-location (and x (lookup-position data-frame x)))
-      )
+      (send map-view current-location (and x (lookup-position data-frame x))))
 
     (define selected-lap #f)
     (define selected-lap-data #f)
@@ -223,7 +222,7 @@
           (highlight-lap selected-lap-data))))
 
     (define (set-zoom-level v)
-      (send map-view set-zoom-level v))
+      (send map-view zoom-level v))
 
     (define (resize-to-fit)
       (send map-view resize-to-fit))
@@ -304,7 +303,7 @@
       (set! export-file-name #f)
       (send elevation-graph set-data-frame df)
       (send elevation-graph set-x-axis axis-distance)
-      (send map-view clear-items)
+      (send map-view clear)
       (send info-message set-label
             (if (allow-tile-download) "" "Map tile download disabled"))
 
