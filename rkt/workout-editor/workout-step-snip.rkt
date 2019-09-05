@@ -13,8 +13,9 @@
 ;; more details.
 
 (require racket/class
+         racket/draw
          "workout-step-snip-base.rkt"
-         "embedded-snip-button.rkt"
+         "../widgets/esc-controls.rkt"
          "wkstep-editor.rkt"
          "pict-util.rkt"
          "wkstep.rkt")
@@ -39,10 +40,15 @@
      [snip-class workout-step-snip-class]
      [pict (make-step-pict data)])
 
-    (let ((edit-button (new embedded-snip-button%
+    (let ((edit-button (new esc-button%
                             [parent-snip this]
-                            [glyph 'menu]
-                            [size button-size]
+                            [label 'menu]
+                            [width button-size]
+                            [height button-size]
+                            [color #f] [disabled-color #f] ; make the background transparent
+                            [text-color (make-object color% #x2f #x4f #x4f)]
+                            [hover-color (make-object color% #xda #xa5 #x20)]
+                            [pushed-color (make-object color% #xee #xe8 #xaa)]
                             [callback (lambda () (on-edit))])))
       (send this add-additional-button edit-button))
 

@@ -13,9 +13,10 @@
 ;; more details.
 
 (require racket/class
+         racket/draw
          "pict-util.rkt"
          "workout-step-snip-base.rkt"
-         "embedded-snip-button.rkt")
+         "../widgets/esc-controls.rkt")
 
 (provide workout-repeat-snip%
          workout-repeat-end-snip%)
@@ -61,20 +62,28 @@
       (send this refresh-pict))
 
     (send this add-additional-button
-          (new embedded-snip-button%
+          (new esc-button%
                [parent-snip this]
-               [glyph 'minus]
-               [size button-size]
-               [callback on-decrement]
-               [dark-background? #t]))
+               [label 'plus]
+               [width button-size]
+               [height button-size]
+               [callback on-increment]
+               [color #f] [disabled-color #f] ; make the background transparent
+               [text-color (make-object color% #xff #xfa #xcd)]
+               [hover-color (make-object color% #xda #xa5 #x20)]
+               [pushed-color (make-object color% #xee #xe8 #xaa)]))
 
     (send this add-additional-button
-          (new embedded-snip-button%
+          (new esc-button%
                [parent-snip this]
-               [glyph 'plus]
-               [size button-size]
-               [callback on-increment]
-               [dark-background? #t]))
+               [label 'minus]
+               [width button-size]
+               [height button-size]
+               [callback on-decrement]
+               [color #f] [disabled-color #f] ; make the background transparent
+               [text-color (make-object color% #xff #xfa #xcd)]
+               [hover-color (make-object color% #xda #xa5 #x20)]
+               [pushed-color (make-object color% #xee #xe8 #xaa)]))
 
     (define/override (make-pict nesting-level)
       (make-repeat-pict-top times nesting-level))

@@ -15,7 +15,7 @@
 (require racket/gui/base
          racket/class
          pict
-         "embedded-snip-button.rkt")
+         "../widgets/esc-controls.rkt")
 
 (provide define-snip-class
          workout-step-snip-base%
@@ -78,16 +78,22 @@
                     button-spacing button-size
                     (* (length buttons) (+ button-spacing button-size))))
       (set! buttons (cons button buttons))
-      (send button set-position bx by))
+      (send button position bx by))
     
     (when show-close-button?
       ;; A close button (shown only when show-close-button? is #t) allows
       ;; deleting this snip from the pasteboard.
-      (let ((close-button (new embedded-snip-button%
+      (let ((close-button (new esc-button%
                                [parent-snip this]
                                [callback (lambda () (request-delete))]
-                               [size button-size]
-                               [dark-background? dark-background?])))
+                               [width button-size]
+                               [height button-size]
+                               [text-color (if dark-background?
+                                               (make-object color% #xff #xfa #xcd)
+                                               (make-object color% #x2f #x4f #x4f))]
+                               [color #f] [disabled-color #f] ; make the background transparent
+                               [hover-color (make-object color% #xda #xa5 #x20)]
+                               [pushed-color (make-object color% #xee #xe8 #xaa)])))
         (add-additional-button close-button)))
 
     ;; Construct a new pict to be displayed as the contents of this snip.
