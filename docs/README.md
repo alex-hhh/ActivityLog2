@@ -20,13 +20,11 @@ This can be downloaded from "http://racket-lang.org/".  ActivityLog2 is build
 and tested using the latest Racket version and previous versions may or may
 not work.
 
-### Inno Setup
+### Installer (optional)
 
-To create a windows installer you will need to install [Inno
-Setup](http://www.jrsoftware.org/isinfo.php).  This is optional.
-
-If Inno Setup is installed, the build script will create an installed by
-compiling the [etc/scripts/setup.iss](../etc/scripts/setup.iss) file.
+For creating a Windows installer, see the documentation in the [scripts
+folder][../etc/scripts/README.md], this is not needed if you only want to
+build and run the application on your local machine.
 
 ## API Keys for web services
 

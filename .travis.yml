@@ -33,7 +33,7 @@ env:
 
     - secure: "UrtMaEd9RcXMSEaOK/0VJh7W5L1MIAIjcZnh38pHt/xDIRDCXhMNxkMCS6ra00UwrFaw1l3VcI5mNYWY1JP6Fct1LbU2AY+sKoNNkld5OigNUrx1eXhtzXy8a1T0gX0kJhWvPVAActRwnaWjmhUblH1UAOWOvfcX4laekAVXbSJOVCBKSQl7HNl0xJBm0TriAZtWg+pumTG93e2+3hza6cWQ0tJHqn1kwBmD6aKTJLpd05IU3g6bl/+4cOGosnOaD8L/fDjA51Hl5kwHXPxTrNkoLqRdrCfX+q5vF9D6qG6VdS4lxiNKDTCvnKQ8TZXsvF+WIvIaQSR8CrqqO5pfZWHQNkMJ6jIFrLrV77xx5fa4wWamOgeoZ2GhkXjlg/0qVTVU30h4qZbijbP7byyyErLKujklIYJPgRcgp8ok7pMs4qyqMK7lWyrwYQ7lc/e0PvS/stz8tGSVMboHsVFcP1IlQHAaQJK7Nlk3Pzxktx9CtOHOn/DW7Bw+eRd/zF24GqZKBwxB5VbgBWxpPfukWUwejo/uIevMGGSDnPOmNXvWeQL0LJ8C6qKUSfaH9+5YGwkev46MH41KyWfyekqjbASxNx3MU7SXeFrwT/5jQVENhD/zAUVMVk4Nr6YmAWm1iD66RvpJ/Y3lHn0roQ3CUVKWsHR/l5cNd8SYx5RT7nU="
   matrix:
-    - RACKET_VERSION=7.1
+    - RACKET_VERSION=7.4
     - RACKET_VERSION=HEADCS
 matrix:
   allow_failures:
@@ -41,6 +41,8 @@ matrix:
     - env: RACKET_VERSION=HEADCS
     - env: RACKET_VERSION=RELEASE
   fast_finish: true
+services:
+  - xvfb
 before_install:
   - bash ./etc/scripts/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
@@ -51,7 +53,7 @@ before_script:
   # actually opened.  It takes a short while for the xvfb to start, but since
   # it is only needed after the build, we don't sleep here (the download test
   # data + build take about 6 minutes currently).
-  - bash -e /etc/init.d/xvfb start
+  - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16
   - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
   - bash ./etc/scripts/fetch.sh -C test "1lGGJf1DZSq-tBx9uR0983vpV-iZATlvh" # test-fit
 script:

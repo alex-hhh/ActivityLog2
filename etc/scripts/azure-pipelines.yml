@@ -10,7 +10,7 @@ jobs:
 
     variables:
       RACKET_DIR: $(Agent.BuildDirectory)/racket
-      RACKET_VERSION: 7.3
+      RACKET_VERSION: 7.4
       DISPLAY: :99.0
       PLTSTDERR: 'error warning@optimizer'
 
@@ -75,7 +75,7 @@ jobs:
     variables:
 
       # RACKET_DIR: $(Agent.BuildDirectory)\racket
-      RACKET_VERSION: 7.3
+      RACKET_VERSION: 7.4
       PLTSTDERR: 'error warning@optimizer'
 
     steps:
@@ -158,6 +158,21 @@ jobs:
     - task: DownloadSecureFile@1
       inputs:
         secureFile: al2_sign_sec.asc
+
+    # Update the version, product name and description in the resulting
+    # executable using verpatch.exe, than create an installer using Inno
+    # Setup.  The script below reads the version from version.txt, and it is
+    # important that the first line in that file contains no spaces
+
+    - script: |
+        set PATH=%PATH%;C:\Program Files (x86)\Inno Setup 5
+        set /p APP_VERSION=<version.txt
+        set V=%APP_VERSION%.%BUILD_BUILDID%
+        set D=ActivityLog2 - Analyze Swim Bike and Run Data
+        set P=ActivityLog2
+        etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %V%
+        iscc /DMyAppVersion=%V% etc\scripts\install.iss
+      displayName: "Creating Installer"
 
     - bash: |
         bash ./etc/scripts/sign-release.sh

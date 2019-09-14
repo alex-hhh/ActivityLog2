@@ -1,10 +1,6 @@
 This directory contains scripts used for continuous integration builds and for
 building an installer on Windows.  The scripts are:
 
-* `install.iss` -- this is the Inno Setup file used to build the ActivityLog2
-  installer on Windows.  An installer is automatically built by the
-  "build.rkt" script if Inno is found on the current machine.
-
 * `install-racket.sh` -- this is a script that downloads and installs Racket
   on a Windows machine.  It is based on a script originally by Greg
   Hendershott from https://github.com/greghendershott/travis-racket, but has
@@ -20,11 +16,23 @@ building an installer on Windows.  The scripts are:
   RACKET_DIR seems to be ignored by the racket installer itself when running
   on Azure Pipelines
 
-* `install-inno-setup.ps` -- this script will install Inno Setup, it can
-  currently install only a specific version in the default location.  Given
-  that the Inno setup site does not support high amounts of traffic, the
-  installer was placed on Google Drive and this script will download it from
-  there.
+* `install-inno-setup.ps1` -- this script will install [Inno
+  Setup](http://www.jrsoftware.org/isinfo.php), it can currently install only
+  a specific version in the default location.  Given that the Inno setup site
+  does not support high amounts of traffic, the installer was placed on Google
+  Drive and this script will download it from there.
+
+* `install.iss` -- this is the Inno Setup file used to build the ActivityLog2
+  installer on Windows.  The setup file will build an installer with version 0
+  if run in the Inno Setup GUI, you'll need to pass the version as a command
+  line parameter to the inno setup compiler, see the azure-pipelines.yml for
+  the actual commands to build the installer.
+
+* `verpatch.exe` is a command line tool for adding and editing the version
+  information of Windows executable files (applications, DLLs, kernel drivers)
+  without rebuilding the executable.  It is used in azure-pipelines.yml to
+  update the version number and description in the ActivityLog2 executable.
+  The source for this utility is here: https://github.com/alex-hhh/ddverpatch
 
 * `fetch.sh` -- this script will download and decrypt test data used by the
   unit tests.  It can be used for both Linux and Windows builds (git on
