@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -239,11 +239,7 @@
 
     (define/public (interactive-setup parent)
       (maybe-initialize)
-      (if (send trend-chart interactive-setup parent)
-          (begin
-            (refresh-chart #t)
-            #t)
-          #f))
+      (send trend-chart interactive-setup parent))
 
     (define/public (get-restore-data)
       ;; If the trend chart was not created, just return the previous restore
@@ -396,11 +392,12 @@
       (let ((n (send trend-charts-panel get-selection)))
         (when n
           (let ((c (list-ref trend-charts n)))
-            (send c interactive-setup parent)
-            (let ((nname (send c get-name))
-                  (ntitle (send c get-title)))
-              (send trend-charts-panel set-item-label n nname)
-              (send title-field set-label ntitle))))))
+            (when (send c interactive-setup parent)
+              (let ((nname (send c get-name))
+                    (ntitle (send c get-title)))
+                (send c refresh-chart #t)
+                (send trend-charts-panel set-item-label n nname)
+                (send title-field set-label ntitle)))))))
 
     (define (on-move-left)
       (define sel (send trend-charts-panel get-selection))

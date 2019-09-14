@@ -1,7 +1,7 @@
 #lang racket/base
 ;; plot-util.rkt -- plot helpers and utilities
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -184,8 +184,8 @@
     ;; Adjust the coordinates X Y such that the snip is placed inside the
     ;; canvas.
     (let-values (((width height) (send canvas get-size)))
-      (let ((adjusted-x (max 0 (min x (- width (snip-width snip)))))
-            (adjusted-y (max 0 (min y (- height (snip-height snip))))))
+      (let ((adjusted-x (max 0 (min x (- width (snip-width snip) 20))))
+            (adjusted-y (max 0 (min y (- height (snip-height snip) 20)))))
         (send editor move-to snip adjusted-x adjusted-y)))))
 
 ;; Convert the X position received by the hover callback in a histogram plot
@@ -261,7 +261,6 @@
   (class pasteboard%
     (define writable? #t)
     (define main-snip #f)
-    (define floating-snips '())
     ;; Message to be shown when there is no main snip in the canvas.
     (define no-main-snip-message #f)
     (define message-font
@@ -275,7 +274,11 @@
     (define/augment (can-load-file? filename format) writable?)
     (define/augment (can-save-file? filename format) writable?)
     (define/augment (can-move-to? snip x y dragging?)
-      (or (not dragging?) (not (eq? snip main-snip))))
+      (cond ((eq? snip main-snip)
+             ;; main snip can be moved only when the pasteboard% is writable
+             writable?)
+            ;; Other snips can be moved at will...
+            (#t #t)))
     (define/override (can-do-edit-operation? op [recursive? #t])
       (case op
         [(copy select-all)  #t]
@@ -341,8 +344,19 @@
     (define/public (get-snip) snip)
 
     (define/override (on-size w h)
+      (super on-size w h)
       (update-snip w h)
-      (super on-size w h))
+      ;; Loop over all the snips in the paste board, skipping the main snip,
+      ;; and call `move-snip-to` on their current location -- this will ensure
+      ;; all snips are moved inside the visible area of the editor.
+      (let loop ([s (send pb find-first-snip)])
+        (when s
+          (unless (eq? snip s)          ; not the main snip
+            (let ([x (box 0)]
+                  [y (box 0)])
+              (send pb get-snip-location s x y)
+              (move-snip-to s (cons (unbox x) (unbox y)))))
+          (loop (send s next)))))
 
     (define (update-snip w h)
       (when snip
@@ -417,8 +431,11 @@
       (send pb set-background-message msg)
       (send this refresh))
 
-    (send this lazy-refresh #t)))
-
+    (send this lazy-refresh #t)
+    ;; disable mouse wheel scroll -- which we don't use -- so the mouse wheel
+    ;; events are passed on to the snips.  The map-snip% for the
+    ;; trends-heatmap will use these events to zoom the map in and out.
+    (send this wheel-step #f)))
 
 (define (plot-to-canvas renderer-tree canvas
                         #:x-min [x-min #f] #:x-max [x-max #f]

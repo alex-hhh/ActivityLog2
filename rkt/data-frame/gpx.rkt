@@ -2,7 +2,7 @@
 ;; gpx.rkt -- read and write GPX files from data frames
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -278,7 +278,7 @@
   (define-values
     (timestamp distance)
     (for/fold ([timestamp #f] [distance #f])
-              (([plat plon ts] (in-data-frame df '("lat" "lon" "timestamp"))))
+              (([plat plon ts] (in-data-frame df "lat" "lon" "timestamp")))
       (if (and plat plon)
           (let ((dst (map-distance/degrees plat plon lat lon)))
             (if (or (not timestamp) (< dst distance))
