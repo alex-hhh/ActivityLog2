@@ -176,17 +176,22 @@
              (cons (unbox x) (unbox y))))))
 
 ;; Move SNIP to LOCATION, adjusting it as necessary to remain fully visible
-;; inside the canvas.  Assumes the SNIP is added to an editor.
+;; inside the canvas.  Assumes the SNIP is added to an editor.  NOTE: this
+;; method will do nothing if the snip is not assigned to a snip admin and
+;; therefore it has no editor.
 (define (move-snip-to snip location)
   (match-let (((cons x y) (or location (cons 50 50))))
-    (define editor (send (send snip get-admin) get-editor))
-    (define canvas (send editor get-canvas))
-    ;; Adjust the coordinates X Y such that the snip is placed inside the
-    ;; canvas.
-    (let-values (((width height) (send canvas get-size)))
-      (let ((adjusted-x (max 0 (min x (- width (snip-width snip) 20))))
-            (adjusted-y (max 0 (min y (- height (snip-height snip) 20)))))
-        (send editor move-to snip adjusted-x adjusted-y)))))
+    (define admin (send snip get-admin))
+    (when admin
+      (define editor (send admin get-editor))
+      (when editor
+        (define canvas (send editor get-canvas))
+        ;; Adjust the coordinates X Y such that the snip is placed inside the
+        ;; canvas.
+        (let-values (((width height) (send canvas get-size)))
+          (let ((adjusted-x (max 0 (min x (- width (snip-width snip) 20))))
+                (adjusted-y (max 0 (min y (- height (snip-height snip) 20)))))
+            (send editor move-to snip adjusted-x adjusted-y)))))))
 
 ;; Convert the X position received by the hover callback in a histogram plot
 ;; back to the series and the slot withing that series.  SKIP and GAP are the

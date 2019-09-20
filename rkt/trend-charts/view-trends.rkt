@@ -33,7 +33,8 @@
  "trends-bavg.rkt"
  "trends-hist.rkt"
  "trends-scatter.rkt"
- "trends-ae.rkt")
+ "trends-ae.rkt"
+ "trends-heatmap.rkt")
 
 (provide view-trends%)
 
@@ -50,71 +51,58 @@
 (define-runtime-path trends-hist-file "../../img/trends/trends-hist.png")
 (define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
 (define-runtime-path trends-ae-file "../../img/trends/trends-ae.png")
+(define-runtime-path trends-hm-file "../../img/trends/trends-hm.png")
 
 ;; A trends chart declaration.  Contains some description and a sample image,
 ;; plus the class to be instantiated for the actual trends chart.
-(struct tdecl
-  (name
-   tag
-   class
-   sample-image
-   description))
+(struct tdecl (name tag class sample-image description))
 
 (define chart-types
   (sort
    (list
     (tdecl
-     "Body Weight" 'bw bw-trends-chart%
-     trends-bw-file
-     "Plot body weight over time")
+     "Body Weight" 'bw bw-trends-chart% trends-bw-file
+     "Plot body weight over time.")
 
     (tdecl
-     "Traning Volume (multisport)" 'trivol trivol-trends-chart%
-     trends-trivol-file
-     "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength)")
+     "Traning Volume (multisport)" 'trivol trivol-trends-chart% trends-trivol-file
+     "Show training volume (time, distance, or number of activities) over time for triathlon activities (swim, bike, run and strength.)")
 
     (tdecl
-     "Traning Volume" 'vol vol-trends-chart%
-     trends-vol-file
-     "Show training volume (time, distance, or number of activities) over time for an activity type"
-     )
+     "Traning Volume" 'vol vol-trends-chart% trends-vol-file
+     "Show training volume (time, distance, or number of activities) over time for an activity type.")
 
     (tdecl
-     "Time in Zone" 'tiz tiz-trends-chart%
-     trends-tiz-file
+     "Time in Zone" 'tiz tiz-trends-chart% trends-tiz-file
      "Show time spent in each heart rate zone for a selected activity type over time")
 
     (tdecl
-     "Performance" 'pmc pmc-trends-chart%
-     trends-pmc-file
+     "Performance" 'pmc pmc-trends-chart% trends-pmc-file
      "Plot form, fitness and fatigue over time.")
 
     (tdecl
-     "Aerobic Efficiency" 'ae ae-trends-chart%
-     trends-ae-file
+     "Aerobic Efficiency" 'ae ae-trends-chart% trends-ae-file
      "Plot Aerobic Efficiency over time. For running this is the ratio of heart rate to speed, for cycling it is the ratio of heart rate to power.")
 
     (tdecl
-     "Training Times" 'tt tt-trends-chart%
-     trends-tt-file
-     "Plot the time of day over weekday when each activity occured.")
+     "Training Times" 'tt tt-trends-chart% trends-tt-file
+     "Plot the time of day over weekday when each activity occurred.")
 
     (tdecl
-     "Mean Max" 'bavg mmax-trends-chart%
-     trends-mmax-file
-     "Plot the mean maximal for a data series from selected activities.  Can also esitmate Critical Power or Critical Velocity.")
+     "Mean Max" 'bavg mmax-trends-chart% trends-mmax-file
+     "Plot the mean maximal for a data series from selected activities.  Can also estimate Critical Power or Critical Velocity.")
 
     (tdecl
-     "Histogram" 'hist hist-trends-chart%
-     trends-hist-file
-     "Plot a histogram for the data series from selected activities."
-     )
+     "Histogram" 'hist hist-trends-chart% trends-hist-file
+     "Plot a histogram for a data series from selected activities.")
 
     (tdecl
-     "Scatter Plot" 'scatter scatter-trends-chart%
-     trends-scatter-file
-     "Scatter Plot for two data series from selected activities."
-     )
+     "Scatter Plot" 'scatter scatter-trends-chart% trends-scatter-file
+     "Scatter Plot for two data series from selected activities.")
+
+    (tdecl
+     "Heatmap" 'heatmap heatmap-chart% trends-hm-file
+     "A Heat Map showing all the GPS tracks for selected activities.")
     )
    string<? #:key tdecl-name))
 

@@ -756,7 +756,12 @@
                       (+ dx (- (* x tile-size) xofs))
                       (+ dy (- (* y tile-size) yofs)))))))
 
-        (when (or request-redraw? (> (get-download-backlog) 0))
+        ;; NOTE: this is likely incorrect: we only start the refresh timer if
+        ;; `allow-tile-download` is #t -- this is done to make the
+        ;; trends-chart tests pass, but it is likely incorrect, as we need to
+        ;; refresh even when tiles are retrieved from disk.
+        (when (and (allow-tile-download)
+                   (or request-redraw? (> (get-download-backlog) 0)))
           (send redraw-timer start 100))
 
         (send dc set-smoothing old-smoothing)))
