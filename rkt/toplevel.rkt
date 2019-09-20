@@ -146,24 +146,6 @@
     (let ((e (get-sql-query-exporter)))
       (send m enable (not (eq? e #f)))))
 
-  ;; Return the GUI object that can generate heat maps.  We search from the
-  ;; focus window through the parents for an object that has an
-  ;; 'interactive-generate-heatmap' method.
-  (define (get-heatmap-generator)
-    (define (can-generate-heatmap? o)
-      (object-method-arity-includes? o 'interactive-generate-heatmap 0))
-    (define (search o)
-      (if (can-generate-heatmap? o)
-          o
-          (let ((parent (send o get-parent)))
-            (if parent (search parent) #f))))
-    (let ((w (send (send toplevel get-frame) get-focus-window)))
-      (if w (search w) #f)))
-
-  (define (generate-heatmap-demand-cb m)
-    (let ((e (get-heatmap-generator)))
-      (send m enable (not (eq? e #f)))))
-
   (define file-menu (new menu% [parent menu-bar] [label "&File"]))
 
   (new menu-item%
@@ -219,14 +201,6 @@
         (lambda (m e)
           (let ((w (get-sql-query-exporter)))
             (when w (send w interactive-export-sql-query))))])
-
-  (new menu-item%
-       [parent file-menu] [label "Generate HeatMap ..."]
-       [demand-callback generate-heatmap-demand-cb]
-       [callback
-        (lambda (m e)
-          (let ((w (get-heatmap-generator)))
-            (when w (send w interactive-generate-heatmap))))])
 
   (new separator-menu-item% [parent file-menu])
 

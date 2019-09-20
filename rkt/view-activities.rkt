@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,7 +26,6 @@
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"
-         "heatmap.rkt"
          "sport-charms.rkt"
          "weather.rkt"
          "widgets/main.rkt")
@@ -159,9 +158,7 @@ select X.session_id
     (define pane (new (class vertical-panel%
                         (init)(super-new)
                         (define/public (interactive-export-sql-query)
-                          (on-interactive-export-sql-query))
-                        (define/public (interactive-generate-heatmap)
-                          (on-interactive-generate-heatmap)))
+                          (on-interactive-export-sql-query)))
                       [parent parent]
                       [alignment '(left center)]))
 
@@ -775,11 +772,6 @@ select X.session_id
                     duration-filter labels-filter equipment-filter)))
         (send (get-sql-export-dialog) 
               show-dialog (send pane get-top-level-window) query)))
-
-    (define/public (on-interactive-generate-heatmap)
-      (let ((session-ids (for/list ((d (get-text-filtered-data data text-filter)))
-                           (db-row-ref d "session_id" headers 0))))
-        (interactive-generate-heatmap database session-ids)))
 
     
     ;;................................. the activity-operations<%> interface ....
