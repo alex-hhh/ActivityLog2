@@ -17,8 +17,8 @@
  where S.id = ?")
 
 (define (pp-session-info df)
-  (define sid (send df get-property 'session-id))
-  (define sport (send df get-property 'sport))
+  (define sid (df-get-property df 'session-id))
+  (define sport (df-get-property df 'sport))
   (match-define
     (vector start-time name temperature dew-point humidity wind-speed wind-gusts wind-direction)
     (query-row (current-database) session-info-sql sid))
@@ -67,7 +67,7 @@
   (printf "    Z5c start: ~a~%" (pace->string (* 1.11111 thspd) #t)) ; 90% of TPACE
   (newline))
 
-(define (pp-power-zones ftp)
+#;(define (pp-power-zones ftp)
   (printf "Power zones:~%")
   (printf "    Z1 start: ~a~%" 0)
   (printf "    Z2 start: ~a~%" (exact-round (* 0.55 ftp)))
@@ -75,6 +75,28 @@
   (printf "    Z4 start: ~a~%" (exact-round (* 0.90 ftp)))
   (printf "    Z5 start: ~a~%" (exact-round (* 1.05 ftp)))
   (printf "    Z6 start: ~a~%" (exact-round (* 1.20 ftp))))
+
+(define (pp-power-zones ftp)
+  (define coast 0)
+  (define recovery 1)
+  (define endurance (exact-round (* 0.55 ftp)))
+  (define tempo (exact-round (* 0.76 ftp)))
+  (define sweetspot (exact-round (* 0.88 ftp)))
+  (define threshold (exact-round (* 0.95 ftp)))
+  (define vo2max (exact-round (* 1.06 ftp)))
+  (define anaerobic (exact-round (* 1.21 ftp)))
+  (define max (exact-round (* 2.5 ftp)))
+
+  (printf "Power zones:~%")
+  (printf "    Z0 Coast:           ~a -- ~a~%" coast recovery)
+  (printf "    Z1 Recovery:        ~a -- ~a~%" recovery endurance)
+  (printf "    Z2 Endurance:       ~a -- ~a~%" endurance tempo)
+  (printf "    Z3 Tempo:           ~a -- ~a~%" tempo sweetspot)
+  (printf "    Z4 Sweetspot:       ~a -- ~a~%" sweetspot threshold)
+  (printf "    Z5 Threshold (FTP): ~a -- ~a~%" threshold vo2max) 
+  (printf "    Z6 VO2Max:          ~a -- ~a~%" vo2max anaerobic)
+  (printf "    Z7 Anaerobic:       ~a -- ~a~%" anaerobic max))
+
 
 ;; https://www.trainingpeaks.com/blog/joe-friel-s-quick-guide-to-setting-zones/
 (define (fthr/run sid)
@@ -132,7 +154,7 @@
   (printf "Best 20min Power:      ~a    @~a~%"
           (power->string pwr #t)
           (duration->string pos2))
-  (define ftp (exact-round (* 0.95 pwr)))
+  (define ftp (exact-floor (* 0.95 pwr)))
   (printf "FTP estimate:          ~a    (95% of 20min best)~%"
           (power->string ftp #t))
   (newline)
