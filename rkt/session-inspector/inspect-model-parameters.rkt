@@ -3,7 +3,7 @@
 ;; apply to the current session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,9 @@
          "../dbapp.rkt"
          "../fmt-util.rkt"
          "../sport-charms.rkt"
-         "../data-frame/df.rkt")
+         "../data-frame/df.rkt"
+         "../session-df/native-series.rkt"
+         (prefix-in ct: "../color-theme.rkt"))
 
 (provide model-parameters-panel%)
 
@@ -49,6 +51,14 @@
     (send delta set-size-add 2)
     (send delta set-delta-foreground header-color)
     (send delta set-weight-on 'normal)
+    delta))
+
+;; style to align elements on a line on the top margin -- used to line up the
+;; pict objects.
+(define top-align-style
+  (let ([delta (new style-delta%)])
+    (send delta set-alignment-off 'top)
+    (send delta set-alignment-on 'top)
     delta))
 
 (define bold-style
@@ -98,12 +108,51 @@ select VSZFS.zone_id, VSZFS.zone_metric_id, VSZ.valid_from, VSZ.valid_until
    and VSZ.zone_id = VSZFS.zone_id
 order by VSZFS.zone_metric_id" sid))
 
-;; Return the sport zone values for sport zone ZID (a SPORT_ZONE.id)
-(define (get-sport-zone-values db zid)
-  (query-list
-   db
-   "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
-   zid))
+(define (get-sport-zones db zone-id)
+  (for/list (([name value]
+              (in-query db "select zone_name, zone_value
+                              from SPORT_ZONE_ITEM
+                             where sport_zone_id = ?
+                             order by zone_number" zone-id)))
+    (list (if (sql-null? name) "" (~a name)) value)))
+
+(define pd-background (make-object color% #xff #xf8 #xdc 0.75))
+(define pd-item-color (make-object color% #x2f #x4f #x4f))
+(define pd-label-color (make-object color% #x77 #x88 #x99))
+(define pd-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+(define pd-title-face (cons pd-item-color pd-title-font))
+(define pd-item-face (cons pd-item-color pd-item-font))
+(define pd-label-face (cons pd-item-color pd-label-font))
+(define pd-header-font (send the-font-list find-or-create-font 16 'default 'normal 'bold))
+(define pd-header-face (cons header-color pd-header-font))
+(define pd-sub-heading-face (cons pd-label-color pd-label-font))
+
+;; Return a PICT with a visual representation of sport ZONES (as returned by
+;; `get-sport-zones`).  FMT-FN is used to format zone values (for example when
+;; they are pace values)
+(define (zones-pict zones #:fmt-fn (fmt-fn (lambda (z) (~a (exact-round z)))))
+  (define items
+    (for/fold ([result (list (text "Color" pd-label-face)
+                             (text "Upper" pd-label-face)
+                             (text "Lower" pd-label-face)
+                             (text "Zone" pd-label-face))])
+              ([(item index) (in-indexed (in-list zones))]
+               [nitem (in-list (cdr zones))])
+      (match-define (list name start) item)
+      (match-define (list _ end) nitem)
+      (cons (colorize (disk 20) (cdr (list-ref (ct:zone-colors) index)))
+            (cons (text (fmt-fn end) pd-item-face)
+                  (cons (text (fmt-fn start) pd-item-face)
+                        (cons (text name pd-label-face)
+                              result))))))
+  (table 4
+         (reverse items)
+         (list lc-superimpose rc-superimpose rc-superimpose cc-superimpose)
+         cc-superimpose
+         20
+         10))
 
 ;; Return the critical power parameters (CP, W'Prime, Tau) and the validity
 ;; range that apply to a session identified by SID (a session id)
@@ -115,68 +164,27 @@ order by VSZFS.zone_metric_id" sid))
  where VCPFS.session_id = ?
    and VCP.cp_id = VCPFS.cp_id" sid))
 
-;; Return a PICT with a visual representation of sport ZONES (as returned by
-;; `get-sport-zone-values`).  The pict will be WIDTH x HEIGHT pixels.  FMT-FN
-;; is used to format zone values (for example when they are pace values)
-(define (zones-pict zones [width 600] [height 60]
-                    #:fmt-fn (fmt-fn (lambda (z) (~a (exact-round z)))))
-  (define start-pad 30)
-  (define end-pad 30)
-  (define top-height (exact-round (* height 0.25)))
-  (define bottom-height (exact-round (* height 0.25)))
-  (define middle-height (- height top-height bottom-height))
-  (define zone-width (- width end-pad start-pad))
-  
-  (let ((range (- (last zones) (first zones)))
-        (nzones (length zones)))
-    (define the-pict
-      (vc-append
-       (filled-rectangle
-        width top-height
-        #:draw-border? #f
-        #:color "white")
-       (apply
-        hc-append
-        (for/list ([zone zones]
-                   [nxt-zone (cdr zones)]
-                   [index nzones]
-                   #:when (>= zone 0))
-          (let ((label (format "Z~a" index))
-                (zlength (exact-round (* (/ (- nxt-zone zone) range) zone-width))))
-            (cc-superimpose
-             (filled-rectangle zlength middle-height
-                               #:draw-border? #f
-                               #:color (cdr (list-ref (zone-colors) index)))
-             (text label)))))
-       (filled-rectangle
-        width bottom-height
-        #:draw-border? #f
-        #:color "white")
-       ))
-
-    (define ypos start-pad)
-    
-    (for/list ([zone zones]
-               [nxt-zone (cdr zones)]
-               [index nzones]
-               #:when (>= zone 0))
-      (let ((zlength (exact-round (* (/ (- nxt-zone zone) range) zone-width)))
-            (label (text (fmt-fn nxt-zone))))
-        (set! ypos (+ ypos zlength))
-        (set! the-pict
-              (pin-over the-pict
-                        (exact-round (- ypos (/ (pict-width label) 2)))
-                        (if (even? index) 0 (+ top-height middle-height))
-                        label))))
-    the-pict))
-
 ;; Insert a "validity range" message into the editor.  FROM and TO are the
 ;; timestamps for the range.
 (define (insert-validity-range editor from to)
-  (insert-paragraph editor
-                    (format "Valid from ~a to ~a"
-                            (date-time->string from)
-                            (date-time->string to))))
+  (if (> to (- (current-seconds) 300))
+      ;; The validity SQL code for time zones will always generate a timestamp
+      ;; for the "to" part, and the last timezone will have the current time,
+      ;; so we can just discard that.
+      (insert-paragraph editor
+                        (format "Valid from ~a" (calendar-date->string from)))
+      (insert-paragraph editor
+                        (format "Valid from ~a to ~a"
+                                (calendar-date->string from)
+                                (calendar-date->string to)))))
+
+(define (validity-range->string from to)
+  (if (> to (- (current-seconds) 300))
+      ;; The validity SQL code for time zones will always generate a timestamp
+      ;; for the "to" part, and the last timezone will have the current time,
+      ;; so we can just discard that.
+      (format "Valid from ~a" (calendar-date->string from))
+      (format "Valid from ~a to ~a" (calendar-date->string from) (calendar-date->string to))))
 
 ;; Insert the sport zone information about the session SID (a session id),
 ;; SPORT is the sport type for the session.
@@ -189,35 +197,45 @@ order by VSZFS.zone_metric_id" sid))
         (begin
           (for ((zone zones))
             (match-define (vector zid zmetric valid-from valid-until) zone)
-            (define zvals (get-sport-zone-values (current-database) zid))
+            (define zvals (get-sport-zones (current-database) zid))
             (case zmetric
               ((1)
-               (insert-heading editor "Heart Rate Zones" header-style)
-               (insert-validity-range editor valid-from valid-until)
-               (insert-newline editor)
-               (send editor insert
-                     (new pict-snip% [pict (zones-pict zvals)]))
-               (insert-newline editor))
+               (let ((h (text "Heart Rate Zones (BPM)" pd-header-face))
+                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
+                     (z (zones-pict zvals)))
+                 (define p (inset (vl-append 10 h v z) 30))
+                 (let ((start-position (send editor last-position)))
+                   (send editor insert (new pict-snip% [pict p]))
+                   (send editor change-style top-align-style start-position (send editor last-position)))))
               ((2)
-               (insert-heading editor "Speed / Pace Zones" header-style)
-               (insert-validity-range editor valid-from valid-until)
-               (insert-newline editor)
-               (send editor insert
-                     (new pict-snip%
-                          [pict
-                           (zones-pict zvals #:fmt-fn
-                                       (cond
-                                         ((is-lap-swimming? sport) swim-pace->string)
-                                         ((is-runnig? sport) pace->string)
-                                         (#t speed->string)))]))
-               (insert-newline editor))
+               (let ((h (text (format "Speed / Pace Zones (~a)"
+                                      (if (eq? (al-pref-measurement-system) 'metric)
+                                          (cond ((is-lap-swimming? sport) "min/100m")
+                                                ((is-runnig? sport) "min/km")
+                                                (#t "km/h"))
+                                          (cond ((is-lap-swimming? sport) "min/100yd")
+                                                ((is-runnig? sport) "min/mile")
+                                                (#t "miles/h"))))
+                              pd-header-face))
+                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
+                     (z (zones-pict zvals
+                                    #:fmt-fn
+                                    (cond
+                                      ((is-lap-swimming? sport) swim-pace->string)
+                                      ((is-runnig? sport) pace->string)
+                                      (#t speed->string)))))
+                 (define p (inset (vl-append 10 h v z) 30))
+                 (let ((start-position (send editor last-position)))
+                   (send editor insert (new pict-snip% [pict p]))
+                   (send editor change-style top-align-style start-position (send editor last-position)))))
               ((3)
-               (insert-heading editor "Power Zones" header-style)
-               (insert-validity-range editor valid-from valid-until)
-               (insert-newline editor)
-               (send editor insert
-                     (new pict-snip% [pict (zones-pict zvals)]))
-               (insert-newline editor))))))))
+               (let ((h (text "Power Zones (watts)" pd-header-face))
+                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
+                     (z (zones-pict zvals)))
+                 (define p (inset (vl-append 10 h v z) 30))
+                 (let ((start-position (send editor last-position)))
+                   (send editor insert (new pict-snip% [pict p]))
+                   (send editor change-style top-align-style start-position (send editor last-position)))))))))))
 
 (define no-cp-text
   "No critical power or velocity parameters are defined for this session.")
@@ -226,51 +244,59 @@ order by VSZFS.zone_metric_id" sid))
 ;; (a session id), SPORT is the sport type for the session.
 (define (insert-critical-power-info editor sid sport)
 
-  (insert-heading
-   editor
-   (cond
-     ((is-runnig? sport) "Critical Velocity")
-     ((is-cycling? sport) "Critical Power")
-     ((is-swimming? sport) "Critical Velocity")
-     (#t "Critical Power")))
-    
-  (let ((cp-info (get-critical-power-for-session (current-database) sid)))
-    (if cp-info
-        (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
-          (let ((actual-tau (if (sql-null? tau) (/ wprime cp) tau))
-                (implicit-tau? (sql-null? tau)))
-            (cond
-              ((is-runnig? sport)
-               (insert-paragraph
-                editor
-                (format "CV: ~a; D': ~a meters; Tau ~a seconds~a"
-                        (pace->string cp #t)
-                        (short-distance->string wprime)
-                        (exact-round actual-tau)
-                        (if implicit-tau? " (implicit)" ""))))
-              ((is-cycling? sport)
-               (insert-paragraph
-                editor
-                (format "CP: ~a; D': ~a Joules; Tau ~a seconds~a"
-                        (power->string cp #t)
-                        (exact-round wprime)
-                        (exact-round actual-tau)
-                        (if implicit-tau? " (implicit)" ""))))
-              ((is-swimming? sport)
-               (insert-paragraph
-                editor
-                (format "CV: ~a; D': ~a meters; Tau ~a seconds~a"
-                        (swim-pace->string cp #t)
-                        (short-distance->string wprime)
-                        (exact-round actual-tau)
-                        (if implicit-tau? " (implicit)" "")))))))
-        (insert-paragraph editor no-cp-text))))
+  (define title
+    (cond
+      ((is-runnig? sport) "Critical Velocity")
+      ((is-cycling? sport) "Critical Power")
+      ((is-swimming? sport) "Critical Velocity")
+      (#t "Critical Power")))
+
+    (let ((cp-info (get-critical-power-for-session (current-database) sid)))
+      (if cp-info
+          (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
+            (let ((actual-tau (if (sql-null? tau) (/ wprime cp) tau))
+                  (implicit-tau? (sql-null? tau)))
+              (define cp-pict
+                (cond
+                  ((is-runnig? sport)
+                   (let ((items (list (text "CV" pd-label-face)
+                                      (text (pace->string cp #t) pd-item-face)
+                                      (text "D'" pd-label-face)
+                                      (text (short-distance->string wprime #t) pd-item-face)
+                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
+                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
+                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
+                  
+                  ((is-swimming? sport)
+                   (let ((items (list (text "CV" pd-label-face)
+                                      (text (swim-pace->string cp #t) pd-item-face)
+                                      (text "D'" pd-label-face)
+                                      (text (short-distance->string wprime #t) pd-item-face)
+                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
+                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
+                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
+                  (#t
+                   (let ((items (list (text "CP" pd-label-face)
+                                      (text (power->string cp #t) pd-item-face)
+                                      (text "W'" pd-label-face)
+                                      (text (format "~a joules" (exact-round wprime)) pd-item-face)
+                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
+                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
+                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))))
+              (let ((h (text title pd-header-face))
+                    (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
+                    (z cp-pict))
+                (define p (inset (vl-append 10 h v z) 30))
+                (let ((start-position (send editor last-position)))
+                  (send editor insert (new pict-snip% [pict p]))
+                  (send editor change-style top-align-style start-position (send editor last-position))))))
+          (insert-paragraph editor no-cp-text))))
 
 ;; Insert a "remarks" section into the editor, instructing the user on how to
 ;; edit or add sport zones or CP data.
 (define (insert-remarks editor)
   (insert-heading editor "Notes" sub-header-style)
-  (insert-inline-text editor "You can define or edit sport zones from the ")
+  (insert-inline-text editor "These are the sport zones and critical power parameters that apply to this activity.  You can define or edit sport zones from the ")
   (insert-inline-text editor "\"Athlete/Edit Sport Zones...\"" bold-style)
   (insert-inline-text editor " menu, and the critical power parameters from the ")
   (insert-inline-text editor "\"Athlete/Edit Critical Power...\"" bold-style)
@@ -304,7 +330,6 @@ order by VSZFS.zone_metric_id" sid))
         (if sid
             (begin
               (insert-sport-zone-info text sid sport)
-              (insert-newline text)
               (insert-critical-power-info text sid sport)
               (insert-newline text)
               (insert-remarks text))
