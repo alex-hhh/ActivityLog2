@@ -157,7 +157,7 @@ jobs:
 
     - task: DownloadSecureFile@1
       inputs:
-        secureFile: al2_sign_sec.asc
+        secureFile: al2_sign_sec.bin
 
     # Update the version, product name and description in the resulting
     # executable using verpatch.exe, than create an installer using Inno

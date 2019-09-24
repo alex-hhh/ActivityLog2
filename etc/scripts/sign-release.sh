@@ -17,7 +17,7 @@ if ! [ -d $ATMP ]; then
 fi
 
 PUBKEY=$ATMP/al2_sign_pub.asc
-SECKEY=$ATMP/al2_sign_sec.asc
+SECKEY=$ATMP/al2_sign_sec.bin
 
 if [ -r $PUBKEY ] && [ -r $SECKEY ]; then
     export GNUPGHOME=$ATMP/$BUILD_BUILDID.gnupg
