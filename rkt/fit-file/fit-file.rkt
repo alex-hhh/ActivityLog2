@@ -818,7 +818,19 @@
         (avg-left-ppp-end . ,(lambda (t)(extract-angle t 'avg-left-peak-pp 1)))
 
         (avg-right-ppp-start . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 0)))
-        (avg-right-ppp-end . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 1)))))
+        (avg-right-ppp-end . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 1)))
+
+        ;; Enhanced speed and altitude are just higher resolution fields in
+        ;; the FIT file, since we are not constrained by integer sizes, we use
+        ;; the highest resolution available
+        (speed . ,(lambda (t) (or (dict-ref t 'enhanced-speed #f) (dict-ref t 'speed #f))))
+        (max-speed . ,(lambda (t) (or (dict-ref t 'enhanced-max-speed #f) (dict-ref t 'max-speed #f))))
+        (avg-speed . ,(lambda (t) (or (dict-ref t 'enhanced-avg-speed #f) (dict-ref t 'avg-speed #f))))
+        (altitude . ,(lambda (t) (or (dict-ref t 'enhanced-altitude #f) (dict-ref t 'altitude #f))))
+        (max-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-max-altitude #f) (dict-ref t 'max-altitude #f))))
+        (min-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-min-altitude #f) (dict-ref t 'min-altitude #f))))
+
+        ))
 
     (define (process-fields record)
       ;; Convert some fields inside RECORD from the FIT representation to the

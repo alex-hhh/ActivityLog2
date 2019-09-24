@@ -55,7 +55,8 @@ before_script:
   # data + build take about 6 minutes currently).
   - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16
   - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-  - bash ./etc/scripts/fetch.sh -C test "1lGGJf1DZSq-tBx9uR0983vpV-iZATlvh" # test-fit
+  # https://drive.google.com/file/d/1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP/view?usp=sharing
+  - bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
 script:
   - racket build.rkt
   - raco test test/fit2-test.rkt

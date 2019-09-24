@@ -301,6 +301,22 @@ select count(*)
           (check-xdata-trackpoint-values db app-id field))))
      (do-basic-checks
       "./test-fit/f0026.fit" 20 6098)
+     (do-basic-checks
+      "./test-fit/f0027.fit" 30 4948
+      #:extra-df-checks
+      (lambda (df)
+        ;; These series were missing from the activities as they are provided
+        ;; by "enhanced fields".  Check that they are present.
+        (check-true (df-contains? df "spd"))
+        (check-true (df-contains? df "alt"))))
+     (do-basic-checks
+      "./test-fit/f0028.fit" 23 941
+      #:extra-df-checks
+      (lambda (df)
+        ;; These series were missing from the activities as they are provided
+        ;; by "enhanced fields".  Check that they are present.
+        (check-true (df-contains? df "spd"))
+        (check-true (df-contains? df "alt"))))
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
       ;; should only be recorded once...
