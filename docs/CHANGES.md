@@ -1,3 +1,59 @@
+This file contains a high level summary of changes in each released version of
+the application.  Each release is tagged, you can check the tag names using
+the command `git tag -l` in a checked out source and use `git log
+tag-1..tag-2` to find the detailed changes between two tags.  For example to
+find the changes between version 1.7.1 and 1.8.0 you can run:
+
+    git log v1.7.1..v1.8.0
+
+# Release 1.8.0
+
+* add support for enhanced altitude and speed records in FIT files -- newer
+  Garmin devices create FIT files with altitude and speed stored in these
+  types of records.
+
+* add support for reading compressed FIT files which some devices produce.
+
+* the application now contains a large database of device names and there's a
+  greater chance that the device will be correctly named when it is seen the
+  first time.  Existing devices will not be renamed, but the user can rename
+  these to anything they wish.
+
+* A new [HeatMap Trends
+  chart](https://alex-hhh.github.io/2019/09/interactive-heat-maps.html), this
+  fixes issue #7.
+
+* A new layout for the Model Parameters inspector page, ranges for sport zones
+  are more clearly identified
+
+* (Bug Fix) display a "No Data to Plot" message when attempting to display a
+  plot for a data series which does not exist in the activity.
+
+* More accurate detection of hill climb and descent sections in an activity.
+
+## Build Improvements
+
+Continuous Integration Build improvements -- this is more of a "behind the
+scenes" change, but has the following user visible changes:
+
+* A windows installer is now built for every changes pushed to the master
+  branch.  This is not however published as a release.
+
+* The version number produced by an Azure DevOps build now contains the build
+  number as the fourth value (e.g. 1.8.0.200).  The build number should always
+  change even if the same version is built a second time.
+
+* The windows installer is now signed with GnuPG.  This is an experimental
+  feature, but if you wish to verify the signature see [this wiki
+  page](https://github.com/alex-hhh/ActivityLog2/wiki/Signing-Releases).  Note
+  that Windows will still warn when attempting to install the application, as
+  I don't want to spend money purchasing a signing certificate for a hobby
+  project, sorry.
+
+* On windows, the application executable now contains a proper name and the
+  version number of the application.  This makes it easier to identify the
+  application in process explorer.
+
 # Release 1.7.1
 
 This is a bug fix release, fixing the following bugs:
@@ -29,11 +85,6 @@ This is a bug fix release, fixing the following bugs:
 
 * Fixed bug which displayed mouse hover information over plot legends, causing
   incorrect image re-draw.
-
-Other minor fixes, you can find the detailed log for the changes in this
-version using the command:
-
-    git log v1.6.1..v1.7.0
 
 # Release 1.6.0
 
