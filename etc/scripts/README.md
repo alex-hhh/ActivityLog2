@@ -47,8 +47,8 @@ building an installer on Windows.  The scripts are:
   were just generated and signed by me, so there is not much trust in them, as
   such, this is more of an exercise in how to sign build artifacts in Azure.
 
-* `azure-pipelines.yml` -- this is the Azure Pipelines build file for the
-  application.
+* `azure-pipelines.yml` and `azure-common.yml`-- these is the Azure Pipelines
+  build files for the application.
 
 ## Continuous Integration on Azure Pipelines
 
@@ -86,10 +86,7 @@ variable.
 **API Keys** -- On Windows, building the installer requires API keys for the
 Tunderforest mapping service and DarkSky weather data service.  These keys are
 stored in the Azure Pipelines account and mapped in this pipeline to the
-`AL2TFAPIKEY` and `AL2DSAPIKEY` variables.  The API keys could be used by he
-Linux build as well, but since no installer is built for this platform and the
-keys are not required by the tests, these keys don't matter on the Linux
-build.
+`AL2TFAPIKEY` and `AL2DSAPIKEY` variables.
 
 **Secret Variables** -- The `TESTDATAPW`, `AL2TFAPIKEY` and `AL2DSAPIKEY`
 variables are marked as secret and only mapped in the pipeline for builds from

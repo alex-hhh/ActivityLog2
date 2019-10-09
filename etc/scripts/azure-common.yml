@@ -1,0 +1,61 @@
+# Common build steps shared between the Linux and Windows builds, used by
+# azure-pipelines.yml.
+
+steps:
+
+  - script: racket build.rkt
+    env:
+      PLTSTDERR: 'error warning@optimizer'
+      AL2TFAPIKEY: $(AL2TFAPIKEY)
+      AL2DSAPIKEY: $(AL2DSAPIKEY)
+    displayName: Build Application
+
+  # Some of the tests require data files which are (1) large, (2) contain
+  # private information.  We download this data separately.  Note that the
+  # task below require the TESTDATAPW secret variable which will not be
+  # present on external pull requests.  The script will silently do nothing in
+  # that case, and the tests are programmed to silently skip if the data is
+  # not available.
+
+  # It is a pleasant surprise that this script runs unmodified on a Windows
+  # machine.  It means that the test data can be downloaded and the full test
+  # suite can be run on Windows.
+
+  - bash: |
+      bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
+      bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
+    env:
+      TESTDATAPW: $(TESTDATAPW)
+    displayName: (Maybe) Download Test Data
+
+  # On Linux, we need to start the virtual frame buffer, as the tests require
+  # a GUI (even if a virtual one)
+
+  - script: |
+      (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
+      echo "##vso[task.setvariable variable=display]:99.0"
+    displayName: Start Xvfb for DISPLAY=99.0
+    condition: eq(variables['Agent.OS'], 'Linux')
+
+  # These are the actual test runs
+
+  - script: raco test test/fit2-test.rkt
+    displayName: Basic FIT file decoding tests (fit2-test)
+
+  - script: raco test test/df-test.rkt
+    displayName: Test Data Frame (df-test)
+
+  - script: raco test test/db-test.rkt
+    displayName: Test Database Import (db-test)
+
+  - script: raco test test/db-upgrade-test.rkt
+    displayName: Test Database Upgrade (db-upgrade-test)
+
+  - script: raco test test/trends-test.rkt
+    displayName: Test Trends Chart (trends-test)
+
+  - script: raco test test/aggregate-test.rkt
+    displayName: Test Agregate Data (aggregate-test)
+
+  - script: raco test test/fit-test.rkt
+    displayName: Test File Import (fit-test)

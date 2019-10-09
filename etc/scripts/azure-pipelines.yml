@@ -9,147 +9,36 @@ jobs:
       vmImage: 'Ubuntu-16.04'
 
     variables:
-      RACKET_DIR: $(Agent.BuildDirectory)/racket
       RACKET_VERSION: 7.4
-      DISPLAY: :99.0
-      PLTSTDERR: 'error warning@optimizer'
+      RACKET_DIR: $(Agent.BuildDirectory)/racket
 
     steps:
-
-# .................................... Setup Build Environment -- Linux ....
-
-    - script: bash ./etc/scripts/install-racket.sh
-      displayName: 'Install Racket $(RACKET_VERSION)'
-
-    - script: (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
-      displayName: "Start Xvfb for DISPLAY=$(DISPLAY)"
-
     - script: |
-        bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-        bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
-      env:
-        TESTDATAPW: $(TESTDATAPW)
-      displayName: "(Maybe) Download Test Data"
+        bash ./etc/scripts/install-racket.sh
+        echo "##vso[task.setvariable variable=path]$(PATH):$(RACKET_DIR)/bin"
+      displayName: Install Racket $(RACKET_VERSION)
 
-# .......................................... Build Application -- Linux ....
-
-# The build step runs build.rkt which also creates a distribution -- in the
-# past, creating a distribution has failed due to bad paths in
-# `define-runtime-path`, so now we do this step as well.
-
-    - script: $(RACKET_DIR)/bin/racket build.rkt
-      displayName: 'Build Application'
-
-# .................................................. Run Tests -- Linux ....
-
-# We run each test suite as a separate step as it looks nice in the Azure
-# Pipelines log.
-
-    - script: $(RACKET_DIR)/bin/raco test test/fit2-test.rkt
-      displayName: "Basic FIT file decoding tests (fit2-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/df-test.rkt
-      displayName: "Test Data Frame (df-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/db-test.rkt
-      displayName: "Test Database Import (db-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/db-upgrade-test.rkt
-      displayName: "Test Database Upgrade (db-upgrade-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/trends-test.rkt
-      displayName: "Test Trends Chart (trends-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/aggregate-test.rkt
-      displayName: "Test Agregate Data (aggregate-test)"
-
-    - script: $(RACKET_DIR)/bin/raco test test/fit-test.rkt
-      displayName: "Test File Import (fit-test)"
-
-# ....................................................... WINDOWS BUILD ....
+    - template: azure-common.yml
 
   - job: Windows
     pool:
       vmImage: 'vs2015-win2012r2'
 
     variables:
-
-      # RACKET_DIR: $(Agent.BuildDirectory)\racket
       RACKET_VERSION: 7.4
-      PLTSTDERR: 'error warning@optimizer'
+      RACKET_DIR: 'C:/Program Files/Racket'
 
     steps:
-# .................................. Setup Build Environment -- Windows ....
+    - powershell: |
+        .\etc\scripts\install-racket.ps1
+        Write-Host "##vso[task.setvariable variable=path]$Env:PATH;$Env:RACKET_DIR"
+      displayName: Install Racket $(RACKET_VERSION)
 
-    - powershell: .\etc\scripts\install-racket.ps1
-      displayName: "Install Racket $(RACKET_VERSION)"
-
-    - powershell: .\etc\scripts\install-inno-setup.ps1
-      displayName: "Install InnoSetup"
-
-    # It is a pleasant surprise that this script runs unmodified on a Windows
-    # machine.  It means that the test data can be downloaded and the full
-    # test suite can be run on Windows.
-
-    - bash: |
-        bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-        bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
-      env:
-        TESTDATAPW: $(TESTDATAPW)
-      displayName: "(Maybe) Download Test Data"
-
-# ........................................ Build Application -- Windows ....
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        racket build.rkt
-      env:
-        AL2TFAPIKEY: $(AL2TFAPIKEY)
-        AL2DSAPIKEY: $(AL2DSAPIKEY)
-      displayName: "Build Application"
-
-# ................................................ Run Tests -- Windows ....
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/fit2-test.rkt
-      displayName: "Basic FIT file decoding tests (fit2-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/df-test.rkt
-      displayName: "Test Data Frame (df-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/db-test.rkt
-      displayName: "Test Database Import (db-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/db-upgrade-test.rkt
-      displayName: "Test Database Upgrade (db-upgrade-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/trends-test.rkt
-      displayName: "Test Trends Chart (trends-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/aggregate-test.rkt
-      displayName: "Test Agregate Data (aggregate-test)"
-
-    - script: |
-        set PATH=%PATH%;C:\Program Files\Racket
-        raco test test/fit-test.rkt
-      displayName: "Test File Import (fit-test)"
-
-# ........................................ Publish Installer -- Windows ....
+    - template: azure-common.yml
 
     # It appears that the download happens early in the build pipeline, before
     # even the source is checked out, regardless of the position of the
-    # dowload task in the file...
+    # dowload secure file task in the file...
 
     - task: DownloadSecureFile@1
       inputs:
@@ -159,33 +48,38 @@ jobs:
       inputs:
         secureFile: al2_sign_sec.bin
 
+    - powershell: |
+        .\etc\scripts\install-inno-setup.ps1
+        Write-Host "##vso[task.setvariable variable=path]$Env:PATH;C:/Program Files (x86)/Inno Setup 5"
+      displayName: Install InnoSetup
+
     # Update the version, product name and description in the resulting
     # executable using verpatch.exe, than create an installer using Inno
     # Setup.  The script below reads the version from version.txt, and it is
-    # important that the first line in that file contains no spaces
+    # important that the first line in that file contains no spaces.  Note
+    # that this should be in a separate script...
 
     - script: |
-        set PATH=%PATH%;C:\Program Files (x86)\Inno Setup 5
         set /p APP_VERSION=<version.txt
         set V=%APP_VERSION%.%BUILD_BUILDID%
         set D=ActivityLog2 - Analyze Swim Bike and Run Data
         set P=ActivityLog2
         etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %V%
         iscc /DMyAppVersion=%V% etc\scripts\install.iss
-      displayName: "Creating Installer"
+      displayName: Creating Installer
 
     - bash: |
         bash ./etc/scripts/sign-release.sh
-      displayName: "(Maybe) Sign Installer"
+      displayName: (Maybe) Sign Installer
 
     - task: CopyFiles@2
       inputs:
         targetFolder: $(Build.ArtifactStagingDirectory)
         contents: ActivityLog2Setup-*.*
-      displayName: "Move Installer Files to Staging Area"
+      displayName: Move Installer Files to Staging Area
 
     - task: PublishBuildArtifacts@1
       inputs:
         pathToPublish: $(Build.ArtifactStagingDirectory)
         artifactName: ActivityLog2Setup
-      displayName: "Publish Installer Artifacts"
+      displayName: Publish Installer Artifacts
