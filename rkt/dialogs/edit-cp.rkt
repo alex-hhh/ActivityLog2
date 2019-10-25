@@ -20,6 +20,7 @@
          racket/match
          "../widgets/main.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../dbutil.rkt"
          "../utilities.rkt")
 

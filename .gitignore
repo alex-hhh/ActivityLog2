@@ -15,9 +15,12 @@ ActivityLog2.ico
 build-id.txt
 # racket puts compiled files in this folder
 compiled/
+# Folders containing data used during the build.
 dist/
 test/test-db/
 test/test-fit/
+pkgs/catalog/
+pkgs/catalog-config.txt
 # ignore it for now, contains user specific info.
 .dir-locals.el
 # various data files that we don't want under version control

@@ -52,9 +52,6 @@
          short-distance->string
          vertical-distance->string
          duration->string
-         calendar-date->string
-         time-of-day->string
-         date-time->string
          n->string
          pct->string
          stride->string
@@ -370,39 +367,6 @@
              (format-48 "~2F:~2F:~2F" h m s)
              (format-48 "~2F:~2F" m s)))
      " " "0")))
-
-
-;;........................................................ calendar time ....
-
-(: calendar-date->string (-> (U date Integer) String))
-(define (calendar-date->string d)
-
-  (: month (Vectorof String))
-  (define month (vector "XXX" "Jan" "Feb" "Mar" "Apr" "May" "Jun"
-                        "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
-
-  (let ((d1 (if (date? d) d (seconds->date d #t))))
-    (format-48 "~a ~a ~a" (date-day d1)
-               (vector-ref month (date-month d1))
-               (date-year d1))))
-
-(: time-of-day->string (->* ((U date Integer)) (Boolean) String))
-(define (time-of-day->string d [include-seconds? #t])
-  (let ((d1 (if (date? d) d (seconds->date d #t))))
-    (string-replace
-     (if include-seconds?
-         (format-48 "~2F:~2F:~2F"
-                    (date-hour d1) (date-minute d1) (date-second d1))
-         (format-48 "~2F:~2F"
-                    (date-hour d1) (date-minute d1)))
-         " " "0")))
-
-(: date-time->string (->* ((U date Integer)) (Boolean) String))
-(define (date-time->string d [include-seconds? #f])
-  (let ((d1 (if (date? d) d (seconds->date d #t))))
-    (string-append (calendar-date->string d1) 
-                   " " 
-                   (time-of-day->string d1 include-seconds?))))
 
 
 ;;................................................... cadence and stride ....

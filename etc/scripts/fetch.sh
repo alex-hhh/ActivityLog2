@@ -18,19 +18,22 @@
 
 set -e
 script_name=${0##**/}
+decrypt=0
 
-if [ -z $TESTDATAPW ]; then
-    echo "$script_name: missing TESTDATAPW env var, will not download anything"
-    exit 0
-fi
-
-while getopts :C: OPT; do
+while getopts :C:d OPT; do
     case $OPT in
         C|+C)
             output_dir="$OPTARG"
             ;;
+        d|+d)
+            if [ -z $TESTDATAPW ]; then
+                echo "$script_name: missing TESTDATAPW env var, will not download anything"
+                exit 0    # must return 0, as we use this from build pipelines
+            fi
+            decrypt=1
+            ;;
         *)
-            echo "usage: ${0##*/} [+-C output_dir} [--] file_id"
+            echo "usage: $script_name [+-C output_dir] [-d] [--] file_id"
             exit 2
     esac
 done
@@ -52,7 +55,6 @@ trap 'rm --force -- $gcookies' INT TERM HUP EXIT
 curl --silent \
      --cookie-jar $gcookies \
      "$gurl?export=download&id=$file_id" > /dev/null
-
 code="$(awk '/_warning_/ {print $NF}' $gcookies)"
 ofile1=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
 
@@ -64,11 +66,17 @@ curl --location \
      --output $ofile1 \
      "$gurl?export=download&confirm=$code&id=$file_id"
 
-ofile2=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
-trap 'rm --force -- $ofile2' INT TERM HUP EXIT
-openssl aes-256-cbc -md md5 -d -k $TESTDATAPW -in $ofile1 -out $ofile2
-# We run in the root of the repo, but output test databases into the test
-# folder
+if ((decrypt == 1)); then
+    ofile2=$(mktemp ${TMP:-/tmp}/$script_name.XXXXXXXXXX)
+    trap 'rm --force -- $ofile2' INT TERM HUP EXIT
+    openssl enc -d -aes-256-ctr -md sha256 \
+            -pass pass:$TESTDATAPW -in $ofile1 -out $ofile2
+else
+    ofile2=$ofile1
+fi
+
+mkdir --parent "${output_dir:-.}" > /dev/null 2>&1
 tar xvzf $ofile2 -C "${output_dir:-.}"
+
 # Clean up after ourselves
 rm --force -- $gcookies $ofile1 $ofile2

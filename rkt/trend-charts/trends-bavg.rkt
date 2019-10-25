@@ -28,6 +28,7 @@
          "../data-frame/spline.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../metrics.rkt"
          "../pdmodel.rkt"
          "../plot-util.rkt"

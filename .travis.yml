@@ -46,7 +46,9 @@ services:
 before_install:
   - bash ./etc/scripts/install-racket.sh
   - export PATH="${RACKET_DIR}/bin:${PATH}"
-install: true
+  - bash ./etc/scripts/setup-catalog.sh -i pkgs/
+install:
+  - raco pkg install --auto tzinfo tzgeolookup
 before_script:
   # the X virtual frame buffer is needeed to run the tests, since they require
   # the GUI libraries which in turn try to connect to X even if no windows are
@@ -54,9 +56,8 @@ before_script:
   # it is only needed after the build, we don't sleep here (the download test
   # data + build take about 6 minutes currently).
   - /sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_99.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :99 -ac -screen 0 1280x1024x16
-  - bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-  # https://drive.google.com/file/d/1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP/view?usp=sharing
-  - bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
+  - bash ./etc/scripts/fetch.sh -d -C test "1ig99PhGTYFZsbOhJDph1za8gfG1GZCM_" # test-db(4)
+  - bash ./etc/scripts/fetch.sh -d -C test "1oPBgegOI4cBkjOMi2FFFxbhx87PetG5c" # test-fit(11)
 script:
   - racket build.rkt
   - raco test test/fit2-test.rkt

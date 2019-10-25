@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,13 +20,16 @@
          racket/math
          racket/match
          racket/dict
+         tzinfo
          "fit-file/activity-util.rkt"
          "fmt-util.rkt"
+         "fmt-util-ut.rkt"
          "sport-charms.rkt"
          "widgets/main.rkt"
          "intervals.rkt"
          "utilities.rkt"
-         "data-frame/df.rkt")
+         "data-frame/df.rkt"
+         "dbapp.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -36,6 +39,7 @@
 (provide swim-lengths-view%)
 (provide interval-choice%)
 (provide get-sql-export-dialog)
+(provide time-zone-selector%)
 
 ;; Some generic preferences
 
@@ -307,11 +311,22 @@ values (?, ?)" session-id id))
         (match-define (list 'gen1 ltbs) pref)
         (set! interval-type-by-sport (hash-copy ltbs))))
 
+    ;; Add a 'time-zone entry to each interval if the session itself has a
+    ;; time zone.  This is done so we can display the interval start times as
+    ;; local times in the time zone of the activity.
+    (define (add-time-zone intervals)
+      (define tz (session-time-zone session))
+      (if tz
+          (for/list ([interval (in-list intervals)])
+            (cons (cons 'time-zone tz) interval))
+          ;; No timezone, they are unchanged
+          intervals))
+
     ;; Switch the interval view to display splits by 1 km
     (define (on-km-splits)
       (define km-splits (df-get-property data-frame 'intervals-km-splits))
       (unless km-splits
-        (set! km-splits (make-split-intervals data-frame "dst" 1000))
+        (set! km-splits (add-time-zone (make-split-intervals data-frame "dst" 1000)))
         (df-put-property data-frame 'intervals-km-splits km-splits))
       (send interval-view set-intervals sport 'default km-splits sid))
 
@@ -319,7 +334,7 @@ values (?, ?)" session-id id))
     (define (on-mile-splits)
       (define mile-splits (df-get-property data-frame 'intervals-mile-splits))
       (unless mile-splits
-        (set! mile-splits (make-split-intervals data-frame "dst" 1600))
+        (set! mile-splits (add-time-zone (make-split-intervals data-frame "dst" 1600)))
         (df-put-property data-frame 'intervals-mile-splits mile-splits))
       (send interval-view set-intervals sport 'default mile-splits sid))
 
@@ -327,7 +342,7 @@ values (?, ?)" session-id id))
     (define (on-climb-splits)
       (define climb-splits (df-get-property data-frame 'intervals-climb-splits))
       (unless climb-splits
-        (set! climb-splits (make-climb-intervals data-frame))
+        (set! climb-splits (add-time-zone (make-climb-intervals data-frame)))
         (df-put-property data-frame 'intervals-climb-splits climb-splits))
       (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
 
@@ -335,7 +350,7 @@ values (?, ?)" session-id id))
     (define (on-descent-splits)
       (define descent-splits (df-get-property data-frame 'intervals-descent-splits))
       (unless descent-splits
-        (set! descent-splits (make-climb-intervals data-frame #:descents #t))
+        (set! descent-splits (add-time-zone (make-climb-intervals data-frame #:descents #t)))
         (df-put-property data-frame 'intervals-descent-splits descent-splits))
       (send interval-view set-intervals sport 'hill-descents descent-splits sid))
 
@@ -347,16 +362,17 @@ values (?, ?)" session-id id))
       (define best-splits (df-get-property data-frame 'intervals-best-splits))
       (unless best-splits
         (set! best-splits
-              (if (eq? (vector-ref sport 0) 2)
-                  (make-best-power-intervals data-frame)
-                  (make-best-pace-intervals data-frame)))
+              (add-time-zone
+               (if (eq? (vector-ref sport 0) 2)
+                   (make-best-power-intervals data-frame)
+                   (make-best-pace-intervals data-frame))))
         (df-put-property data-frame 'intervals-best-splits best-splits))
       (send interval-view set-intervals sport 'best-splits best-splits))
 
     ;; Switch the interval view to display the splits as recorded by the
     ;; device
     (define (on-recorded-splits)
-      (send interval-view set-intervals sport 'default (session-laps session) sid))
+      (send interval-view set-intervals sport 'default (add-time-zone (session-laps session)) sid))
 
     ;; List the kind of splits we can display, together with the function that
     ;; can switch to them.
@@ -446,7 +462,12 @@ values (?, ?)" session-id id))
 (define *run-lap-fields*
   (list
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
-   (mk-qcolumn "Time of day" lap-start-time time-of-day->string)
+   (qcolumn "Time of day"
+            (lambda (entry)
+              (let ([timestamp (lap-start-time entry)]
+                    [time-zone (dict-ref entry 'time-zone #f)])
+                (time-of-day->string timestamp #:time-zone time-zone)))
+            lap-start-time)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance distance->string)
@@ -492,7 +513,12 @@ values (?, ?)" session-id id))
 (define *bike-lap-fields*
   (list
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
-   (mk-qcolumn "Time of day" lap-start-time time-of-day->string)
+   (qcolumn "Time of day"
+            (lambda (entry)
+              (let ([timestamp (lap-start-time entry)]
+                    [time-zone (dict-ref entry 'time-zone #f)])
+                (time-of-day->string timestamp #:time-zone time-zone)))
+            lap-start-time)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance distance->string)
@@ -572,7 +598,12 @@ values (?, ?)" session-id id))
    ;; (mk-qcolumn "Lap #" lap-num lap-num-fmt)
    (qcolumn "Lap" lap-num-pretty lap-num)
    (mk-qcolumn "Swim Stroke" lap-swim-stroke get-swim-stroke-name)
-   ;; (mk-qcolumn "Time of day" lap-start-time format-time-of-day)
+   #;(qcolumn "Time of day"
+            (lambda (entry)
+              (let ([timestamp (lap-start-time entry)]
+                    [time-zone (dict-ref entry 'time-zone #f)])
+                (time-of-day->string timestamp #:time-zone time-zone)))
+            lap-start-time)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Lengths" lap-num-lengths n->string)
@@ -591,7 +622,12 @@ values (?, ?)" session-id id))
   (list
    ;; (mk-qcolumn "Lap #" lap-num lap-num-fmt)
    (qcolumn "Lap" lap-num-pretty lap-num)
-   ;; (mk-qcolumn "Time of day" lap-start-time format-time-of-day)
+   #;(qcolumn "Time of day"
+            (lambda (entry)
+              (let ([timestamp (lap-start-time entry)]
+                    [time-zone (dict-ref entry 'time-zone #f)])
+                (time-of-day->string timestamp #:time-zone time-zone)))
+            lap-start-time)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance n->string)
    (mk-qcolumn "Pace" lap-avg-speed swim-pace->string)))
@@ -887,3 +923,60 @@ values (?, ?)" session-id id))
   (unless the-sql-export-dialog
     (set! the-sql-export-dialog (new sql-query-export-dialog%)))
   the-sql-export-dialog)
+
+
+;;.................................................. time-zone-selector% ....
+
+;; A choice% which allows selecting a time zone from the available ones in the
+;; database.
+(define time-zone-selector%
+  (class object%
+    (init parent [label "Time Zone: "])
+    (init-field [callback #f])
+    (super-new)
+
+    (define time-zones
+      (query-rows
+       (current-database)
+       "select id, name from E_TIME_ZONE order by name"))
+
+    (define (choice-cb choice event)
+      (when callback
+        (define index (send choice get-selection))
+        (match-define (vector id name) (list-ref time-zones index))
+        (callback id name)))
+
+    (define the-selector
+      (new choice%
+           [parent parent]
+           [label label]
+           [callback choice-cb]
+           [choices (map (lambda (v) (vector-ref v 1)) time-zones)]))
+
+    ;; Returns the currently selected time zone as two values: the database ID
+    ;; (in the E_TIME_ZONE table) for the selected time one and the time zone
+    ;; name.
+    (define/public (get-selection)
+      (define index (send the-selector get-selection))
+      (match-define (vector id name) (list-ref time-zones index))
+      (values id name))
+
+    (define/public (enable enable?)
+      (send the-selector enable enable?))
+
+    ;; Set the choice selection to the time zone on the current machine
+    (define/public (set-default-time-zone)
+      (set-selected-time-zone (system-tzid)))
+
+    ;; Set the selected time zone to ZONE which can be either a database ID
+    ;; (in the E_TIME_ZONE table) for the time zone or a time zone name.
+    (define/public (set-selected-time-zone zone)
+      (let loop ((tz time-zones)
+                 (index 0))
+        (unless (null? tz)
+          (match-define (vector id name) (car tz))
+          (if (or (equal? id zone) (equal? name zone))
+              (send the-selector set-selection index)
+              (loop (cdr tz) (add1 index))))))
+
+    ))

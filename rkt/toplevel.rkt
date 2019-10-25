@@ -19,6 +19,8 @@
          racket/class
          racket/gui/base
          racket/math
+         racket/match
+         tzgeolookup
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
@@ -368,6 +370,12 @@
           (send toplevel rebuild-time-in-zone-data))])
 
   (new menu-item%
+       [parent tools-menu] [label "Update time zones..."]
+       [callback
+        (lambda (m e)
+          (send toplevel auto-detect-time-zones))])
+
+  (new menu-item%
        [parent tools-menu] [label "Optimize database..."]
        [callback
         (lambda (m e)
@@ -675,6 +683,61 @@
   database)
 
 
+;;........................................ interactive-update-time-zones ....
+
+(define (interactive-update-time-zones database [parent-window #f])
+
+  (define progress-dialog
+    (new progress-dialog%
+         [title "Update time zones"]
+         [description "Update the timezone for sessions with GPS data"]
+         [icon (sql-export-icon)]))
+
+  (define (task progress-dialog)
+    (send progress-dialog set-message "Fetching list of sessions...")
+    (define session-data (query-rows database
+                                     "select P.session_id,
+                                             T.position_lat as lat,
+                                             T.position_long as lon
+                                        from A_TRACKPOINT T, A_LENGTH L, A_LAP P
+                                       where T.length_id = L.id
+                                         and L.lap_id = P.id
+                                         and T.position_lat is not null
+                                         and T.position_long is not null
+                                       group by P.session_id"))
+    (define num-sessions (length session-data))
+    (define tzids
+      (for/hash ([data (query-rows database "select id, name from E_TIME_ZONE")])
+        (match-define (vector id name) data)
+        (values name id)))
+    (dbglog "interactive-update-time-zones started")
+    (for ([(data n) (in-indexed (in-list session-data))]
+          #:break (let ((progress (exact-round (* 100 (/ (+ 1 n) num-sessions)))))
+                    (not (send progress-dialog set-progress progress))))
+      (match-define (vector sid lat lon) data)
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e)                   ; log the exception, than propagate it
+            (dbglog "While updating session ~a: ~a" sid e)
+            (raise e))))
+        (define timezone (lookup-timezone lat lon))
+        (if timezone
+            (let ([tzid (hash-ref tzids timezone #f)])
+              (if tzid
+                  (query-exec database "update A_SESSION set time_zone_id = ? where id = ?" tzid sid)
+                  ;; This might indicate that the time zones in E_TIME_ZONE
+                  ;; are outdated and need updating...
+                  (dbglog "Could not find E_TIME_ZONE.id for time zone ~a" timezone)))
+            (dbglog "Could not find timezone for location lat ~a lon ~a" lat lon))))
+
+    ;; Unload all the timezone data, as it is quite large and we won't do any
+    ;; more lookups until the next import
+    (clear-timezone-cache)
+    (dbglog "interactive-update-time-zones complete"))
+
+  (send progress-dialog run parent-window task))
+
+
 ;;..................................................... toplevel-window% ....
 
 (struct tl-section (name tag panel content))
@@ -927,6 +990,9 @@
 
     (define/public (rebuild-time-in-zone-data)
       (interactive-update-time-in-zone-data database tl-frame))
+
+    (define/public (auto-detect-time-zones)
+      (interactive-update-time-zones database tl-frame))
 
     (define/public (vacuum-database)
 

@@ -27,6 +27,7 @@
          "../color-theme.rkt"
          "../dbapp.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../sport-charms.rkt"
          "../data-frame/df.rkt"
          "../session-df/native-series.rkt"

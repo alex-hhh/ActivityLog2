@@ -13,7 +13,8 @@
 ;; more details.
 
 (require racket/class racket/string racket/format
-         "validating-input-field.rkt")
+         "validating-input-field.rkt"
+         "../fmt-util-ut.rkt")
 (provide time-of-day-input-field%)
 
 ;; TODO: check for valid ranges for hours, minutes
@@ -48,14 +49,17 @@
      [convert-fn convert-to-time-of-day])
     (inherit set-value)
 
-    (define/public (set-time-of-day-value seconds)
-      (let ((d (seconds->date seconds #t)))
-        (set-value
-         (string-append
-          (~r (date-hour d) #:precision 0 #:min-width 2 #:pad-string "0")
-          ":"
-          (~r (date-minute d) #:precision 0 #:min-width 2 #:pad-string "0")
-          ":"
-          (~r (date-second d) #:precision 0 #:min-width 2 #:pad-string "0")))))
+    (define/public (set-time-of-day-value seconds [time-zone #f])
+      (if (or (eq? seconds #f) (eq? seconds 'empty)) ; special case
+          (set-value "")
+          (let-values ([(d _) (->date seconds time-zone)])
+            (set-value
+             (string-append
+              (~r (date-hour d) #:precision 0 #:min-width 2 #:pad-string "0")
+              ":"
+              (~r (date-minute d) #:precision 0 #:min-width 2 #:pad-string "0")
+              ":"
+              (~r (date-second d) #:precision 0 #:min-width 2 #:pad-string "0"))))))
+
     ))
 

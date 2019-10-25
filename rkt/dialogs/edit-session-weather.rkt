@@ -18,6 +18,7 @@
          racket/class
          racket/gui/base
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../widgets/map-widget/map-util.rkt"
          "../sport-charms.rkt"
          "../dbutil.rkt"

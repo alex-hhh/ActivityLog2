@@ -1,0 +1,15 @@
+[submodule "pkgs/tzdata"]
+	path = pkgs/tzdata
+	url = https://github.com/97jaz/tzdata.git
+[submodule "pkgs/tzinfo"]
+	path = pkgs/tzinfo
+	url = https://github.com/alex-hhh/tzinfo.git
+[submodule "pkgs/tzgeolookup"]
+	path = pkgs/tzgeolookup
+	url = https://github.com/alex-hhh/tzgeolookup.git
+[submodule "pkgs/cldr-core"]
+	path = pkgs/cldr-core
+	url = https://github.com/97jaz/cldr-core.git
+[submodule "pkgs/memoize"]
+	path = pkgs/memoize
+	url = https://github.com/jbclements/memoize.git

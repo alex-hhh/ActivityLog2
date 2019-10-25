@@ -32,6 +32,7 @@
          "../bavg-util.rkt"
          "../pdmodel.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../plot-util.rkt"
          "../database.rkt")
 

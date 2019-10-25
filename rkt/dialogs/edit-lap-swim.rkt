@@ -2,7 +2,7 @@
 ;; edit-lap-swim.rkt -- edit recording errors in lap swimming sessions
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -25,6 +25,7 @@
          "../widgets/main.rkt"
          "../utilities.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../dbutil.rkt")
 
 (provide get-lap-swim-editor)
@@ -753,12 +754,14 @@ select LE.start_time as timestamp,
                                      S.start_time as start_time,
                                      S.pool_length as pool_length,
                                      SS.total_timer_time as duration,
-                                     SS.total_distance as distance
+                                     SS.total_distance as distance,
+                                     (select ETZ.name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone
                                 from A_SESSION S, SECTION_SUMMARY SS
                                where S.summary_id = SS.id
                                  and S.id = ?" sid))
       (send msg-headline set-label (sql-column-ref row 0 ""))
-      (send msg-start-time set-label (date-time->string (sql-column-ref row 1 (current-seconds))))
+      (send msg-start-time set-label (date-time->string (sql-column-ref row 1 (current-seconds))
+                                                        #:time-zone (sql-column-ref row 5)))
       (send msg-pool-length set-label (short-distance->string (sql-column-ref row 2 0) #t))
       (send msg-duration set-label (duration->string (sql-column-ref row 3 0)))
       (set! pool-length (sql-column-ref row 2 0))

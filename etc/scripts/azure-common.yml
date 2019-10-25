@@ -3,6 +3,13 @@
 
 steps:
 
+  - script: |
+      # We use the -i (isolation mode) here to catch any dependencies that
+      # might not be tracked as submodules...
+      bash ./etc/scripts/setup-catalog.sh -i pkgs/
+      raco pkg install --auto tzinfo tzgeolookup
+    displayName: Setup package catalog and install packages
+
   - script: racket build.rkt
     env:
       PLTSTDERR: 'error warning@optimizer'
@@ -22,8 +29,8 @@ steps:
   # suite can be run on Windows.
 
   - bash: |
-      bash ./etc/scripts/fetch.sh -C test "1l-COKZ8pMef4JUX6E7HBVEEYMAYO2Noo" # test-db
-      bash ./etc/scripts/fetch.sh -C test "1_Guo1mKQzrxJ9FrqJhWcF-0cYykmRRiP" # test-fit
+      bash ./etc/scripts/fetch.sh -d -C test "1ig99PhGTYFZsbOhJDph1za8gfG1GZCM_" # test-db(4)
+      bash ./etc/scripts/fetch.sh -d -C test "1oPBgegOI4cBkjOMi2FFFxbhx87PetG5c" # test-fit(11)
     env:
       TESTDATAPW: $(TESTDATAPW)
     displayName: (Maybe) Download Test Data

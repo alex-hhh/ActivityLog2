@@ -22,6 +22,7 @@
          racket/match
          "utilities.rkt"
          "fmt-util.rkt"
+         "fmt-util-ut.rkt"
          "dbutil.rkt"
          "widgets/main.rkt")
 

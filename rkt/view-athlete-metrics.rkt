@@ -21,6 +21,7 @@
          "database.rkt"
          "dialogs/edit-athlete-metrics.rkt"
          "fmt-util.rkt"
+         "fmt-util-ut.rkt"
          "dbutil.rkt"
          "utilities.rkt"
          "widgets/main.rkt")

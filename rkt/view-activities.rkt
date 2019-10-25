@@ -26,6 +26,7 @@
          "al-widgets.rkt"
          "database.rkt"
          "fmt-util.rkt"
+         "fmt-util-ut.rkt"
          "sport-charms.rkt"
          "weather.rkt"
          "widgets/main.rkt")
@@ -317,7 +318,12 @@ select X.session_id
          (qcolumn "Sport" fn fn))
 
        (let ((fn (lambda (row) (db-row-ref row "start_time" headers 0))))
-         (qcolumn "Start Time" (lambda (row) (date-time->string (fn row))) fn))
+         (qcolumn "Start Time"
+                  (lambda (row)
+                    (let ([start-time (db-row-ref row "start_time" headers 0)]
+                          [time-zone (db-row-ref row "time_zone" headers #f)])
+                      (date-time->string start-time #:include-seconds? #t #:time-zone time-zone)))
+                  fn))
 
        (let ((fn (lambda (row) (db-row-ref row "duration" headers 0))))
          (qcolumn "Duration"

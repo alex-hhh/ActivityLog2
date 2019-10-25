@@ -28,6 +28,7 @@
  "../widgets/main.rkt"
  "trends-chart.rkt"
  "../fmt-util.rkt"
+ "../fmt-util-ut.rkt"
  "../plot-util.rkt")
 
 (provide pmc-trends-chart%)

@@ -18,6 +18,9 @@
          racket/class
          racket/match
          racket/math
+         tzgeolookup
+         "session-df/session-df.rkt"
+         "data-frame/df.rkt"
          "database.rkt"
          "utilities.rkt"
          "elevation-correction.rkt"
@@ -43,20 +46,22 @@
   (define (show-progress msg)
     (dbglog msg)
     (when global-callback (global-callback msg)))
-
+  (define sessions (get-new-sessions db))
   (show-progress "updating swim drills...")
-  (update-swim-drills-for-new-sessions db)
+  (update-swim-drills-for-new-sessions sessions db)
   (show-progress "updating old style equipment serial numbers...")
   (update-old-style-equipment-serial db)
   (show-progress "updating equipment use...")
   (update-equipment-part-of db)
   (show-progress "updating corrected elevation...")
-  (update-elevation-for-new-sessions db)
+  (update-elevation-for-new-sessions sessions db)
   (show-progress "updating time in zone...")
-  (update-tiz-for-new-sessions db)
+  (update-tiz-for-new-sessions sessions db)
   (show-progress "updating weather data...")
-  (update-weather-for-new-sessions db)
-  (for ((sid (get-new-sessions db)))
+  (update-weather-for-new-sessions sessions db)
+  (show-progress "updating timezones ...")
+  (update-timezone-for-new-sessions sessions db)
+  (for ([sid (in-list sessions)])
     (log-event 'session-created sid)))
 
 ;; Some Garmin firmware versions reported only the lower two bytes of the
@@ -137,37 +142,58 @@ select distinct S.id, E.part_of
   (query-list db "
 select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_id"))
 
-(define (update-elevation-for-new-sessions db [progress-monitor #f])
-  (let ((sessions (get-new-sessions db)))
-    (when progress-monitor
-      (send progress-monitor
-            begin-stage "Fixup elevation data for new sessions" (length sessions)))
-    (update-tile-codes db)
-    (fixup-elevation-for-session db sessions #f)
-    (when progress-monitor
-      (send progress-monitor set-progress (- (length sessions) 1)))))
+(define (update-elevation-for-new-sessions sessions db [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor
+          begin-stage "Fixup elevation data for new sessions" (length sessions)))
+  (update-tile-codes db)
+  (fixup-elevation-for-session db sessions #f)
+  (when progress-monitor
+    (send progress-monitor set-progress (- (length sessions) 1))))
 
-(define (update-weather-for-new-sessions db [progress-monitor #f])
-  (let ((sessions (get-new-sessions db)))
+(define (update-weather-for-new-sessions sessions db [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor
+          begin-stage "Fetching weather data for new sessions" (length sessions)))
+  (for ((sid (in-list sessions))
+        (n (in-range (length sessions))))
+    (update-session-weather-auto db sid)
     (when progress-monitor
-      (send progress-monitor
-            begin-stage "Fetching weather data for new sessions" (length sessions)))
-    (for ((sid (in-list sessions))
-          (n (in-range (length sessions))))
-      (update-session-weather-auto db sid)
-      (when progress-monitor
-        (send progress-monitor set-progress (+ n 1))))))
+      (send progress-monitor set-progress (+ n 1)))))
 
-(define (update-tiz-for-new-sessions db [progress-monitor #f])
-  (let ((sessions (get-new-sessions db)))
+(define (update-tiz-for-new-sessions sessions db [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor
+          begin-stage "Updating metrics for new sessions" (length sessions)))
+  (for ((sid (in-list sessions))
+        (n (in-range (length sessions))))
+    (update-time-in-zone-data sid db)
     (when progress-monitor
-      (send progress-monitor
-            begin-stage "Updating metrics for new sessions" (length sessions)))
-    (for ((sid (in-list sessions))
-          (n (in-range (length sessions))))
-      (update-time-in-zone-data sid db)
-      (when progress-monitor
-        (send progress-monitor set-progress (+ n 1))))))
+      (send progress-monitor set-progress (+ n 1)))))
+
+(define (update-timezone-for-new-sessions sessions db [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor
+          begin-stage "Updating timezone for new sessions" (length sessions)))
+  (for ((sid (in-list sessions))
+        (n (in-range (length sessions))))
+    (define df (session-df db sid))     ; note this is cached by now
+    (define timezone
+      (and (df-contains? df "lat" "lon")
+           (for/first ([(lat lon) (in-data-frame df "lat" "lon")] #:when (and lat lon))
+             (lookup-timezone lat lon))))
+    (when timezone
+      (define tzid (query-maybe-value db "select id from E_TIME_ZONE where name = ?" timezone))
+      (if tzid
+          (query-exec db "update A_SESSION set time_zone_id = ? where id = ?" tzid sid)
+          ;; This might indicate that the time zones in E_TIME_ZONE are
+          ;; outdated and need updating...
+          (dbglog "Could not find E_TIME_ZONE.id for time zone ~a" timezone)))
+    (when progress-monitor
+      (send progress-monitor set-progress (+ n 1))))
+  ;; Unload all the timezone data, as it is quite large and we won't do any
+  ;; more lookups until the next import
+  (clear-timezone-cache))
 
 
 ;;................................................... update-swim-drills ....
@@ -228,12 +254,11 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
 
 (provide fixup-swim-drills)             ; used by etc/fixup-drills.rkt
 
-(define (update-swim-drills-for-new-sessions db [progress-monitor #f])
-  (let ((sessions (get-new-sessions db)))
+(define (update-swim-drills-for-new-sessions sessions db [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor
+          begin-stage "Updating lap swim drills for new sessions" (length sessions)))
+  (for (((sid idx) (in-indexed (in-list sessions))))
+    (fixup-swim-drills db sid)
     (when progress-monitor
-      (send progress-monitor
-            begin-stage "Updating lap swim drills for new sessions" (length sessions)))
-    (for (((sid idx) (in-indexed sessions)))
-      (fixup-swim-drills db sid)
-      (when progress-monitor
-        (send progress-monitor set-progress (+ idx 1))))))
+      (send progress-monitor set-progress (+ idx 1)))))

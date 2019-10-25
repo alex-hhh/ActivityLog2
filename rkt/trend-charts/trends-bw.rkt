@@ -22,6 +22,7 @@
          math/statistics
          "../database.rkt"
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../plot-util.rkt"
          "../widgets/main.rkt"
          "../data-frame/df.rkt"

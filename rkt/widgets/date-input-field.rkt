@@ -13,11 +13,12 @@
 ;; more details.
 
 (require racket/class racket/string racket/format racket/date
-         "validating-input-field.rkt")
+         "validating-input-field.rkt"
+         "../fmt-util-ut.rkt")
 (provide date-input-field%)
 
 ;; TODO: accept dates using 10-12-2014, plus other combinations
-(define (convert-to-date data)
+(define (convert-to-date data local-time?)
   (let ((t (string-trim data)))
     (if (= (string-length t) 0)
         'empty
@@ -32,22 +33,24 @@
                 (if (or (> year 2100) (< year 1900))
                     #f
                     (with-handlers (((lambda (e) #t) (lambda (e) #f)))
-                                   (find-seconds 0 0 0 day month year))))
+                      ;; NOTE: we use UTC here to avoid time zone conversion!
+                      (find-seconds 0 0 0 day month year local-time?))))
               #f)))))
 
 (define date-input-field%
   (class validating-input-field%
     (init)
+    (init-field [local-time? #t])
     (super-new
      [cue-text "dd/mm/yyyy"]
-     [validate-fn convert-to-date]
-     [convert-fn convert-to-date])
+     [validate-fn (lambda (v) (convert-to-date v local-time?))]
+     [convert-fn (lambda (v) (convert-to-date v local-time?))])
     (inherit set-value)
 
-    (define/public (set-date-value seconds)
+    (define/public (set-date-value seconds [time-zone #f])
       (if (or (eq? seconds #f) (eq? seconds 'empty)) ; special case
           (set-value "")
-          (let ((d (seconds->date seconds #t)))
+          (let-values ([(d _) (->date seconds time-zone)])
             (set-value
              (string-append
               (~r (date-day d) #:precision 0 #:min-width 2 #:pad-string "0")

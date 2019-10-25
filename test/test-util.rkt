@@ -17,6 +17,7 @@
          racket/list
          racket/class
          rackunit
+         tzgeolookup
          "../rkt/data-frame/df.rkt"
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
@@ -26,7 +27,8 @@
          "../rkt/session-df/series-metadata.rkt"
          ;; Even though we don't need this, native series are not registered
          ;; unless this module is required somewhere...
-         "../rkt/session-df/native-series.rkt")
+         "../rkt/session-df/native-series.rkt"
+         "../rkt/fit-file/activity-util.rkt")
 
 (define (with-fresh-database thunk)
   (let ((db (open-activity-log 'memory)))
@@ -138,6 +140,29 @@
             ;; (printf "make-best-power-intervals done~%")(flush-output))
             )))))
 
+;; Check that the time zone that was stored on import matches the time zone we
+;; determine manually for this data frame -- we only check that the import
+;; task determined the time zone and stored it into the database -- the
+;; tzgeolookup package has unit tests for the correctness of the lookup
+;; itself.
+(define (check-time-zone df db)
+  (define sid (df-get-property df 'session-id))
+  (define db-tz
+    (query-maybe-value db "
+select ETZ.name
+from E_TIME_ZONE ETZ, A_SESSION S
+where S.time_zone_id = ETZ.id
+  and S.id = ?" sid))
+  (define df-tz
+    (and (df-contains? df "lat" "lon")
+         (for/first ([(lat lon) (in-data-frame df "lat" "lon")] #:when (and lat lon))
+           (lookup-timezone lat lon))))
+  (define s-tz
+    (session-time-zone (db-fetch-session sid db)))
+  #;(printf "timezones df = ~a, db = ~a~%, session = ~a" df-tz db-tz s-tz)
+  (check-equal? db-tz df-tz "Failed to import time zone (db)")
+  (check-equal? s-tz df-tz "Failed to import time zone (session read)"))
+
 (define (db-import-activity-from-file/check file db
                                             #:basic-checks-only? (bc #f)
                                             #:expected-row-count (rc #f)
@@ -167,6 +192,7 @@
                             #:expected-series-count expected-series-count)
           (check-intervals df)
           (check-time-in-zone df db file)
+          (check-time-zone df db)
           (when df-check
             (df-check df))
           ))

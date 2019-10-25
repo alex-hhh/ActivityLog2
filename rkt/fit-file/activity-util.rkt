@@ -254,6 +254,7 @@
 
 (provide
  session-start-time
+ session-time-zone
  session-time
  session-elapsed-time
  session-moving-time                    ; useful for swim activities only
@@ -309,6 +310,9 @@
 
 (define (session-start-time session)
   (dict-ref session 'start-time #f))
+
+(define (session-time-zone session)
+  (dict-ref session 'time-zone #f))
 
 (define (session-time session)
   (dict-ref session 'total-timer-time #f))

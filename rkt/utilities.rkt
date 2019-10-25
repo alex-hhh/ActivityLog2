@@ -417,3 +417,33 @@
 (define (notify-user level format-string . args)
   (define msg (apply format format-string args))
   (log-message user-notification-logger level #f msg #f #f))
+
+
+(begin-for-syntax
+
+  ;; Return #t if the module identified by SYM can be loaded using a require
+  ;; statement, #f otherwise
+  (define (check-module sym)
+    (with-handlers
+      (((lambda (e) #t) (lambda (e) #f)))
+      (and ((current-module-name-resolver) sym #f #f #f) #t)))
+
+  ;; Check for any modules in MODULES which are missing and report them using
+  ;; the error function
+  (define (check-missing modules)
+    (define missing (for/list ([m modules] #:unless (check-module m)) m))
+
+    (unless (null? missing)
+      (error (format "You must install these packages: ~a
+*** HINT: see docs/README.md for more details" missing)))))
+
+;; A macro to check for missing modules and report them.  This is used by the
+;; application to print out a more meaningful message when a required module
+;; is missing.  This is used in run.rkt and build.rkt.
+(define-syntax (check-missing-modules stx)
+  (syntax-case stx ()
+    [(_ mod ...)
+     (let ([modsyms (syntax->datum #'(mod ...))])
+       #`(quote #,(check-missing modsyms)))]))
+
+(provide check-missing-modules)

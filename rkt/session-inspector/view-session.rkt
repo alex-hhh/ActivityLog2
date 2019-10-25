@@ -21,6 +21,7 @@
          racket/dict
          racket/gui/base
          racket/match
+         tzinfo
          "../al-widgets.rkt"
          "../data-frame/df.rkt"
          "../database.rkt"
@@ -38,7 +39,8 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
-         "inspect-scatter.rkt")
+         "inspect-scatter.rkt"
+         "../fmt-util-ut.rkt")
 
 (provide view-session%)
 
@@ -52,13 +54,6 @@
 
 ;;..................................................... session-header% ....
 
-(define (unix-time->date-time-string seconds)
-  (let ((old-fmt (date-display-format)))
-    (date-display-format 'american)
-    (let ((str (date->string (seconds->date seconds) #t)))
-      (date-display-format old-fmt)
-      str)))
-
 (define session-header%
   (class object%
     (init parent)
@@ -69,6 +64,8 @@
     (define headline "")
     (define sport #f)
     (define sub-sport #f)
+    (define timestamp #f)
+    (define time-zone #f)
 
     (define panel0 (new horizontal-panel%
 			[parent parent]
@@ -149,6 +146,11 @@
            [callback (lambda (v)
                        (send sport-icon set-label (get-sport-bitmap-colorized (car v) (cdr v))))]))
 
+    (define time-zone-edit
+      (new time-zone-selector%
+           [parent sport-panel-edit]
+           [callback (lambda (id name) (set! time-zone name))]))
+
     (define edit-button
       (new button%
            [parent panel0]
@@ -194,6 +196,9 @@
 
       (send session-title-edit set-value headline)
       (send sport-name-edit set-selected-sport sport sub-sport)
+      (if time-zone
+          (send time-zone-edit set-selected-time-zone time-zone)
+          (send time-zone-edit set-default-time-zone))
       (send panel change-children
             (lambda (old)
               (list session-title-edit sport-panel-edit)))
@@ -208,6 +213,7 @@
             (get-sport-bitmap-colorized sport sub-sport))
       (send sport-name set-label (get-sport-name sport sub-sport))
       (send session-title set-label headline)
+      (send start-time set-label (format-date timestamp time-zone))
       (send panel change-children
             (lambda (old)
               (list session-title start-time sport-panel)))
@@ -226,16 +232,20 @@
          (lambda ()
            (query-exec db "
 update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?
- where id = ?" headline (or sport sql-null) (or sub-sport sql-null) sid)))))
+ where id = ?" headline (or sport sql-null) (or sub-sport sql-null) sid)
+           (when time-zone
+             (query-exec db "
+update A_SESSION set time_zone_id = (select id from E_TIME_ZONE where name = ?)
+where id = ?" time-zone sid))))))
 
     (define/public (set-session session)
       (set! headline (dict-ref  session 'name "Untitled"))
       (set! sport (session-sport session))
       (set! sub-sport (session-sub-sport session))
       (set! session-id (dict-ref session 'database-id #f))
-      (send start-time
-	    set-label
-	    (unix-time->date-time-string (session-start-time session)))
+      (set! time-zone (session-time-zone session))
+      (set! timestamp (session-start-time session))
+      (send start-time set-label (format-date timestamp (session-time-zone session)))
       (switch-to-view-mode))
 
     (define/public (set-database db)

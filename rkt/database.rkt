@@ -783,7 +783,8 @@
             SS.aerobic_decoupling,
             (select SH.sdnn
                from SESSION_HRV SH
-               where SH.session_id = S.id) as hrv
+               where SH.session_id = S.id) as hrv,
+            (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone
        from A_SESSION S, SECTION_SUMMARY SS
       where S.summary_id = SS.id
         and S.id = ?")))
@@ -806,7 +807,7 @@
                   training-stress-score intensity-factor rpe-scale
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling hrv)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling hrv time-zone)))
     (let ((session-data (db-row->alist fields session-row)))
       (cons (cons 'weather (db-extract-weater-for-session (vector-ref session-row 0) db))
             (cons (cons 'laps (db-extract-laps-for-session (vector-ref session-row 0) db))

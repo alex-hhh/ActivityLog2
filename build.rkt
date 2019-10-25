@@ -29,7 +29,8 @@
          racket/math
          racket/port
          racket/string
-         racket/system)
+         racket/system
+         "rkt/utilities.rkt")
 
 ;; Create an ICO file from the bitmap BMP.  The resulting icon will be square
 ;; even if BMP is not.  The height of BMP will determine the size of the icon.
@@ -137,6 +138,10 @@
   (system (format "\"~a\" /DMyAppVersion=~a etc/scripts/install.iss" issc-program v)))
 
 (module+ main
+
+  ;; Check and inform the user that these packages need to be installed...
+  (check-missing-modules tzinfo tzgeolookup)
+
   ;; If this file is invoked from the command line, the application will be
   ;; built automatically (including the installer)
   (printf "Compiling .zo files...")(flush-output (current-output-port))

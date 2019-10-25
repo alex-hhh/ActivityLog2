@@ -22,6 +22,11 @@ building an installer on Windows.  The scripts are:
   does not support high amounts of traffic, the installer was placed on Google
   Drive and this script will download it from there.
 
+* `setup-catalog.sh` -- this script will setup the directory at
+  $PROJECT_ROOT/pkgs to be a Racket package catalog which is consulted by
+  `raco pkg install` when looking for packages -- it is used to install
+  specific versions of the packages that ActivityLog2 depends on.
+
 * `install.iss` -- this is the Inno Setup file used to build the ActivityLog2
   installer on Windows.  The setup file will build an installer with version 0
   if run in the Inno Setup GUI, you'll need to pass the version as a command

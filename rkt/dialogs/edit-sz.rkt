@@ -24,6 +24,7 @@
          racket/math
          racket/format
          "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
          "../dbutil.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"

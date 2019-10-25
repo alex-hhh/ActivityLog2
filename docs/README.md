@@ -1,8 +1,19 @@
 # Running the application from source
 
-The simplest way to run ActivityLog2 from source is to start DrRacket, open
-the file "run.rkt" and click on the "Run" button, or press "Ctrl-R". You can
-also run ActivityLog2 from the command line using the following command:
+Before you can build or run the application, you will need to install some
+packages that ActivityLog2 depends on, on the command line run the following
+command:
+
+    raco pkg install --auto tzinfo tzlookup
+
+**NOTE** if you are on a Windows platform, you may have to setup a package
+catalog to pick up packages from the pkgs folder, see the `Building
+ActivityLog2` section below.
+
+After that, the simplest way to run ActivityLog2 from source is to start
+DrRacket, open the file "run.rkt" and click on the "Run" button, or press
+"Ctrl-R". You can also run ActivityLog2 from the command line using the
+following command:
 
     racket run.rkt
 
@@ -49,6 +60,26 @@ These environment variables will be used while ActivityLog2 is running during
 development and they will also be embedded in any built executable.
 
 ## Building ActivityLog2
+
+ActivityLog2 depends on some additional packages and the official ActivityLog2
+build has them version controlled in the "pkgs/" folder.  After you cloned
+this repository, you will need to update the submodules using the commands:
+
+    git submodule update --init --recursive
+
+After than you will need to add the pkgs folder to the list of Racket catalogs
+by running the command below:
+
+    sh etc/scripts/setup-catalog.sh pkgs/
+
+The above step is not necessary for casual use, as the packages are also
+available in the standard package catalog, but some of the packages might
+contain additional fixes and updates which are not available in the official
+package catalog yet.
+
+You will need to install the dependent packages:
+
+    raco pkg install --auto tzinfo tzgeolookup
 
 An ActivityLog2 executable and an installer can be built from the command line
 by typing the command below:

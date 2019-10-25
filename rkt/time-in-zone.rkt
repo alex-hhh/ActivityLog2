@@ -200,6 +200,7 @@ select P.id
   (define progress-dialog
     (new progress-dialog%
          [title "Update metrics"]
+         [description "Rebuild time-in-zone metrics for all activities"]
          [icon (sql-export-icon)]))
 
   (define (task progress-dialog)

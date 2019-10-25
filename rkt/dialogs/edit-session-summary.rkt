@@ -2,7 +2,7 @@
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,6 +17,8 @@
 (require db/base
          racket/class
          racket/gui/base
+         racket/match
+         tzinfo
          "../al-widgets.rkt"
          "../dbutil.rkt"
          "edit-session-tss.rkt"
@@ -29,32 +31,61 @@
 (define edit-session-summary-dialog%
   (class edit-dialog-base%
     (init)
-    (super-new [title "Session Summary"] 
+    (super-new [title "Session Summary"]
                [icon (get-sport-bitmap-colorized #f #f)]
                [min-width 600]
                [min-height 500])
+
+    (define timestamp #f)
 
     (define title-field #f)
     (define sport-choice #f)
     (define rpe-scale-choice #f)
     (define start-date-field #f)
     (define start-time-field #f)
+    (define time-zone-field #f)
     (define duration-field #f)
     (define distance-field #f)
     (define labels-input #f)
     (define equipment-input #f)
     (define description-field #f)
 
+    ;; Return the UNIX timestamp as stored in the date, time, and timezone
+    ;; fields in the GUI.
+    (define (get-gui-timestamp)
+      (let ([start-time (+ (send start-date-field get-converted-value)
+                           (send start-time-field get-converted-value))])
+        (let-values ([(tzid tzname) (send time-zone-field get-selection)])
+          (match (local-seconds->tzoffset tzname start-time)
+            [(tzoffset adj dst? abbrev) (- start-time adj)]
+            ;; Hmm, our time falls in a DST window, just use the first
+            ;; adjustment...
+            [(tzgap start (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
+             (- start-time adj1)]
+            ;; Hmm, our time falls in an DST overlap, just use the first
+            ;; adjustment...
+            [(tzoverlap (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
+             (- start-time adj1)]))))
+
     (let ((p (send this get-client-pane)))
 
       (let ((p0 (make-horizontal-pane p #f)))
         (set! title-field (new text-field% [parent p0] [label "Name:"])))
-      
+
       (let ((p0 (make-horizontal-pane p #f)))
-          (set! start-date-field 
-                (new date-input-field% [parent p0] [label "Date: "]))
-          (set! start-time-field 
-                (new time-of-day-input-field% [parent p0] [label "Start Time: "])))
+          (set! start-date-field
+                (new date-input-field% [parent p0] [label "Date: "] [local-time? #f]
+                     [valid-value-cb (lambda (v) (set! timestamp (get-gui-timestamp)))]))
+          (set! start-time-field
+                (new time-of-day-input-field% [parent p0] [label "Start Time: "]
+                     [valid-value-cb (lambda (v) (set! timestamp (get-gui-timestamp)))]))
+          (set! time-zone-field
+                (new time-zone-selector% [parent p0]
+                     [callback (lambda (id tz)
+                                 ;; Update time to reflect new time zone
+                                 (when timestamp
+                                   (send start-date-field set-date-value timestamp tz)
+                                   (send start-time-field set-time-of-day-value timestamp tz)))])))
 
       (let  ((p0 (make-horizontal-pane p #f)))
         (set! sport-choice
@@ -64,7 +95,7 @@
                     (lambda (v)
                       (let ((icon (get-sport-bitmap-colorized (car v) (cdr v))))
                         (send this set-icon icon)))])))
-      
+
       (let ((p0 (make-horizontal-pane p #f)))
         (set! duration-field
               (new duration-input-field% [parent p0] [label "Time: "]))
@@ -85,7 +116,7 @@
                               "8 -- Really Hard"
                               "9 -- Really, Really Hard"
                               "10 -- Maximal")])))
-      
+
       (let ((p0 (new vertical-pane% [parent p]
                      [border 0] [spacing 5] [stretchable-height #f])))
         (set! labels-input (new label-input-field% [parent p0]))
@@ -93,7 +124,7 @@
 
       (let ((p0 (make-horizontal-pane p #t)))
         (set! description-field
-              (new text-field% [parent p0] 
+              (new text-field% [parent p0]
                    [label "Description: "] [style '(multiple)]))))
 
     (define/override (has-valid-data?)
@@ -113,9 +144,9 @@
 
          ;; Duration must not be empty (distance can be)
          (not (eq? duration 'empty)))))
-    
+
     (define (setup-for-session db session-id)
-      (let ((r (query-row db "
+      (let* ((r (query-row db "
 select S.name as title,
        S.sport_id,
        S.sub_sport_id,
@@ -123,13 +154,19 @@ select S.name as title,
        SS.total_timer_time,
        SS.total_distance,
        S.description,
-       ifnull(S.rpe_scale, 0)
+       ifnull(S.rpe_scale, 0),
+       (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone
   from A_SESSION S, SECTION_SUMMARY SS
  where S.summary_id = SS.id
-   and S.id = ?" session-id)))
+   and S.id = ?" session-id))
+             [tz (sql-column-ref r 8 #f)])
+        (set! timestamp (sql-column-ref r 3 0))
         (send title-field set-value (sql-column-ref r 0 ""))
-        (send start-date-field set-date-value (sql-column-ref r 3 0))
-        (send start-time-field set-time-of-day-value (sql-column-ref r 3 0))
+        (send start-date-field set-date-value timestamp tz)
+        (send start-time-field set-time-of-day-value timestamp tz)
+        (if tz
+            (send time-zone-field set-selected-time-zone tz)
+            (send time-zone-field set-default-time-zone))
         (send duration-field set-duration-value (sql-column-ref r 4 0))
         (send distance-field set-numeric-value (/ (sql-column-ref r 5 0) 1000.0))
         (send description-field set-value (sql-column-ref r 6 ""))
@@ -140,13 +177,28 @@ select S.name as title,
           (let ((sicon (get-sport-bitmap-colorized sport sub-sport)))
             (send this set-icon sicon)))
         (send labels-input setup-for-session db session-id)
-        (send equipment-input setup-for-session db session-id)))
-    
+        (send equipment-input setup-for-session db session-id))
+
+      ;; Laps, Lengths and Trackpoint entries also have timestamps and, rather
+      ;; than going through the trouble of updating them when the activity
+      ;; start time changed, we just disable the controls for these
+      ;; activities.
+      ;;
+      ;; We could say the same thing about the total distance and time, but we
+      ;; allow editing those to allow fixing some bad recordings...
+      (let ((have-laps? (query-value db "select count(*) from A_LAP where session_id = ?" session-id)))
+        (send start-time-field enable (= have-laps? 0))
+        (send start-date-field enable (= have-laps? 0))))
+
     (define (setup-for-new-session db)
       (send title-field set-value "")
       ;; For convenience, set the current date instead of the empty field.
-      (send start-date-field set-date-value (current-seconds))
+      (set! timestamp (current-seconds))
+      (send start-date-field set-date-value timestamp)
       (send start-time-field set-value "")
+      (send start-date-field enable #t)
+      (send start-time-field enable #t)
+      (send time-zone-field set-default-time-zone)
       (send duration-field set-value "")
       (send distance-field set-value "")
       (send description-field set-value "")
@@ -155,31 +207,17 @@ select S.name as title,
       (send this set-icon (get-sport-bitmap-colorized #f #f))
       (send labels-input setup-for-session db #f)
       (send equipment-input setup-for-session db #f))
-    
+
     (define (update-session db session-id)
       (call-with-transaction
        db
        (lambda ()
-         
          (let ((sport (send sport-choice get-selection))
                (name (send title-field get-value))
                (desc (send description-field get-value))
-               (start-time (+ (send start-date-field get-converted-value)
-                              (send start-time-field get-converted-value)))
-               (rpe-scale (send rpe-scale-choice get-selection)))
-           (query-exec
-            db
-            "update A_SESSION
-                set name = ?, description = ?,
-                    start_time = ?, sport_id = ?, sub_sport_id = ?,
-                    rpe_scale = ?
-              where id = ?"
-            name desc start-time
-            (or (car sport) sql-null) (or (cdr sport) sql-null)
-            (if (eqv? rpe-scale 0) sql-null rpe-scale)
-            session-id))
-
-         (let ((ssid (query-value db "select summary_id from A_SESSION where id = ?" session-id))
+               (timestamp (get-gui-timestamp))
+               (rpe-scale (send rpe-scale-choice get-selection))
+               (ssid (query-value db "select summary_id from A_SESSION where id = ?" session-id))
                (duration (if (send duration-field has-changed?)
                              (send duration-field get-converted-value)
                              #f))
@@ -187,6 +225,18 @@ select S.name as title,
                              (let ((v (send distance-field get-converted-value)))
                                (if (eq? v 'empty) 0 (* 1000.0 v)))
                              #f)))
+           (let-values ([(tzid tzname) (send time-zone-field get-selection)])
+             (query-exec
+              db
+              "update A_SESSION
+                set name = ?, description = ?, time_zone_id = ?,
+                    start_time = ?, sport_id = ?, sub_sport_id = ?,
+                    rpe_scale = ?
+               where id = ?"
+              name desc tzid timestamp
+              (or (car sport) sql-null) (or (cdr sport) sql-null)
+              (if (eqv? rpe-scale 0) sql-null rpe-scale)
+              session-id))
            (when duration
              (query-exec
               db
@@ -197,7 +247,7 @@ select S.name as title,
               db
               "update SECTION_SUMMARY set total_distance = ? where id = ?"
               (if (> distance 0) distance sql-null) ssid))
-           (when (or duration distance) 
+           (when (or duration distance)
              ;; If either duration or distance have changed, update the
              ;; average speed.  This should work correctly even if one of them
              ;; is null.
@@ -208,7 +258,7 @@ select S.name as title,
 
          (send labels-input update-session-tags session-id)
          (send equipment-input update-session-tags session-id))))
-    
+
     (define (insert-session db)
       (let* ((duration (let ((v (send duration-field get-converted-value)))
                          (if (eq? v 'empty) #f v)))
@@ -219,41 +269,42 @@ select S.name as title,
              (sport (send sport-choice get-selection))
              (name (send title-field get-value))
              (desc (send description-field get-value))
-             (start-time (+ (send start-date-field get-converted-value)
-                            (send start-time-field get-converted-value)))
+             (start-time (get-gui-timestamp))
              (rpe-scale (send rpe-scale-choice get-selection)))
-        (call-with-transaction
-         db
-         (lambda ()
-           (query-exec
-            db
-            "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
+        (let-values ([(tzid tzname) (send time-zone-field get-selection)])
+          (call-with-transaction
+           db
+           (lambda ()
+             (query-exec
+              db
+              "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
              values(?, ?, ?, ?)"
-            (or duration sql-null)
-            (or duration sql-null)
-            (or distance sql-null)
-            (or avg-speed sql-null))
-           (let ((ssid (db-get-last-pk "SECTION_SUMMARY" db)))
-             (query-exec db "insert into ACTIVITY(start_time) values (?)" start-time)
-             (let ((aid (db-get-last-pk "ACTIVITY" db)))
-               (query-exec
-                db
-                "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
-                 values(?, ?, ?, ?, ?, ?, ?, ?)"
-                (or name sql-null)
-                (or desc sql-null)
-                aid
-                start-time
-                (or (car sport) sql-null)
-                (or (cdr sport) sql-null)
-                (if (eqv? rpe-scale 0) sql-null rpe-scale)
-                ssid)))
-           (let* ((sid (db-get-last-pk "A_SESSION" db))
-                  (df (session-df db sid)))
-             (maybe-update-session-tss sid df db)
-             (send labels-input update-session-tags sid)
-             (send equipment-input update-session-tags sid)
-             sid)))))
+              (or duration sql-null)
+              (or duration sql-null)
+              (or distance sql-null)
+              (or avg-speed sql-null))
+             (let ((ssid (db-get-last-pk "SECTION_SUMMARY" db)))
+               (query-exec db "insert into ACTIVITY(start_time) values (?)" start-time)
+               (let ((aid (db-get-last-pk "ACTIVITY" db)))
+                 (query-exec
+                  db
+                  "insert into A_SESSION(name, description, activity_id, time_zone_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
+                 values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                  (or name sql-null)
+                  (or desc sql-null)
+                  aid
+                  tzid
+                  start-time
+                  (or (car sport) sql-null)
+                  (or (cdr sport) sql-null)
+                  (if (eqv? rpe-scale 0) sql-null rpe-scale)
+                  ssid)))
+             (let* ((sid (db-get-last-pk "A_SESSION" db))
+                    (df (session-df db sid)))
+               (maybe-update-session-tss sid df db)
+               (send labels-input update-session-tags sid)
+               (send equipment-input update-session-tags sid)
+               sid))))))
 
     (define/public (show-dialog parent db session-id)
       (if session-id
