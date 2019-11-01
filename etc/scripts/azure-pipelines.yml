@@ -165,7 +165,7 @@ jobs:
     # important that the first line in that file contains no spaces
 
     - script: |
-        set PATH=%PATH%;C:\Program Files (x86)\Inno Setup 5
+        set PATH=%PATH%;%LOCALAPPDATA%\Programs\Inno Setup 6
         set /p APP_VERSION=<version.txt
         set V=%APP_VERSION%.%BUILD_BUILDID%
         set D=ActivityLog2 - Analyze Swim Bike and Run Data

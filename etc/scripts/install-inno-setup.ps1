@@ -1,6 +1,4 @@
-﻿
-
-# This is the site from which Inno Setup can be downloaded, unfortunately,
+﻿# This is the site from which Inno Setup can be downloaded, unfortunately,
 #  this fails occasionally (maybe it is hosted on a small server?).  This
 # script actually downloads it from my Google Drive account
 $original_url = "http://www.jrsoftware.org/download.php/is-unicode.exe";
@@ -8,12 +6,10 @@ $original_url = "http://www.jrsoftware.org/download.php/is-unicode.exe";
 # The site for Inno Setup has no HTTPS so, we ensure that only the expected
 #  version is actually downloaded and installed.
 
-$expected_hash = "27D49E9BC769E9D1B214C153011978DB90DC01C2ACD1DDCD9ED7B3FE3B96B538";
+$expected_hash = "5856471BA4DF94772FE415687F70CC87ADD8BC228EFB289DDADAE55BF0F2759B";
 
 # Google Drive file location
-# https://drive.google.com/open?id=1378vBnd-UfvmTM_-i4EJNfMJmM0IDptN
-
-$gd_file_id = "1378vBnd-UfvmTM_-i4EJNfMJmM0IDptN";
+$gd_file_id = "1UQ4587WM_CPt9gAbkt-J8gJrJl4sFSdv";
 $gd_url = "https://drive.google.com/uc?export=download&id=$gd_file_id"
 
 $exit_code = 0;
@@ -39,12 +35,15 @@ if ($h.Hash -ne $expected_hash) {
     Write-Output "Actual hash: $($h.Hash)"
     $exit_code = 1;
 } else {
+    # NOTE: with Inno Setup 6, installing in C:/Program Files did not seem to
+    # work...
+
     if ($Env:INNO_DIR) {
         Write-Output "Installing Inno Setup in $Env:INNO_DIR";
-        $iargs = "/SILENT /DIR=`"$Env:INNO_DIR`""
+        $iargs = "/SILENT /CURRENTUSER /DIR=`"$Env:INNO_DIR`""
     } else {
-        Write-Output "Installing Inno Setup in default location";
-        $iargs = "/SILENT"
+        Write-Output "Installing Inno Setup in %LOCALAPPDATA%\Programs\Inno Setup 6";
+        $iargs = "/SILENT /CURRENTUSER"
     }
 
     $iprocess = Start-Process -FilePath $dfile -ArgumentList $iargs `

@@ -124,7 +124,7 @@
    "dist"
    (list app-exe-file)))
 
-(define issc-program "C:/Program Files (x86)/Inno Setup 5/iscc.exe")
+(define issc-program "C:/Program Files (x86)/Inno Setup 6/iscc.exe")
 
 (define (mkinstaller)
   (define version (string-trim (file->string "./version.txt" #:mode 'text)))
