@@ -12,10 +12,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- racket/contract
- json
- "wkstep.rkt")
+(require json
+         racket/contract
+         "wkstep.rkt")
 
 (provide/contract
  (workout->jsexpr (-> workout? jsexpr?))

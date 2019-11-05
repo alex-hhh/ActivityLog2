@@ -12,8 +12,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/format racket/string
+(require racket/class
+         racket/format
+         racket/string
          "validating-input-field.rkt")
+
 (provide number-input-field%)
 
 (define (valid-number? data min max)

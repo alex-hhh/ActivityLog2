@@ -18,11 +18,11 @@
          racket/class
          racket/gui/base
          racket/match
-         "../widgets/main.rkt"
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
          "../dbutil.rkt"
-         "../utilities.rkt")
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide get-cp-editor)
 

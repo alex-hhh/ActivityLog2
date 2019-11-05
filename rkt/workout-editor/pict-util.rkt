@@ -1,6 +1,9 @@
 #lang racket/base
 
-(require racket/draw racket/class pict racket/format
+(require pict
+         racket/class
+         racket/draw
+         racket/format
          "wkstep.rkt")
 
 (provide make-step-pict

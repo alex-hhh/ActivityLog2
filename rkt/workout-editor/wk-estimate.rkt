@@ -15,11 +15,11 @@
 ;; more details.
 
 (require pict
+         racket/class
+         racket/contract
          racket/draw
          racket/match
-         racket/class
          racket/math
-         racket/contract
          "../fmt-util.rkt"
          "wkstep.rkt")
 

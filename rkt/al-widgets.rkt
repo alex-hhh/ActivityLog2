@@ -14,22 +14,22 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          racket/class
-         racket/gui/base
-         racket/math
-         racket/match
          racket/dict
+         racket/gui/base
+         racket/match
+         racket/math
          tzinfo
+         "dbapp.rkt"
          "fit-file/activity-util.rkt"
-         "fmt-util.rkt"
          "fmt-util-ut.rkt"
-         "sport-charms.rkt"
-         "widgets/main.rkt"
+         "fmt-util.rkt"
          "intervals.rkt"
+         "sport-charms.rkt"
          "utilities.rkt"
-         "data-frame/df.rkt"
-         "dbapp.rkt")
+         "widgets/main.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)

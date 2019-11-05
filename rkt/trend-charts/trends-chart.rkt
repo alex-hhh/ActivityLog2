@@ -14,20 +14,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- db/base
- racket/gui/base
- plot/no-gui
- racket/class
- racket/date
- racket/math
- racket/vector
- racket/contract
- racket/match
- "../database.rkt"
- "../widgets/main.rkt"
- "../al-widgets.rkt"
- "../utilities.rkt")
+(require db/base
+         plot/no-gui
+         racket/class
+         racket/contract
+         racket/date
+         racket/gui/base
+         racket/match
+         racket/math
+         racket/vector
+         "../al-widgets.rkt"
+         "../database.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide
  trends-chart%

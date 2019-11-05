@@ -48,7 +48,7 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
   - bash ./etc/scripts/setup-catalog.sh -i pkgs/
 install:
-  - raco pkg install --auto tzinfo tzgeolookup
+  - raco pkg install --auto tzinfo tzgeolookup data-frame
 before_script:
   # the X virtual frame buffer is needeed to run the tests, since they require
   # the GUI libraries which in turn try to connect to X even if no windows are
@@ -61,7 +61,6 @@ before_script:
 script:
   - racket build.rkt
   - raco test test/fit2-test.rkt
-  - raco test test/df-test.rkt
   - raco test test/db-test.rkt
   - raco test test/db-upgrade-test.rkt
   # run trends before the aggregate test, as we want our

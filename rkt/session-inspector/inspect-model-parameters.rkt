@@ -15,23 +15,23 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
-         racket/gui/base
+(require data-frame
          db/base
          pict
          pict/snip
+         racket/class
          racket/format
-         racket/math
+         racket/gui/base
          racket/list
          racket/match
+         racket/math
          "../color-theme.rkt"
+         (prefix-in ct: "../color-theme.rkt")
          "../dbapp.rkt"
-         "../fmt-util.rkt"
          "../fmt-util-ut.rkt"
-         "../sport-charms.rkt"
-         "../data-frame/df.rkt"
+         "../fmt-util.rkt"
          "../session-df/native-series.rkt"
-         (prefix-in ct: "../color-theme.rkt"))
+         "../sport-charms.rkt")
 
 (provide model-parameters-panel%)
 

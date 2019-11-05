@@ -19,8 +19,8 @@
          racket/gui/base
          racket/math
          racket/runtime-path
-         "../utilities.rkt"
-         "../dbapp.rkt")
+         "../dbapp.rkt"
+         "../utilities.rkt")
 
 (provide first-run-dialog%)
 

@@ -15,7 +15,7 @@
 (require db/base
          rackunit
          racket/match
-         "../rkt/data-frame/df.rkt"
+         data-frame
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"

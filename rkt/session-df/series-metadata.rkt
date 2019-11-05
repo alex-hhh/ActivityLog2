@@ -18,11 +18,11 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/class
-         plot/no-gui
+(require plot/no-gui
+         racket/class
+         racket/contract
          racket/draw
          racket/format
-         racket/contract
          (prefix-in ct: "../color-theme.rkt")
          "../utilities.rkt")
 

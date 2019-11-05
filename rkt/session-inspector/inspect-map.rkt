@@ -14,21 +14,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
+(require data-frame
+         plot
+         racket/class
+         racket/contract
+         racket/dict
          racket/gui/base
          racket/match
-         racket/dict
-         racket/contract
-         plot
-         "../fit-file/activity-util.rkt"
          "../al-widgets.rkt"
-         "inspect-graphs.rkt"
-         "../widgets/map-widget/map-widget.rkt"
-         "../widgets/map-widget/map-util.rkt"
-         "../widgets/map-widget/map-tiles.rkt"
+         "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
-         "../data-frame/df.rkt"
-         "../session-df/session-df.rkt")
+         "../session-df/session-df.rkt"
+         "../widgets/map-widget/map-tiles.rkt"
+         "../widgets/map-widget/map-util.rkt"
+         "../widgets/map-widget/map-widget.rkt"
+         "inspect-graphs.rkt")
 
 (provide map-panel%)
 

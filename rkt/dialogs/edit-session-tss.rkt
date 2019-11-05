@@ -15,17 +15,17 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          racket/class
          racket/gui/base
          racket/match
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
-         "../sport-charms.rkt"
          "../dbutil.rkt"
-         "../widgets/main.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
          "../session-df/session-df.rkt"
-         "../data-frame/df.rkt")
+         "../sport-charms.rkt"
+         "../widgets/main.rkt")
 
 (provide get-edit-session-tss-dialog)
 (provide maybe-update-session-tss)
@@ -121,10 +121,10 @@
   (let ((intensity-factor (/ speed tpace)))
     (* intensity-factor intensity-factor intensity-factor (/ duration 3600.0) 100)))
 
-;; Compute the TSS of a session based on heart rate zones using the
-;; data-frame% DF.  This is done by computing a fractional TSS for each track
-;; point and should provide a better TSS value than simply taking the average
-;; HR for the entire session (it is also slower).
+;; Compute the TSS of a session based on heart rate zones using the data-frame
+;; DF.  This is done by computing a fractional TSS for each track point and
+;; should provide a better TSS value than simply taking the average HR for the
+;; entire session (it is also slower).
 (define (compute-session-tss/hr df)
   ;; NOTE: we use the timer series, so we don't count TSS while the recording
   ;; is stopped.  We could use the elapsed series to count TSS while stopped

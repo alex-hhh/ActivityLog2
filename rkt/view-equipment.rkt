@@ -16,14 +16,14 @@
 
 (require db/base
          racket/class
-         racket/gui/base
          (rename-in srfi/48 (format format-48))
-         racket/string
+         racket/gui/base
          racket/match
-         "utilities.rkt"
-         "fmt-util.rkt"
-         "fmt-util-ut.rkt"
+         racket/string
          "dbutil.rkt"
+         "fmt-util-ut.rkt"
+         "fmt-util.rkt"
+         "utilities.rkt"
          "widgets/main.rkt")
 
 (provide view-equipment%)

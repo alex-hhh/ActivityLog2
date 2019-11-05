@@ -12,9 +12,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/string racket/format racket/date
-         "validating-input-field.rkt"
-         "../fmt-util-ut.rkt")
+(require racket/class
+         racket/date
+         racket/format
+         racket/string
+         "../fmt-util-ut.rkt"
+         "validating-input-field.rkt")
+
 (provide date-input-field%)
 
 ;; TODO: accept dates using 10-12-2014, plus other combinations

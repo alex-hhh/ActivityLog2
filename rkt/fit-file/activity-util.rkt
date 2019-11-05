@@ -15,8 +15,8 @@
 ;; more details.
 
 (require racket/date
-         racket/math
-         racket/dict)
+         racket/dict
+         racket/math)
 
 ;; NOTE: this file is littered with provide calls throughout it.  They should
 ;; all be moved at the top...

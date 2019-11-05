@@ -18,22 +18,20 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require
- db/base
- racket/match
- racket/class
- racket/contract
- racket/async-channel
- racket/format
- racket/runtime-path
- json
- "series-metadata.rkt"
- "native-series.rkt"
- "../utilities.rkt"
- "../data-frame/df.rkt"
- "../data-frame/series.rkt"
- "../data-frame/colors.rkt"
- "../dbutil.rkt")
+(require data-frame
+         data-frame/private/colors
+         db/base
+         json
+         racket/async-channel
+         racket/class
+         racket/contract
+         racket/format
+         racket/match
+         racket/runtime-path
+         "../dbutil.rkt"
+         "../utilities.rkt"
+         "native-series.rkt"
+         "series-metadata.rkt")
 
 (provide/contract
  (read-xdata-series (-> data-frame? connection? any/c))

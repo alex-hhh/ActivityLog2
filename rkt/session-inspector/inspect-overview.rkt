@@ -14,25 +14,24 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require (rename-in srfi/48 (format format-48))
+         data-frame
+         db/base
+         math/statistics
          pict
          racket/class
-         racket/gui/base
-         (rename-in srfi/48 (format format-48))
-         racket/list
-         racket/math
-         math/statistics
          racket/dict
          racket/format
-         "../fit-file/activity-util.rkt"
+         racket/gui/base
+         racket/list
+         racket/math
          "../al-widgets.rkt"
+         "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
-         "../widgets/map-widget/map-util.rkt"
          "../sport-charms.rkt"
          "../weather.rkt"
-         "../data-frame/df.rkt"
-         "../data-frame/statistics.rkt"
-         "../widgets/main.rkt")
+         "../widgets/main.rkt"
+         "../widgets/map-widget/map-util.rkt")
 
 (provide inspect-overview-panel%)
 

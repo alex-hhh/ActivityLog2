@@ -12,9 +12,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base
+(require pict
          racket/class
-         pict
+         racket/gui/base
          "../widgets/esc-controls.rkt")
 
 (provide define-snip-class

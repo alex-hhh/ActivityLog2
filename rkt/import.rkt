@@ -14,17 +14,17 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          racket/class
          racket/match
          racket/math
          tzgeolookup
-         "session-df/session-df.rkt"
-         "data-frame/df.rkt"
          "database.rkt"
-         "utilities.rkt"
          "elevation-correction.rkt"
+         "session-df/session-df.rkt"
          "time-in-zone.rkt"
+         "utilities.rkt"
          "weather.rkt")
 
 (provide import-new-activities-from-directory do-post-import-tasks)

@@ -14,12 +14,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
-         framework/splash
-         "utilities.rkt"
+(require framework/splash
+         racket/class
          "dbutil.rkt"
          "dialogs/first-run.rkt"
-         "toplevel.rkt")
+         "toplevel.rkt"
+         "utilities.rkt")
 
 (provide main)
 

@@ -40,8 +40,7 @@
          rackunit
          "../rkt/plot-util.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/data-frame/csv.rkt"
-         "../rkt/data-frame/df.rkt"
+         data-frame
          "../rkt/trend-charts/trends-ae.rkt"
          "../rkt/trend-charts/trends-bw.rkt"
          "../rkt/trend-charts/trends-pmc.rkt"

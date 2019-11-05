@@ -26,18 +26,17 @@
 ;; It will work best if a route is traversed several times and won't do
 ;; anything usefull for a route that is traversed only once.
 
-(require db/base
+(require data-frame/private/bsearch
+         db/base
+         math/statistics
          racket/class
          racket/flonum
-         racket/math
-         racket/match
          racket/list
-         math/statistics
+         racket/match
+         racket/math
          "utilities.rkt"
-         "widgets/map-widget/map-util.rkt"
          "widgets/main.rkt"
-         "data-frame/bsearch.rkt")
-
+         "widgets/map-widget/map-util.rkt")
 
 (provide update-tile-codes)
 (provide fixup-elevation-for-session)

@@ -15,18 +15,18 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot/no-gui
+(require pict
+         plot/no-gui
          racket/class
-         racket/list
          racket/draw
          racket/format
+         racket/list
          racket/math
-         pict
+         (prefix-in ct: "../color-theme.rkt")
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../pdmodel.rkt"
-         "series-metadata.rkt"
-         (prefix-in ct: "../color-theme.rkt"))
+         "../sport-charms.rkt"
+         "series-metadata.rkt")
 
 ;; Fonts and colors for the Power-Duration information pane
 

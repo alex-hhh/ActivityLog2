@@ -14,27 +14,26 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- racket/class
- racket/gui/base
- racket/match
- racket/list
- racket/runtime-path
- "../utilities.rkt"
- "../widgets/main.rkt"
- "../plot-util.rkt"
- "../widgets/icon-resources.rkt"
- "trends-bw.rkt"
- "trends-vol.rkt"
- "trends-trivol.rkt"
- "trends-tiz.rkt"
- "trends-pmc.rkt"
- "trends-tt.rkt"
- "trends-bavg.rkt"
- "trends-hist.rkt"
- "trends-scatter.rkt"
- "trends-ae.rkt"
- "trends-heatmap.rkt")
+(require racket/class
+         racket/gui/base
+         racket/list
+         racket/match
+         racket/runtime-path
+         "../plot-util.rkt"
+         "../utilities.rkt"
+         "../widgets/icon-resources.rkt"
+         "../widgets/main.rkt"
+         "trends-ae.rkt"
+         "trends-bavg.rkt"
+         "trends-bw.rkt"
+         "trends-heatmap.rkt"
+         "trends-hist.rkt"
+         "trends-pmc.rkt"
+         "trends-scatter.rkt"
+         "trends-tiz.rkt"
+         "trends-trivol.rkt"
+         "trends-tt.rkt"
+         "trends-vol.rkt")
 
 (provide view-trends%)
 

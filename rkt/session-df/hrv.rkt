@@ -21,20 +21,17 @@
 ;; is to use the ActivityLog2 "Export FIT Settings" option and tick the HRV
 ;; checkbox.
 
-(require
- racket/contract
- racket/class
- racket/match
- racket/math
- racket/vector
- racket/dict
- math/statistics
- db/base
- "../data-frame/df.rkt"
- "../data-frame/series.rkt"
- "../fit-file/fit-file.rkt"
- "../database.rkt"
- )
+(require data-frame
+         db/base
+         math/statistics
+         racket/class
+         racket/contract
+         racket/dict
+         racket/match
+         racket/math
+         racket/vector
+         "../database.rkt"
+         "../fit-file/fit-file.rkt")
 
 (provide/contract
  (make-hrv-data-frame/file (-> path-string? (or/c #f data-frame?)))

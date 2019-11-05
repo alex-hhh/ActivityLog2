@@ -15,7 +15,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require pict
+(require data-frame
+         data-frame/private/spline
+         pict
          plot/no-gui
          racket/class
          racket/gui/base
@@ -24,20 +26,18 @@
          racket/math
          "../al-widgets.rkt"
          "../bavg-util.rkt"
-         "../data-frame/meanmax.rkt"
-         "../data-frame/spline.rkt"
          "../database.rkt"
-         "../fmt-util.rkt"
          "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
          "../metrics.rkt"
          "../pdmodel.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
-         "../session-df/xdata-series.rkt"
          "../session-df/series-metadata.rkt"
+         "../session-df/xdata-series.rkt"
+         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
-         "../sport-charms.rkt"
          "trends-chart.rkt")
 
 (define default-axis-choices

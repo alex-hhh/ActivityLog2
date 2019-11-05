@@ -12,11 +12,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/match
+(require data-frame/private/annealing
          racket/contract
-         racket/math
          racket/flonum
-         "data-frame/annealing.rkt")
+         racket/match
+         racket/math)
 
 
 ;;................................................. Critical Power Model ....

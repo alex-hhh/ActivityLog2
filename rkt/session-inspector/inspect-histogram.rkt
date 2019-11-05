@@ -14,15 +14,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot/no-gui
+(require data-frame
+         plot/no-gui
          racket/class
          racket/format
          racket/gui/base
          racket/list
          racket/match
          racket/string
-         "../data-frame/df.rkt"
-         "../data-frame/histogram.rkt"
          "../fmt-util.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"

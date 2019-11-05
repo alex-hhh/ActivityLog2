@@ -17,14 +17,14 @@
 (require db/base
          racket/class
          racket/gui/base
+         "dbutil.rkt"
          "dialogs/activity-edit.rkt"
-         "utilities.rkt"
-         "fmt-util.rkt"
          "fmt-util-ut.rkt"
+         "fmt-util.rkt"
          "import.rkt"
          "sport-charms.rkt"
-         "widgets/main.rkt"
-         "dbutil.rkt")
+         "utilities.rkt"
+         "widgets/main.rkt")
 
 (provide import-view%)
 (provide import-dialog%)

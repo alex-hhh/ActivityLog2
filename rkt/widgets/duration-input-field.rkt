@@ -12,9 +12,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/string
+(require racket/class
+         racket/string
          "validating-input-field.rkt"
          "widget-utilities.rkt")
+
 (provide duration-input-field%)
 
 ;; TODO: check for valid ranges for hours, minutes, seconds

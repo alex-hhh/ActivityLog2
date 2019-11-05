@@ -14,11 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require "dbutil.rkt"
-         "utilities.rkt"
-         db/base
+(require db/base
          racket/contract
-         racket/runtime-path)
+         racket/runtime-path
+         "dbutil.rkt"
+         "utilities.rkt")
 
 ;; Contract for the progress callback passed to db-open
 (define progress-callback/c

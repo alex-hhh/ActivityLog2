@@ -14,15 +14,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- racket/contract
- racket/class
- racket/match
- racket/dict
- racket/list
- racket/math
- "wkstep.rkt"
- "../fit-file/fit-file.rkt")
+(require racket/class
+         racket/contract
+         racket/dict
+         racket/list
+         racket/match
+         racket/math
+         "../fit-file/fit-file.rkt"
+         "wkstep.rkt")
 
 (provide/contract
  (fit->workout (-> (or/c bytes? path-string? input-port?) workout?))

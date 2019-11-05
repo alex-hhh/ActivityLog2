@@ -27,8 +27,13 @@
 ;; For tracing functions, replace `define` with `define/trace` and the
 ;; function calls with their arguments will be printed out.
 
-(require math/statistics racket/format racket/math racket/class racket/string)
-(require (for-syntax racket/base racket/syntax))
+(require (for-syntax racket/base
+                     racket/syntax)
+         math/statistics
+         racket/class
+         racket/format
+         racket/math
+         racket/string)
 
 (provide define/profile
          define/public/profile

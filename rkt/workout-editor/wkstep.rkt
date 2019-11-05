@@ -12,14 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- racket/class
- racket/dict
- racket/format
- racket/math
- racket/draw                            ; for color%
- "../fmt-util.rkt"
- )
+(require racket/class
+         racket/dict
+         racket/draw
+         racket/format
+         racket/math
+         "../fmt-util.rkt")
 
 (provide
  (struct-out wkstep)

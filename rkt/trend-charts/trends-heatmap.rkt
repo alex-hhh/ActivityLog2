@@ -15,20 +15,20 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
+(require db
+         racket/class
          racket/gui/base
          racket/hash
-         racket/math
          racket/match
-         db
-         "trends-chart.rkt"
-         "../widgets/main.rkt"
+         racket/math
          "../dbutil.rkt"
          "../metrics.rkt"
+         "../plot-util.rkt"
          "../utilities.rkt"
-         "../widgets/map-widget/map-snip.rkt"
          "../widgets/esc-controls.rkt"
-         "../plot-util.rkt")
+         "../widgets/main.rkt"
+         "../widgets/map-widget/map-snip.rkt"
+         "trends-chart.rkt")
 
 (provide heatmap-chart%)
 

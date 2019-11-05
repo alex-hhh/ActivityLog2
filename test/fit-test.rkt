@@ -26,7 +26,7 @@
          rackunit
          db
          "test-util.rkt"
-         "../rkt/data-frame/df.rkt"
+         data-frame
          "../rkt/session-df/session-df.rkt"
          "../rkt/session-df/series-metadata.rkt"
          "../rkt/session-df/native-series.rkt"

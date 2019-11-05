@@ -21,19 +21,19 @@
 ;; widget).
 
 (require db/base
-         (rename-in srfi/48 (format format-48))
          racket/class
+         (rename-in srfi/48 (format format-48))
          racket/date
          racket/gui/base
          racket/list
          racket/math
          "al-widgets.rkt"
          "database.rkt"
+         "dbutil.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "dbutil.rkt"
-         "widgets/main.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "widgets/main.rkt")
 
 (provide view-reports%)
 

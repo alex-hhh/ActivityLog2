@@ -13,15 +13,14 @@
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
-(require racket/contract
+(require data-frame
          racket/class
+         racket/contract
          racket/match
-         "session-df/series-metadata.rkt"
-         "session-df/native-series.rkt"
-         "data-frame/df.rkt"
-         "data-frame/meanmax.rkt"
+         "fmt-util.rkt"
          "metrics.rkt"
-         "fmt-util.rkt")
+         "session-df/native-series.rkt"
+         "session-df/series-metadata.rkt")
 
 (provide/contract
  (get-session-mmax (-> data-frame?

@@ -16,35 +16,31 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         data-frame/private/bsearch
+         data-frame/private/rdp-simplify
+         db/base
+         math/statistics
+         plot/no-gui
+         plot/utils
+         racket/async-channel
          racket/class
+         racket/contract
+         racket/draw
+         racket/list
          racket/match
          racket/math
+         racket/runtime-path
          racket/sequence
          racket/vector
-         racket/contract
-         racket/list
-         racket/draw
-         racket/async-channel
-         racket/runtime-path
-         math/statistics
-         plot/utils
-         plot/no-gui
-         "../data-frame/df.rkt"
-         "../data-frame/series.rkt"
-         "../data-frame/scatter.rkt"
-         "../data-frame/sql.rkt"
-         "../data-frame/bsearch.rkt"
-         "../data-frame/statistics.rkt"
-         "../data-frame/rdp-simplify.rkt"
-         "../fmt-util.rkt"
-         "../sport-charms.rkt"
-         "../widgets/map-widget/map-util.rkt"
-         "../utilities.rkt"
          "../dbutil.rkt"
+         "../fmt-util.rkt"
+         "../gap.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
+         "../widgets/map-widget/map-util.rkt"
          "series-metadata.rkt"
-         "xdata-series.rkt"
-         "../gap.rkt")
+         "xdata-series.rkt")
 
 (define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))

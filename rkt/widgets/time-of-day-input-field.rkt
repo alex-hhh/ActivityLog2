@@ -12,9 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/string racket/format
-         "validating-input-field.rkt"
-         "../fmt-util-ut.rkt")
+(require racket/class
+         racket/format
+         racket/string
+         "../fmt-util-ut.rkt"
+         "validating-input-field.rkt")
+
 (provide time-of-day-input-field%)
 
 ;; TODO: check for valid ranges for hours, minutes

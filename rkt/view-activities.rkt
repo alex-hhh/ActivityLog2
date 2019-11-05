@@ -16,18 +16,18 @@
 
 (require db/base
          racket/class
-         racket/gui/base
+         racket/format
          (rename-in srfi/48 (format format-48))
+         racket/gui/base
          racket/list
          racket/string
-         racket/format
-         "dialogs/activity-edit.rkt"
-         "utilities.rkt"
          "al-widgets.rkt"
          "database.rkt"
-         "fmt-util.rkt"
+         "dialogs/activity-edit.rkt"
          "fmt-util-ut.rkt"
+         "fmt-util.rkt"
          "sport-charms.rkt"
+         "utilities.rkt"
          "weather.rkt"
          "widgets/main.rkt")
 

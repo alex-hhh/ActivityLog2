@@ -14,7 +14,20 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/contract)
+(require (for-syntax racket/base
+                     racket/file
+                     racket/format
+                     racket/runtime-path
+                     racket/string)
+         errortrace/errortrace-lib
+         racket/async-channel
+         racket/contract
+         racket/file
+         racket/format
+         racket/list
+         racket/match
+         racket/math
+         racket/port)
 
 (provide/contract
 
@@ -50,22 +63,6 @@
  (notify-user (->* (symbol? string?) () #:rest (listof any/c) any/c)))
 
 (provide user-notification-logger)
-
-(require errortrace/errortrace-lib
-         racket/async-channel
-         racket/file
-         racket/format
-         racket/math
-         racket/port
-         racket/match
-         racket/list
-
-         (for-syntax
-          racket/base
-          racket/file
-          racket/format
-          racket/string
-          racket/runtime-path))
 
 (begin-for-syntax
   (define-runtime-path version-id-file "../version.txt"))

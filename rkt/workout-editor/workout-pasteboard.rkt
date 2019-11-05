@@ -12,14 +12,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base
+(require embedded-gui
          racket/class
+         racket/gui/base
          racket/list
          racket/match
-         embedded-gui
          "wkstep.rkt"
-         "workout-step-snip.rkt"
-         "workout-repeat-snip.rkt")
+         "workout-repeat-snip.rkt"
+         "workout-step-snip.rkt")
 
 (provide workout-pasteboard%)
 

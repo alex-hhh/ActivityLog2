@@ -14,13 +14,15 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class pict
+(require pict
+         racket/class
+         racket/gui/base
          "../widgets/main.rkt"
          "pict-util.rkt"
+         "wk-estimate.rkt"
          "wkstep.rkt"
          "workout-editor-headline.rkt"
-         "workout-pasteboard.rkt"
-         "wk-estimate.rkt")
+         "workout-pasteboard.rkt")
 
 (provide workout-editor%)
 

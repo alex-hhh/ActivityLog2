@@ -35,10 +35,10 @@
   [ignore-errors (-> (-> Any) Any)]
   [log-event (-> Symbol Any Any)])
 
-(require racket/list
+(require racket/format
+         racket/list
          racket/math
          racket/string
-         racket/format
          "widgets/map-widget/map-util.rkt")
 
 (provide wind->string

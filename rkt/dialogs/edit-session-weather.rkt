@@ -17,14 +17,14 @@
 (require db/base
          racket/class
          racket/gui/base
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
-         "../widgets/map-widget/map-util.rkt"
-         "../sport-charms.rkt"
          "../dbutil.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
          "../weather.rkt"
          "../widgets/main.rkt"
-         "../utilities.rkt")
+         "../widgets/map-widget/map-util.rkt")
 
 (provide get-weather-editor)
 

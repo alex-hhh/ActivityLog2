@@ -14,10 +14,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/draw
-         racket/runtime-path
-         racket/class
+(require racket/class
+         racket/draw
          racket/match
+         racket/runtime-path
          "utilities.rkt")
 
 (define-runtime-path the-theme-file "../sql/default-theme.rktd")

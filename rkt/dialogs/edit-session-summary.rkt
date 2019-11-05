@@ -21,10 +21,10 @@
          tzinfo
          "../al-widgets.rkt"
          "../dbutil.rkt"
-         "edit-session-tss.rkt"
-         "../sport-charms.rkt"
          "../session-df/session-df.rkt"
-         "../widgets/main.rkt")
+         "../sport-charms.rkt"
+         "../widgets/main.rkt"
+         "edit-session-tss.rkt")
 
 (provide get-edit-session-summary-dialog)
 

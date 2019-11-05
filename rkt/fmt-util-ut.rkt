@@ -17,10 +17,10 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/match
+(require racket/contract
          racket/format
+         racket/match
          racket/string
-         racket/contract
          tzinfo)
 
 (provide/contract

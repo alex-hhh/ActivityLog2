@@ -24,7 +24,8 @@
 ;; NOTE: the quadrant plot is also defined for run and swim activities, using
 ;; pace instead of power.  The Y line is stride instead of torque.
 
-(require math/statistics
+(require data-frame
+         math/statistics
          plot/no-gui
          racket/class
          racket/function
@@ -32,13 +33,12 @@
          racket/match
          racket/math
          "../color-theme.rkt"
-         "../data-frame/df.rkt"
-         "../data-frame/scatter.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
+
 (provide quadrant-plot-panel%)
 
 ;; speed is in mps, cadence is in SPM

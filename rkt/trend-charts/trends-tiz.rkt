@@ -15,22 +15,20 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- racket/class
- racket/match
- racket/gui/base
- racket/list
- racket/format
- db/base
- plot/no-gui
- "../database.rkt"
- "../widgets/main.rkt"
- "trends-chart.rkt"
- "../fmt-util.rkt"
- "../color-theme.rkt"
- "../plot-util.rkt"
- "../sport-charms.rkt")
+(require db/base
+         plot/no-gui
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/list
+         racket/match
+         "../color-theme.rkt"
+         "../database.rkt"
+         "../fmt-util.rkt"
+         "../plot-util.rkt"
+         "../sport-charms.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide tiz-trends-chart%)
 

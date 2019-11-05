@@ -15,26 +15,25 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          plot/no-gui
          racket/class
          racket/date
          racket/gui/base
          racket/list
          racket/match
-         "../utilities.rkt"
+         "../bavg-util.rkt"
+         "../database.rkt"
+         "../dbapp.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
+         "../metrics.rkt"
+         "../pdmodel.rkt"
+         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
-         "../data-frame/meanmax.rkt"
-         "../data-frame/df.rkt"
-         "../dbapp.rkt"
-         "../metrics.rkt"
-         "../bavg-util.rkt"
-         "../pdmodel.rkt"
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
-         "../plot-util.rkt"
-         "../database.rkt")
+         "../utilities.rkt")
 
 (provide mean-max-plot-panel%)
 

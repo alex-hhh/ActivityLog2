@@ -14,22 +14,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
 (require db/base
          racket/class
+         racket/format
          racket/gui/base
          racket/list
-         racket/string
          racket/match
          racket/math
-         racket/format
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
+         racket/string
          "../dbutil.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
          "../sport-charms.rkt"
-         "../widgets/main.rkt"
          "../time-in-zone.rkt"
-         "../utilities.rkt")
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide get-sz-editor)
 

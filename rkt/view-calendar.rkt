@@ -20,14 +20,14 @@
          racket/date
          racket/gui/base
          racket/list
+         racket/match
          racket/math
          racket/string
-         racket/match
          "dialogs/activity-edit.rkt"
          "fmt-util.rkt"
          "sport-charms.rkt"
-         "widgets/main.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "widgets/main.rkt")
 
 (provide view-calendar%)
 

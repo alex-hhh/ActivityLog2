@@ -14,23 +14,23 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require (for-syntax racket/base)
+         (rename-in srfi/48 (format format-48))
+         db/base
          json
          net/url
          net/url-connect
+         racket/contract
          racket/date
+         racket/format
          racket/list
+         racket/math
          racket/port
          racket/runtime-path
          racket/string
-         racket/contract
-         racket/format
-         racket/math
-         (rename-in srfi/48 (format format-48))
-         "utilities.rkt"
          "dbutil.rkt"
+         "utilities.rkt"
          "widgets/map-widget/map-util.rkt")
-(require (for-syntax racket/base))
 
 
 ;;........................................................... data types ....

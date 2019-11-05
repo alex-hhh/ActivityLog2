@@ -15,7 +15,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require (for-syntax racket/base)
+         db
          file/gunzip
          file/gzip
          json
@@ -23,8 +24,7 @@
          racket/file
          racket/format
          racket/runtime-path
-         "utilities.rkt"
-         (for-syntax racket/base))
+         "utilities.rkt")
 
 ;; Contract for the progress callback passed to db-open
 (define progress-callback/c

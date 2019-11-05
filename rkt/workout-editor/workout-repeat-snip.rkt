@@ -14,9 +14,9 @@
 
 (require racket/class
          racket/draw
+         "../widgets/esc-controls.rkt"
          "pict-util.rkt"
-         "workout-step-snip-base.rkt"
-         "../widgets/esc-controls.rkt")
+         "workout-step-snip-base.rkt")
 
 (provide workout-repeat-snip%
          workout-repeat-end-snip%)

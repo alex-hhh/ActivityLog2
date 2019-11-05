@@ -17,26 +17,22 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require plot/no-gui
-         racket/class
-         racket/gui/base
-         racket/match
-         racket/hash
+(require data-frame
+         data-frame/private/colors
          math/statistics
+         plot/no-gui
+         racket/class
          racket/format
+         racket/gui/base
+         racket/hash
+         racket/match
          racket/runtime-path
-         "../fmt-util.rkt"
-         "../fmt-util-ut.rkt"
-         "../plot-util.rkt"
-         "../widgets/main.rkt"
-         "../data-frame/df.rkt"
-         "../data-frame/sql.rkt"
-         "../data-frame/csv.rkt"
-         "../data-frame/least-squares-fit.rkt"
-         "../data-frame/statistics.rkt"
-         "../data-frame/colors.rkt"
-         "../utilities.rkt"
          "../dbutil.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
+         "../plot-util.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt"
          "trends-chart.rkt")
 
 (provide ae-trends-chart%)

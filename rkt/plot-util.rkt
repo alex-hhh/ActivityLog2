@@ -13,19 +13,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/contract
+(require embedded-gui
+         pict
+         pict/snip
+         plot
+         plot/no-gui
+         plot/utils
          racket/class
-         racket/gui/base
+         racket/contract
          racket/draw
-         racket/snip
+         racket/gui/base
          racket/match
          racket/math
-         pict
-         plot/no-gui
-         pict/snip
-         plot/utils
-         plot
-         embedded-gui
+         racket/snip
          "utilities.rkt")
 
 ;; Resources for drawing overlays on the plots.  Defined in one place to

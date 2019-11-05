@@ -13,3 +13,6 @@
 [submodule "pkgs/memoize"]
 	path = pkgs/memoize
 	url = https://github.com/jbclements/memoize.git
+[submodule "pkgs/data-frame"]
+	path = pkgs/data-frame
+	url = https://github.com/alex-hhh/data-frame.git

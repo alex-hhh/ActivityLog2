@@ -14,12 +14,17 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/math file/md5
-         racket/list racket/match
+(require file/md5
+         racket/class
+         racket/gui/base
+         racket/list
+         racket/match
+         racket/math
          "../utilities.rkt"
-         "widget-utilities.rkt"
          "edit-dialog-base.rkt"
-         "icon-resources.rkt")
+         "icon-resources.rkt"
+         "widget-utilities.rkt")
+
 (provide qresults-list% qcolumn)
 
 

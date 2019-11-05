@@ -14,19 +14,17 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
+         math/statistics
          racket/class
          racket/match
          racket/math
-         math/statistics
-         "utilities.rkt"
-         "data-frame/df.rkt"
-         "data-frame/statistics.rkt"
-         "data-frame/histogram.rkt"
-         "session-df/session-df.rkt"
-         "widgets/main.rkt"
+         "dialogs/edit-session-tss.rkt"
          "session-df/hrv.rkt"
-         "dialogs/edit-session-tss.rkt")
+         "session-df/session-df.rkt"
+         "utilities.rkt"
+         "widgets/main.rkt")
 
 (provide update-time-in-zone-data)
 (provide interactive-update-time-in-zone-data)

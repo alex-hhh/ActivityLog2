@@ -14,16 +14,16 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
+(require db/base
+         racket/class
          racket/gui/base
          racket/match
-         db/base
          "../dbutil.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"
-         "wkstep.rkt"
          "wk-db.rkt"
          "wk-fit.rkt"
+         "wkstep.rkt"
          "workout-editor.rkt")
 
 (provide view-workouts%

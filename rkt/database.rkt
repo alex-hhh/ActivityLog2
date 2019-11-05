@@ -17,22 +17,21 @@
 (require db/base
          file/gunzip
          file/gzip
-         racket/class
-         racket/file
-         racket/list
-         racket/dict
-         racket/contract
-         racket/match
          racket/async-channel
-         racket/port
+         racket/class
+         racket/contract
+         racket/dict
+         racket/file
          racket/format
-         "dbutil.rkt"
+         racket/list
+         racket/match
+         racket/port
          "dbapp.rkt"
+         "dbutil.rkt"
+         "elevation-correction.rkt"
          "fit-file/fit-defs.rkt"
          "fit-file/fit-file.rkt"
-         "elevation-correction.rkt"     ; for lat-lon->tile-code
-         "utilities.rkt"
-         )
+         "utilities.rkt")
 
 (provide db-import-activity-from-file)
 (provide db-import-activities-from-directory)

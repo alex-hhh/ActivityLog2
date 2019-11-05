@@ -12,7 +12,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/match racket/math)
+(require racket/class
+         racket/gui/base
+         racket/match
+         racket/math)
+
 (provide grid-pane%)
 
 ;; A pane% object that places its children in a grid.  The number of columns

@@ -12,7 +12,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/string)
+(require racket/class
+         racket/gui/base
+         racket/string)
+
 (provide validating-input-field%)
 
 ;; An input field that allows validating its input and converting it to

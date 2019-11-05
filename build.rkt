@@ -140,7 +140,7 @@
 (module+ main
 
   ;; Check and inform the user that these packages need to be installed...
-  (check-missing-modules tzinfo tzgeolookup)
+  (check-missing-modules tzinfo tzgeolookup data-frame)
 
   ;; If this file is invoked from the command line, the application will be
   ;; built automatically (including the installer)

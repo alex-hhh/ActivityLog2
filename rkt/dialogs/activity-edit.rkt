@@ -14,15 +14,14 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          racket/class
          racket/gui/base
          "../database.rkt"
-         "../sport-charms.rkt"
-         "../utilities.rkt"
          "../session-df/session-df.rkt"
-         "../data-frame/csv.rkt"
-         "../data-frame/gpx.rkt")
+         "../sport-charms.rkt"
+         "../utilities.rkt")
 
 ;; (lazy-require
 ;;  ("edit-session-summary.rkt" (get-edit-session-summary-dialog))

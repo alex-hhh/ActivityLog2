@@ -12,8 +12,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class)
-(require "widget-utilities.rkt")
+(require racket/class
+         racket/gui/base
+         "widget-utilities.rkt")
+
 (provide edit-dialog-base%)
 
 (define title-font

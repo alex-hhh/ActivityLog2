@@ -19,10 +19,10 @@
          racket/gui/base
          "al-widgets.rkt"
          "database.rkt"
-         "dialogs/edit-athlete-metrics.rkt"
-         "fmt-util.rkt"
-         "fmt-util-ut.rkt"
          "dbutil.rkt"
+         "dialogs/edit-athlete-metrics.rkt"
+         "fmt-util-ut.rkt"
+         "fmt-util.rkt"
          "utilities.rkt"
          "widgets/main.rkt")
 

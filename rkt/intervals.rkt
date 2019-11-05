@@ -14,13 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/match
-         racket/dict
+(require data-frame
+         data-frame/private/rdp-simplify
          math/statistics
-         "data-frame/statistics.rkt"
-         "data-frame/meanmax.rkt"
-         "data-frame/df.rkt"
-         "data-frame/rdp-simplify.rkt"
+         racket/dict
+         racket/match
          "session-df/session-df.rkt")
 
 (provide

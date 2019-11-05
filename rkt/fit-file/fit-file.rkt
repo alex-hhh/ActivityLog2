@@ -69,20 +69,20 @@
 ;; 27dfb7e5900f4c2d80abc57015f42124-0 for the stride distance value of that
 ;; point.
 
-(require racket/class
+(require file/gunzip
+         json
+         racket/class
+         racket/dict
          racket/file
+         racket/format
          racket/list
          racket/match
          racket/math
          racket/port
-         racket/dict
-         racket/format
-         file/gunzip
          racket/runtime-path
-         json
+         "../utilities.rkt"
          "activity-util.rkt"
-         "fit-defs.rkt"
-         "../utilities.rkt")
+         "fit-defs.rkt")
 
 (provide make-fit-data-stream)
 (provide read-fit-records)

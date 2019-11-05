@@ -12,14 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- racket/gui/base
- racket/class
- racket/match
- "wkstep.rkt"
- "../fmt-util.rkt"
- "../widgets/main.rkt")
+(require racket/class
+         racket/gui/base
+         racket/match
+         "../fmt-util.rkt"
+         "../widgets/main.rkt"
+         "wkstep.rkt")
 
 (provide wkstep-editor%)
 

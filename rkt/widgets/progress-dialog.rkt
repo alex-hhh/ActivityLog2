@@ -12,8 +12,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class)
-(require "../utilities.rkt"             ; thread/dbglog
+(require racket/class
+         racket/gui/base
+         "../utilities.rkt"
          "widget-utilities.rkt")
 
 (provide progress-dialog%)

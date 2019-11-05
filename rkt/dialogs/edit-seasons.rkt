@@ -21,8 +21,8 @@
          racket/gui/base
          racket/list
          "../dbutil.rkt"
-         "../fmt-util.rkt"
          "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
          "../widgets/main.rkt")
 
 (provide get-season-editor)

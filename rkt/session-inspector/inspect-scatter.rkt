@@ -14,7 +14,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require math/statistics
+(require data-frame
+         data-frame/private/slr
+         math/statistics
          plot/no-gui
          racket/class
          racket/gui/base
@@ -22,9 +24,6 @@
          racket/match
          racket/math
          racket/string
-         "../data-frame/df.rkt"
-         "../data-frame/scatter.rkt"
-         "../data-frame/slr.rkt"
          "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"

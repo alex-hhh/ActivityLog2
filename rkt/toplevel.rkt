@@ -18,8 +18,8 @@
          framework/splash
          racket/class
          racket/gui/base
-         racket/math
          racket/match
+         racket/math
          tzgeolookup
          "database.rkt"
          "dbapp.rkt"
@@ -34,6 +34,7 @@
          "dialogs/export-fit-settings.rkt"
          "elevation-correction.rkt"
          "import.rkt"
+         "metrics.rkt"
          "session-inspector/view-session.rkt"
          "time-in-zone.rkt"
          "trend-charts/view-trends.rkt"
@@ -48,8 +49,7 @@
          "widgets/main.rkt"
          "widgets/map-widget/map-tiles.rkt"
          "widgets/map-widget/map-util.rkt"
-         "workout-editor/view-workouts.rkt"
-         "metrics.rkt")
+         "workout-editor/view-workouts.rkt")
 
 (provide toplevel-window%)
 

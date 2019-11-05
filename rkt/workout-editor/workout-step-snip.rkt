@@ -14,12 +14,12 @@
 
 (require racket/class
          racket/draw
-         "workout-step-snip-base.rkt"
          "../widgets/esc-controls.rkt"
-         "wkstep-editor.rkt"
          "pict-util.rkt"
-         "wkstep.rkt")
-         
+         "wkstep-editor.rkt"
+         "wkstep.rkt"
+         "workout-step-snip-base.rkt")
+
 (provide workout-step-snip%)
 
 (define workout-step-editor #f)

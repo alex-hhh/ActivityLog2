@@ -13,12 +13,12 @@
 ;; more details.
 
 (require db/base
-         racket/match
          racket/contract
-         "wk-json.rkt"
-         "wkstep.rkt"
+         racket/match
          "../dbutil.rkt"
-         "../utilities.rkt")
+         "../utilities.rkt"
+         "wk-json.rkt"
+         "wkstep.rkt")
 
 (provide/contract
  (store-workout (->* (connection? workout? number?)

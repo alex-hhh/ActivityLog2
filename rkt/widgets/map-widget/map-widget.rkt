@@ -19,10 +19,10 @@
 (require racket/class
          racket/contract
          racket/gui/base
-         "../../utilities.rkt"          ; for get-pref
-         "map-util.rkt"
+         "../../utilities.rkt"
+         "map-impl.rkt"
          "map-tiles.rkt"
-         "map-impl.rkt")
+         "map-util.rkt")
 
 (define map-widget%/c
   (class/c

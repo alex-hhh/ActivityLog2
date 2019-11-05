@@ -12,8 +12,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/match racket/math)
-(require "../utilities.rkt")            ; for dbglog, put-pref
+(require racket/class
+         racket/gui/base
+         racket/match
+         racket/math
+         "../utilities.rkt")
+
+            ; for dbglog, put-pref
 (provide tab-selector%)
 
 ;; Hold information about a label in the tab-selector%

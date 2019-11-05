@@ -15,30 +15,27 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- plot/no-gui
- racket/class
- racket/gui/base
- racket/math
- racket/string
- racket/list
- racket/string
- racket/hash
- racket/format
- racket/match
- "trends-chart.rkt"
- "../widgets/main.rkt"
- "../al-widgets.rkt"
- "../session-df/native-series.rkt"
- "../session-df/xdata-series.rkt"
- "../session-df/series-metadata.rkt"
- "../metrics.rkt"
- "../utilities.rkt"
- "../plot-util.rkt"
- "../fmt-util.rkt"
- "../data-frame/histogram.rkt"
- "../sport-charms.rkt")
+(require data-frame
+         plot/no-gui
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/hash
+         racket/list
+         racket/match
+         racket/math
+         racket/string
+         "../al-widgets.rkt"
+         "../fmt-util.rkt"
+         "../metrics.rkt"
+         "../plot-util.rkt"
+         "../session-df/native-series.rkt"
+         "../session-df/series-metadata.rkt"
+         "../session-df/xdata-series.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide hist-trends-chart%)
 

@@ -19,20 +19,19 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require
- racket/math
- racket/class
- racket/sequence
- racket/stream
- racket/draw
- racket/list
- racket/gui/base
- math/flonum
- racket/match
- racket/contract
- "../../utilities.rkt"          ; for get-pref
- "map-util.rkt"
- "map-tiles.rkt")
+(require math/flonum
+         racket/class
+         racket/contract
+         racket/draw
+         racket/gui/base
+         racket/list
+         racket/match
+         racket/math
+         racket/sequence
+         racket/stream
+         "../../utilities.rkt"
+         "map-tiles.rkt"
+         "map-util.rkt")
 
 (provide/contract
  (max-zoom-level (-> positive-integer?))

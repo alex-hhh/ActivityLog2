@@ -16,11 +16,11 @@
 
 (require racket/class
          racket/gui/base
+         "../al-widgets.rkt"
          "../fmt-util.rkt"
-         "../widgets/map-widget/map-tiles.rkt"
          "../weather.rkt"
          "../widgets/main.rkt"
-         "../al-widgets.rkt")
+         "../widgets/map-widget/map-tiles.rkt")
 
 (provide get-preferences-dialog)
 

@@ -3,11 +3,11 @@
 
 steps:
 
-  - script: |
+  - bash: |
       # We use the -i (isolation mode) here to catch any dependencies that
       # might not be tracked as submodules...
       bash ./etc/scripts/setup-catalog.sh -i pkgs/
-      raco pkg install --auto tzinfo tzgeolookup
+      raco pkg install --auto tzinfo tzgeolookup data-frame
     displayName: Setup package catalog and install packages
 
   - script: racket build.rkt
@@ -48,9 +48,6 @@ steps:
 
   - script: raco test test/fit2-test.rkt
     displayName: Basic FIT file decoding tests (fit2-test)
-
-  - script: raco test test/df-test.rkt
-    displayName: Test Data Frame (df-test)
 
   - script: raco test test/db-test.rkt
     displayName: Test Database Import (db-test)

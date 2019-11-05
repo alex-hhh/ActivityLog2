@@ -12,7 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/string embedded-gui pict)
+(require embedded-gui
+         pict
+         racket/class
+         racket/gui/base
+         racket/string)
+
 (provide tag-input-field%)
 
 (define the-default-tag-font

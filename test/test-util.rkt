@@ -18,7 +18,7 @@
          racket/class
          rackunit
          tzgeolookup
-         "../rkt/data-frame/df.rkt"
+         data-frame
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/import.rkt"

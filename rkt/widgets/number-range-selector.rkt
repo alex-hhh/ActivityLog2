@@ -12,8 +12,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class
+(require racket/class
+         racket/gui/base
          "number-input-field.rkt")
+
 (provide number-range-selector%)
 
 (define number-range-selector%

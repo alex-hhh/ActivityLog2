@@ -14,7 +14,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         db/base
          racket/async-channel
          racket/class
          racket/date
@@ -23,10 +24,10 @@
          racket/match
          tzinfo
          "../al-widgets.rkt"
-         "../data-frame/df.rkt"
          "../database.rkt"
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
+         "../fmt-util-ut.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
@@ -39,8 +40,7 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
-         "inspect-scatter.rkt"
-         "../fmt-util-ut.rkt")
+         "inspect-scatter.rkt")
 
 (provide view-session%)
 

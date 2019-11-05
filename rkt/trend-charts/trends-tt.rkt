@@ -15,25 +15,20 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- db/base
- plot/no-gui
- racket/class
- racket/match
- racket/gui/base
- racket/math
- racket/format
- "../database.rkt"
- "trends-chart.rkt"
- "../plot-util.rkt"
- "../widgets/main.rkt"
- "../sport-charms.rkt"
- "../data-frame/df.rkt"
- "../data-frame/sql.rkt"
- "../data-frame/csv.rkt"
- "../al-widgets.rkt"
- "../plot-util.rkt")
+(require data-frame
+         db/base
+         plot/no-gui
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/match
+         racket/math
+         "../al-widgets.rkt"
+         "../database.rkt"
+         "../plot-util.rkt"
+         "../sport-charms.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide tt-trends-chart%)
 

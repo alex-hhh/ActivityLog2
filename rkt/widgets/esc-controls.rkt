@@ -12,7 +12,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/draw)
+(require racket/class
+         racket/draw)
 
 ;; This file provides some GUI controls which can be embedded inside snip%
 ;; objects to allow building interactive snips.  The interface is still a work

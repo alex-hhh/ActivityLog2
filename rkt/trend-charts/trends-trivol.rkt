@@ -15,21 +15,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- racket/class
- racket/match
- racket/gui/base
- racket/math
- racket/format
- db/base
- plot/no-gui
- "../database.rkt"
- "../widgets/main.rkt"
- "trends-chart.rkt"
- "../sport-charms.rkt"
- "../fmt-util.rkt"
- "../plot-util.rkt")
+(require db/base
+         plot/no-gui
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/match
+         racket/math
+         "../database.rkt"
+         "../fmt-util.rkt"
+         "../plot-util.rkt"
+         "../sport-charms.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide trivol-trends-chart%)
 

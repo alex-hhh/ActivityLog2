@@ -14,27 +14,26 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require
- plot/no-gui
- racket/class
- racket/match
- racket/gui/base
- racket/math
- racket/string
- racket/list
- racket/hash
- "trends-chart.rkt"
- "../widgets/main.rkt"
- "../data-frame/scatter.rkt"
- "../data-frame/slr.rkt"
- "../al-widgets.rkt"
- "../session-df/native-series.rkt"
- "../session-df/xdata-series.rkt"
- "../session-df/series-metadata.rkt"
- "../metrics.rkt"
- "../plot-util.rkt"
-"../utilities.rkt"
-"../sport-charms.rkt")
+(require data-frame
+         data-frame/private/slr
+         plot/no-gui
+         racket/class
+         racket/gui/base
+         racket/hash
+         racket/list
+         racket/match
+         racket/math
+         racket/string
+         "../al-widgets.rkt"
+         "../metrics.rkt"
+         "../plot-util.rkt"
+         "../session-df/native-series.rkt"
+         "../session-df/series-metadata.rkt"
+         "../session-df/xdata-series.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found

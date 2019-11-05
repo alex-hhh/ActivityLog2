@@ -14,24 +14,21 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
+         data-frame/private/slr
+         data-frame/private/spline
+         db/base
+         math/statistics
+         racket/async-channel
          racket/class
+         racket/contract
+         racket/format
+         racket/list
          racket/match
          racket/math
-         racket/contract
-         racket/list
          racket/string
-         racket/format
-         racket/async-channel
-         math/statistics
-         "dbapp.rkt"                    ; TODO: don't use (current-database)
+         "dbapp.rkt"
          "dbutil.rkt"
-         "data-frame/spline.rkt"
-         "data-frame/meanmax.rkt"
-         "data-frame/histogram.rkt"
-         "data-frame/scatter.rkt"
-         "data-frame/slr.rkt"
-         "data-frame/df.rkt"
          "session-df/series-metadata.rkt"
          "session-df/session-df.rkt"
          "utilities.rkt")

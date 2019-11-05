@@ -12,7 +12,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/math racket/format)
+(require racket/class
+         racket/format
+         racket/gui/base
+         racket/math)
+
 (provide make-horizontal-pane
          make-vertical-pane
          make-group-box-panel

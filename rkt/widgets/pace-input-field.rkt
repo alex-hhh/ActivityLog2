@@ -12,9 +12,10 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class racket/string
-         "validating-input-field.rkt"
-         "../fmt-util.rkt")
+(require racket/class
+         racket/string
+         "../fmt-util.rkt"
+         "validating-input-field.rkt")
 
 (provide pace-input-field% swim-pace-input-field%)
 

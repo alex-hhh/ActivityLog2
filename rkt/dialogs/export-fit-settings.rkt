@@ -23,11 +23,11 @@
          racket/match
          racket/math
          racket/string
-         "../utilities.rkt"
+         "../color-theme.rkt"
          "../fit-file/fit-file.rkt"
          "../sport-charms.rkt"
-         "../widgets/main.rkt"
-         "../color-theme.rkt")
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide get-export-settings-dialog zones-pp)
 

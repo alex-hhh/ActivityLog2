@@ -14,20 +14,18 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- racket/class
- racket/match
- racket/gui/base
- racket/math
- db/base
- plot/no-gui
- "../database.rkt"
- "../widgets/main.rkt"
- "../al-widgets.rkt"
- "trends-chart.rkt"
- "../plot-util.rkt"
- "../fmt-util.rkt")
+(require db/base
+         plot/no-gui
+         racket/class
+         racket/gui/base
+         racket/match
+         racket/math
+         "../al-widgets.rkt"
+         "../database.rkt"
+         "../fmt-util.rkt"
+         "../plot-util.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide vol-trends-chart%)
 

@@ -14,31 +14,30 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require plot/no-gui
+(require (rename-in srfi/48 (format format-48))
+         data-frame
+         data-frame/private/bsearch
+         math/statistics
+         plot/no-gui
+         plot/utils
          racket/class
          racket/contract
+         racket/dict
          racket/gui/base
-         (rename-in srfi/48 (format format-48))
          racket/list
          racket/match
-         math/statistics
          racket/math
-         plot/utils
-         racket/dict
-         "../fit-file/activity-util.rkt"
          "../al-widgets.rkt"
+         "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
-         "../session-df/series-metadata.rkt"
+         "../plot-util.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/series-metadata.rkt"
+         "../session-df/session-df.rkt"
          "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
-         "../data-frame/df.rkt"
-         "../data-frame/bsearch.rkt"
-         "../data-frame/statistics.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt"
-         "../session-df/session-df.rkt"
-         "../plot-util.rkt")
+         "../widgets/main.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph%)

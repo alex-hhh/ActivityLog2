@@ -15,21 +15,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-
-(require
- racket/class
- racket/match
- racket/gui/base
- racket/stream
- racket/format
- db/base
- plot/no-gui
- "../database.rkt"
- "../widgets/main.rkt"
- "trends-chart.rkt"
- "../fmt-util.rkt"
- "../fmt-util-ut.rkt"
- "../plot-util.rkt")
+(require db/base
+         plot/no-gui
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/match
+         racket/stream
+         "../database.rkt"
+         "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
+         "../plot-util.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (provide pmc-trends-chart%)
 

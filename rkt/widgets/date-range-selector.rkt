@@ -12,8 +12,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/date racket/list racket/unit
+(require racket/class
+         racket/date
+         racket/gui/base
+         racket/list
+         racket/unit
          "date-input-field.rkt")
+
 (provide date-range-selector%)
 
 

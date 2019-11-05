@@ -12,8 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base racket/class racket/math)
-(require "../utilities.rkt")            ; for dbglog
+(require racket/class
+         racket/gui/base
+         racket/math
+         "../utilities.rkt")
+
+            ; for dbglog
 (provide notification-banner%)
 
 ;; Display a text at the top of the window with a "dismiss" button, when the

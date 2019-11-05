@@ -14,19 +14,19 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/gui/base
+(require db/base
          racket/class
          racket/format
-         racket/math
-         racket/match
+         racket/gui/base
          racket/list
-         db/base
-         "../sport-charms.rkt"
-         "../widgets/main.rkt"
-         "../utilities.rkt"
-         "../fmt-util.rkt"
+         racket/match
+         racket/math
+         "../dbutil.rkt"
          "../fmt-util-ut.rkt"
-         "../dbutil.rkt")
+         "../fmt-util.rkt"
+         "../sport-charms.rkt"
+         "../utilities.rkt"
+         "../widgets/main.rkt")
 
 (provide get-lap-swim-editor)
 

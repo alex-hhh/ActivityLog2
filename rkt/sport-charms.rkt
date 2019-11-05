@@ -16,17 +16,17 @@
 
 (require db/base
          pict
+         racket/async-channel
          racket/class
          racket/contract
          racket/draw
          racket/list
          racket/match
-         racket/async-channel
          racket/math
+         "color-theme.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
-         "utilities.rkt"
-         "color-theme.rkt")
+         "utilities.rkt")
 
 (define (color? c) (is-a? c color%))
 (define (bitmap? b) (is-a? b bitmap%))
