@@ -50,7 +50,7 @@ jobs:
 
     - powershell: |
         .\etc\scripts\install-inno-setup.ps1
-        Write-Host "##vso[task.setvariable variable=path]$Env:PATH;C:/Program Files (x86)/Inno Setup 5"
+        Write-Host "##vso[task.setvariable variable=path]$Env:PATH;$Env:LOCALAPPDATA\Inno Setup 6"
       displayName: Install InnoSetup
 
     # Update the version, product name and description in the resulting

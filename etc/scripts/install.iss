@@ -35,7 +35,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 AppCopyright=Copyright (C) 2018 Alex Harsanyi
 AppComments=Analyze data from swim bike and run activities
-DefaultDirName={pf}\{#MyAppName}
+DefaultDirName={autopf64}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputBaseFilename=ActivityLog2Setup-{#MyAppVersion}
@@ -43,6 +43,12 @@ Compression=lzma
 SolidCompression=yes
 LicenseFile=..\..\LICENSE
 OutputDir=..\..\
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline dialog
+
+;; NOTE: UsePreviousPrivileges=yes (the default) will cause a second install
+;; of this application to no longer prompt the user whether to re-install for
+;; the current user or all users.
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -54,13 +60,18 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+
+;; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}"; Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+;; The icon is always placed on the users desktop, rather than the common
+;; desktop, even if the application is installed for all users.
+
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

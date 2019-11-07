@@ -6,6 +6,16 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.8.1
+
+This release updates the Windows installer to allow installing the application
+for the current user only.  This will avoid the intimidating Windows UAC
+prompt which warns the user that the application is trying to modify the
+computer.
+
+**NOTE** If a previous version if ActivityLog2 was already installed, it is
+recommended to un-install it first before installing this version.
+
 # Release 1.8.0
 
 * add support for enhanced altitude and speed records in FIT files -- newer
