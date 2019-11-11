@@ -3,7 +3,7 @@
 	url = https://github.com/97jaz/tzdata.git
 [submodule "pkgs/tzinfo"]
 	path = pkgs/tzinfo
-	url = https://github.com/alex-hhh/tzinfo.git
+	url = https://github.com/97jaz/tzinfo.git
 [submodule "pkgs/tzgeolookup"]
 	path = pkgs/tzgeolookup
 	url = https://github.com/alex-hhh/tzgeolookup.git
