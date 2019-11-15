@@ -53,19 +53,21 @@
     ;; Return the UNIX timestamp as stored in the date, time, and timezone
     ;; fields in the GUI.
     (define (get-gui-timestamp)
-      (let ([start-time (+ (send start-date-field get-converted-value)
-                           (send start-time-field get-converted-value))])
-        (let-values ([(tzid tzname) (send time-zone-field get-selection)])
-          (match (local-seconds->tzoffset tzname start-time)
-            [(tzoffset adj dst? abbrev) (- start-time adj)]
-            ;; Hmm, our time falls in a DST window, just use the first
-            ;; adjustment...
-            [(tzgap start (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
-             (- start-time adj1)]
-            ;; Hmm, our time falls in an DST overlap, just use the first
-            ;; adjustment...
-            [(tzoverlap (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
-             (- start-time adj1)]))))
+      (let ([date (send start-date-field get-converted-value)]
+            [time (send start-time-field get-converted-value)])
+        (and (number? date) (number? time)
+             (let ([start-time (+ date time)])
+               (let-values ([(tzid tzname) (send time-zone-field get-selection)])
+                 (match (local-seconds->tzoffset tzname start-time)
+                   [(tzoffset adj dst? abbrev) (- start-time adj)]
+                   ;; Hmm, our time falls in a DST window, just use the first
+                   ;; adjustment...
+                   [(tzgap start (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
+                    (- start-time adj1)]
+                   ;; Hmm, our time falls in an DST overlap, just use the first
+                   ;; adjustment...
+                   [(tzoverlap (tzoffset adj1 dst1? abbrev1) (tzoffset adj2 dst2? abbrev2))
+                    (- start-time adj1)]))))))
 
     (let ((p (send this get-client-pane)))
 
