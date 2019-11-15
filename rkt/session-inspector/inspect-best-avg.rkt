@@ -17,6 +17,9 @@
 
 (require data-frame
          db/base
+         pict/snip
+         plot-container
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/date
@@ -30,7 +33,6 @@
          "../fmt-util.rkt"
          "../metrics.rkt"
          "../pdmodel.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt")
@@ -265,7 +267,7 @@
            [callback (lambda (c e) (on-zero-base (send c get-value)))]))
 
     ;; Pasteboard to display the actual MEAN-MAX plot
-    (define plot-pb (new snip-canvas% [parent panel]))
+    (define plot-pb (new plot-container% [columns 1] [parent panel]))
 
     ;; Graph data
     (define data-frame #f)
@@ -390,7 +392,7 @@
                 (set! markers (cons (vector x py) markers))))))
 
         (when (good-hover? snip x y event)
-          (add-renderer (pu-vrule x))
+          (add-renderer (hover-vrule x))
 
           ;; The aux values need special treatment: they are scaled to match the
           ;; main axis coordinate system, this works for the plot itself, but we
@@ -417,8 +419,8 @@
           (add-data-point axis-name mean-max-plot-fn format-value)
           (add-info "Duration" (duration->string x))
           (unless (empty? info)
-            (add-renderer (pu-markers markers))
-            (add-renderer (pu-label x y (make-hover-badge (reverse info))))))
+            (add-renderer (hover-markers markers))
+            (add-renderer (hover-label x y (make-hover-badge (reverse info))))))
 
         (set-overlay-renderers snip renderers)))
 
@@ -471,7 +473,7 @@
                 (let* ((fn (mean-max->spline mean-max-data))
                        (pict (send mean-max-axis pd-data-as-pict cp-data fn)))
                   (set! pd-model-snip (new pict-snip% [pict pict]))
-                  (send plot-pb set-floating-snip pd-model-snip)
+                  (send plot-pb set-floating-snip pd-model-snip 0 0)
                   (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location)))))))))
 
     (define (refresh-plot)
@@ -481,7 +483,7 @@
       (set! plot-rt #f)
       (set! pd-model-snip #f)
       (send plot-pb set-background-message "Working...")
-      (send plot-pb set-snip #f)
+      (send plot-pb clear-all)
       (unless (> inhibit-refresh 0)
         ;; Capture all needed data, as we will work in a different thread.
         (let ((df data-frame)

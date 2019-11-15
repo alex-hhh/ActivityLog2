@@ -2,7 +2,7 @@
 ;; trends-vol.rkt -- Activity volume chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,6 +15,7 @@
 ;; more details.
 
 (require db/base
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/gui/base
@@ -23,7 +24,6 @@
          "../al-widgets.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
 
@@ -255,7 +255,7 @@
                         (make-hover-badge
                          (list (list label (format-value val))))))
                 (when cached-badge
-                  (add-renderer (pu-label x y cached-badge))))))))
+                  (add-renderer (hover-label x y cached-badge))))))))
       (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
@@ -264,7 +264,7 @@
           (let ((snip (insert-plot-snip canvas chart-data (get-y-label))))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
-            (send canvas set-snip #f)
+            (send canvas clear-all)
             (send canvas set-background-message "No data to plot"))))
 
     (define/override (save-plot-image file-name width height)

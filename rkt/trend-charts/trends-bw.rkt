@@ -2,7 +2,7 @@
 ;; trends-bw.rkt -- bodyweight trend chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,6 +17,7 @@
 (require data-frame
          data-frame/private/colors
          math/statistics
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/gui/base
@@ -26,7 +27,6 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
@@ -163,12 +163,12 @@
                                 #:fill-color *trendline-color*
                                 #:color *trendline-color*
                                 #:alpha 1.0))
-          ;; (add-renderer (pu-vrule x))
+          ;; (add-renderer (hover-vrule x))
           (match-define (vector ts bw) entry)
           (add-info "Date" (calendar-date->string ts))
           (add-info "Bodyweight" (weight->string bw #t))
           (unless (null? info)
-            (add-renderer (pu-label x y (make-hover-badge info)))))))
+            (add-renderer (hover-label x y (make-hover-badge info)))))))
 
     (set-overlay-renderers snip renderers)))
 
@@ -322,7 +322,7 @@
           (let ((snip (insert-plot-snip canvas (make-renderer-tree df))))
             (set-mouse-event-callback snip (plot-hover-callback df)))
           (begin
-            (send canvas set-snip #f)
+            (send canvas clear-all)
             (send canvas set-background-message "No data to plot"))))
 
     (define/override (save-plot-image file-name width height)

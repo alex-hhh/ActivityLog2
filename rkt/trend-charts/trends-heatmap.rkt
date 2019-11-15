@@ -16,6 +16,7 @@
 ;; more details.
 
 (require db
+         plot-container/hover-util
          racket/class
          racket/gui/base
          racket/hash
@@ -23,7 +24,6 @@
          racket/math
          "../dbutil.rkt"
          "../metrics.rkt"
-         "../plot-util.rkt"
          "../utilities.rkt"
          "../widgets/esc-controls.rkt"
          "../widgets/main.rkt"
@@ -440,7 +440,7 @@
           (send map-snip show-map-layer #t)
           (set! auto-fit-to-window? #t)
           (send canvas set-snip map-snip)
-          (send canvas set-floating-snip map-control-snip)
+          (send canvas set-floating-snip map-control-snip 0 0)
           ;; Move the control snip to the top-right corner of the map -- the
           ;; 10000 value for the x coordinate is our lazy way to let
           ;; `move-snip-to` move it to the right...

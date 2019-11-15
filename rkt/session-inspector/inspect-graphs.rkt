@@ -18,6 +18,8 @@
          data-frame
          data-frame/private/bsearch
          math/statistics
+         plot-container
+         plot-container/hover-util
          plot/no-gui
          plot/utils
          racket/class
@@ -30,7 +32,6 @@
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
@@ -683,7 +684,7 @@
        pd ps))
 
     (define graph-canvas
-      (new snip-canvas% [parent panel]
+      (new plot-container% [parent panel] [columns 1]
            [min-height min-height]
            [style (if show-graph? '() '(deleted))]))
 
@@ -703,20 +704,20 @@
           ;; Add the highlight overlay back in...
           (when (pd-hlivl plot-data)
             (match-define (list xmin xmax color) (pd-hlivl plot-data))
-            (add-renderer (pu-vrange xmin xmax color)))
+            (add-renderer (hover-vrange xmin xmax color)))
           (when x
             (define-values (_ y1 y2 xlab ylab1 ylab2) (find-y-values plot-state x))
             (cond ((and y1 y2)
                    (let ((label (string-append ylab1 "/" ylab2 " @ " xlab)))
-                     (add-renderer (pu-label x (max y1 y2) label))))
+                     (add-renderer (hover-label x (max y1 y2) label))))
                   (y1
                    (let ((label (string-append ylab1 " @ " xlab))
                          (swim-stroke (find-swim-stroke plot-state x)))
-                     (add-renderer (pu-label x y1 label swim-stroke))))
+                     (add-renderer (hover-label x y1 label swim-stroke))))
                   (y2
                    (let ((label (string-append ylab2 " @ " xlab)))
-                     (add-renderer (pu-label x y2 label)))))
-            (add-renderer (pu-vrule x)))
+                     (add-renderer (hover-label x y2 label)))))
+            (add-renderer (hover-vrule x)))
           (set-overlay-renderers the-plot-snip rt))))
 
     (define (plot-hover-callback snip event x y)
@@ -742,10 +743,10 @@
                             (set-mouse-event-callback the-plot-snip plot-hover-callback)
                             (when (pd-hlivl npdata)
                               (match-define (list xmin xmax color) (pd-hlivl npdata))
-                              (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                              (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
                           (begin
                             (set! the-plot-snip #f)
-                            (send graph-canvas set-snip #f)
+                            (send graph-canvas clear-all)
                             (send graph-canvas set-background-message "No data for plot...")))
                       (set! previous-plot-state pstate)
                       (set! plot-state pstate)
@@ -770,10 +771,10 @@
                           (set-mouse-event-callback the-plot-snip plot-hover-callback)
                           (when (pd-hlivl pdata)
                             (match-define (list xmin xmax color) (pd-hlivl pdata))
-                            (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color)))))
+                            (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
                         (begin
                           (set! the-plot-snip #f)
-                          (send graph-canvas set-snip #f)
+                          (send graph-canvas clear-all)
                           (send graph-canvas set-background-message "No data for plot...")))
                     (void)))))))))
 
@@ -830,7 +831,7 @@
       ;; When a new data frame is set, remove the old plot immediately, as it
       ;; is not relevant anymore.
       (set! the-plot-snip #f)
-      (send graph-canvas set-snip #f)
+      (send graph-canvas clear-all)
       (send graph-canvas set-background-message "Working...")
       (refresh))
 
@@ -870,7 +871,7 @@
             (when the-plot-snip
               (if (pd-hlivl plot-data)
                   (match-let (((list xmin xmax color) (pd-hlivl plot-data)))
-                    (set-overlay-renderers the-plot-snip (list (pu-vrange xmin xmax color))))
+                    (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color))))
                   (set-overlay-renderers the-plot-snip #f))))))
 
     (define/public (get-data-frame) (ps-df plot-state))

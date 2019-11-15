@@ -2,7 +2,7 @@
 ;; trends-scatter.rkt -- aggregate scatter chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,7 @@
 
 (require data-frame
          data-frame/private/slr
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/gui/base
@@ -26,7 +27,6 @@
          racket/string
          "../al-widgets.rkt"
          "../metrics.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
@@ -343,7 +343,7 @@
           #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
        data params rt)
       (begin
-        (send canvas set-snip #f)
+        (send canvas clear-all)
         (send canvas set-background-message "No data to plot"))))
 
 (define (save-plot-to-file file-name width height data params rt)
@@ -391,7 +391,7 @@
       (void))
 
     (define/override (put-plot-snip canvas)
-      (send canvas set-snip #f)
+      (send canvas clear-all)
       (send canvas set-background-message "Working...")
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
@@ -416,7 +416,7 @@
                     (set! cached-renderer-tree rt)
                     (insert-plot-snip canvas data params rt))))))
             (begin
-              (send canvas set-snip #f)
+              (send canvas clear-all)
               (send canvas set-background-message "No params for plot")))))
 
     (define/override (save-plot-image file-name width height)

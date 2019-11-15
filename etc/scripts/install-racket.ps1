@@ -17,9 +17,7 @@ if ($Env:RACKET_MINIMAL) {
     $m = ""
 }
 
-# 10/04/2019 -- mirror.racket-lang.org is down, use Utah one
-$base = "https://www.cs.utah.edu/plt/installers"
-# $base = "https://mirror.racket-lang.org/installers"
+$base = "https://mirror.racket-lang.org/installers"
 
 $url = "$base/$v/racket-$m$v-$p-win32.exe";
 

@@ -3,7 +3,7 @@
 ;; trends-tt.rkt -- "Training Time chart, a punch card style chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,6 +17,7 @@
 
 (require data-frame
          db/base
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
@@ -25,7 +26,6 @@
          racket/math
          "../al-widgets.rkt"
          "../database.rkt"
-         "../plot-util.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
@@ -309,7 +309,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           rt canvas #:x-min -1 #:x-max 7 #:y-min -1 #:y-max 25))
        renderer-tree)
     (begin
-      (send canvas set-snip #f)
+      (send canvas clear-all)
       (send canvas set-background-message "No data to plot"))))
 
 (define tt-trends-chart%
@@ -356,7 +356,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
                  (rt (make-renderer-tree tri? tt-data sport)))
             (insert-plot-snip canvas rt))
           (begin
-            (send canvas set-snip #f)
+            (send canvas clear-all)
             (send canvas set-background-message "No data to plot"))))
 
     (define/override (save-plot-image file-name width height)

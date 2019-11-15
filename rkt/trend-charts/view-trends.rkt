@@ -19,7 +19,7 @@
          racket/list
          racket/match
          racket/runtime-path
-         "../plot-util.rkt"
+         plot-container
          "../utilities.rkt"
          "../widgets/icon-resources.rkt"
          "../widgets/main.rkt"
@@ -196,7 +196,7 @@
               ;; old trend charts used to use lists for their restore data,
               ;; but that was not flexible...
               (dbglog "discarding non-hash trend chart restore-data")))
-        (set! graph-pb (new snip-canvas% [parent this]))))
+        (set! graph-pb (new plot-container% [parent this]))))
 
     (define/public (get-name)
       (cond (trend-chart (send trend-chart get-name))

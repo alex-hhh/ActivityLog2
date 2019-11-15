@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,7 @@
 ;; more details.
 
 (require db/base
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
@@ -25,7 +26,6 @@
          "../database.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
 
@@ -411,7 +411,7 @@
             (match-define (list ts ctl atl tsb tss) entry)
             ;; Highlight the entire day -- while the plot is linear, values
             ;; are only computed for an entire day.
-            (add-renderer (pu-vrange ts (+ ts (* 24 3600)) *sea-green-hl*))
+            (add-renderer (hover-vrange ts (+ ts (* 24 3600)) *sea-green-hl*))
             (unless (eq? cached-day ts)
               (add-info "Date" (calendar-date->string ts))
               (when (hash-ref params 'show-form? #t)
@@ -424,7 +424,7 @@
                 (add-info "Stress" (~r tss #:precision 1)))
               (unless (null? info)
                 (set! cached-badge (make-hover-badge info))))
-            (when cached-badge (add-renderer (pu-label x y cached-badge))))))
+            (when cached-badge (add-renderer (hover-label x y cached-badge))))))
       (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)

@@ -7,7 +7,7 @@ steps:
       # We use the -i (isolation mode) here to catch any dependencies that
       # might not be tracked as submodules...
       bash ./etc/scripts/setup-catalog.sh -i pkgs/
-      raco pkg install --auto tzinfo tzgeolookup data-frame
+      raco pkg install --auto tzinfo tzgeolookup data-frame plot-container
     displayName: Setup package catalog and install packages
 
   - script: racket build.rkt

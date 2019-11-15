@@ -3,7 +3,7 @@
 ;; trends-tiz.rkt -- "Time in Zone" chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,7 @@
 ;; more details.
 
 (require db/base
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
@@ -25,7 +26,6 @@
          "../color-theme.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
@@ -304,7 +304,7 @@
                                   (duration->string (* duration 3600))
                                   (string-append (~r (* 100 (/ duration total)) #:precision 1) " %")))
                           (list (list "Total" (duration->string (* total 3600))))))))
-                (when cached-badge (add-renderer (pu-label x y cached-badge))))))))
+                (when cached-badge (add-renderer (hover-label x y cached-badge))))))))
       (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
@@ -313,7 +313,7 @@
           (let ((snip (insert-plot-snip canvas chart-data zone-names)))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
-            (send canvas set-snip #f)
+            (send canvas clear-all)
             (send canvas set-background-message "No data to plot"))))
 
     (define/override (save-plot-image file-name width height)

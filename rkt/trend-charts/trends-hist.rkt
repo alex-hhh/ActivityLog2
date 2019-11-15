@@ -16,6 +16,7 @@
 ;; more details.
 
 (require data-frame
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
@@ -28,7 +29,6 @@
          "../al-widgets.rkt"
          "../fmt-util.rkt"
          "../metrics.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
@@ -370,7 +370,7 @@
          (plot-to-canvas renderer-tree canvas))
        axis params renderer-tree)
       (begin
-        (send canvas set-snip #f)
+        (send canvas clear-all)
         (send canvas set-background-message "No data to plot")
         #f)))
 
@@ -459,12 +459,12 @@
                                 (format "~a pool lengths" (~r value #:precision 1)))
                                (#t
                                 (duration->string value)))))
-                (add-renderer (pu-label x y tag)))))))
+                (add-renderer (hover-label x y tag)))))))
 
       (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
-      (send canvas set-snip #f)
+      (send canvas clear-all)
       (send canvas set-background-message "Working...")
       (set! generation (add1 generation))
       (let ((previous-data cached-data)
@@ -491,7 +491,7 @@
                     (define snip (insert-plot-snip canvas (first (hist-axis data)) params rt))
                     (when snip (set-mouse-event-callback snip plot-hover-callback)))))))
             (begin
-              (send canvas set-snip #f)
+              (send canvas clear-all)
               (send canvas set-background-message "No params for plot")))))
 
     (define/override (save-plot-image file-name width height)

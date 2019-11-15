@@ -2,7 +2,7 @@
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,6 +15,8 @@
 ;; more details.
 
 (require data-frame
+         plot-container
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
@@ -23,7 +25,6 @@
          racket/match
          racket/string
          "../fmt-util.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt"
@@ -181,7 +182,7 @@
                           (on-outlier-trim (/ trim 100))))]))
 
     ;; Pasteboard to hold the actual plot
-    (define plot-pb (new snip-canvas% [parent panel]))
+    (define plot-pb (new plot-container% [parent panel] [columns 1]))
 
     ;; Data from the session we inspect
     (define data-frame #f)
@@ -285,7 +286,7 @@
                                 (format "~a pool lengths" (~r value #:precision 1)))
                                (#t
                                 (duration->string value)))))
-                (set! renderer (list (pu-label x y tag))))))))
+                (set! renderer (list (hover-label x y tag))))))))
       (set-overlay-renderers snip renderer))
 
     ;; Prepare the plot snip and insert it into the pasteboard. Assumes the
@@ -320,7 +321,7 @@
       (unless inhibit-refresh
         (set! plot-rt #f)
         (send plot-pb set-background-message "Working...")
-        (send plot-pb set-snip #f)
+        (send plot-pb clear-all)
         (set! refresh-generation (add1 refresh-generation))
         ;; Capture all relevant vars, as we are about to queue up a separate
         ;; task

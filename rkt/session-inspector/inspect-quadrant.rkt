@@ -2,7 +2,7 @@
 ;; inspect-quadrant.rkt -- Quadrant Plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,8 @@
 
 (require data-frame
          math/statistics
+         plot-container
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/function
@@ -33,7 +35,6 @@
          racket/match
          racket/math
          "../color-theme.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
@@ -267,7 +268,7 @@
 
 
     ;; Pasteboard to display the actual plot
-    (define plot-pb (new snip-canvas% [parent panel]))
+    (define plot-pb (new plot-container% [parent panel] [columns 1]))
 
     ;; Data from the session we inspect
     (define data-frame #f)
@@ -345,7 +346,7 @@
       (unless inhibit-refresh
         (set! plot-rt #f)
         (send plot-pb set-background-message "Working...")
-        (send plot-pb set-snip #f)
+        (send plot-pb clear-all)
         (set! refresh-generation (add1 refresh-generation))
         ;; Capture all relevant vars, as we are about to queue up a separate
         ;; task

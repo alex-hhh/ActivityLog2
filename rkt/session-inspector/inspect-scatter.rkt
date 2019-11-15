@@ -2,7 +2,7 @@
 ;; inspect-scatter.rkt -- scatter plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,6 +17,7 @@
 (require data-frame
          data-frame/private/slr
          math/statistics
+         plot
          plot/no-gui
          racket/class
          racket/gui/base
@@ -24,7 +25,7 @@
          racket/match
          racket/math
          racket/string
-         "../plot-util.rkt"
+         plot-container
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt"
@@ -337,8 +338,7 @@
 
     ;; Pasteboard to hold the actual plot
     (define plot-pane (new horizontal-pane% [parent panel]))
-    (define plot-left-pb (new snip-canvas% [parent plot-pane]))
-    (define plot-right-pb (new snip-canvas% [parent plot-pane] [style '(deleted)]))
+    (define plot-pb (new plot-container% [parent plot-pane] [columns 1]))
 
     ;;; Data from the session we inspect
     (define data-frame #f)
@@ -454,55 +454,73 @@
               (if (eq? left-or-right 'left) (list-ref axis 1) (list-ref axis 2))
               axis)))
 
-      (when (spstate-rt lstate)
-        (let ((rt (list (tick-grid) (spstate-rt lstate))))
-          (when (eq? outlier-handling 'mark)
-            (match-define (vector left right low high) (qbounds))
-            (when left
-              (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
-            (when right
-              (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
-            (when low
-              (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
-            (when high
-              (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
-          (let ((x-axis (get-axis x-axis-index 'left))
-                (y-axis (get-axis y-axis-index 'left)))
-            (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
-                           [plot-x-label (send x-axis axis-label)]
-                           [plot-y-ticks (send y-axis plot-ticks)]
-                           [plot-y-label (send y-axis axis-label)])
-              (match-define (vector x-min x-max y-min y-max)
-                (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
-              (plot-to-canvas rt plot-left-pb
-                              #:x-min x-min #:x-max x-max
-                              #:y-min y-min #:y-max y-max))))
+      (define num-plots (+ (if (spstate-rt lstate) 1 0)
+                           (if (spstate-rt rstate) 1 0)))
 
-        ;; Right side plot is never active by itself, so this WHEN clause is
-        ;; inside the LSTATE one.
-        (when (spstate-rt rstate)
-          (let ((rt (list (tick-grid) (spstate-rt rstate))))
-          (when (eq? outlier-handling 'mark)
-            (match-define (vector left right low high) (qbounds))
-            (when left
-              (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
-            (when right
-              (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
-            (when low
-              (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
-            (when high
-              (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
-          (let ((x-axis (get-axis x-axis-index 'right))
-                (y-axis (get-axis y-axis-index 'right)))
-            (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
-                           [plot-x-label (send x-axis axis-label)]
-                           [plot-y-ticks (send y-axis plot-ticks)]
-                           [plot-y-label (send y-axis axis-label)])
-              (match-define (vector x-min x-max y-min y-max)
-                (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
-              (plot-to-canvas rt plot-right-pb
-                              #:x-min x-min #:x-max x-max
-                              #:y-min y-min #:y-max y-max)))))))
+      (let-values ([(plot-width plot-height)
+                    (send plot-pb cell-dimensions num-plots
+                          #:columns num-plots #:spacing 5)])
+        (define lplot
+          (and (spstate-rt lstate)
+               (let ((rt (list (tick-grid) (spstate-rt lstate))))
+                 (when (and (eq? outlier-handling 'mark) outlier-percentile)
+                   (match-define (vector left right low high) (qbounds))
+                   (when left
+                     (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
+                   (when right
+                     (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
+                   (when low
+                     (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
+                   (when high
+                     (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
+                 (let ((x-axis (get-axis x-axis-index 'left))
+                       (y-axis (get-axis y-axis-index 'left)))
+                   (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
+                                  [plot-x-label (send x-axis axis-label)]
+                                  [plot-y-ticks (send y-axis plot-ticks)]
+                                  [plot-y-label (send y-axis axis-label)])
+                     (match-define (vector x-min x-max y-min y-max)
+                       (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
+                     (plot-snip rt
+                                #:width plot-width #:height plot-height
+                                #:x-min x-min #:x-max x-max
+                                #:y-min y-min #:y-max y-max))))))
+
+        (define rplot
+          (and (spstate-rt rstate)
+               (let ((rt (list (tick-grid) (spstate-rt rstate))))
+                 (when (and (eq? outlier-handling 'mark) outlier-percentile)
+                   (match-define (vector left right low high) (qbounds))
+                   (when left
+                     (set! rt (cons (vrule left #:color "blue" #:style 'short-dash) rt)))
+                   (when right
+                     (set! rt (cons (vrule right #:color "blue" #:style 'short-dash) rt)))
+                   (when low
+                     (set! rt (cons (hrule low #:color "blue" #:style 'short-dash) rt)))
+                   (when high
+                     (set! rt (cons (hrule high #:color "blue" #:style 'short-dash) rt))))
+                 (let ((x-axis (get-axis x-axis-index 'right))
+                       (y-axis (get-axis y-axis-index 'right)))
+                   (parameterize ([plot-x-ticks (send x-axis plot-ticks)]
+                                  [plot-x-label (send x-axis axis-label)]
+                                  [plot-y-ticks (send y-axis plot-ticks)]
+                                  [plot-y-label (send y-axis axis-label)])
+                     (match-define (vector x-min x-max y-min y-max)
+                       (if (eq? outlier-handling 'mark) (bounds) (qbounds)))
+                     (plot-snip rt
+                                #:width plot-width #:height plot-height
+                                #:x-min x-min #:x-max x-max
+                                #:y-min y-min #:y-max y-max))))))
+
+        (cond ((and lplot rplot)
+               (send plot-pb set-snips/layout (hgroup #:spacing 5 lplot rplot)))
+              (lplot
+               (send plot-pb set-snip lplot))
+              (rplot
+               (send plot-pb set-snip rplot))
+              (#t
+               (send plot-pb clear-all)))))
+
 
     ;; Build a plot render tree (PLOT-RT) based on current selections.  Note
     ;; that procesing happens in a separate task, and the render tree will
@@ -510,10 +528,8 @@
     ;; available, it will be automatically inserted into the pasteboard.
     (define (refresh-plot)
       (unless inhibit-refresh
-        (send plot-left-pb set-background-message "Working...")
-        (send plot-right-pb set-background-message "Working...")
-        (send plot-left-pb set-snip #f)
-        (send plot-right-pb set-snip #f)
+        (send plot-pb set-background-message "Working...")
+        (send plot-pb clear-all)
         (set! refresh-generation (add1 refresh-generation))
         ;; Capture all relavant vars, as we are about to queue up a separate
         ;; task
@@ -526,10 +542,6 @@
                (opct (if outlier-percentile (/ outlier-percentile 100.0) #f))
                (dual? (or (list? x) (list? y))) ; #t if we have two plots
                (generation refresh-generation) )
-
-          (send plot-pane change-children
-                (lambda (old)
-                  (if dual? (list plot-left-pb plot-right-pb) (list plot-left-pb))))
 
           (queue-task
            "inspect-scatter%/refresh-plot"
@@ -547,7 +559,7 @@
                         (set! rstate new-rstate)
                         (if (spstate-rt lstate)
                             (put-plot-snip)
-                            (send plot-left-pb set-background-message "No data to plot"))))))
+                            (send plot-pb set-background-message "No data to plot"))))))
                  ;; Single plot
                  (let ((new-lstate (update-spstate old-lstate df x y damt opct)))
                    (queue-callback
@@ -561,7 +573,7 @@
                         (set! rstate empty-spstate)
                         (if (spstate-rt lstate)
                             (put-plot-snip)
-                            (send plot-left-pb set-background-message "No data to plot"))))))))))))
+                            (send plot-pb set-background-message "No data to plot"))))))))))))
 
     ;; Store the plot parameters for the current sport, this includes axis
     ;; selection and the parameters for the current axis selection.
@@ -642,8 +654,18 @@
                 (y-axis (list-ref axis-choices y-axis-index)))
             (cond ((and sid x-axis y-axis)
                    (format "scatter-~a-~a-~a.png" sid
-                           (send x-axis series-name)
-                           (send y-axis series-name)))
+                           (if (list? x-axis)
+                               (string-append
+                                (send (list-ref x-axis 1) series-name)
+                                "+"
+                                (send (list-ref x-axis 2) series-name))
+                               (send x-axis series-name))
+                           (if (list? y-axis)
+                               (string-append
+                                (send (list-ref y-axis 1) series-name)
+                                "+"
+                                (send (list-ref y-axis 2) series-name))
+                               (send y-axis series-name))))
                   (#t
                    "scatter.png")))))
 
@@ -653,8 +675,7 @@
                             '(("PNG Files" "*.png") ("Any" "*.*")))))
         (when file
           (set! export-file-name file)
-          ;; TODO: this needs to be fixed for dual plots
-          (send plot-left-pb export-image-to-file file))))
+          (send plot-pb export-image-to-file file))))
 
     (define/public (set-session session df)
       (set! inhibit-refresh #f)

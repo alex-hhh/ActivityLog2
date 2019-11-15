@@ -38,7 +38,7 @@
 
 (require racket/gui/base
          rackunit
-         "../rkt/plot-util.rkt"
+         plot-container
          "../rkt/utilities.rkt"
          data-frame
          "../rkt/trend-charts/trends-ae.rkt"
@@ -199,7 +199,7 @@
   c)
 
 (define test-snip-canvas%
-  (class snip-canvas% (init parent) (super-new [parent parent])
+  (class plot-container% (init parent) (super-new [parent parent])
     (define num-set-background-message-calls 0)
     (define num-snips-set 0)
     (define num-floating-snips-set 0)
@@ -207,7 +207,7 @@
       (when s
         (check is-a? s snip%)
         (set! num-snips-set (add1 num-snips-set))))
-    (define/override (set-floating-snip s)
+    (define/override (set-floating-snip s x y)
       (when s
         (check is-a? s snip%)
         (set! num-floating-snips-set (add1 num-floating-snips-set))))
@@ -640,7 +640,7 @@
            test-database
            (lambda (db)
              (define result
-               (do-tc-check db heatmap-chart% scatter-settings test-snip-canvas%))
+               (do-tc-check db heatmap-chart% heatmap-settings test-snip-canvas%))
              (check = 0 (send result get-num-set-background-message-calls))
              ;; The map and map control snips are always set, whether there
              ;; are any activities or not.

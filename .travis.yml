@@ -48,7 +48,7 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
   - bash ./etc/scripts/setup-catalog.sh -i pkgs/
 install:
-  - raco pkg install --auto tzinfo tzgeolookup data-frame
+  - raco pkg install --auto tzinfo tzgeolookup data-frame plot-container
 before_script:
   # the X virtual frame buffer is needeed to run the tests, since they require
   # the GUI libraries which in turn try to connect to X even if no windows are

@@ -16,3 +16,6 @@
 [submodule "pkgs/data-frame"]
 	path = pkgs/data-frame
 	url = https://github.com/alex-hhh/data-frame.git
+[submodule "pkgs/plot-container"]
+	path = pkgs/plot-container
+	url = https://github.com/alex-hhh/plot-container.git

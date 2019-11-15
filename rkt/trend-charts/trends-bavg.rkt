@@ -18,6 +18,8 @@
 (require data-frame
          data-frame/private/spline
          pict
+         pict/snip
+         plot-container/hover-util
          plot/no-gui
          racket/class
          racket/gui/base
@@ -31,7 +33,6 @@
          "../fmt-util.rkt"
          "../metrics.rkt"
          "../pdmodel.rkt"
-         "../plot-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
@@ -447,7 +448,7 @@
                          #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
        axis rt)
       (begin
-        (send canvas set-snip #f)
+        (send canvas clear-all)
         (send canvas set-background-message "No data to plot")
         #f)))
 
@@ -524,11 +525,11 @@
         (define (add-renderer r) (set! renderers (cons r renderers)))
 
         (when (and (good-hover? snip x y event) cached-data)
-          (add-renderer (pu-vrule x))
+          (add-renderer (hover-vrule x))
           (let ((closest (lookup-duration (tmmax-data cached-data) x)))
             (when closest
               (match-define (cons (list sid1 ts1 d1 v1) (list sid2 ts2 d2 v2)) closest)
-              (add-renderer (pu-markers (list (vector d1 v1) (vector d2 v2))))
+              (add-renderer (hover-markers (list (vector d1 v1) (vector d2 v2))))
               (add-info #f (date-time->string (get-session-start-time sid2)))
               (add-info "Point 2" (string-append (format-value v2) " @ " (duration->string d2)))
               (add-info #f (date-time->string (get-session-start-time sid1)))
@@ -545,7 +546,7 @@
                   (add-info (send (tmmax-axis cached-data) name) (format-value dy))))))
 
           (add-info "Duration" (duration->string x))
-          (add-renderer (pu-label x y (make-hover-badge (reverse info)))))
+          (add-renderer (hover-label x y (make-hover-badge (reverse info)))))
 
         (set-overlay-renderers snip renderers)))
 
@@ -555,7 +556,7 @@
             (params (send this get-chart-settings))
             (saved-generation generation)
             (saved-location (get-snip-location pd-model-snip)))
-        (send canvas set-snip #f)
+        (send canvas clear-all)
         (send canvas set-background-message "Working...")
         (if params
             (queue-task
@@ -578,10 +579,10 @@
                     (when snip (set-mouse-event-callback snip (make-plot-hover-callback)))
                     (when (tmmax-cp-pict data)
                       (set! pd-model-snip (new pict-snip% [pict (tmmax-cp-pict data)]))
-                      (send canvas set-floating-snip pd-model-snip)
+                      (send canvas set-floating-snip pd-model-snip 0 0)
                       (move-snip-to pd-model-snip (or saved-location saved-pd-model-snip-location))))))))
             (begin
-              (send canvas set-snip #f)
+              (send canvas clear-all)
               (send canvas set-background-message "No params for plot")))))
 
     (define/override (save-plot-image file-name width height)
