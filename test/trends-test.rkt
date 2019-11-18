@@ -154,7 +154,7 @@
   (hash
    'name "Histogram"
    'title "Histogram"
-   'date-range '(custom-dates "Tri 2012 / HIM" 1483200000 1514736000)
+   'date-range '(custom-dates "Tri 2015 / HIM" 1483200000 1514736000)
    'timestamps '(1483200000 . 1514822400)
    'sport '(#f . #f)
    'labels '()
@@ -166,11 +166,27 @@
    'outlier-trim 'empty
    'show-as-pct? #f))
 
+(define dual-hist-settings
+  (hash
+   'name "Histogram"
+   'title "Histogram"
+   'date-range '(custom-dates "Tri 2015 / HIM" 1483200000 1514736000)
+   'timestamps '(1483200000 . 1514822400)
+   'sport '(#f . #f)
+   'labels '()
+   'equipment '()
+   'series "lteff+rteff"
+   'bucket-width 'empty
+   'color-by-zone? #f
+   'include-zeroes? #f
+   'outlier-trim 'empty
+   'show-as-pct? #f))
+
 (define scatter-settings
   (hash
    'name "Scatter"
    'title "Scatter Plot"
-   'date-range '(custom-dates "Tri 2012 / HIM" 1483200000 1514736000)
+   'date-range '(custom-dates "Tri 2015 / HIM" 1483200000 1514736000)
    'timestamps '(1483200000 . 1514822400)
    'sport '(#f . #f)
    'equipment '()
@@ -180,11 +196,25 @@
    'ohandling 'mark
    'opct #f))
 
+(define dual-scatter-settings
+  (hash
+   'name "Scatter"
+   'title "Scatter Plot"
+   'date-range '(custom-dates "Tri 2015 / HIM" 1483200000 1514736000)
+   'timestamps '(1483200000 . 1514822400)
+   'sport '(#f . #f)
+   'equipment '()
+   'labels '()
+   'series1 "lrbal"
+   'series2 "lteff+rteff"
+   'ohandling 'mark
+   'opct #f))
+
 (define heatmap-settings
   (hash
    'name "Heatmap"
    'title "Heatmap"
-   'date-range '(custom-dates "Tri 2012 / HIM" 1483200000 1514736000)
+   'date-range '(custom-dates "Tri 2015 / HIM" 1483200000 1514736000)
    'timestamps '(1483200000 . 1514822400)
    'sport '(#f . #f)
    'equipment '()
@@ -207,6 +237,11 @@
       (when s
         (check is-a? s snip%)
         (set! num-snips-set (add1 num-snips-set))))
+    (define/override (set-snips/layout g)
+      (check-true (plot-container-group? g))
+      ;; NOTE: would be nice to count the number of snips set in the group,
+      ;; but the grouping structures are not exported by `plot-container`
+      (set! num-snips-set (add1 num-snips-set)))
     (define/override (set-floating-snip s x y)
       (when s
         (check is-a? s snip%)
@@ -246,7 +281,8 @@
   ;; BAVG for lots of activities).
   (unless (sync/timeout 600 ch) (error "put-plot-snip never finished"))
   ;; The chart might try to put the snip using a `queue-callback`, so we yield
-  ;; to the event handler thread to let it execute this callback.  If this does not finish, maybe there are also some timers running?
+  ;; to the event handler thread to let it execute this callback.  If this
+  ;; does not finish, maybe there are also some timers running?
   (yield (current-eventspace))
   (send c save-plot-image test-image-file 1000 1000)
   (send c export-data-to-file test-data-file #f)
@@ -558,6 +594,21 @@
          (check-false (file-exists? test-data-file))))
      (define elapsed (/ (- (current-milliseconds) start) 1000.0))
      (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+   (test-case "DUAL HIST trends / empty database"
+     (define start (current-milliseconds))
+     (printf "DUAL HIST trends / empty database...")(flush-output)
+     (with-fresh-database
+       (lambda (db)
+         (define result
+           (do-tc-check db hist-trends-chart% dual-hist-settings test-snip-canvas%))
+         (check = 2 (send result get-num-set-background-message-calls))
+         (check = 0 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; NOTE PMC data is still exported on an empty database
+         (check-false (file-exists? test-image-file))
+         (check-false (file-exists? test-data-file))))
+     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
+     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
    (test-case "HIST trends / non-empty database"
      (define start (current-milliseconds))
      (printf "HIST trends / non-empty database...")(flush-output)
@@ -567,6 +618,26 @@
            (lambda (db)
              (define result
                (do-tc-check db hist-trends-chart% hist-settings test-snip-canvas%))
+             (check > (send result get-num-set-background-message-calls) 0)
+             (check = 1 (send result get-num-snips-set))
+             (check = 0 (send result get-num-floating-snips-set))
+             ;; NOTE PMC data is still exported on an empty database
+             (check-true (file-exists? test-image-file))
+             (check-true (file-exists? test-data-file))
+             (check-csv-file test-data-file)
+             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
+             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
+         (printf "skipping (missing database file).~%"))
+     (flush-output))
+   (test-case "DUAL HIST trends / non-empty database"
+     (define start (current-milliseconds))
+     (printf "DUAL HIST trends / non-empty database...")(flush-output)
+     (if (file-exists? test-database)
+         (with-database
+           test-database
+           (lambda (db)
+             (define result
+               (do-tc-check db hist-trends-chart% dual-hist-settings test-snip-canvas%))
              (check > (send result get-num-set-background-message-calls) 0)
              (check = 1 (send result get-num-snips-set))
              (check = 0 (send result get-num-floating-snips-set))
@@ -593,6 +664,21 @@
          (check-false (file-exists? test-data-file))))
      (define elapsed (/ (- (current-milliseconds) start) 1000.0))
      (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+   (test-case "DUAL SCATTER trends / empty database"
+     (define start (current-milliseconds))
+     (printf "DUAL SCATTER trends / empty database...")(flush-output)
+     (with-fresh-database
+       (lambda (db)
+         (define result
+           (do-tc-check db scatter-trends-chart% dual-scatter-settings test-snip-canvas%))
+         (check = 2 (send result get-num-set-background-message-calls))
+         (check = 0 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; NOTE PMC data is still exported on an empty database
+         (check-false (file-exists? test-image-file))
+         (check-false (file-exists? test-data-file))))
+     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
+     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
    (test-case "SCATTER trends / non-empty database"
      (define start (current-milliseconds))
      (printf "SCATTER trends / non-empty database...")(flush-output)
@@ -606,8 +692,26 @@
              (check = 1 (send result get-num-snips-set))
              (check = 0 (send result get-num-floating-snips-set))
              (check-true (file-exists? test-image-file))
+             (check-false (file-exists? test-data-file))
+             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
+             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
+         (printf "skipping (missing database file).~%"))
+     (flush-output))
+   (test-case "DUAL SCATTER trends / non-empty database"
+     (define start (current-milliseconds))
+     (printf "DUAL SCATTER trends / non-empty database...")(flush-output)
+     (if (file-exists? test-database)
+         (with-database
+           test-database
+           (lambda (db)
+             (define result
+               (do-tc-check db scatter-trends-chart% dual-scatter-settings test-snip-canvas%))
+             (check > (send result get-num-set-background-message-calls) 0)
+             (check = 1 (send result get-num-snips-set))
+             (check = 0 (send result get-num-floating-snips-set))
+             (check-true (file-exists? test-image-file))
              ;; NOTE: a data file will be created, but it will be empty.
-             (check-true (file-exists? test-data-file))
+             (check-false (file-exists? test-data-file))
              (define elapsed (/ (- (current-milliseconds) start) 1000.0))
              (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
          (printf "skipping (missing database file).~%"))

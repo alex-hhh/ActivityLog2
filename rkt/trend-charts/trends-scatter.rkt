@@ -17,7 +17,9 @@
 (require data-frame
          data-frame/private/slr
          plot-container/hover-util
-         plot/no-gui
+         plot-container
+         plot
+         pict
          racket/class
          racket/gui/base
          racket/hash
@@ -68,16 +70,15 @@
    axis-power
    axis-power-zone
    axis-left-right-balance
-   ;; These need dual snip canvas support.  We'll do it later
-   ;; (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
-   ;; (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
-   ;; (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
-   ;; (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
-   ;; (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)
-   ;; (list "Power Phase Angle" axis-left-power-phase-angle axis-right-power-phase-angle)
-   ;; (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
-   ;; (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
-   ;; (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
+   (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
+   (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
+   (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
+   (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
+   (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)
+   (list "Power Phase Angle" axis-left-power-phase-angle axis-right-power-phase-angle)
+   (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
+   (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
+   (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
    ))
 
 ;; Axis choices for lap swimming
@@ -273,38 +274,104 @@
 (struct scatter (axis1 axis2 data bounds qbounds slr) #:transparent)
 (define empty-bounds (vector #f #f #f #f))
 
-(define (fetch-data db params progress)
-  (let* ((candidates (candidate-sessions db params))
-         ;; Series can be "lteff+rteff" for dual series!
-         (series1 (string-split (hash-ref params 'series1) "+"))
-         (series2 (string-split (hash-ref params 'series2) "+"))
-         (meta1 (find-series-metadata (first series1) (is-lap-swimming? (hash-ref params 'sport))))
-         (meta2 (find-series-metadata (first series2) (is-lap-swimming? (hash-ref params 'sport))))
-         (data (aggregate-scatter candidates (first series1) (first series2)
-                                  #:progress-callback progress))
-         (bounds (aggregate-scatter-bounds
-                  data
-                  (send meta1 fractional-digits)
-                  (send meta2 fractional-digits)))
-         (qbounds (let ((opct (hash-ref params 'opct)))
-                    (if (number? opct)
-                        (aggregate-scatter-bounds/quantile data opct)
-                        empty-bounds)))
-         (slr (aggregate-scatter-slr data)))
-    (scatter
-     ;; TODO: handle dual scatter
-     meta1
-     meta2
-     (and (> (hash-count data) 0) data)
-     bounds
-     qbounds
-     slr)))
+;; Create a new bounds vector from the union of b1 and b2.
+(define (union-bounds b1 b2)
+  (match-define (vector b1-left b1-right b1-low b1-high) b1)
+  (match-define (vector b2-left b2-right b2-low b2-high) b2)
 
-(define (make-render-tree data params)
+  (define (u-min v1 v2) (if (and v1 v2) (min v1 v2) (or v1 v2)))
+  (define (u-max v1 v2) (if (and v1 v2) (max v1 v2) (or v1 v2)))
+
+  (vector
+   (u-min b1-left b2-left)
+   (u-max b1-right b2-right)
+   (u-min b1-low b2-low)
+   (u-max b1-high b2-high)))
+
+;; Retrieve from the database DB scatter data based on PARAMS, which is a hash
+;; that defines the sessions and data series, as returned by
+;; `get-chart-settings`.  Returns a list of `scatter` structures.  The list
+;; will contain a single entry if single series are involved, or multiple
+;; entries (usually 2) if there dual series are involved, such as left and
+;; right Torque Effectiveness.
+;;
+;; The aggregate scater is retrieved by `aggregate-scatter` which retrieves
+;; from a database cache, or calculates it from the session data and updates
+;; the cache.  This means that the first run for a large data set will be
+;; slow, but subsequent ones should be much faster.
+;; 
+(define (fetch-data db params progress)
+
+  ;; Series can be dual series, separated by a "+" sign, like "lteff+rteff"
+  (define series1 (string-split (hash-ref params 'series1) "+"))
+  (define series2 (string-split (hash-ref params 'series2) "+"))
+  (define candidates (candidate-sessions db params))
+  (define opct (hash-ref params 'opct #f))
+  (define lap-swim? (is-lap-swimming? (hash-ref params 'sport)))
+
+  ;; Helpers to adjust the progress callback to report the correct percentages
+  ;; across all the scatter data that we produce (given that some series might
+  ;; be "dual" series.
+  (define total-rounds
+    (if (= (length series1) (length series2))
+        (length series1)
+        (* (length series1) (length series2))))
+  (define current-round -1)
+
+  ;; Construct a `scatter` structure for a pair of series, S1 and S2
+  (define (make-scatter candidates opct lap-swimming? s1 s2)
+
+    ;; Patch up the progress monitor to report just our segment of progress...
+    (set! current-round (add1 current-round))
+    (define (pg n) (progress (/ (+ current-round n) total-rounds)))
+
+    (let* ((meta1 (find-series-metadata s1 lap-swimming?))
+           (meta2 (find-series-metadata s2 lap-swimming?))
+           (data (aggregate-scatter candidates s1 s2 #:progress-callback pg))
+           (bounds (aggregate-scatter-bounds
+                    data
+                    (send meta1 fractional-digits)
+                    (send meta2 fractional-digits)))
+           (qbounds (if (number? opct)
+                        (aggregate-scatter-bounds/quantile data opct)
+                        empty-bounds))
+           (slr (aggregate-scatter-slr data)))
+      (scatter meta1 meta2 (and (> (hash-count data) 0) data) bounds qbounds slr)))
+
+  ;; If both series are dual, we pair them up, as this makes more sense for
+  ;; the dual series that we have (left and right pedal).  This works nicely
+  ;; if the user wants to plot Torque Effectiveness against Pedal Smoothness,
+  ;; since they will get 2 plots one for the left and one for the right pedal,
+  ;; if they plot TE against TE, they will get a 1:1 plot.
+  (define scatter-data
+    (if (= (length series1) (length series2))
+        (for/list ([s1 (in-list series1)]
+                   [s2 (in-list series2)])
+          (make-scatter candidates opct lap-swim? s1 s2))
+        (for*/list ([s1 (in-list series1)]
+                    [s2 (in-list series2)])
+          (make-scatter candidates opct lap-swim? s1 s2))))
+
+  (if (>= 1 (length scatter-data))
+      scatter-data
+      ;; Ensure all scatter data structures have the same bounds and bounds,
+      ;; so the plots line up nicely side-by-side
+      (let-values ([(bounds qbounds)
+                    (for/fold ((b empty-bounds) (qb empty-bounds))
+                              ([s (in-list scatter-data)])
+                      (values (union-bounds b (scatter-bounds s))
+                              (union-bounds qb (scatter-qbounds s))))])
+        (for/list ([s (in-list scatter-data)])
+          (struct-copy scatter s
+                       [bounds bounds]
+                       [qbounds qbounds])))))
+
+(define (make-render-tree data params [add-label? #f])
   (if (scatter-data data)
       (let ((rt (list (tick-grid)
                       (scatter-group-renderer
                        (scatter-data data)
+                       #:label (and add-label? (send (scatter-axis2 data) plot-label))
                        #:color (send (scatter-axis2 data) plot-color)))))
         (when (scatter-slr data)
           (set! rt (cons (slr-renderer (scatter-slr data)) rt)))
@@ -335,26 +402,65 @@
       (output-fn rt x-min x-max y-min y-max))))
 
 (define (insert-plot-snip canvas data params rt)
-  (if rt
-      (generate-plot
-       (lambda (renderer-tree min-x max-x min-y max-y)
-         (plot-to-canvas
-          renderer-tree canvas
-          #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
-       data params rt)
-      (begin
-        (send canvas clear-all)
-        (send canvas set-background-message "No data to plot"))))
+  (let ([plot-count (if rt (length rt) 0)])
+    (cond
+      ((= plot-count 0)
+       (send canvas clear-all)
+       (send canvas set-background-message "No data to plot"))
+      ((= plot-count 1)
+       (let-values ([(w h) (send canvas cell-dimensions plot-count #:columns 1)])
+         (define snip
+           (generate-plot
+            (lambda (renderer-tree min-x max-x min-y max-y)
+              (plot-snip
+               renderer-tree
+               #:width w #:height h
+               #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+            (car data) params (car rt)))
+         (send canvas set-snip snip)))
+      (#t
+       (let-values ([(w h) (send canvas cell-dimensions plot-count #:columns 2 #:spacing 5)])
+         (define snips
+           (for/list ([r (in-list rt)] [d (in-list data)])
+             (generate-plot
+              (lambda (renderer-tree min-x max-x min-y max-y)
+                (plot-snip
+                 renderer-tree
+                 #:width w #:height h
+                 #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+              d params r)))
+         (send canvas set-snips/layout (keyword-apply cgroup '() '() 2 snips #:spacing 5)))))))
 
+
+(define (pict->png the-pict name kind)
+  (define bm (pict->bitmap the-pict))
+  (send bm save-file name kind))
+  
 (define (save-plot-to-file file-name width height data params rt)
-  (generate-plot
-   (lambda (renderer-tree min-x max-x min-y max-y)
-     (plot-file renderer-tree file-name #:width width #:height height
-                #:x-min min-x
-                #:x-max max-x
-                #:y-min min-y
-                #:y-max max-y))
-   data params rt))
+  (let ([plot-count (if rt (length rt) 0)])
+    (cond
+      ((= plot-count 0)
+       (void))
+      ((= plot-count 1)
+       (generate-plot
+        (lambda (renderer-tree min-x max-x min-y max-y)
+          (plot-file renderer-tree file-name
+                     #:width width #:height height
+                     #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+        (car data) params (car rt)))
+      (#t
+       (let-values ([(w h) (values (exact-round (/ (- width (* 5 (sub1 plot-count))) plot-count)) height)])
+         (define snips
+           (for/list ([r (in-list rt)] [d (in-list data)])
+             (generate-plot
+              (lambda (renderer-tree min-x max-x min-y max-y)
+                (plot-pict
+                 renderer-tree
+                 #:width w #:height h
+                 #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
+              d params r)))
+         (define pict (apply hc-append 5 snips))
+         (pict->png pict file-name 'png))))))
 
 (provide scatter-trends-chart%)
 (define scatter-trends-chart%
@@ -382,12 +488,8 @@
           (hash-ref events 'session-updated-data #f)))
 
     (define/override (export-data-to-file file formatted?)
-      (when (and cached-data (scatter-data cached-data))
-        (call-with-output-file file export-data-as-csv
-          #:mode 'text #:exists 'truncate)))
-
-    (define (export-data-as-csv out)
-      ;; TODO: implement it
+      ;; TODO: unclear how to implement it.  Also note that cached-data is a
+      ;; list of scatter structures for scatter plots.
       (void))
 
     (define/override (put-plot-snip canvas)
@@ -408,7 +510,11 @@
                       (send canvas set-background-message
                             (format "Working (~a %)..." (exact-round (* p 100.0))))))))
                (define data (or previous-data (fetch-data database params report-progress)))
-               (define rt (make-render-tree data params))
+               (define add-label? (> (length data) 1))
+               (define rt (for*/list ([d (in-list data)]
+                                      [r (in-value (make-render-tree d params add-label?))]
+                                      #:when r)
+                            r))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
