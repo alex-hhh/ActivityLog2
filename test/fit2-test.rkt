@@ -18,12 +18,13 @@
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require rackunit)
-(require "../rkt/fit-file/fit-file.rkt")
+(require "../rkt/fit-file/fit-file.rkt"
+         "custom-test-runner.rkt")
 
 (define fit-device-name-tests
   (test-suite
-   "`fit-device-name` test suite"
-   (test-case "`fit-device-name` check that device names are correctly constructed"
+   "fit-device-name"
+   (test-case "fit-device-name: device names are correctly constructed"
      ;; Note that these tests also load the `fit-product-defs.json` file and
      ;; therefore validate it...
      (check-equal? (fit-device-name 1 1328 #f) "Garmin FR910XT")
@@ -40,5 +41,6 @@
      (check-equal? (fit-device-name 1000 100 'bike-power) "1000/100"))))
 
 (module+ test
-  (require rackunit/text-ui)
-  (run-tests fit-device-name-tests))
+  (run-tests #:package "fit2-test"
+             #:results-file "test-results-fit2.xml"
+             fit-device-name-tests))

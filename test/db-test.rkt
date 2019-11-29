@@ -28,7 +28,8 @@
          "../rkt/workout-editor/wkstep.rkt"
          "../rkt/utilities.rkt"
          "../rkt/time-in-zone.rkt"
-         "test-util.rkt")
+         "test-util.rkt"
+         "custom-test-runner.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
@@ -460,7 +461,7 @@ where S.id = CPFS.session_id
 
 (define db-tests
   (test-suite
-   "Database tests"
+   "Database Operations"
 
    (test-case
        "Create fresh database"
@@ -528,7 +529,8 @@ where S.id = CPFS.session_id
    ))
 
 (module+ test
-  (require rackunit/text-ui)
-  (run-tests db-tests 'verbose))
+  (run-tests #:package "db-tests"
+             #:results-file "test-results-db.xml"
+             db-tests))
 
 ;;(test/gui db-tests)

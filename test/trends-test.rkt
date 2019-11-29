@@ -53,7 +53,8 @@
          "../rkt/trend-charts/trends-scatter.rkt"
          "../rkt/trend-charts/trends-heatmap.rkt"
          "../rkt/widgets/map-widget/map-tiles.rkt"
-         "test-util.rkt")
+         "test-util.rkt"
+         "custom-test-runner.rkt")
 
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
@@ -300,10 +301,8 @@
 
 (define trend-charts-test-suite
   (test-suite
-   "Trend Charts Test Suite"
+   "Trend Charts"
    (test-case "BW trends / empty database"
-     (define start (current-milliseconds))
-     (printf "BW trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -313,32 +312,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "BW trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "BW trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db bw-trends-chart% bw-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db bw-trends-chart% bw-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "AE trends / empty database"
-     (define start (current-milliseconds))
-     (printf "AE trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -348,32 +338,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "AE trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "AE trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db ae-trends-chart% bw-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db ae-trends-chart% bw-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "TIZ trends / empty database"
-     (define start (current-milliseconds))
-     (printf "TIZ trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -383,32 +364,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "TIZ trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "TIZ trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db tiz-trends-chart% tiz-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db tiz-trends-chart% tiz-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "TRIVOL trends / empty database"
-     (define start (current-milliseconds))
-     (printf "TRIVOL trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -418,32 +390,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "TRIVOL trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "TRIVOL trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db trivol-trends-chart% trivol-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db trivol-trends-chart% trivol-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "VOL trends / empty database"
-     (define start (current-milliseconds))
-     (printf "VOL trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -453,32 +416,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "VOL trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "VOL trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db vol-trends-chart% vol-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db vol-trends-chart% vol-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "TT trends / empty database"
-     (define start (current-milliseconds))
-     (printf "TT trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -488,32 +442,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; With no data, these files should not be created
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "TT trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "TT trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db tt-trends-chart% tt-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; With no data, these files should not be created
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db tt-trends-chart% tt-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; With no data, these files should not be created
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "PMC trends / empty database"
-     (define start (current-milliseconds))
-     (printf "PMC trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -523,32 +468,23 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-true (file-exists? test-image-file))
-         (check-true (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-true (file-exists? test-data-file)))))
    (test-case "PMC trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "PMC trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db pmc-trends-chart% pmc-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; NOTE PMC data is still exported on an empty database
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db pmc-trends-chart% pmc-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; NOTE PMC data is still exported on an empty database
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "BAVG trends / empty database"
-     (define start (current-milliseconds))
-     (printf "BAVG trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -557,31 +493,22 @@
          (check = 0 (send result get-num-snips-set))
          (check = 0 (send result get-num-floating-snips-set))
          (check-false (file-exists? test-image-file))
-         (check-true (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-true (file-exists? test-data-file)))))
    (test-case "BAVG trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "BAVG trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db mmax-trends-chart% bavg-settings test-snip-canvas%))
-             (check > (send result get-num-set-background-message-calls) 0)
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db mmax-trends-chart% bavg-settings test-snip-canvas%))
+         (check > (send result get-num-set-background-message-calls) 0)
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "HIST trends / empty database"
-     (define start (current-milliseconds))
-     (printf "HIST trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -591,12 +518,8 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "DUAL HIST trends / empty database"
-     (define start (current-milliseconds))
-     (printf "DUAL HIST trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -606,52 +529,38 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "HIST trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "HIST trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db hist-trends-chart% hist-settings test-snip-canvas%))
-             (check > (send result get-num-set-background-message-calls) 0)
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; NOTE PMC data is still exported on an empty database
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db hist-trends-chart% hist-settings test-snip-canvas%))
+         (check > (send result get-num-set-background-message-calls) 0)
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; NOTE PMC data is still exported on an empty database
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "DUAL HIST trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "DUAL HIST trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db hist-trends-chart% dual-hist-settings test-snip-canvas%))
-             (check > (send result get-num-set-background-message-calls) 0)
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             ;; NOTE PMC data is still exported on an empty database
-             (check-true (file-exists? test-image-file))
-             (check-true (file-exists? test-data-file))
-             (check-csv-file test-data-file)
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db hist-trends-chart% dual-hist-settings test-snip-canvas%))
+         (check > (send result get-num-set-background-message-calls) 0)
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         ;; NOTE PMC data is still exported on an empty database
+         (check-true (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file))
+         (check-csv-file test-data-file))))
    (test-case "SCATTER trends / empty database"
-     (define start (current-milliseconds))
-     (printf "SCATTER trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -661,12 +570,8 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "DUAL SCATTER trends / empty database"
-     (define start (current-milliseconds))
-     (printf "DUAL SCATTER trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -676,49 +581,35 @@
          (check = 0 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-false (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "SCATTER trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "SCATTER trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db scatter-trends-chart% scatter-settings test-snip-canvas%))
-             (check > (send result get-num-set-background-message-calls) 0)
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             (check-true (file-exists? test-image-file))
-             (check-false (file-exists? test-data-file))
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db scatter-trends-chart% scatter-settings test-snip-canvas%))
+         (check > (send result get-num-set-background-message-calls) 0)
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         (check-true (file-exists? test-image-file))
+         (check-false (file-exists? test-data-file)))))
    (test-case "DUAL SCATTER trends / non-empty database"
-     (define start (current-milliseconds))
-     (printf "DUAL SCATTER trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db scatter-trends-chart% dual-scatter-settings test-snip-canvas%))
-             (check > (send result get-num-set-background-message-calls) 0)
-             (check = 1 (send result get-num-snips-set))
-             (check = 0 (send result get-num-floating-snips-set))
-             (check-true (file-exists? test-image-file))
-             ;; NOTE: a data file will be created, but it will be empty.
-             (check-false (file-exists? test-data-file))
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db scatter-trends-chart% dual-scatter-settings test-snip-canvas%))
+         (check > (send result get-num-set-background-message-calls) 0)
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         (check-true (file-exists? test-image-file))
+         ;; NOTE: a data file will be created, but it will be empty.
+         (check-false (file-exists? test-data-file)))))
    (test-case "HEATMAP trends / empty database"
-     (define start (current-milliseconds))
-     (printf "HEATMAP trends / empty database...")(flush-output)
      (with-fresh-database
        (lambda (db)
          (define result
@@ -730,36 +621,30 @@
          (check = 1 (send result get-num-floating-snips-set))
          ;; NOTE heatmap data is still exported on an empty database
          (check-true (file-exists? test-image-file))
-         (check-false (file-exists? test-data-file))))
-     (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-     (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output))
+         (check-false (file-exists? test-data-file)))))
    (test-case "HEATMAP trends / non-empty database"
      ;; NOTE: the test database contains activities, but does not contain any
      ;; GPS data (since it is stripped out from the test databases) xso this is
      ;; an incomplete test, but it is better than nothing...
-     (define start (current-milliseconds))
-     (printf "HEATMAP trends / non-empty database...")(flush-output)
-     (if (file-exists? test-database)
-         (with-database
-           test-database
-           (lambda (db)
-             (define result
-               (do-tc-check db heatmap-chart% heatmap-settings test-snip-canvas%))
-             (check = 0 (send result get-num-set-background-message-calls))
-             ;; The map and map control snips are always set, whether there
-             ;; are any activities or not.
-             (check = 1 (send result get-num-snips-set))
-             (check = 1 (send result get-num-floating-snips-set))
-             (check-true (file-exists? test-image-file))
-             ;; NOTE: we don't export any data from this chart
-             (check-false (file-exists? test-data-file))
-             (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-             (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))))
-         (printf "skipping (missing database file).~%"))
-     (flush-output))
-
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db heatmap-chart% heatmap-settings test-snip-canvas%))
+         (check = 0 (send result get-num-set-background-message-calls))
+         ;; The map and map control snips are always set, whether there
+         ;; are any activities or not.
+         (check = 1 (send result get-num-snips-set))
+         (check = 1 (send result get-num-floating-snips-set))
+         (check-true (file-exists? test-image-file))
+         ;; NOTE: we don't export any data from this chart
+         (check-false (file-exists? test-data-file)))))
    ))
 
 (module+ test
-  (require rackunit/text-ui)
-  (run-tests trend-charts-test-suite 'verbose))
+  (run-tests #:package "trend-charts"
+             #:results-file "test-results-trend-charts.xml"
+             trend-charts-test-suite))
+

@@ -31,3 +31,5 @@ pkgs/catalog-config.txt
 ChangeLog
 TAGS
 flycheck_*
+test-results-*.xml
+

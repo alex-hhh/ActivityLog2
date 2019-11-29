@@ -49,17 +49,59 @@ steps:
   - script: raco test test/fit2-test.rkt
     displayName: Basic FIT file decoding tests (fit2-test)
 
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-fit2.xml'
+      testRunTitle: 'fit2-test on $(Agent.OS)'
+    displayName: Publish Test Results (fit2-test)
+
   - script: raco test test/db-test.rkt
     displayName: Test Database Import (db-test)
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-db.xml'
+      testRunTitle: 'db-test on $(Agent.OS)'
+    displayName: Publish Test Results (db-test)
 
   - script: raco test test/db-upgrade-test.rkt
     displayName: Test Database Upgrade (db-upgrade-test)
 
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-db-upgrade.xml'
+      testRunTitle: 'db-upgrade-test on $(Agent.OS)'
+    displayName: Publish Test Results (db-upgrade-test)
+
   - script: raco test test/trends-test.rkt
     displayName: Test Trends Chart (trends-test)
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-trend-charts.xml'
+      testRunTitle: 'trends-test on $(Agent.OS)'
+    displayName: Publish Test Results (trends-test)
 
   - script: raco test test/aggregate-test.rkt
     displayName: Test Agregate Data (aggregate-test)
 
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-aggregate.xml'
+      testRunTitle: 'aggregate-test on $(Agent.OS)'
+    displayName: Publish Test Results (aggregate-test)
+
   - script: raco test test/fit-test.rkt
     displayName: Test File Import (fit-test)
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFiles: 'test/test-results-fit-files.xml'
+      testRunTitle: 'fit-test on $(Agent.OS)'
+    displayName: Publish Test Results (fit-test)

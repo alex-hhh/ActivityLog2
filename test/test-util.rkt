@@ -70,7 +70,7 @@
   ;;
   ;; Skip series that are lazily created and thus might still be empty, like
   ;; stride and pace.
-  (for ([s (in-list sn)] #:unless (member s '("stride" "pace")))
+  (for ([s (in-list sn)] #:unless (member s '("stride" "pace" "torque")))
     (check-true (df-has-non-na? df s) (format "empty series found: ~a" s)))
   ;; Check that metadata objects exist for all series (except a select few).
   ;; This is especially important since metadata objects for XDATA series are

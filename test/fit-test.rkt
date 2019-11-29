@@ -32,52 +32,50 @@
          "../rkt/session-df/native-series.rkt"
          "../rkt/weather.rkt"
          "../rkt/database.rkt"
-         "../rkt/utilities.rkt")
-
-(set-allow-weather-download #f)        ; don't download weather for unit tests
-(set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
+         "../rkt/utilities.rkt"
+         "custom-test-runner.rkt"
+         "../rkt/al-profiler.rkt")
 
 (define (do-basic-checks file series-count row-count
                          #:expected-session-count (expected-session-count 1)
                          #:extra-db-checks (extra-db-checks #f)
                          #:extra-df-checks (extra-df-checks #f))
-  (when (file-exists? file)
-    (define start (current-milliseconds))
-    (printf "File ~a, ~a data-points ..." file row-count)(flush-output)
-    ;; Simple consistency check: if we expect more than one session,
-    ;; SERIES-COUNT and ROW-COUNT should be lists, one for each series.
-    (check-true (if (number? series-count)
-                    (= expected-session-count 1)
-                    (= expected-session-count (length series-count))))
-    (check-true (if (number? row-count)
-                    (= expected-session-count 1)
-                    (= expected-session-count (length row-count))))
-    (with-fresh-database
-      (lambda (db)
-        (db-import-activity-from-file/check
-         file db
-         #:expected-session-count expected-session-count
-         #:expected-row-count row-count
-         #:expected-series-count series-count
-         #:extra-db-checks extra-db-checks
-         #:extra-df-checks extra-df-checks
-         #:delete-sessions? #t)))
-    (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-    (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output)))
+
+  (unless (file-exists? file)
+    (skip-test))
+
+  (dbglog "File ~a, ~a data-points ..." file row-count)
+  ;; Simple consistency check: if we expect more than one session,
+  ;; SERIES-COUNT and ROW-COUNT should be lists, one for each series.
+  (check-true (if (number? series-count)
+                  (= expected-session-count 1)
+                  (= expected-session-count (length series-count))))
+  (check-true (if (number? row-count)
+                  (= expected-session-count 1)
+                  (= expected-session-count (length row-count))))
+  (with-fresh-database
+    (lambda (db)
+      (db-import-activity-from-file/check
+       file db
+       #:expected-session-count expected-session-count
+       #:expected-row-count row-count
+       #:expected-series-count series-count
+       #:extra-db-checks extra-db-checks
+       #:extra-df-checks extra-df-checks
+       #:delete-sessions? #t))))
 
 (define (do-multi-checks files
                          #:extra-db-checks (extra-db-checks #f))
-  (when (for/and ([f (in-list files)]) (file-exists? f))
-    (printf "File multi-checks on ~a ..." files)(flush-output)
-    (define start (current-milliseconds))
-    (with-fresh-database
-      (lambda (db)
-        (for ([f (in-list files)])
-          (db-import-activity-from-file f db))
-        (when extra-db-checks
-          (extra-db-checks db))))
-    (define elapsed (/ (- (current-milliseconds) start) 1000.0))
-    (printf " done in ~a seconds ~%" (~r elapsed #:precision 2))(flush-output)))
+  (unless (for/and ([f (in-list files)]) (file-exists? f))
+    (skip-test))
+
+  (dbglog "File multi-checks on ~a ..." files)
+  (with-fresh-database
+    (lambda (db)
+      (for ([f (in-list files)])
+        (db-import-activity-from-file f db))
+      (when extra-db-checks
+        (extra-db-checks db)))))
 
 (define (check-run-power df)
   (when (equal? (df-get-property df 'sport #f) #(1 #f))
@@ -186,18 +184,28 @@ select count(*)
 
 (define fit-files-test-suite
   (test-suite
-   "FIT files test suite"
-   (test-case "FIT files test case"
-     (do-basic-checks "./test-fit/f0001.fit" 18 14035)
-     (do-basic-checks "./test-fit/f0002.fit" 16 500)
-     (do-basic-checks "./test-fit/f0003.fit" 14 47)
-     (do-basic-checks "./test-fit/f0004.fit" 18 138294)
-     (do-basic-checks "./test-fit/f0005.fit" 13 227)
-     (do-basic-checks "./test-fit/f0006.fit" 13 1297)
-     (do-basic-checks "./test-fit/f0007.fit" 13 1452)
-     (do-basic-checks "./test-fit/f0008.fit" 13 2331)
-     (do-basic-checks "./test-fit/f0009.fit" 6 57)
-     (do-basic-checks "./test-fit/f0010.fit" 19 8078)
+   "FIT file reading"
+   (test-case "f0001.fit"
+     (do-basic-checks "./test-fit/f0001.fit" 18 14035))
+   (test-case "f0002.fit"
+     (do-basic-checks "./test-fit/f0002.fit" 16 500))
+   (test-case "f0003.fit"
+     (do-basic-checks "./test-fit/f0003.fit" 14 47))
+   (test-case "f0004.fit"
+     (do-basic-checks "./test-fit/f0004.fit" 18 138294))
+   (test-case "f0005.fit"
+     (do-basic-checks "./test-fit/f0005.fit" 13 227))
+   (test-case "f0006.fit"
+     (do-basic-checks "./test-fit/f0006.fit" 13 1297))
+   (test-case "f0007.fit"
+     (do-basic-checks "./test-fit/f0007.fit" 13 1452))
+   (test-case "f0008.fit"
+     (do-basic-checks "./test-fit/f0008.fit" 13 2331))
+   (test-case "f0009.fit"
+     (do-basic-checks "./test-fit/f0009.fit" 6 57))
+   (test-case "f0010.fit"
+     (do-basic-checks "./test-fit/f0010.fit" 19 8078))
+   (test-case "f0011.fit"
      (do-basic-checks "./test-fit/f0011.fit" 12 39
                       #:extra-df-checks
                       (lambda (df)
@@ -212,9 +220,12 @@ select count(*)
                                                          (* 2 (length stop-points))))
                         ;; The timer time axis does not mark stop points.
                         (define data2 (extract-data df axis-timer-time axis-speed 0 #f))
-                        (check = (vector-length data2) (df-row-count df))))
-     (do-basic-checks "./test-fit/f0012.fit" 6 47)
-     (do-basic-checks "./test-fit/f0013.fit" 18 8253)
+                        (check = (vector-length data2) (df-row-count df)))))
+   (test-case "f0012.fit"
+     (do-basic-checks "./test-fit/f0012.fit" 6 47))
+   (test-case "f0013.fit"
+     (do-basic-checks "./test-fit/f0013.fit" 18 8253))
+   (test-case "f0014.fit"
      (do-basic-checks
       "./test-fit/f0014.fit" 20 155
       #:extra-db-checks
@@ -223,7 +234,8 @@ select count(*)
         (check-xdata-app-present db "f848e2ecad564dbd8e36eaf0316d5ea3")
         (check-xdata-field-count db "f848e2ecad564dbd8e36eaf0316d5ea3" 1)
         (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
-        ))
+        )))
+   (test-case "f0015.fit"
      (do-basic-checks
       "./test-fit/f0015.fit" 22 4057
       #:extra-db-checks
@@ -247,7 +259,8 @@ select count(*)
         (check-xdata-summary-values
          db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal_min")
 
-        ))
+        )))
+   (test-case "f0016.fit"
      (do-basic-checks
       "./test-fit/f0016.fit" 27 2119
       #:extra-db-checks
@@ -269,21 +282,27 @@ select count(*)
         (check-xdata-trackpoint-values
          db "00000000000000000000000000000000" "Form Power")
         )
-      #:extra-df-checks check-run-power)
+      #:extra-df-checks check-run-power))
+   (test-case "f0017.fit"
      (do-basic-checks
       "./test-fit/f0017.fit" 18 3211
-      #:extra-db-checks check-outdoorsports-xdata)
+      #:extra-db-checks check-outdoorsports-xdata))
+   (test-case "f0018.fit"
      (do-basic-checks
       "./test-fit/f0018.fit" '(16 16 37 16 30) '(583 30 10217 10 8612)
       #:extra-db-checks check-stryd-xdata
-      #:expected-session-count 5)
+      #:expected-session-count 5))
+   (test-case "f0019.fit"
      (do-basic-checks
       "./test-fit/f0019.fit" 24 4081
-      #:extra-db-checks check-stryd-xdata)
-     (do-basic-checks "./test-fit/f0022.fit" 13 1868)
+      #:extra-db-checks check-stryd-xdata))
+   (test-case "f0022.fit"
+     (do-basic-checks "./test-fit/f0022.fit" 13 1868))
+   (test-case "f0023.fit"
      (do-basic-checks
       "./test-fit/f0023.fit" 24 2138
-      #:extra-db-checks check-garmin-run-power-data)
+      #:extra-db-checks check-garmin-run-power-data))
+   (test-case "f0025.fit"
      (do-basic-checks
       "./test-fit/f0025.fit" 27 2148
       #:extra-db-checks
@@ -298,9 +317,11 @@ select count(*)
         (for ([field '("Instantaneous Speed" "Instantaneous Pace")])
           (check-xdata-field-present db app-id field))
         (for ([field '("Instantaneous Speed" "Instantaneous Pace")])
-          (check-xdata-trackpoint-values db app-id field))))
+          (check-xdata-trackpoint-values db app-id field)))))
+   (test-case "f0026.fit"
      (do-basic-checks
-      "./test-fit/f0026.fit" 20 6098)
+      "./test-fit/f0026.fit" 20 6098))
+   (test-case "f0027.fit"
      (do-basic-checks
       "./test-fit/f0027.fit" 30 4948
       #:extra-df-checks
@@ -308,7 +329,8 @@ select count(*)
         ;; These series were missing from the activities as they are provided
         ;; by "enhanced fields".  Check that they are present.
         (check-true (df-contains? df "spd"))
-        (check-true (df-contains? df "alt"))))
+        (check-true (df-contains? df "alt")))))
+   (test-case "f0028.fit"
      (do-basic-checks
       "./test-fit/f0028.fit" 23 941
       #:extra-df-checks
@@ -316,7 +338,8 @@ select count(*)
         ;; These series were missing from the activities as they are provided
         ;; by "enhanced fields".  Check that they are present.
         (check-true (df-contains? df "spd"))
-        (check-true (df-contains? df "alt"))))
+        (check-true (df-contains? df "alt")))))
+   (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
       ;; should only be recorded once...
@@ -331,9 +354,18 @@ select count(*)
         (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal")
         (check-xdata-field-present db "f848e2ecad564dbd8e36eaf0316d5ea3" "current_wbal_min")
         (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "THb Sensor 188.000000 on L. Quad")
-        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "SmO2 Sensor 188.000000 on L. Quad")))
-     )))
+        (check-xdata-field-present db "a7e5e2534392495ba0728883c92d7211" "SmO2 Sensor 188.000000 on L. Quad"))))
+     ))
 
 (module+ test
-  (require rackunit/text-ui)
-  (run-tests fit-files-test-suite 'verbose))
+  (set-allow-weather-download #f)        ; don't download weather for unit tests
+
+  ;; when set to #t, dbglog output is sent to stdout, useful for debugging
+  ;; purposes.
+  (set-dbglog-to-standard-output #f)
+
+  (run-tests #:package "fit-files"
+             #:results-file "test-results-fit-files.xml"
+             fit-files-test-suite)
+  (profile-display))
+

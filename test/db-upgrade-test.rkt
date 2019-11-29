@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,11 +16,11 @@
          racket/file
          rackunit
          "../rkt/dbapp.rkt"
-         "../rkt/utilities.rkt")
+         "../rkt/utilities.rkt"
+         "custom-test-runner.rkt")
 
 ;;(require rackunit/gui)
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
-
 (define test-dir "./test-db")
 
 (define (candidate-databases)
@@ -66,7 +66,16 @@
     (disconnect db)
     (delete-file tmpdb)))
 
+(define db-upgrade-test-suite
+  (test-suite
+   "Database Upgrade"
+   (for ((db (in-list (candidate-databases))))
+     (test-case
+      (format "Upgrading ~a" db)
+       (test-upgrade db)))))
+
 (module+ test
-  (require rackunit/text-ui)
-  (for ((db (in-list (candidate-databases))))
-    (test-upgrade db)))
+  (run-tests #:package "db-upgrade"
+             #:results-file "test-results-db-upgrade.xml"
+             db-upgrade-test-suite))
+
