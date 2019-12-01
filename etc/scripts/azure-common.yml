@@ -30,7 +30,7 @@ steps:
 
   - bash: |
       bash ./etc/scripts/fetch.sh -d -C test "1ig99PhGTYFZsbOhJDph1za8gfG1GZCM_" # test-db(4)
-      bash ./etc/scripts/fetch.sh -d -C test "1oPBgegOI4cBkjOMi2FFFxbhx87PetG5c" # test-fit(11)
+      bash ./etc/scripts/fetch.sh -d -C test "1K8ar20PC-flCsOikyCeRXmNSuf1D271a" # test-fit(12)
     env:
       TESTDATAPW: $(TESTDATAPW)
     displayName: (Maybe) Download Test Data

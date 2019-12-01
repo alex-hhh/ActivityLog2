@@ -33,8 +33,7 @@
          "../rkt/weather.rkt"
          "../rkt/database.rkt"
          "../rkt/utilities.rkt"
-         "custom-test-runner.rkt"
-         "../rkt/al-profiler.rkt")
+         "custom-test-runner.rkt")
 
 (define (do-basic-checks file series-count row-count
                          #:expected-session-count (expected-session-count 1)
@@ -339,6 +338,25 @@ select count(*)
         ;; by "enhanced fields".  Check that they are present.
         (check-true (df-contains? df "spd"))
         (check-true (df-contains? df "alt")))))
+   (test-case "f0029.fit"
+     (do-basic-checks
+      "./test-fit/f0029.fit" '(15 17 31 16 30) '(943 814 24062 330 19656)
+      #:expected-session-count 5
+      #:extra-db-checks
+      (lambda (db)
+        (check-xdata-app-count db 2)
+        (check-xdata-app-present db "660a581e5301460c8f2f034c8b6dc90f")
+        (check-xdata-app-present db "6dcfffe5cd3d41f38ba313fa0647b003")
+        (check-xdata-field-count db "660a581e5301460c8f2f034c8b6dc90f" 7)
+        (check-xdata-field-count db "6dcfffe5cd3d41f38ba313fa0647b003" 1)
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Leg Spring Stiffness")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Form Power")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Elevation")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Vertical Oscillation")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Ground Time")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
+        (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Power")
+        (check-xdata-field-present db "6dcfffe5cd3d41f38ba313fa0647b003" "wprime_bal"))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -366,6 +384,5 @@ select count(*)
 
   (run-tests #:package "fit-files"
              #:results-file "test-results-fit-files.xml"
-             fit-files-test-suite)
-  (profile-display))
+             fit-files-test-suite))
 

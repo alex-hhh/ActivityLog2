@@ -95,7 +95,7 @@
          (let ((start-time (dict-ref activity 'start-time #f))
                (guid (dict-ref activity 'guid #f)))
            (query-exec db stmt start-time (or guid sql-null))
-           (define apps (xdata-synx-applications db activity))
+           (define apps (xdata-sync-applications db activity))
            (define fields (xdata-sync-fields db activity apps))
            (parameterize ([xdata-fields fields])
              (let ((activity-id (db-get-last-pk "ACTIVITY" db))
@@ -307,26 +307,25 @@
 ;; Store any XDATA applications from ACTIVITY in the database and return a
 ;; hash mapping the application index to the XDATA_APP.id key.  New entries
 ;; are only created if they don't exist.
-(define (xdata-synx-applications db activity)
+(define (xdata-sync-applications db activity)
   (define apps (dict-ref activity 'developer-data-ids #f))
   (define result (make-hash))
   (when apps
     (for ([app (in-list apps)])
       (define devid (dict-ref app 'developer-id sql-null))
       (define appid (dict-ref app 'application-id #f))
-      (define appindex (dict-ref app 'developer-data-index #f))
-      (when (and appid appindex)
+      (when appid
         (define id (query-maybe-value db "select id from XDATA_APP where app_guid = ?" appid))
         (unless id
           (query-exec db "insert into XDATA_APP(app_guid, dev_guid) values(?, ?)" appid devid)
           (set! id (db-get-last-pk "XDATA_APP" db)))
-        (hash-set! result appindex id))))
+        (hash-set! result appid id))))
   result)
 
 ;; Store XDATA fields from ACTIVITY in the database and return a hash mapping
 ;; the field key to the XDATA_FIELD.id.  Fields are only created if they don't
 ;; already exist.  XDATA-APP-MAPPING is a hash returned by
-;; `xdata-synx-applications` and is used to find the XDATA_APP.id for each
+;; `xdata-sync-applications` and is used to find the XDATA_APP.id for each
 ;; field.
 (define (xdata-sync-fields db activity xdata-app-mapping)
   (define fields (dict-ref activity 'field-descriptions #f))
@@ -336,11 +335,11 @@
       (define name (dict-ref field 'field-name #f))
       (define key (dict-ref field 'field-key #f))
       (define units (dict-ref field 'units sql-null))
-      (define appindex (dict-ref field 'developer-data-index #f))
+      (define appid (dict-ref field 'application-id #f))
       (define native-msg (dict-ref field 'native-msg-num sql-null))
       (define native-field (dict-ref field 'native-field-num sql-null))
-      (when (and name appindex)
-        (define app (hash-ref xdata-app-mapping appindex #f))
+      (when (and name appid)
+        (define app (hash-ref xdata-app-mapping appid #f))
         (when app
           (define id (query-maybe-value
                       db "select id from XDATA_FIELD where app_id = ? and name = ?"
