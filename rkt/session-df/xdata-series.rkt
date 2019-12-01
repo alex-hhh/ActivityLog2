@@ -200,13 +200,16 @@
 
   (define sid (df-get-property df 'session-id))
   (define current-ts #f)
-  (define position #f)
+  (define position -1)
   (define xdata-series (make-hash))
 
   (for (([ts field value] (in-query db (xdata-values-query) sid #:fetch 1000)))
     (unless (equal? current-ts ts)
       (set! current-ts ts)
-      (set! position (df-index-of df "timestamp" ts)))
+      (set! position
+            (if (equal? (df-ref df (add1 position) "timestamp") ts)
+                (add1 position)
+                (df-index-of df "timestamp" ts))))
     (define xdata (hash-ref xdata-series field #f))
     (unless xdata
       (set! xdata (make-vector (df-row-count df) #f))

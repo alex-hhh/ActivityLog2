@@ -421,7 +421,7 @@ create table A_TRACKPOINT (
   foreign key (length_id) references A_LENGTH(id)
   );
 
-create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
+create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id, timestamp);
 
 -- This is a good covering index for both updating the TILE_CODE query and for
 -- retrieving lat/lon coordinates for a TILE_CODE, TILE code queries will only

@@ -37,6 +37,7 @@
 
 (provide define/profile
          define/public/profile
+         define/override/profile
          define/augment/profile
 
          profile-enable
@@ -156,6 +157,18 @@
        #'(begin
            (define/profile fname+args body ...)
            (public name)
+           (define name+args fname+args)))]))
+
+(define-syntax (define/override/profile stx)
+  (syntax-case stx ()
+    [(_ (name . args) body ...)
+     (with-syntax*
+         ([fname (format-id stx "~a-profiled" (syntax->datum #'name))]
+          [fname+args (datum->syntax stx (list* #'fname #'args))]
+          [name+args (datum->syntax stx (list* #'name #'args))])
+       #'(begin
+           (define/profile fname+args body ...)
+           (override name)
            (define name+args fname+args)))]))
 
 ;; Same as define/public/profile but for augmented methods of a class.  Same

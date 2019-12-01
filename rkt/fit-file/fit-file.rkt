@@ -173,6 +173,15 @@
                 b)
             b))))
 
+(define (bstr->uint8/unsigned bstr signed? big-endian? start end)
+  (bytes-ref bstr start))
+
+(define (bstr->uint8/signed bstr signed? big-endian? start end)
+  (let ((b (bytes-ref bstr start)))
+    (if (= (bitwise-and b #x80) #x80)
+        (- b #x100)
+        b)))
+
 (struct fit-type
   ;; Hold information about a FIT basic type
   (id                                   ; a number as defined in the FIT documentation
@@ -191,34 +200,34 @@
   ;; Definition of all basic FIT types, as per the FIT file documentation.
   ;; This is a hash with the type ID being the key, see also `get-fit-type'
   (hash
-   #x00 (fit-type #x00 'enum #f 1 #xFF bstr->integer integer->bstr)
+   #x00 (fit-type #x00 'enum #f 1 #xFF bstr->uint8/unsigned integer->bstr)
 
-   #x01 (fit-type #x01 'sint8 #t 1 #x7F bstr->integer integer->bstr)
-   #x02 (fit-type #x02 'uint8 #f 1 #xFF bstr->integer integer->bstr)
+   #x01 (fit-type #x01 'sint8 #t 1 #x7F bstr->uint8/signed integer->bstr)
+   #x02 (fit-type #x02 'uint8 #f 1 #xFF bstr->uint8/unsigned integer->bstr)
 
-   #x83 (fit-type #x83 'sint16 #t 2 #x7FFF bstr->integer integer->bstr)
-   #x84 (fit-type #x84 'uint16 #f 2 #xFFFF bstr->integer integer->bstr)
+   #x83 (fit-type #x83 'sint16 #t 2 #x7FFF integer-bytes->integer integer->bstr)
+   #x84 (fit-type #x84 'uint16 #f 2 #xFFFF integer-bytes->integer integer->bstr)
 
-   #x85 (fit-type #x85 'sint32 #t 4 #x7FFFFFFF bstr->integer integer->bstr)
-   #x86 (fit-type #x86 'uint32 #f 4 #xFFFFFFFF bstr->integer integer->bstr)
+   #x85 (fit-type #x85 'sint32 #t 4 #x7FFFFFFF integer-bytes->integer integer->bstr)
+   #x86 (fit-type #x86 'uint32 #f 4 #xFFFFFFFF integer-bytes->integer integer->bstr)
 
-   #x07 (fit-type #x07 'string #f 1 #x00 bstr->integer integer->bstr)
+   #x07 (fit-type #x07 'string #f 1 #x00 bstr->uint8/unsigned integer->bstr)
 
-   #x88 (fit-type #x88 'float32 #f 4 #xFFFFFFFF bstr->real real->bstr)
-   #x89 (fit-type #x89 'float64 #f 8 #xFFFFFFFFFFFFFFFF bstr->real real->bstr)
+   #x88 (fit-type #x88 'float32 #f 4 +nan.0 bstr->real real->bstr)
+   #x89 (fit-type #x89 'float64 #f 8 +nan.0 bstr->real real->bstr)
 
-   #x0a (fit-type #x0a 'uint8z #f 1 #x00 bstr->integer integer->bstr)
-   #x8b (fit-type #x8b 'uint16z #f 2 #x00 bstr->integer integer->bstr)
-   #x8c (fit-type #x8c 'uint32z #f 4 #x00 bstr->integer integer->bstr)
+   #x0a (fit-type #x0a 'uint8z #f 1 #x00 bstr->uint8/unsigned integer->bstr)
+   #x8b (fit-type #x8b 'uint16z #f 2 #x00 integer-bytes->integer integer->bstr)
+   #x8c (fit-type #x8c 'uint32z #f 4 #x00 integer-bytes->integer integer->bstr)
 
-   #x0d (fit-type #x0d 'byte #f 1 #xFF bstr->integer integer->bstr)))
+   #x0d (fit-type #x0d 'byte #f 1 #xFF bstr->uint8/unsigned integer->bstr)))
 
 (define (get-fit-type id)
   ;; Return a fit type based on the ID which can be the actual fit type, its
   ;; number or name.  Return #f if the type is not found or ID is not one of
   ;; the expected values.
   (cond ((fit-type? id) id)
-        ((number? id) (hash-ref fit-types id))
+        ((number? id) (hash-ref fit-types id #f))
         ((symbol? id)
          (for/first ([t (in-hash-values fit-types)]
                      #:when (eq? id (fit-type-name t)))
@@ -232,12 +241,10 @@
         (signed? (fit-type-signed? type)))
     (when (> (+ pos size) (bytes-length buf))
       (raise-error "read past end of buffer"))
-    (let ((raw-val (bstr->integer buf #f big-endian? pos (+ pos size))))
-      (if (equal? raw-val (fit-type-invalid-value type))
-          (values #f (+ pos size))
-          (values
-           (read-fn buf signed? big-endian? pos (+ pos size))
-           (+ pos size))))))
+    (let ((val (read-fn buf signed? big-endian? pos (+ pos size))))
+      (cond ((equal? val (fit-type-invalid-value type))
+             (values #f (+ pos size)))
+            (#t (values val (+ pos size)))))))
 
 (define (read-fit-value buf pos size type big-endian?)
   ;; Read one or more values from BUF@POS of the specified type.  SIZE is the
@@ -303,11 +310,20 @@
 
     (define/public (position) crtpos)
 
+    (define/public (read-next-value/uint8)
+      (begin0 (bytes-ref buffer crtpos)
+        (set! crtpos (add1 crtpos))))
+
     (define/public (read-next-value type-id [size #f] [big-endian? #f])
       ;; Read a value of the specified type (TYPE-ID) from the stream at the
       ;; current position (which will be updated).
       (let* ((type (get-fit-type type-id))
              (sz (or size (fit-type-size type))))
+        ;; NOTE: at least Wahoo will define fields with invalid types (#x8f),
+        ;; but will never send any messages with these fields.  We let it
+        ;; pass.  This is tested by f0026.fit
+        (unless type
+          (raise-error "Unknown FIT type: ~a"))
         (let-values (([result new-crtpos]
                       (read-fit-value buffer crtpos sz type big-endian?)))
           (set! crtpos new-crtpos)
@@ -327,11 +343,11 @@
     ;; file. WARNING: we depend on these declaration being in the order below,
     ;; as we are just reading from the buffer now.
 
-    (define header-length (read-next-value 'uint8))
+    (define header-length (read-next-value/uint8))
 
     (unless (>= header-length 12) (raise-error "bad header length"))
 
-    (define protocol-version (read-next-value 'uint8))
+    (define protocol-version (read-next-value/uint8))
     (define profile-version (read-next-value 'uint16))
     (define data-length (read-next-value 'uint32))
     (unless (equal? (read-next-value 'string 4) #".FIT")
@@ -383,21 +399,23 @@
 
 (define (decode-record-header header)
   ;; Decode the header for a record in a fit file.  The header is a single
-  ;; byte.  We return a list of:
+  ;; byte.  We return 4 values:
   ;; * header type ('normal or 'compressed-timestamp)
   ;; * 'data or 'defintion record
   ;; * local-message-id
-  ;; * maybe timestamp offset for a compressed-timestamp header.
+  ;;
+  ;; * for a definition whether it is standard or custom, or a timestamp
+  ;; offset for a compressed-timestamp header.
   (let ((header-type (if (= (bitwise-and header #x80) 0)
                          'normal 'compressed-timestamp)))
     (if (eq? header-type 'normal)
-        (list
+        (values
          'normal
          (if (= (bitwise-and header #x40) 0) 'data 'definition)
          (bitwise-and header #x0F)      ; local message id
          (if (= (bitwise-and header #x20) 0) 'standard 'custom)
          )
-        (list
+        (values
          'compressed-timestamp
          'data
          (bitwise-bit-field header 5 7) ; local message id, note that the bit field is open ended! ()
@@ -410,13 +428,13 @@
   ;; of these fields is.  STANDARD-OR-CUSTOM is a symbol (either 'standard or
   ;; 'custom) which tells us if we should expect developer fields in the
   ;; message definition.
-  (send fit-stream read-next-value 'uint8) ; reserved field, skip it
-  (let* ((arhitecture (if (= (send fit-stream read-next-value 'uint8) 0)
+  (send fit-stream read-next-value/uint8) ; reserved field, skip it
+  (let* ((arhitecture (if (= (send fit-stream read-next-value/uint8) 0)
                           'little-endian 'big-endian))
          (global-message-number (send fit-stream read-next-value 'uint16 2
                                       (eq? arhitecture 'big-endian)))
          (global-message-name (dict-ref *global-message-number* global-message-number #f))
-         (field-count (send fit-stream read-next-value 'uint8))
+         (field-count (send fit-stream read-next-value/uint8))
          (field-names (if global-message-name
                           (dict-ref *field-db* global-message-name #f)
                           #f)))
@@ -424,19 +442,19 @@
      (list arhitecture (or global-message-name global-message-number))
      ;; Standard fields come first
      (for/list ([i (in-range field-count)])
-       (let* ((number (send fit-stream read-next-value 'uint8))
-              (size (send fit-stream read-next-value 'uint8))
-              (type (send fit-stream read-next-value 'uint8))
+       (let* ((number (send fit-stream read-next-value/uint8))
+              (size (send fit-stream read-next-value/uint8))
+              (type (send fit-stream read-next-value/uint8))
               (name (if field-names (dict-ref field-names number #f) #f)))
-         (list (or name number) size type)))
+         (list (or name number) size (get-fit-type type))))
      ;; Developer specific fields (if any) come last
      (let ((dev-field-count (if (eq? standard-or-custom 'custom)
-                                (send fit-stream read-next-value 'uint8)
+                                (send fit-stream read-next-value/uint8)
                                 0)))
        (for/list ([i (in-range dev-field-count)])
-         (let* ((number (send fit-stream read-next-value 'uint8))
-                (size (send fit-stream read-next-value 'uint8))
-                (ddi (send fit-stream read-next-value 'uint8))) ; dev data index
+         (let* ((number (send fit-stream read-next-value/uint8))
+                (size (send fit-stream read-next-value/uint8))
+                (ddi (send fit-stream read-next-value/uint8))) ; dev data index
            ;; Dev data fields are encoded by adding 1000 to them, so they are
            ;; not confused with FIT types, which are all less than 255.
            (list number size (+ 1000 ddi))))))))
@@ -447,44 +465,54 @@
   ;; DEV-FIELD-TYPES contains a mapping from a DDI to the actual FIT type for
   ;; the field.
 
-  (define (convert-value value field-name conversions)
-    ;; Convert VALUE for FIELD-NAME into a more usable format accorting to the
-    ;; CONVERSIONS ALIST.  For example, speed is stored multiplied by 1000
-    ;; (that is, millimeters per second) so we convert it back to
-    ;; meters/second.  Latitude and Longitude are stored as "semirircles", we
-    ;; convert them back to degrees.
-    (let ((convert-fn (cond ((assq field-name conversions) => cdr)
-                            (#t (lambda (x) x)))))
-      (if (vector? value)
-          (for/vector ((v (in-vector value))) (convert-fn v))
-          (convert-fn value))))
-
   (define conversion-table
     ;; conversion-table to use with `convert-value' for this message id.
     (cond ((assq (second definition) *field-conversion-db*) => cdr)
           (#t '())))
-
-  (define (read-value-fn type size stream)
-    (send stream read-next-value type size big-endian?))
+  
+  ;; Convert VALUE for FIELD-NAME into a more usable format accorting to the
+  ;; CONVERSIONS ALIST.  For example, speed is stored multiplied by 1000 (that
+  ;; is, millimeters per second) so we convert it back to meters/second.
+  ;; Latitude and Longitude are stored as "semirircles", we convert them back
+  ;; to degrees.
+  (define (convert-value value field-name)
+    (let ((convert-fn (cond ((assq field-name conversion-table) => cdr)
+                            (#t #f))))
+      (if convert-fn
+          (if (vector? value)
+              (for/vector ((v (in-vector value))) (convert-fn v))
+              (convert-fn value))
+          value)))
 
   (define big-endian?
     (not (eq? (car definition) 'little-endian)))
+  
+  (define (read-value-fn type size stream)
+    (send stream read-next-value type size big-endian?))
 
   (lambda (stream)
-    (for/list ([field (cdr (cdr definition))])
+    (for/fold ([result '()])               
+              ([field (in-list (cddr definition))])
       (match-define (list name size type) field)
-      (cond ((>= type 1000)
-             ;; this is a DDI, find the actual type and read it.  Don't do any
-             ;; conversion on i, but use the specified field name for it (if
-             ;; it is available)
-             (match-let (((list dname dtype)
-                          (hash-ref dev-field-types
-                                    (cons type name)
-                                    (lambda () (raise-error "unknown dev field: ~a" (- type 1000))))))
-               (cons (or dname name) (read-value-fn dtype size stream))))
-            (#t
-             (let ((value (read-value-fn type size stream)))
-               (cons name (and value (convert-value value name conversion-table)))))))))
+      (define entry
+        (cond
+          ;; Try the common case first
+          ((fit-type? type)
+           (let ((value (read-value-fn type size stream)))
+             (cons name (and value (convert-value value name)))))
+          ((and (number? type) (>= type 1000))
+           ;; this is a DDI, find the actual type and read it.  Don't do any
+           ;; conversion on i, but use the specified field name for it (if it is
+           ;; available)
+           (match-let (((list dname dtype)
+                        (hash-ref dev-field-types
+                                  (cons type name)
+                                  (lambda () (raise-error "unknown dev field: ~a" (- type 1000))))))
+             (cons (or dname name) (read-value-fn dtype size stream))))
+          (#t
+           (let ((value (read-value-fn type size stream)))
+             (cons name (and value (convert-value value name)))))))
+      (cons entry result))))
 
 (define (read-fit-records fit-stream dispatcher)
   ;; Read all data records from FIT-STREAM (a fit-data-stream%) and send them
@@ -512,88 +540,87 @@
                  "ff"))))
 
   (define (read-next-record)
-    (let* ((hdr (or (send fit-stream read-next-value 'uint8) 255))
-           (header (decode-record-header hdr)))
-      ;; (printf "header(~a pos = ~a): ~a~%" hdr (send fit-stream position) header)
-      (match-define (list htype def-or-data local-id rest ...) header)
-      (cond ((eq? def-or-data 'definition)
-             (let ((def (read-message-definition fit-stream (car rest))))
-               ;; (display def)(newline)
-               ;; (display (format "DEFN local: ~a, global: ~a, ~a field(s)~%"
-               ;;                  (third header)
-               ;;                  (second def)
-               ;;                  (length (cdr (cdr def)))))
-               (hash-set! message-readers
-                          local-id
-                          (cons (second def) (make-message-reader def dev-field-types))))
-             #t)
-            ((eq? def-or-data 'data)
-             (let ((reader (hash-ref message-readers local-id #f)))
-               (unless reader
-                 (raise-error "no reader for local message id ~a" header))
-               ;; (display (format "DATA local: ~a (~a)~%" (third header) (car reader)))
-               (let ((message-id (car reader))
-                     (message-data ((cdr reader) fit-stream)))
-                 ;; (printf "DATA CONTENTS: ~a~%" message-data)
-                 (cond ((eq? message-id 'developer-data-id)
-                        ;; A developer-data-id message "announces" a new XDATA
-                        ;; application.  We convert the developer-id and
-                        ;; application-id fields from an array of bytes to
-                        ;; string guid and also record this application in
-                        ;; APP-DEFS
-                        (let ((devid (dict-ref message-data 'developer-id #f))
-                              (appid (dict-ref message-data 'application-id #f))
-                              (ddi (dict-ref message-data 'developer-data-index #f)))
-                          (when appid
-                            (define app-key (make-string-id appid))
-                            (set! message-data
-                                  (cons (cons 'application-id app-key)
-                                        (dict-remove message-data 'application-id)))
-                            (when ddi
-                              (hash-set! app-defs ddi app-key)))
-                          (when devid
-                            (set! message-data
-                                  (cons (cons 'developer-id (make-string-id devid))
-                                        (dict-remove message-data 'developer-id))))))
-                       ((eq? message-id 'field-description)
-                        ;; A field-description message "announces" a new XDATA
-                        ;; field.  The field will be present in the records
-                        ;; using a unique key (see below). The key is also
-                        ;; added to the field as a 'field-key entry for easier
-                        ;; processing of XDATA later on.
-                        (let* ((ddi (dict-ref message-data 'developer-data-index #f))
-                               (type (dict-ref message-data 'fit-base-type #f))
-                               (number (dict-ref message-data 'field-def-number #f))
-                               (name (dict-ref message-data 'field-name #f))
-                               (units (dict-ref message-data 'units #f))
-                               (key (dev-field-key ddi number name)))
-                          (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list key type))
-                          ;; NOTE: we need to store the application id in the
-                          ;; field, the developer-data-index is not unique and
-                          ;; will be overriden (there is a test that will catch
-                          ;; this)
-                          (set! message-data `((application-id . ,(hash-ref app-defs ddi #f))
-                                               (field-key . ,key)
-                                               ,@message-data))
-                          (when name
-                            (set! message-data
-                                  (cons (cons 'field-name (bytes->string/utf-8 name))
-                                        (dict-remove message-data 'field-name))))
-                          (when units
-                            (set! message-data
-                                  (cons (cons 'units (bytes->string/utf-8 units))
-                                        (dict-remove message-data 'units)))))))
-                 ;; Developer data ID and field description messages are also
-                 ;; sent to the dispatcher, which will be responsibe for
-                 ;; interpreting these fields.  The decoder will use the
-                 ;; field-key, not the field ID.
-                 (send dispatcher dispatch
-                       message-id
-                       (if (eq? htype 'compressed-timestamp)
-                           (cons (cons 'compressed-timestamp (car rest)) message-data)
-                           message-data)))))
-            (#t
-             (raise-error "bad header: ~a" header)))))
+    (define-values (htype def-or-data local-id extra)
+      (decode-record-header (send fit-stream read-next-value/uint8)))
+    ;; (printf "header(~a pos = ~a): ~a~%" hdr (send fit-stream position) header)
+    (cond ((eq? def-or-data 'definition)
+           (let ((def (read-message-definition fit-stream extra)))
+             ;; (display def)(newline)
+             ;; (display (format "DEFN local: ~a, global: ~a, ~a field(s)~%"
+             ;;                  (third header)
+             ;;                  (second def)
+             ;;                  (length (cdr (cdr def)))))
+             (hash-set! message-readers
+                        local-id
+                        (cons (second def) (make-message-reader def dev-field-types))))
+           #t)
+          ((eq? def-or-data 'data)
+           (let ((reader (hash-ref message-readers local-id #f)))
+             (unless reader
+               (raise-error "no reader for local message id ~a" local-id))
+             ;; (display (format "DATA local: ~a (~a)~%" (third header) (car reader)))
+             (let ((message-id (car reader))
+                   (message-data ((cdr reader) fit-stream)))
+               ;; (printf "DATA CONTENTS: ~a~%" message-data)
+               (cond ((eq? message-id 'developer-data-id)
+                      ;; A developer-data-id message "announces" a new XDATA
+                      ;; application.  We convert the developer-id and
+                      ;; application-id fields from an array of bytes to
+                      ;; string guid and also record this application in
+                      ;; APP-DEFS
+                      (let ((devid (dict-ref message-data 'developer-id #f))
+                            (appid (dict-ref message-data 'application-id #f))
+                            (ddi (dict-ref message-data 'developer-data-index #f)))
+                        (when appid
+                          (define app-key (make-string-id appid))
+                          (set! message-data
+                                (cons (cons 'application-id app-key)
+                                      (dict-remove message-data 'application-id)))
+                          (when ddi
+                            (hash-set! app-defs ddi app-key)))
+                        (when devid
+                          (set! message-data
+                                (cons (cons 'developer-id (make-string-id devid))
+                                      (dict-remove message-data 'developer-id))))))
+                     ((eq? message-id 'field-description)
+                      ;; A field-description message "announces" a new XDATA
+                      ;; field.  The field will be present in the records
+                      ;; using a unique key (see below). The key is also
+                      ;; added to the field as a 'field-key entry for easier
+                      ;; processing of XDATA later on.
+                      (let* ((ddi (dict-ref message-data 'developer-data-index #f))
+                             (type (dict-ref message-data 'fit-base-type #f))
+                             (number (dict-ref message-data 'field-def-number #f))
+                             (name (dict-ref message-data 'field-name #f))
+                             (units (dict-ref message-data 'units #f))
+                             (key (dev-field-key ddi number name)))
+                        (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list key (get-fit-type type)))
+                        ;; NOTE: we need to store the application id in the
+                        ;; field, the developer-data-index is not unique and
+                        ;; will be overriden (there is a test that will catch
+                        ;; this)
+                        (set! message-data `((application-id . ,(hash-ref app-defs ddi #f))
+                                             (field-key . ,key)
+                                             ,@message-data))
+                        (when name
+                          (set! message-data
+                                (cons (cons 'field-name (bytes->string/utf-8 name))
+                                      (dict-remove message-data 'field-name))))
+                        (when units
+                          (set! message-data
+                                (cons (cons 'units (bytes->string/utf-8 units))
+                                      (dict-remove message-data 'units)))))))
+               ;; Developer data ID and field description messages are also
+               ;; sent to the dispatcher, which will be responsibe for
+               ;; interpreting these fields.  The decoder will use the
+               ;; field-key, not the field ID.
+               (send dispatcher dispatch
+                     message-id
+                     (if (eq? htype 'compressed-timestamp)
+                         (cons (cons 'compressed-timestamp extra) message-data)
+                         message-data)))))
+          (#t
+           (raise-error "bad header: ~a" def-or-data))))
 
   (define (loop)
     (unless (send fit-stream is-eof?)
