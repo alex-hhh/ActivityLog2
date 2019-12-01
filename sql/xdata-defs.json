@@ -42,6 +42,16 @@
         ]
     },
     {
+        "app_id" : "6dcfffe5cd3d41f38ba313fa0647b003",
+        "app_name" : "Xert",
+        "fields" : [
+            {
+                "name" : "wprime_bal",
+                "series" : "xert_wprime_bal"
+            }
+        ]
+    },
+    {
         "app_id" : "8e471b4dddf4481a9861d80f22113f9a",
         "app_name" : "Stryd Pace",
         "fields" : [

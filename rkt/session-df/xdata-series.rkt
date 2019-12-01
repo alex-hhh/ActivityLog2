@@ -3,7 +3,7 @@
 ;; xdata.rkt --
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -205,7 +205,7 @@
   (define position #f)
   (define xdata-series (make-hash))
 
-  (for (([ts field value] (in-query db (xdata-values-query) sid)))
+  (for (([ts field value] (in-query db (xdata-values-query) sid #:fetch 1000)))
     (unless (equal? current-ts ts)
       (set! current-ts ts)
       (set! position (df-index-of df "timestamp" ts)))

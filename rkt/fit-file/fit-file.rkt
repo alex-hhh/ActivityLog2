@@ -568,7 +568,13 @@
                                (units (dict-ref message-data 'units #f))
                                (key (dev-field-key ddi number name)))
                           (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list key type))
-                          (set! message-data (cons (cons 'field-key key) message-data))
+                          ;; NOTE: we need to store the application id in the
+                          ;; field, the developer-data-index is not unique and
+                          ;; will be overriden (there is a test that will catch
+                          ;; this)
+                          (set! message-data `((application-id . ,(hash-ref app-defs ddi #f))
+                                               (field-key . ,key)
+                                               ,@message-data))
                           (when name
                             (set! message-data
                                   (cons (cons 'field-name (bytes->string/utf-8 name))
