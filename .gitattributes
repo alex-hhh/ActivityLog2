@@ -1,0 +1,10 @@
+*       text=auto
+*.md    text
+*.rkt   text
+*.rktd  text
+*.sql   text
+*.yml   text
+*.txt   text
+*.json  text
+*.sh    text eol=lf
+*.ps1   text eol=crlf

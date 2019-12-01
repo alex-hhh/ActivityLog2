@@ -398,7 +398,7 @@
       (when data-frame
         (let ((sport (df-get-property data-frame 'sport))
               (data (list threshold-speed threshold-power threshold-cadence outlier-percentile outlier-handling)))
-          (hash-set! params-by-sport sport data))))
+          (hash-set! params-by-sport sport data))))
 
     (define (restore-params-for-sport)
       (when data-frame
