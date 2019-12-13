@@ -2,7 +2,7 @@
 ;; qresults-list.rkt -- a sophisticated list box control, see qresults-list%
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -312,7 +312,15 @@
                          (if sort-descending? string>? string<?))
                         (#t
                          (if sort-descending? > <)))))
-        (set! the-data (sort the-data cmp #:key key)))
+        (set! the-data
+              (sort the-data
+                    ;; Make sure our comparison function can handle #f, which
+                    ;; we use to mark non-existent data.
+                    (lambda (a b)
+                      (cond ((not b) #t)
+                            ((not a) #f)
+                            (#t (cmp a b))))
+                    #:key key)))
 
       ;; Update the list-box in place (no rows are added/deleted)
       (refresh-contents)
