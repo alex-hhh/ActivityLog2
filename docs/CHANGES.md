@@ -6,6 +6,16 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.8.2
+
+This is a bug fix release containing the following fixes:
+
+* Correctly assign XDATA series to applications when activities are recorded
+  using more than one Connect IQ application.
+
+* Fix exception when trying to sort a view using a column which contained
+  empty cells.
+
 # Release 1.8.1
 
 This release updates the Windows installer to allow installing the application

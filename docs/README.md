@@ -23,7 +23,7 @@ not work.
 ### Installer (optional)
 
 For creating a Windows installer, see the documentation in the [scripts
-folder][../etc/scripts/README.md], this is not needed if you only want to
+folder](../etc/scripts/README.md), this is not needed if you only want to
 build and run the application on your local machine.
 
 ## API Keys for web services
