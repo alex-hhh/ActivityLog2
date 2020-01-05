@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -394,28 +394,28 @@
 
 (define (make-xdata-badge-definition db)
   (define q
-    "select id, name, unit_name from XDATA_FIELD order by name")
+    "select id, name, ifnull(unit_name, '') as unit from XDATA_FIELD order by name")
+  (define (get-value field-id session-id)
+    (query-maybe-value db "
+select ifnull(val, 0)
+  from XDATA_SUMMARY_VALUE XSV, A_SESSION S
+ where S.id = ?
+   and S.summary_id = XSV.summary_id
+   and XSV.field_id = ?" session-id field-id))
   (define fields
     (for/list (([id name unit] (in-query db q)))
       (badge-field-def
        name
        (lambda (session)
          (let ([sid (dict-ref session 'database-id #f)])
-           (and sid
-                (query-maybe-value db "
-select val 
-  from XDATA_SUMMARY_VALUE XSV, A_SESSION S
- where S.id = ? 
-   and S.summary_id = XSV.summary_id
-   and XSV.field_id = ?" sid id))))
-       (lambda (v)
-         (cond ((string? v) v)
-               ((bytes? v) (bytes->string/utf-8 v))
-               (#t
-                (string-append
-                 (~r #:precision 2 v)
-                 " "
-                 unit)))))))
+           (and sid (get-value id sid))))
+       (lambda (val)
+         (define v
+           (cond ((string? val) val)
+                 ((bytes? val) (bytes->string/utf-8 val))
+                 ((rational? val) (~r #:precision 2 val))
+                 (#t (~a v))))
+         (if (= 0 (string-length unit)) v (string-append v " " unit))))))
   (badge-def "XDATA" 100 *color-16* fields))
 
 ;; Make PICT to have TARGET-WIDTH by adding space to the right.  Do nothing if
