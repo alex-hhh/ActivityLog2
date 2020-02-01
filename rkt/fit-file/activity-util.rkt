@@ -2,7 +2,7 @@
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -135,7 +135,10 @@
         (max-cadence 0)
 
         (total-heart-rate-beats 0)      ; for computing avg heart rate
-        (max-heart-rate 0))
+        (max-heart-rate 0)
+
+        (total-work 0)                  ; for computing avg power
+        (max-power 0))
 
     (for-each-trackpoint
      (lambda (prev current)
@@ -145,7 +148,8 @@
                (altitude (dict-ref current 'altitude #f))
                (speed (dict-ref current 'speed #f))
                (heart-rate (dict-ref current 'heart-rate #f))
-               (cadence (dict-ref current 'cadence #f)))
+               (cadence (dict-ref current 'cadence #f))
+               (power (dict-ref current 'power #f)))
 
            (when timestamp
              (unless start-time (set! start-time timestamp))
@@ -158,6 +162,8 @@
              (set! max-heart-rate (max heart-rate max-heart-rate)))
            (when cadence
              (set! max-cadence (max cadence max-cadence)))
+           (when power
+             (set! max-power (max power max-power)))
 
            (when prev
              (let ((prev-timestamp (dict-ref prev 'timestamp #f))
@@ -165,19 +171,25 @@
                    (prev-altitude (dict-ref prev 'altitude #f))
                    (prev-speed (dict-ref prev 'speed #f))
                    (prev-heart-rate (dict-ref prev 'heart-rate #f))
-                   (prev-cadence (dict-ref prev 'cadence #f)))
+                   (prev-cadence (dict-ref prev 'cadence #f))
+                   (prev-power (dict-ref prev 'power #f)))
 
-               (when (and prev-timestamp prev-distance distance)
-                 (let ((delta-distance (- distance prev-distance))
-                       (delta-time (- timestamp prev-timestamp)))
-                   (unless (< delta-distance 0.1)
+               ;; NOTE: the activity might not have a distance series.
+               (define delta-distance
+                 (and prev-distance distance
+                      (- distance prev-distance)))
+
+               (when prev-timestamp
+                 (let ((delta-time (- timestamp prev-timestamp)))
+                   (when (or (not delta-distance) (> delta-distance 0.1))
                      ;; This was not a stop, we can update the accumulated
                      ;; fields
                      (set! total-timer-time (+ total-timer-time delta-time))
-                     (set! total-distance (+ total-distance delta-distance))
 
-                     (let ((instant-speed (if (> delta-time 0) (/ delta-distance delta-time) 0)))
-                       (set! max-speed (max max-speed instant-speed)))
+                     (when delta-distance
+                       (set! total-distance (+ total-distance delta-distance))
+                       (let ((instant-speed (if (> delta-time 0) (/ delta-distance delta-time) 0)))
+                         (set! max-speed (max max-speed instant-speed))))
 
                      (when (and altitude prev-altitude)
                        (let ((delta (- altitude prev-altitude)))
@@ -193,25 +205,35 @@
                        (let ((avg (/ (+ heart-rate prev-heart-rate) 2.0)))
                          (set! total-heart-rate-beats (+ total-heart-rate-beats (* delta-time (/ avg 60.0))))))
 
+                     (when (and power prev-power)
+                       (set! total-work (+ total-work (* (/ (+ power prev-power) 2) delta-time))))
+
                      )))))))
        #f)
      #f trackpoints rest-lengths rest-laps rest-sessions)
 
     (if start-time
-        (list
-         (cons 'start-time start-time)
-         (cons 'total-elapsed-time (- last-timestamp start-time))
-         (cons 'total-timer-time total-timer-time)
-         (cons 'total-distance total-distance)
-         (cons 'total-cycles total-cycles)
-         (cons 'avg-speed (if (> total-timer-time 0) (/ total-distance total-timer-time) 0))
-         (cons 'max-speed max-speed)
-         (cons 'total-ascent total-ascent)
-         (cons 'total-descent total-descent)
-         (cons 'max-heart-rate max-heart-rate)
-         (cons 'avg-heart-rate (* (if (> total-timer-time 0) (/ total-heart-rate-beats total-timer-time) 0) 60.0))
-         (cons 'max-cadence max-cadence)
-         (cons 'avg-cadence (* (if (> total-timer-time 0) (/ total-cycles total-timer-time) 0) 60.0)))
+        (filter
+         ;; Filter out 0 values, as they have no actual data
+         (lambda (x)
+           (let ([v (cdr x)])
+             (and (number? v) (> v 0))))
+         (list
+          (cons 'start-time start-time)
+          (cons 'total-elapsed-time (- last-timestamp start-time))
+          (cons 'total-timer-time total-timer-time)
+          (cons 'total-distance total-distance)
+          (cons 'total-cycles total-cycles)
+          (cons 'avg-speed (if (> total-timer-time 0) (/ total-distance total-timer-time) 0))
+          (cons 'max-speed max-speed)
+          (cons 'total-ascent total-ascent)
+          (cons 'total-descent total-descent)
+          (cons 'max-heart-rate max-heart-rate)
+          (cons 'avg-heart-rate (* (if (> total-timer-time 0) (/ total-heart-rate-beats total-timer-time) 0) 60.0))
+          (cons 'max-cadence max-cadence)
+          (cons 'avg-cadence (* (if (> total-timer-time 0) (/ total-cycles total-timer-time) 0) 60.0))
+          (cons 'max-power max-power)
+          (cons 'avg-power (if (> total-timer-time 0) (/ total-work total-timer-time) 0))))
         '())
 
     ))

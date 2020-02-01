@@ -5,7 +5,7 @@
 ;; some convenience functions for retrieving data from it.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,13 +23,8 @@
          racket/match
          racket/class
          racket/contract
+         data-frame
          "../rkt/utilities.rkt"
-         "../rkt/data-frame/df.rkt"
-         "../rkt/data-frame/csv.rkt"
-         "../rkt/data-frame/sql.rkt"
-         "../rkt/data-frame/describe.rkt"
-         "../rkt/data-frame/statistics.rkt"
-         "../rkt/data-frame/meanmax.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/session-df/hrv.rkt"
@@ -44,12 +39,7 @@
 
 (provide
  (all-from-out db)
- (all-from-out "../rkt/data-frame/df.rkt")
- (all-from-out "../rkt/data-frame/describe.rkt")
- (all-from-out "../rkt/data-frame/statistics.rkt")
- (all-from-out "../rkt/data-frame/csv.rkt")
- (all-from-out "../rkt/data-frame/sql.rkt")
- (all-from-out "../rkt/data-frame/meanmax.rkt")
+ (all-from-out data-frame)
  (all-from-out "../rkt/session-df/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
  (all-from-out "../rkt/session-df/session-df.rkt")

@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -434,6 +434,15 @@
   (let ((result (make-hash)))
     (for ([d devices])
       (let ((di (make-devinfo d)))
+        ;; At least GoldenCheetah exports device info without a serial number.
+        ;; Since we rely on the serial number to identify devices in the
+        ;; database, we cannot import this.  Also, all (most?) actual watches
+        ;; produce correct device info records.  Besides, with no serial
+        ;; numbers, we cannot really differentiate between devices (I have 2
+        ;; Vector power meter pedals that have identical manufacturer and
+        ;; product IDs and differ only in their serial number).
+        (unless (devinfo-sn di)
+          (dbglog "import: discarding device with no serial number: ~a" d))
         (when (devinfo-sn di)
           (hash-update!
            result

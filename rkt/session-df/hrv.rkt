@@ -4,7 +4,7 @@
 ;; files.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -181,10 +181,11 @@
 ;; values.  Sometimes the HRV values are unrealisticallly low.  All this data
 ;; affects the HRV metrics, so we filter it out.
 (define (good-hrv? hrv bpm)
-  (let* ((bh (/ 1000.0 (/ bpm 60.0)))   ; HRV based on BPM value
-         (delta (abs (- bh hrv)))
-         (pct (/ delta bh)))
-    (<= pct 0.8)))
+  (and (number? hrv) (number? bpm) (> bpm 0)
+       (let* ((bh (/ 1000.0 (/ bpm 60.0)))   ; HRV based on BPM value
+              (delta (abs (- bh hrv)))
+              (pct (/ delta bh)))
+         (<= pct 0.8))))
 
 ;; Holds various metrics related to HRV, see
 ;; https://en.wikipedia.org/wiki/Heart_rate_variability

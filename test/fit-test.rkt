@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,6 +33,7 @@
          "../rkt/weather.rkt"
          "../rkt/database.rkt"
          "../rkt/utilities.rkt"
+         "../rkt/fit-file/activity-util.rkt"
          "custom-test-runner.rkt")
 
 (define (do-basic-checks file series-count row-count
@@ -357,6 +358,38 @@ select count(*)
         (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Cadence")
         (check-xdata-field-present db "660a581e5301460c8f2f034c8b6dc90f" "Power")
         (check-xdata-field-present db "6dcfffe5cd3d41f38ba313fa0647b003" "wprime_bal"))))
+   (test-case "f0031.fit"
+     (do-basic-checks
+      "./test-fit/f0031.fit" 8 1798
+      #:extra-db-checks
+      (lambda (db)
+        ;; Importing this activity required building a lap and summary
+        ;; information.  Check that it is present.
+        (define s (db-fetch-session 1 db))
+        (define laps (session-laps s))
+        (check = 1 (length laps))
+        (define lap0 (car laps))
+        (check-true
+         (let ((x (lap-avg-cadence lap0)))
+           (and (number? x) (> x 0))))
+        (check-true
+         (let ((x (lap-max-cadence lap0)))
+           (and (number? x) (> x 0))))
+        (check-true
+         (let ((x (lap-avg-power lap0)))
+           (and (number? x) (> x 0))))
+        (check-true
+         (let ((x (lap-max-power lap0)))
+           (and (number? x) (> x 0))))
+        (check-true
+         (let ((x (lap-avg-hr lap0)))
+           (and (number? x) (> x 0))))
+        (check-true
+         (let ((x (lap-max-hr lap0)))
+           (and (number? x) (> x 0)))))))
+   (test-case "f0032.fit"
+     (do-basic-checks
+      "./test-fit/f0032.fit" 18 1473))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -384,5 +417,6 @@ select count(*)
 
   (run-tests #:package "fit-files"
              #:results-file "test-results-fit-files.xml"
+             ;; #:only '(("FIT file reading" "f0032.fit"))
              fit-files-test-suite))
 

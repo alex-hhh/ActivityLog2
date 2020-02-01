@@ -228,6 +228,10 @@
                 "name" : "Garmin Edge 1030"
             },
             {
+                "product_id" : 2787,
+                "name" : "Garmin Vector 3"
+            },
+            {
                 "product_id" : [2886, 2888],
                 "name" : "Garmin FR645"
             },
@@ -254,6 +258,14 @@
             {
                 "product_id" : 3113,
                 "name" : "Garmin FR945"
+            },
+            {
+                "product_id" : 3122,
+                "name" : "Garmin Edge 830"
+            },
+            {
+                "product_id" : 3126,
+                "name" : "Garmin Instinct"
             },
             {
                 "product_id" : 3299,
@@ -405,7 +417,20 @@
     {
         "manufacturer_id" : 69,
         "name" : "Stages",
-        "products" : []
+        "products" : [
+            {
+                "product_id" : 1,
+                "name" : "Stages Power (gen 1)"
+            },
+            {
+                "product_id" : 2,
+                "name" : "Stages Power (gen 2)"
+            },
+            {
+                "product_id" : 3,
+                "name" : "Stages Power (gen 3)"
+            }
+        ]
     },
     {
         "manufacturer_id" : 70,
