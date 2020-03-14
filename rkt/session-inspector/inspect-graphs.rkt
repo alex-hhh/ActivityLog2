@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -70,25 +70,13 @@
           (oy (- (/ ch 2) (/ h 2))))
       (send dc draw-text msg ox oy))))
 
-;; Return the X values in DATA-FRAME for START and END timestamps.  Returns
-;; two values, start-x and end-x
-(define (ivl-extents data-series start end)
-  (define (by-timestamp v) (vector-ref v 2))
-  ;; NOTE: we use the <= as the compare function for bsearch, because we want
-  ;; to find the earliest timestamp when there are several identical
-  ;; timestamps (like in swimming sessions).  The <= will result in more
-  ;; comparisons than <, so it is not the default.
-  (let ((start-idx (and start (bsearch data-series start #:cmp <= #:key by-timestamp)))
-        (end-idx (and end (bsearch data-series end #:cmp <= #:key by-timestamp)))
-        (max-idx (vector-length data-series)))
-    (unless start-idx (set! start-idx 0))
-    (unless (< start-idx max-idx)
-      (set! start-idx (sub1 max-idx)))
-    (unless (and end-idx (< end-idx max-idx))
-      (set! end-idx (sub1 max-idx)))
-    (values
-     (vector-ref (vector-ref data-series start-idx) 0)
-     (vector-ref (vector-ref data-series end-idx) 0))))
+;; Return the X values in the data-frame DF for START and END timestamps.
+;; Returns a list of two values, start-x and end-x
+;;
+;; NOTE: this function is called a lot of times for each plot, but with the
+;; same arguments and it would make a great candidate for memoization.
+(define (ivl-extents df series start end)
+  (df-lookup* df "timestamp" series start end))
 
 (define (find-change-point p0 p1 f0 f1 epsilon factor-fn key-fn)
   (match-define (vector x0 y0 z0 ...) p0) ; previous
@@ -377,12 +365,12 @@
   (let ((df (ps-df ps))
         (y (ps-y-axis ps))
         (ivl (ps-ivl ps))
-        (sdata (pd-sdata pd)))
-    (if (and (cons? ivl) df y sdata)
-        (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
-          (let ((c (send y plot-color)))
-            (list start end (make-object color% (send c red) (send c green) (send c blue) 0.2))))
-        #f)))
+        (series (send (ps-x-axis ps) series-name)))
+    (if (and (cons? ivl) df y)
+        (let ((c (send y plot-color)))
+          (append (ivl-extents df series (car ivl) (cdr ivl))
+                  (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
+          #f)))
 
 ;; Produce a new PD structure given an old PD and PS structure and a new PS
 ;; structure.  This function determines what has changed between OLD-PS and
@@ -638,6 +626,10 @@
     (define (put-plot output-fn pd ps)
       ;; (-> (-> (treeof renderer2d?) any/c) pd? ps? any/c)
 
+      (define x-axis (ps-x-axis ps))
+      (define y-axis (ps-y-axis ps))
+      (define df (ps-df ps))
+
       (define (full-render-tree)
         (let ((render-tree (list (pd-plot-rt pd))))
           (set! render-tree (cons (tick-grid) render-tree))
@@ -648,22 +640,18 @@
 
       (define (get-x-transform)
         (let ((ivl (ps-ivl ps))
-              (sdata (pd-sdata pd)))
+              (series (send x-axis series-name)))
           (if (and (cons? ivl) (ps-zoom? ps))
-              (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
+              (match-let ([(list start end) (ivl-extents df series (car ivl) (cdr ivl))])
                 (stretch-transform start end 30))
               id-transform)))
-
-      (define x-axis (ps-x-axis ps))
-      (define y-axis (ps-y-axis ps))
 
       (define (get-x-axis-ticks)
         (let ((ticks (send x-axis plot-ticks))
               (ivl (ps-ivl ps))
-              (sdata (pd-sdata pd)))
+              (series (send x-axis series-name)))
           (if (and (cons? ivl) (ps-zoom? ps))
-              (let-values (((start end) (ivl-extents sdata (car ivl) (cdr ivl))))
-                (ticks-add ticks (list start end)))
+              (ticks-add ticks (ivl-extents df series (car ivl) (cdr ivl)))
               ticks)))
 
       (parameterize ([plot-x-transform (get-x-transform)]

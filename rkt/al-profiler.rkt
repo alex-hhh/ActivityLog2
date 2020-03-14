@@ -2,7 +2,7 @@
 ;; al-profiler.rkt -- profiling and tracing capabilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,12 @@
 ;; Timing data for all functions can be displayed with `profile-display`.
 ;; There are also functions for individually enabling/disabling profiling and
 ;; resetting the counters.
+;;
+;; NOTE: in a GUI application `profile-display` should be called on the
+;; `on-toplevel-close` method, otherwise it will be called too early.
+;; Alternatively, it could be added as a plumber flush function:
+;;
+;; (plumber-add-flush! (current-plumber) (lambda (h) (profile-display)))
 ;;
 ;; For tracing functions, replace `define` with `define/trace` and the
 ;; function calls with their arguments will be printed out.
@@ -62,7 +68,11 @@
 ;; `profile-data` instance.
 (define profile-db (make-hash))
 
+;; NOTE: currently, we ignore modules, so we don't support instrumenting
+;; functions with the same name even when they would be in different modules
 (define (make-profile-data name)
+  (when (hash-ref profile-db name #f)
+    (eprintf "*** warning: redefining ~a~%" name))
   (let ((data (profile-data name #t 0 empty-statistics)))
     (hash-set! profile-db name data)
     data))
