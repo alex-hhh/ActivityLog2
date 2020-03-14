@@ -60,7 +60,12 @@
     (let* ((log-item (apply sync sources))
            (level (vector-ref log-item 0))
            (message (vector-ref log-item 1)))
-      (dbglog "~a: ~a" level message))
+      ;; NOTE: an empty message indicates a notification retraction (as
+      ;; determined by tag, which sits in the third place of LOG-ITEM vector).
+      ;; Retractions are only used in the GUI to remove the message from the
+      ;; banner, so we ignore them here.
+      (unless (equal? message "")
+        (dbglog "~a: ~a" level message)))
     (do-logging))
   (thread do-logging)
   (void))
@@ -76,9 +81,13 @@
   (define (insert-log-messages source)
     (let* ((log-item (sync source))
            (level (vector-ref log-item 0))
-           (message (vector-ref log-item 1)))
+           (message (vector-ref log-item 1))
+           (tag (vector-ref log-item 2)))
       (queue-callback
-       (lambda () (send banner notify message)))
+       (lambda ()
+         (if (equal? message "")
+             (send banner retract-notification tag)
+             (send banner notify message #:tag tag))))
       (insert-log-messages source)))
 
   (define receiver (make-log-receiver user-notification-logger 'info))
@@ -1075,7 +1084,9 @@
         (send (tl-section-content equipment) log-due-items))
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (when (or (sql-null? nsessions) (zero? nsessions))
-          (notify-user 'info "There are no activities in the database.  Import some using the \"File\" menu.")))
+          (notify-user
+           #:tag 'empty-database
+           'info "There are no activities in the database.  Import some using the \"File\" menu.")))
       (collect-garbage 'major))
 
     (define (open-another-activity-log file)
@@ -1160,7 +1171,10 @@
                   (#t
                    (message-box
                     "Import failed" (format "Failed to import ~a: ~a" file edata) tl-frame '(stop ok)))))
-          (refresh-current-view))))
+          (refresh-current-view)))
+      (let ((nsessions (query-value database "select count(*) from A_SESSION")))
+        (unless (or (sql-null? nsessions) (zero? nsessions))
+          (retract-user-notification 'empty-database))))
 
     (define/public (on-import-from-directory)
       (let* ((last-import-dir (get-pref 'activity-log:last-import-dir (lambda () #f)))
@@ -1185,7 +1199,10 @@
                            (format "Directory ~a does not exist." dir)
                            tl-frame
                            '(stop ok))))
-        #f))
+        #f)
+      (let ((nsessions (query-value database "select count(*) from A_SESSION")))
+        (unless (or (sql-null? nsessions) (zero? nsessions))
+          (retract-user-notification 'empty-database))))
 
     (define about-frame #f)
 

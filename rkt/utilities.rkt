@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -60,7 +60,9 @@
  (collect-events (-> async-channel? (hash/c symbol? (listof any/c))))
  (shutdown-event-sink-listener-threads (-> any/c))
 
- (notify-user (->* (symbol? string?) () #:rest (listof any/c) any/c)))
+ (notify-user (->* (symbol? string?) (#:tag (or/c #f symbol?))
+                   #:rest (listof any/c) any/c))
+ (retract-user-notification (-> symbol? any/c)))
 
 (provide user-notification-logger)
 
@@ -411,10 +413,14 @@
 ;; Log a message with the intent of displaying it to the user.  The
 ;; application will create a log sink for this logger that displays messages
 ;; in a notification banner.
-(define (notify-user level format-string . args)
+(define (notify-user level format-string #:tag (tag #f) . args)
   (define msg (apply format format-string args))
-  (log-message user-notification-logger level #f msg #f #f))
+  (log-message user-notification-logger level #f msg tag #f))
 
+;; Retract a user notification -- this mechanism is used remove notifications
+;; from the GUI, but nothing will be logged.
+(define (retract-user-notification tag)
+  (log-message user-notification-logger 'info #f "" tag #f))
 
 (begin-for-syntax
 

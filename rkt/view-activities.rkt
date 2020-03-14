@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -239,7 +239,7 @@ select X.session_id
                        [callback (lambda (o)
                                    (set! labels-filter (send o get-contents-as-tag-ids))
                                    (on-filter-changed))])))
-          
+
           (let ((p (new vertical-pane% [parent q] [alignment '(center top)] [stretchable-width #t])))
             (set! equipment-input
                   (new equipment-input-field%
@@ -247,7 +247,7 @@ select X.session_id
                        [callback (lambda (o)
                                    (set! equipment-filter (send o get-contents-as-tag-ids))
                                    (on-filter-changed))])))))
-      
+
       (make-spacer sel-pane))
 
     (define lb
@@ -296,7 +296,7 @@ select X.session_id
           (let ((ds (hash-ref data 'distance #f)))
             (when (and ds (cons? ds))
               (send distance-input set-number-range (car ds) (cdr ds))))))
-      
+
       (set! sport-filter (send sport-selector get-selection))
       (set! date-range-filter (send date-range-selector get-selection))
       (set! distance-filter (send distance-input get-number-range))
@@ -327,7 +327,7 @@ select X.session_id
 
        (let ((fn (lambda (row) (db-row-ref row "duration" headers 0))))
          (qcolumn "Duration"
-                  (lambda (row) 
+                  (lambda (row)
                     (let ((v (fn row)))
                       (if (> v 0) (duration->string v) "")))
                   fn))
@@ -338,7 +338,7 @@ select X.session_id
                     (let ((sport (db-row-ref row "sport" headers 0))
                           (distance (fn row)))
                       (if (> distance 100) ; meters
-                          (if (= sport 5)  ; swimming 
+                          (if (= sport 5)  ; swimming
                               (short-distance->string distance #t)
                               (distance->string distance #t))
                           "")))
@@ -382,7 +382,7 @@ select X.session_id
 
        (let ((fn (lambda (row) (db-row-ref row "hr" headers 0))))
          (qcolumn "HR" (lambda (row) (n->string (fn row))) fn))
-       
+
        (let ((fn (lambda (row) (db-row-ref row "max_hr" headers 0))))
          (qcolumn "Max HR" (lambda (row) (n->string (fn row))) fn))
 
@@ -474,7 +474,7 @@ select X.session_id
                     (let ((v (fn row)))
                       (if (> v 0) (format-48 "~1,1F%" v) "")))
                   fn))
-       
+
        (let ((fn (lambda (row) (db-row-ref row "rpdlsmth" headers 0))))
          (qcolumn "Right PSmth"
                   (lambda (row)
@@ -543,27 +543,27 @@ select X.session_id
 
        (let ((fn (lambda (row) (db-row-ref row "te" headers 0))))
          (qcolumn "Training Effect"
-                  (lambda (row) 
+                  (lambda (row)
                     (let ((v (fn row)))
                       (if (> v 0) (format-48 "~1,1F" v) "")))
                   fn))
-       
+
        (let ((fn (lambda (row) (db-row-ref row "rpe" headers 0))))
          (qcolumn "RPE"
-                  (lambda (row) 
+                  (lambda (row)
                     (let ((v (fn row)))
                       (if (> v 0) (format-48 "~1F" v) "")))
                   fn))
 
        (let ((fn (lambda (row) (db-row-ref row "tss" headers 0))))
          (qcolumn "Effort"
-                  (lambda (row) 
+                  (lambda (row)
                     (let ((v (fn row)))
                       (if (> v 0) (format-48 "~1,1F" v) "")))
                   fn))
        (let ((fn (lambda (row) (db-row-ref row "ifact" headers 0))))
          (qcolumn "Intensity"
-                  (lambda (row) 
+                  (lambda (row)
                     (let ((v (fn row)))
                       (if (> v 0) (format-48 "~1,1F" v) "")))
                   fn))
@@ -587,14 +587,14 @@ select X.session_id
          (qcolumn "Humidity"
                   (lambda (row) (humidity->string (fn row) #t))
                   fn))
-       
+
        (let ((fn1 (lambda (row) (db-row-ref row "wind_speed" headers 0)))
              (fn2 (lambda (row) (db-row-ref row "wind_direction" headers 0))))
          (qcolumn "Wind"
                   (lambda (row) (wind->string (fn1 row) (fn2 row)))
                   fn1))
-       
-       (let ((fn (lambda (row) 
+
+       (let ((fn (lambda (row)
                    (let ((temp (db-row-ref row "temperature" headers #f))
                          (dewp (db-row-ref row "dew_point" headers #f)))
                      (if (and temp dewp) (humindex temp dewp) -1000)))))
@@ -645,14 +645,18 @@ select X.session_id
     (define (on-text-filter-changed)
       (let ((rows (get-text-filtered-data data text-filter)))
         (send lb set-data rows)
-        (send (send pane get-top-level-window) 
-              set-status-text 
+        (send (send pane get-top-level-window)
+              set-status-text
               (make-activity-summary-label rows headers))
-        (when (null? rows)
-          (let ((nsessions (query-value database "select count(*) from A_SESSION")))
-            (unless (or (sql-null? nsessions) (zero? nsessions))
-              (notify-user 'info "current filter does not select any activities (there are ~a activities in the database)"
-                           nsessions))))))
+        (if (null? rows)
+            (let ((nsessions (query-value database "select count(*) from A_SESSION")))
+              (unless (or (sql-null? nsessions) (zero? nsessions))
+                (notify-user
+                 #:tag 'no-activities-in-selection
+                 'info
+                 "current filter does not select any activities (there are ~a activities in the database)"
+                 nsessions)))
+            (retract-user-notification 'no-activities-in-selection))))
 
     (define first-time? #t)
 
@@ -682,7 +686,7 @@ select X.session_id
                     item)))
         (let ((index (row-index-for-sid sid)))
           (send lb update-row index row-data #f))))
-    
+
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the view is
       ;; activated the first time and has to do a full refresh anyway
@@ -731,13 +735,13 @@ select X.session_id
                     (set! data ndata)
                     (set! headers nheaders)
                     (on-text-filter-changed)))))))
-      
+
       ;; Set the status text when activated
       (let ((rows (get-text-filtered-data data text-filter)))
-        (send (send pane get-top-level-window) 
-              set-status-text 
+        (send (send pane get-top-level-window)
+              set-status-text
               (make-activity-summary-label rows headers))))
-    
+
     (define/public (refresh)
       (with-inhibit-updates
         (lambda ()
@@ -774,9 +778,9 @@ select X.session_id
 
     (define/public (on-interactive-export-sql-query)
       (let ((query (get-activity-list-query
-                    sport-filter date-range-filter distance-filter 
+                    sport-filter date-range-filter distance-filter
                     duration-filter labels-filter equipment-filter)))
-        (send (get-sql-export-dialog) 
+        (send (get-sql-export-dialog)
               show-dialog (send pane get-top-level-window) query)))
 
     

@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -175,8 +175,8 @@
         (define message
           (let ((nmsg (length queued-messages)))
             (if (= nmsg 1)
-                (car queued-messages)
-                (format "~a (+ ~a more)" (car queued-messages) (sub1 nmsg)))))
+                (cdar queued-messages)
+                (format "~a (+ ~a more)" (cdar queued-messages) (sub1 nmsg)))))
         (set-label message)
         (show-notification #t)))
 
@@ -210,12 +210,28 @@
     ;; Display MESSAGE in the banner.  If no other messages are displayed, the
     ;; message will be displayed immediately, otherwise, the message will be
     ;; queued up and displayed once all previous messages have been dismissed.
-    (define/public (notify message)
+    (define/public (notify message #:tag (tag #f))
       ;; NOTE: avoid duplicate messages in the message queue (not sure if this
       ;; is the right thing to do, but it looks nicer.
-      (unless (member message queued-messages)
-        (let ((empty? (null? queued-messages)))
-          (set! queued-messages (reverse (cons message (reverse queued-messages))))
-          (on-timer))))
+      (unless (for/first ([q (in-list queued-messages)]
+                          #:when (or (and tag (equal? (car q) tag)) (equal? (cdr q) message)))
+                #t)
+        (define data (cons tag message))
+        (set! queued-messages (append queued-messages (list (cons tag message))))
+        (on-timer)))
+
+    ;; Remove any notifications related to TAG.  If the currently showed
+    ;; notification is one of them, it is silently dismissed.
+    (define/public (retract-notification tag)
+      (when (and tag (not (null? queued-messages)))
+        ;; If the retracted notification is the first one, we need to dismiss
+        ;; it.
+        (when (equal? tag (caar queued-messages))
+          (show-notification #f))
+        (set! queued-messages
+              (filter
+               (lambda (q) (not (equal? tag (car q))))
+               queued-messages))
+        (on-timer)))
 
     ))
