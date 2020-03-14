@@ -4,7 +4,7 @@
 ;; tiles retrieved from the net are cached locally in a persistent store.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -59,6 +59,13 @@
 
     (define first-paint? #t)
 
+    ;; AB#7 -- when `resize-to-fit` is called before the canvas is shown, the
+    ;; calculated zoom level is not based on the canvas dimensions and thus it
+    ;; will be incorrect.  To avoid this, we set this flag and
+    ;; `on-superwindow-show` below will re-do the `resize-to-fit` when the
+    ;; window is actually shown.
+    (define delayed-resize-to-fit? #f)
+
     (define (on-canvas-paint canvas dc)
       (when first-paint?
         ;; If this is our first paint, we can determine the size of the canvas
@@ -79,7 +86,11 @@
                (send map-impl on-event dc 0 0 0 0 event))
              (define/override (on-char event)
                (define dc (send this get-dc))
-               (send map-impl on-char dc 0 0 0 0 event)))
+               (send map-impl on-char dc 0 0 0 0 event))
+             (define/override (on-superwindow-show shown?)
+               (when (and shown? delayed-resize-to-fit?)
+                 (resize-to-fit)
+                 (set! delayed-resize-to-fit? #f))))
            [parent parent]
            [paint-callback on-canvas-paint]
            [style '(no-autoclear)]))
@@ -100,7 +111,10 @@
     (define zoom-level
       (case-lambda
         [() (send map-impl zoom-level)]
-        [(zl) (send map-impl zoom-level zl)]))
+        [(zl)
+         ;; Cancel any delayed-resize-to-fit? that may have been set
+         (set! delayed-resize-to-fit? #f)
+         (send map-impl zoom-level zl)]))
 
     (public show-map-layer)
     (define show-map-layer
@@ -139,7 +153,9 @@
       (send map-impl move-to position))
 
     (define/public (resize-to-fit [group #f])
-      (send map-impl resize-to-fit group))
+      (when (send canvas is-shown?)     ; AB#7
+        (send map-impl resize-to-fit group)
+        (set! delayed-resize-to-fit? #t)))
 
     (define/public (export-image-to-file file-name)
       (send map-impl export-image-to-file file-name))
