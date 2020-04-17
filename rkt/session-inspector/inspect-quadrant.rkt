@@ -2,7 +2,7 @@
 ;; inspect-quadrant.rkt -- Quadrant Plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -34,9 +34,8 @@
          racket/gui/base
          racket/match
          racket/math
-         "../color-theme.rkt"
          "../session-df/native-series.rkt"
-         "../sport-charms.rkt"
+         "../sport-zone.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -125,17 +124,15 @@
    (good-or-false ymin)
    (good-or-false ymax)))
 
-(define zcolors (map cdr (zone-colors)))
-
 (define (make-sport-zone-renderers zones yval-fn)
-  (define zone-fns (for/list ([z zones] #:when (>= z 0))
-                    (curry yval-fn z)))
-  (for/list ([low zone-fns]
-             [high (cdr zone-fns)]
-             [idx (in-range (length zone-fns))])
-    (function-interval low high
-                       #:color (list-ref zcolors idx)
-                       #:alpha 0.1)))
+  (define colors (sz-colors zones))
+  (if colors
+      (let ([zone-functions (for/list ([z (sz-boundaries zones)]) (curry yval-fn z))])
+        (for/list ([low zone-functions]
+                   [high (cdr zone-functions)]
+                   [color (in-vector colors)])
+          (function-interval low high #:color color #:alpha 0.1)))
+      '()))
 
 (define quadrant-plot-panel%
   (class object% (init parent) (super-new)
@@ -469,7 +466,7 @@
               (df-contains? data-frame "spd" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-stride)
-         (set! zones (get-session-sport-zones session-id 2))
+         (set! zones (sport-zones-for-session session-id 'pace))
          (set! yval-fn cadence->stride)
          (set! filter-fn filter-cadence)
          (send control-panel change-children
@@ -481,7 +478,7 @@
          (set! x-axis axis-swim-avg-cadence)
          (set! y-axis axis-swim-stroke-length)
          ;; Add the torque series if not present
-         (set! zones (get-session-sport-zones session-id 3))
+         (set! zones (sport-zones-for-session session-id 'pace))
          (set! yval-fn cadence->stride)
          (set! filter-fn filter-cadence)
          (send control-panel change-children
@@ -492,7 +489,7 @@
               (df-contains? data-frame "pwr" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-torque)
-         (set! zones (get-session-sport-zones session-id 3))
+         (set! zones (sport-zones-for-session session-id 'power))
          (set! yval-fn cadence->torque)
          (set! filter-fn filter-torque)
          (send control-panel change-children

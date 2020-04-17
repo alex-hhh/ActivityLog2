@@ -28,10 +28,10 @@
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../weather.rkt"
          "../widgets/main.rkt"
-         "../widgets/map-widget/map-util.rkt")
+         "../widgets/map-widget/map-util.rkt"
+         "../sport-zone.rkt")
 
 (provide inspect-overview-panel%)
 
@@ -76,7 +76,7 @@
                             (avg-hr (session-avg-hr s)))
                         (if avg-hr (list sid avg-hr) #f)))
                     (lambda (v)
-                      (let ((zones (get-session-sport-zones (first v) 1)))
+                      (let ((zones (sport-zones-for-session (first v) 'heart-rate)))
                         (heart-rate->string/full (second v) zones))))
    (badge-field-def "Max HR: " 
                     (lambda (s) 
@@ -84,7 +84,7 @@
                             (max-hr (session-max-hr s)))
                         (if max-hr (list sid max-hr) #f)))
                     (lambda (v)
-                      (let ((zones (get-session-sport-zones (first v) 1)))
+                      (let ((zones (sport-zones-for-session (first v) 'heart-rate)))
                         (heart-rate->string/full (second v) zones))))
    (badge-field-def "HRV: "
                     session-hrv

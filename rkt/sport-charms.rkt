@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,6 @@
          racket/draw
          racket/list
          racket/match
-         racket/math
          "color-theme.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
@@ -47,8 +46,6 @@
  [get-swim-stroke-color (-> swim-stroke? color?)]
  [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
- [get-sport-zones (->* (sport-id? sport-id? zone-metric?) ((or/c positive-number? #f)) sport-zones?)]
- [get-session-sport-zones (-> positive-number? zone-metric? (or/c #f sport-zones?))]
  [get-session-critical-power (-> positive-number?
                                  (or/c #f (list/c positive-number? ; CP
                                                   positive-number? ; WPRIME
@@ -67,24 +64,12 @@
  [put-athlete-dob (->* (positive-number?) (connection?) any/c)]
  [get-athlete-height (->* (connection?) () (or/c #f positive-number?))]
  [put-athlete-height (->* (positive-number?) (connection?) any/c)]
-
- ;; NOTE: we might not want these to be contracts, as they are called too many
- ;; times...
- ;; [val->pct-of-max (-> number? sport-zones? number?)]
- ;; [val->zone (-> number? sport-zones? number?)]
  )
-
-(provide
- val->pct-of-max
- val->zone)
 
 (provide is-runnig?
          is-cycling?
          is-lap-swimming?
-         is-swimming?
-         zone->label
-         sport-zones
-         sport-zone-names)
+         is-swimming?)
 
 
 ;;...................................................... get-sport-color ....
@@ -272,97 +257,6 @@
                            in-use))))
             *sport-names*)))
 
-(define (get-zone-definition-id sport sub-sport zone-metric timestamp)
-
-  ;; Use most recent zone, if none was specified
-  (unless timestamp (set! timestamp (current-seconds)))
-
-  (define q1 "
-select max(zone_id) from V_SPORT_ZONE
- where sport_id = ?
-   and sub_sport_id = ?
-   and zone_metric_id = ?
-   and ? between valid_from and valid_until")
-
-  (define q2 "
-select max(zone_id) from V_SPORT_ZONE
- where sport_id = ?
-   and sub_sport_id is null
-   and zone_metric_id = ?
-   and ? between valid_from and valid_until")
-
-  (define (get-zid)
-    (cond ((and sport sub-sport)
-           (or (query-maybe-value
-                (current-database) q1 sport sub-sport zone-metric timestamp)
-               (query-maybe-value
-                (current-database) q2 sport zone-metric timestamp)))
-          (sport
-           (query-maybe-value
-            (current-database) q2 sport zone-metric timestamp))
-          (#t
-           #f)))
-
-  (let ((zid (get-zid)))
-    (if (sql-null? zid) #f zid)))
-
-(define (get-zone-definition-id-for-session session zone-metric)
-  (define q1
-    "select zone_id from V_SPORT_ZONE_FOR_SESSION where session_id = ? and zone_metric_id = ?")
-  (query-maybe-value (current-database) q1 session zone-metric))
-
-(define (get-sport-zones sport sub-sport zone-metric [timestamp #f])
-  (if (current-database)
-      (let ((zid (get-zone-definition-id sport sub-sport zone-metric timestamp)))
-        (if zid
-            (query-list
-             (current-database)
-             "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
-             zid)
-            #f))
-      #f))
-
-(define (get-sport-zone-names sport sub-sport zone-metric [timestamp #f])
-  (if (current-database)
-      (let ((zid (get-zone-definition-id sport sub-sport zone-metric timestamp)))
-        (if zid
-            (query-list
-             (current-database)
-             "select coalesce(zone_name, 'Zone ' || zone_number) as zone_name
-                from SPORT_ZONE_ITEM
-               where sport_zone_id = ?
-               order by zone_number"
-             zid)
-            #f))
-      #f))
-
-(define (get-session-sport-zones session-id zone-metric)
-  (if (current-database)
-      (begin
-        (let ((zid (get-zone-definition-id-for-session session-id zone-metric)))
-          (if zid
-              (query-list
-               (current-database)
-               "select zone_value from SPORT_ZONE_ITEM where sport_zone_id = ? order by zone_number"
-               zid)
-              #f)))
-      #f))
-
-(define (get-session-sport-zone-names session-id zone-metric)
-  (if (current-database)
-      (begin
-        (let ((zid (get-zone-definition-id-for-session session-id zone-metric)))
-          (if zid
-              (query-list
-               (current-database)
-               "select coalesce(zone_name, 'Zone ' || zone_number)
-                  from SPORT_ZONE_ITEM
-                 where sport_zone_id = ?
-                order by zone_number"
-               zid)
-              #f)))
-      #f))
-
 (define scp-query
   "select CP.cp, CP.wprime, CP.tau
      from V_CRITICAL_POWER_FOR_SESSION VCPFS, CRITICAL_POWER CP
@@ -395,25 +289,6 @@ select max(zone_id) from V_SPORT_ZONE
            (query-exec (current-database)
                        "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
                       values(?, ?, ?)" zid znum zone)))))))
-
-(define (val->pct-of-max val zones)
-  (let ((max (last zones)))
-    (* (/ val max) 100.0)))
-
-
-(define (val->zone val zones)
-
-  (define (classify val low high)
-    (cond ((<= val low) 0.0)
-          ((>= val high) 1.0)
-          (#t
-           (exact->inexact (/ (- val low) (- high low))))))
-
-  (foldl (lambda (low high result)
-           (+ result (classify val low high)))
-         0.0
-         (drop-right zones 1)
-         (drop zones 1)))
 
 (define (get-athlete-ftp (db (current-database)))
   (let ((v (query-maybe-value db "select ftp from ATHLETE")))
@@ -454,12 +329,6 @@ select max(zone_id) from V_SPORT_ZONE
 (define (put-athlete-height height (db (current-database)))
   (query-exec db "update ATHLETE set height = ?" (or height sql-null)))
 
-(define zone-labels '(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
-
-(define (zone->label z)
-  (define index (max 0 (min (sub1 (length zone-labels)) (exact-truncate z))))
-  (list-ref zone-labels index))
-
 ;; We use too many ways to represent sport ids :-(
 (define (sport-id sport)
   (cond ((number? sport) sport)
@@ -473,15 +342,7 @@ select max(zone_id) from V_SPORT_ZONE
         ((cons? sport) (cdr sport))
         (#t #f)))
 
-(define (sport-zones sport sid metric)
-  (if sid
-      (get-session-sport-zones sid metric)
-      (get-sport-zones (sport-id sport) (sub-sport-id sport) metric)))
-
-(define (sport-zone-names sport sid metric)
-  (if sid
-      (get-session-sport-zone-names sid metric)
-      (get-sport-zone-names (sport-id sport) (sub-sport-id sport) metric)))
+(provide sport-id sub-sport-id)
 
 (define (is-runnig? sport)
   (eqv? (sport-id sport) 1))

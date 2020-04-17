@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,6 +21,7 @@
          "../rkt/dbutil.rkt"
          "../rkt/fit-file/activity-util.rkt"
          "../rkt/session-df/session-df.rkt"
+         "../rkt/sport-zone.rkt"
          "../rkt/sport-charms.rkt"
          "../rkt/weather.rkt"
          "../rkt/workout-editor/wk-db.rkt"
@@ -456,6 +457,43 @@ where S.id = CPFS.session_id
      (check-not-exn
       check-workout-fit-generation))))
 
+(define sport-zone-test-suite
+  (test-suite
+   "Sport Zones"
+
+   (test-case "Get Sport Zones/Empty"
+     (with-fresh-database
+       (lambda (db)
+         (for ((sport (in-list (query-list db "select id from E_SPORT"))))
+           (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
+             (for ((metric (in-list '(heart-rate pace power))))
+               (check-false (sport-zones-for-sport sport sub-sport metric))))))))
+
+   (test-case "Get Sport Zones For Sport"
+     (with-fresh-database
+       (lambda (db)
+         (fill-sport-zones db #:valid-from (- (current-seconds) 3600))
+         (check-pred sz? (sport-zones-for-sport 1 #f 'heart-rate))
+         (check-pred sz? (sport-zones-for-sport 2 #f 'heart-rate))
+         (check-pred sz? (sport-zones-for-sport 2 #f 'power)))))
+
+   (test-case "Get Sport Zones For Session"
+     (with-fresh-database
+       (lambda (db)
+         (db-import-activity-from-file/check a2 db #:basic-checks-only? #t)
+         ;; No sport zones yet
+         (check-false (sport-zones-for-session 1 'heart-rate #:database db))
+         ;; Put in sport zones which are after the imported session
+         (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
+         ;; Still no sport zones
+         (check-false (sport-zones-for-session 1 'heart-rate #:database db))
+         ;; Put in sport zones which cover the imported session
+         (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from 1)
+         ;; We should find sport zones for this activity
+         (check-pred sz? (sport-zones-for-session 1 'heart-rate #:database db)))))
+
+   ))
+
 
 ;;.....................................................................  ....
 
@@ -463,11 +501,13 @@ where S.id = CPFS.session_id
   (test-suite
    "Database Operations"
 
-   (test-case
-       "Create fresh database"
-     ;; This should catch any problems with db-schema.sql
+   ;; This should catch any problems with db-schema.sql
+   (test-case "Create fresh database"
      (check-not-exn
       (lambda () (disconnect (open-activity-log 'memory)))))
+
+   ;; This should catch basic sport zone issues early on
+   sport-zone-test-suite
 
    (test-case "Importing first activity"
      (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
@@ -514,14 +554,6 @@ where S.id = CPFS.session_id
               ;; We don't expect much in a session df for a manual session, but
               ;; we should at least be able to read it.
               (check-eqv? (df-row-count df) 0)))))))
-
-   (test-case "Get Sport Zones"
-     (with-fresh-database
-       (lambda (db)
-         (for ((sport (in-list (query-list db "select id from E_SPORT"))))
-           (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
-             ;; No Sport zones are defined
-             (check-false (get-sport-zones sport sub-sport 1)))))))
 
    db-patch-26-tests
    cyd-tests

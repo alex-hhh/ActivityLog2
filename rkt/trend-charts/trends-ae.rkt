@@ -2,7 +2,7 @@
 ;; trends-ae.rkt -- aerobic efficiency trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -31,6 +31,7 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
+         "../sport-zone.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")

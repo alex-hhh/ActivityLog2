@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -25,6 +25,7 @@
          (prefix-in ct: "../color-theme.rkt")
          "../fmt-util.rkt"
          "../pdmodel.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt"
          "series-metadata.rkt")
 
@@ -164,15 +165,18 @@
          (define/override (fractional-digits) 2)
 
          (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 2)))
-             (if zones
-                 ;; NOTE: value passed in is in km/h or mi/h, we need to
-                 ;; convert it back to meters/sec before we can find the zone.
-                 (lambda (val)
-                   (let* ((val-mps (convert-speed->m/s val))
-                          (zone (val->zone val-mps zones)))
-                     (zone->label zone)))
-                 #f)))
+           (define sz
+             (if sid
+                 (sport-zones-for-session sid 'pace)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+           (and sz
+                ;; NOTE: value passed in is in km/h or mi/h, we need to
+                ;; convert it back to meters/sec before we can find the zone.
+                (lambda (val)
+                  (let* ((val-mps (convert-speed->m/s val))
+                         (zone (value->zone sz val-mps)))
+                    (zone->label zone)))
+                 #f))
 
          (define/override (factor-colors) (ct:zone-colors))
 
@@ -202,20 +206,21 @@
     ;; best 1 second / km
     (define/override (histogram-bucket-slot) 1)
     (define/override (factor-fn sport (sid #f))
-      (let ((zones (sport-zones sport sid 2)))
-        (if zones
-            ;; NOTE: value passed in is in sec/km or sec/mi (NOT
-            ;; minutes), we need to convert it back to meters/sec before
-            ;; we can find the zone.
-            (lambda (val)
-              (if (and (number? val) (> val 0))
-                  (let* ((val-mps (convert-pace->m/s val))
-                         (zone
-                          (val->zone val-mps zones)))
-                    (zone->label zone))
-                  ;; Put invalid values in zone 0
-                  (zone->label 0)))
-            #f)))
+      (define sz
+             (if sid
+                 (sport-zones-for-session sid 'pace)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+      (and sz
+           ;; NOTE: value passed in is in sec/km or sec/mi (NOT
+           ;; minutes), we need to convert it back to meters/sec before
+           ;; we can find the zone.
+           (lambda (val)
+             (if (and (number? val) (> val 0))
+                 (let* ((val-mps (convert-pace->m/s val))
+                         (zone (value->zone sz val-mps)))
+                   (zone->label zone))
+                 ;; Put invalid values in zone 0
+                 (zone->label 0)))))
 
     (define/override (factor-colors) (ct:zone-colors))
 
@@ -345,13 +350,13 @@
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f))
-           (define zn (sport-zone-names sport sid 2))
-           (lambda (n)
-             (if (real? n)
-                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
-                   (list-ref zn index))
-                 #f)))
-
+           (define sz
+             (if sid
+                 (sport-zones-for-session sid 'pace)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+           (if sz
+               (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
+               (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
          )))
 (register-series-metadata axis-speed-zone)
 (provide axis-speed-zone)
@@ -435,12 +440,14 @@
          (define/override (name) "HR")
 
          (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 1)))
-             (if zones
-                 (lambda (val)
-                   (let ((zone (val->zone val zones)))
-                     (zone->label zone)))
-                 #f)))
+           (define sz
+             (if sid
+                 (sport-zones-for-session sid 'heart-rate)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))
+           (and sz
+                (lambda (val)
+                  (let ((zone (value->zone sz val)))
+                    (zone->label zone)))))
 
          (define/override (factor-colors) (ct:zone-colors))
 
@@ -478,13 +485,11 @@
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f))
-           (define zn (sport-zone-names sport sid 1))
-           (lambda (n)
-             (if (real? n)
-                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
-                   (list-ref zn index))
-                 #f)))
-
+           (define sz
+             (if sid
+                 (sport-zones-for-session sid 'heart-rate)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))
+           (lambda (n) (and (real? n) (zone->zone-name sz n))))
          )))
 (register-series-metadata axis-hr-zone)
 (provide axis-hr-zone)
@@ -649,73 +654,75 @@
     (define/override (axis-label) "Power (watts)")
     (define/override (should-filter?) #t)
     (define/override (series-name) "pwr")
-         (define/override (name) "Power")
+    (define/override (name) "Power")
 
-         (define/override (factor-fn sport (sid #f))
-           (let ((zones (sport-zones sport sid 3)))
-             (if zones
-                 (lambda (val)
-                   (let ((zone (val->zone val zones)))
-                     (zone->label zone)))
-                 #f)))
+    (define/override (factor-fn sport (sid #f))
+      (define sz
+        (if sid
+            (sport-zones-for-session sid 'power)
+            (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))
+      (and sz
+           (lambda (val)
+             (let ((zone (value->zone sz val)))
+               (zone->label zone)))))
 
-         (define/override (factor-colors) (ct:zone-colors))
+    (define/override (factor-colors) (ct:zone-colors))
 
-         (define/override (have-cp-estimate?) #t)
+    (define/override (have-cp-estimate?) #t)
 
-         (define/override (cp-estimate bavg-fn params)
-           ;; Check that the bavg function can provide values for the CP2
-           ;; search range.  The cp2search structure is already validated via
-           ;; a #:guard, so we only need to check that the bavg function is
-           ;; valid at the AEEND point.
-           (and (bavg-fn (cp2search-aeend params))
-                (search-best-cp/exhausive
-                 bavg-fn params
-                 #:cp-precision 1 #:wprime-precision -2)))
+    (define/override (cp-estimate bavg-fn params)
+      ;; Check that the bavg function can provide values for the CP2
+      ;; search range.  The cp2search structure is already validated via
+      ;; a #:guard, so we only need to check that the bavg function is
+      ;; valid at the AEEND point.
+      (and (bavg-fn (cp2search-aeend params))
+           (search-best-cp/exhausive
+            bavg-fn params
+            #:cp-precision 1 #:wprime-precision -2)))
 
-         (define/override (pd-function cp-params)
-           (cp2-fn cp-params))
+    (define/override (pd-function cp-params)
+      (cp2-fn cp-params))
 
-         (define/override (pd-data-as-pict cp-params bavgfn)
-           (define title (text "Model" pd-title-face))
-           (define wprime (~r (round (cp2-wprime cp-params)) #:precision 0))
-           (define cp (~r (round (cp2-cp cp-params)) #:precision 0))
-           (define fn (cp2-fn cp-params))
-           (define picts
-             (list (text "CP" pd-label-face)
-                   (text cp pd-item-face)
-                   (text "watts" pd-label-face)
-                   (text "W'" pd-label-face)
-                   (text wprime pd-item-face)
-                   (text "joules" pd-label-face)))
-           (define p1
-             (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
+    (define/override (pd-data-as-pict cp-params bavgfn)
+      (define title (text "Model" pd-title-face))
+      (define wprime (~r (round (cp2-wprime cp-params)) #:precision 0))
+      (define cp (~r (round (cp2-cp cp-params)) #:precision 0))
+      (define fn (cp2-fn cp-params))
+      (define picts
+        (list (text "CP" pd-label-face)
+              (text cp pd-item-face)
+              (text "watts" pd-label-face)
+              (text "W'" pd-label-face)
+              (text wprime pd-item-face)
+              (text "joules" pd-label-face)))
+      (define p1
+        (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
 
-           (define interval-estimates-time
-             (flatten
-              (for/list ([t '(("5 min" . 300)
-                              ("10 min" . 600)
-                              ("15 min" . 900)
-                              ("20 min" . 1200))])
-                (list (text (car t) pd-label-face)
-                      (text (~r (fn (cdr t)) #:precision 0) pd-item-face)
-                      (text (~r (bavgfn (cdr t)) #:precision 0) pd-item-face)))))
+      (define interval-estimates-time
+        (flatten
+         (for/list ([t '(("5 min" . 300)
+                         ("10 min" . 600)
+                         ("15 min" . 900)
+                         ("20 min" . 1200))])
+           (list (text (car t) pd-label-face)
+                 (text (~r (fn (cdr t)) #:precision 0) pd-item-face)
+                 (text (~r (bavgfn (cdr t)) #:precision 0) pd-item-face)))))
 
-           (define interval-estimates
-             (append
-              (list (text "" pd-label-face)
-                    (text "model" pd-label-face)
-                    (text "data" pd-label-face))
-              interval-estimates-time))
+      (define interval-estimates
+        (append
+         (list (text "" pd-label-face)
+               (text "model" pd-label-face)
+               (text "data" pd-label-face))
+         interval-estimates-time))
 
-           (define title2 (text "Estimates" pd-title-face))
-           (define p2
-             (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
+      (define title2 (text "Estimates" pd-title-face))
+      (define p2
+        (vc-append 10 title2 (table 3 interval-estimates lc-superimpose cc-superimpose 15 3)))
 
-           (define p (vc-append 10 p1 p2))
+      (define p (vc-append 10 p1 p2))
 
-           (cc-superimpose
-            (filled-rounded-rectangle (+ (pict-width p) 15) (+ (pict-height p) 15) -0.1
+      (cc-superimpose
+       (filled-rounded-rectangle (+ (pict-width p) 15) (+ (pict-height p) 15) -0.1
                                  #:draw-border? #f #:color pd-background)
        p))
 
@@ -780,13 +787,11 @@
            (lambda (val) (zone->label val)))
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f))
-           (define zn (sport-zone-names sport sid 3))
-           (lambda (n)
-             (if (real? n)
-                 (let ((index (max 0 (min (exact-truncate n) (sub1 (length zn))))))
-                   (list-ref zn index))
-                 #f)))
-
+           (define sz
+             (if sid
+                 (sport-zones-for-session sid 'power)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))
+           (lambda (n) (and (real? n) (zone->zone-name sz n))))
          )))
 (register-series-metadata axis-power-zone)
 (provide axis-power-zone)

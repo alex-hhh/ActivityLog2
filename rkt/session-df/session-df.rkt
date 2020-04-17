@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -36,6 +36,7 @@
          "../dbutil.rkt"
          "../fmt-util.rkt"
          "../gap.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/map-widget/map-util.rkt"
@@ -444,7 +445,7 @@
 
 (define (add-speed-zone-series df)
   (define sid (df-get-property df 'session-id))
-  (define zones (get-session-sport-zones sid 2))
+  (define zones (sport-zones-for-session sid 'pace))
   (when (and zones (df-contains? df "spd"))
     (df-add-lazy
      df
@@ -452,7 +453,7 @@
      '("spd")
      (lambda (val)
        (match-define (list spd) val)
-       (if spd (val->zone spd zones) #f)))))
+       (if spd (value->zone zones spd) #f)))))
 
 ;; Add a grade (slope) series to the data frame DF.  We assume that an
 ;; altidute and lat/lot series exist (use ADD-GRADE-SERIES, which performs the
@@ -617,7 +618,7 @@
 
 (define (add-hr-pct-series df)
   (define sid (df-get-property df 'session-id))
-  (define zones (get-session-sport-zones sid 1))
+  (define zones (sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
     (df-add-lazy
      df
@@ -625,11 +626,11 @@
      '("hr")
      (lambda (val)
        (match-define (list hr) val)
-       (if hr (val->pct-of-max hr zones) #f)))))
+       (if hr (value->pct-of-max zones hr) #f)))))
 
 (define (add-hr-zone-series df)
   (define sid (df-get-property df 'session-id))
-  (define zones (get-session-sport-zones sid 1))
+  (define zones (sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
     (df-add-lazy
      df
@@ -637,7 +638,7 @@
      '("hr")
      (lambda (val)
        (match-define (list hr) val)
-       (if hr (val->zone hr zones) #f)))))
+       (if hr (value->zone zones hr) #f)))))
 
 (define (add-stride-series df)
 
@@ -686,7 +687,7 @@
 
 (define (add-power-zone-series df)
   (define sid (df-get-property df 'session-id))
-  (define zones (get-session-sport-zones sid 3))
+  (define zones (sport-zones-for-session sid 'power))
   (when (and zones (df-contains? df "pwr"))
     (df-add-lazy
      df
@@ -694,7 +695,7 @@
      '("pwr")
      (lambda (val)
        (match-define (list pwr) val)
-       (if pwr (val->zone pwr zones) #f)))))
+       (if pwr (value->zone zones pwr) #f)))))
 
 (define (add-lppa-series df)
   (when (df-contains? df "lpps" "lppe")

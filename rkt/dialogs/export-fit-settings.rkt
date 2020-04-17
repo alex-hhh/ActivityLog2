@@ -3,7 +3,7 @@
 ;; FIT files that can be uploaded to a device.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,15 +21,14 @@
          racket/gui/base
          racket/list
          racket/match
-         racket/math
          racket/string
-         "../color-theme.rkt"
          "../fit-file/fit-file.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
-(provide get-export-settings-dialog zones-pp)
+(provide get-export-settings-dialog)
 
 (define activity-class-names
   (list
@@ -53,8 +52,8 @@
   (let ([v (query-maybe-value
             database
             "
-select avg(body_weight) 
-  from ATHLETE_METRICS 
+select avg(body_weight)
+  from ATHLETE_METRICS
  where timestamp > strftime('%s', datetime('now', '-14 days'))")])
     (if (sql-null? v)
         (let ([v (query-maybe-value
@@ -91,60 +90,6 @@ select body_weight
           (#t 10))
         0)))
 
-;; Returns a pict object containing a nice graphical representation of ZONES.
-;; WIDTH and HEIGHT are the dimensions of the picture.
-(define (zones-pp zones [width 600] [height 60])
-
-  (define start-pad 30)
-  (define end-pad 30)
-  (define top-height (exact-round (* height 0.25)))
-  (define bottom-height (exact-round (* height 0.25)))
-  (define middle-height (- height top-height bottom-height))
-  (define zone-width (- width end-pad start-pad))
-  
-  (let ((range (- (last zones) (first zones)))
-        (nzones (length zones)))
-    (define the-pict
-      (vc-append
-       (filled-rectangle
-        width top-height
-        #:draw-border? #f
-        #:color "white")
-       (apply
-        hc-append
-        (for/list ([zone zones]
-                   [nxt-zone (cdr zones)]
-                   [index nzones]
-                   #:when (>= zone 0))
-          (let ((label (format "Z~a" index))
-                (zlength (exact-round (* (/ (- nxt-zone zone) range) zone-width))))
-            (cc-superimpose
-             (filled-rectangle zlength middle-height
-                               #:draw-border? #f
-                               #:color (cdr (list-ref (zone-colors) index)))
-             (text label)))))
-       (filled-rectangle
-        width bottom-height
-        #:draw-border? #f
-        #:color "white")
-       ))
-
-    (define ypos start-pad)
-    
-    (for/list ([zone zones]
-               [nxt-zone (cdr zones)]
-               [index nzones]
-               #:when (>= zone 0))
-      (let ((zlength (exact-round (* (/ (- nxt-zone zone) range) zone-width)))
-            (label (text (format "~a" (exact-round nxt-zone)))))
-        (set! ypos (+ ypos zlength))
-        (set! the-pict
-              (pin-over the-pict
-                        (exact-round (- ypos (/ (pict-width label) 2)))
-                        (if (even? index) 0 (+ top-height middle-height))
-                        label))))
-    the-pict))
-
 ;; Create a canvas which will display zones for SPORT/SUB-SPORT and
 ;; ZONE-METRIC.  zones will be reloaded each time the canvas is refreshed.
 (define (make-zone-display-canvas parent sport sub-sport zone-metric)
@@ -163,15 +108,15 @@ select body_weight
 
   (define (on-paint canvas dc)
     (send dc clear)
-    (let ((zones (get-sport-zones sport sub-sport zone-metric)))
+    (let ((zones (sport-zones-for-sport sport sub-sport zone-metric)))
       (if zones
           (let-values ([(w h) (send canvas get-size)])
-            (let ((pict (zones-pp zones w h)))
+            (let ((pict (pp-sport-zones/compact-pict zones #:width w #:height h)))
               (draw-pict pict dc 0 0)))
           (begin
             (send dc set-text-foreground "gray")
             (draw-centered-message dc "No Zones Defined" message-font)))))
-  
+
   (new canvas%
        [parent parent]
        [min-height 60]
@@ -181,37 +126,35 @@ select body_weight
 
 ;; Return a byte string containing the FIT data with HR zones for running.
 (define (get-running-fit-settings)
-  (let ((sport 1) ;; running
-        (hr-zones (get-sport-zones 1 #f 1)))
-    (let ((max-hr (if hr-zones (last hr-zones) #f)))
-      (let ((builder (new fit-sport-file% 
-                          [sport sport] 
-                          [max-hr max-hr]
-                          ;; NOTE: we use zone 0, but Garmin does not.
-                          [hr-zones (if hr-zones (cdr hr-zones) #f)])))
-        (send builder get-fit-data)))))
+  (define sport 1)                      ; running
+  (define hr-zones (sport-zones-for-sport 1 #f 'heart-rate))
+  (define hr-zone-data
+    (and hr-zones (for/list ([zone (in-vector (sz-boundaries hr-zones))]) zone)))
+  (let ((builder (new fit-sport-file%
+                      [sport sport]
+                      [max-hr (and hr-zone-data (last hr-zone-data))]
+                      ;; NOTE: we use zone 0, but Garmin does not.
+                      [hr-zones (and hr-zone-data (cdr hr-zone-data))])))
+    (send builder get-fit-data)))
 
 ;; Return a byte string containing the FIT data with HR and Power zones for
 ;; cycling.  hr-zones? and power-zones? control what zones are stored.  In
 ;; addition, the athlete's FTP is also stored.
 (define (get-cycling-fit-settings hr-zones? power-zones?)
-  (let ((sport 2) ;; bike
-        (hr-zones (get-sport-zones 2 #f 1))
-        (power-zones (get-sport-zones 2 #f 3)))
-
-    ;; NOTE: we use zone 0, but Garmin does not.
-    (when hr-zones (set! hr-zones (cdr hr-zones)))
-    (when power-zones (set! power-zones (cdr power-zones)))
-    
-    (let ((max-hr (if hr-zones (last hr-zones) #f))
-          (ftp (get-athlete-ftp)))
-      (let ((builder (new fit-sport-file% 
-                          [sport sport] 
-                          [max-hr max-hr]
-                          [ftp ftp]
-                          [power-zones power-zones]
-                          [hr-zones hr-zones])))
-        (send builder get-fit-data)))))
+  (define sport 2)                    ; bike
+  (define hr-zones (sport-zones-for-sport 2 #f 'heart-rate))
+  (define power-zones (sport-zones-for-sport 2 #f 'power))
+  (define hr-zone-data
+    (and hr-zones (for/list ([zone (in-vector (sz-boundaries hr-zones))]) zone)))
+  (define power-zone-data
+    (and power-zones (for/list ([zone (in-vector (sz-boundaries power-zones))]) zone)))
+  (let ((builder (new fit-sport-file%
+                      [sport sport]
+                      [max-hr (and hr-zone-data (last hr-zone-data))]
+                      [ftp (get-athlete-ftp)]
+                      [power-zones (and power-zone-data (cdr power-zone-data))]
+                      [hr-zones (and hr-zone-data (cdr hr-zone-data))])))
+    (send builder get-fit-data)))
 
 ;; Return a byte string containing the FIT data with athlete information: date
 ;; of birth, gender, body weight, activity class.  If collect-hrv is #t, the
@@ -252,7 +195,7 @@ select body_weight
     (define dob-field #f)
     (define gender-field #f)
     (define height-field #f)
-    
+
     (define bw-field #f)
     (define bw-auto-set-chkbox #f)
 
@@ -321,7 +264,7 @@ select body_weight
          (let ((dob (send dob-field get-converted-value)))
            (when (and dob (not (eq? dob 'empty)))
              (put-athlete-dob dob db)))
-      
+
          (let ((gender (send gender-field get-selection)))
            (put-athlete-gender gender db))
 
@@ -347,11 +290,11 @@ select body_weight
 
       ;; DOB, gender, height and FTP are stored in the database, fetch them
       ;; from there.
-      
+
       (let ((dob (get-athlete-dob db)))
         (when dob
           (send dob-field set-date-value dob)))
-      
+
       (let ((gender (get-athlete-gender db)))
         (when gender
           (send gender-field set-selection gender)))
@@ -359,7 +302,7 @@ select body_weight
       (let ((height (get-athlete-height db)))
         (when height
           (send height-field set-numeric-value height)))
-      
+
       (let ((ftp (get-athlete-ftp db)))
         (when ftp
           (send bike-ftp-field set-numeric-value ftp)))
@@ -367,21 +310,21 @@ select body_weight
       ;; Disable zone export check-boxes if there are no corresponding zones
       ;; defined.
 
-      (let ((z (get-sport-zones 1 #f 1)))
+      (let ((z (sport-zones-for-sport 1 #f 'heart-rate)))
         (unless z
           (send run-hrz-chkbox set-value #f))
         (send run-hrz-chkbox enable (not (eq? z #f))))
-      
-      (let ((z (get-sport-zones 2 #f 1)))
+
+      (let ((z (sport-zones-for-sport 2 #f 'heart-rate)))
         (unless z
           (send bike-hrz-chkbox set-value #f))
         (send bike-hrz-chkbox enable (not (eq? z #f))))
-      
-      (let ((z (get-sport-zones 2 #f 3)))
+
+      (let ((z (sport-zones-for-sport 2 #f 'power)))
         (unless z
           (send bike-pwrz-chkbox set-value #f))
         (send bike-pwrz-chkbox enable (not (eq? z #f)))))
-    
+
     (let ([p (send this get-client-pane)])
       (let ([p1 (make-group-box-panel p "Athlete Info")])
 
@@ -395,7 +338,7 @@ select body_weight
                 (new number-input-field% [parent p] [label "Height: "]
                      [cue-text "meters"] [stretchable-width #f]
                      [allow-empty? #f])))
-          
+
         (let ([p (make-horizontal-pane p1)])
           (set! bw-field
                 (new number-input-field% [parent p] [label "Body weight: "]
@@ -411,7 +354,7 @@ select body_weight
           (set! ac-auto-set-chkbox
                 (new check-box% [parent p] [label "Autoset from recent activitites"]
                      [callback on-autoset-activity-class])))
-        
+
         (set! hrv-chkbox
               (new check-box% [parent p1] [label "Collect HRV Data"])))
 
@@ -422,14 +365,14 @@ select body_weight
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
 
-        (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 1)))
-        
+        (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 'heart-rate)))
+
       (let ([p3 (make-group-box-panel p "Cycling")])
         (let ((p (make-horizontal-pane p3)))
           (set! bike-hrz-chkbox
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
-        (set! bike-hrz-canvas (make-zone-display-canvas p3 2 #f 1))
+        (set! bike-hrz-canvas (make-zone-display-canvas p3 2 #f 'heart-rate))
         (let ([p (make-horizontal-pane p3)])
           (set! bike-pwrz-chkbox
                 (new check-box% [parent p] [label "Export Power Zones"]))
@@ -438,7 +381,7 @@ select body_weight
                      [min-value 0] [max-value 1000]
                      [min-width 100] [stretchable-width #f]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
-        (set! bike-pwrz-canvas (make-zone-display-canvas p3 2 #f 3)))
+        (set! bike-pwrz-canvas (make-zone-display-canvas p3 2 #f 'power)))
 
       (let ([p (make-horizontal-pane p)])
         (set! export-dir-field

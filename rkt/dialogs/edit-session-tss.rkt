@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../session-df/session-df.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt")
 
@@ -51,9 +52,6 @@
  from A_SESSION S, SECTION_SUMMARY SS
  where S.summary_id = SS.id
  and S.id = ?" session-id))
-
-(define (get-session-hr-zones session-id)
-  (get-session-sport-zones session-id 1))
 
 (define (effort-np effort-data)
   (sql-column-ref effort-data 5 #f))
@@ -303,19 +301,9 @@
                (let ((rpe (send rpe-scale get-selection)))
                  (when (> rpe 0)
                    (set! computed-tss (rpe->tss rpe (effort-duration effort))))))
-              ;; ((hr-zone)
-              ;;  (let ((hr (effort-avg-hr effort))
-              ;;        (zones (get-session-hr-zones effort))
-              ;;        (duration (effort-duration effort)))
-              ;;    (cond ((not hr)
-              ;;           (send notice set-label "No heart rate data available"))
-              ;;          ((not zones)
-              ;;           (send notice set-label "No heart rate zones defined"))
-              ;;          (#t
-              ;;           (set! computed-tss (zone->tss (val->zone hr zones) duration))))))
               ((hr-zone-2)
                (let ((hr (effort-avg-hr effort))
-                     (zones (get-session-hr-zones session-id)))
+                     (zones (sport-zones-for-session session-id 'heart-rate)))
                  (cond ((not hr)
                         (send notice set-label "No heart rate data available"))
                        ((not zones)
@@ -353,6 +341,7 @@
 
     ;; Setup the dialog for editing the TSS of SID, a session id.
     (define (setup-for-session sid db)
+      (set! df #f)                      ; will be read in as needed
       (set! effort (get-session-effort sid db))
       (send duration set-label
             (let ((d (effort-duration effort)))

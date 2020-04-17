@@ -2,7 +2,7 @@
 ;; fmt-util-ut.rkt -- format utilities plain Racket code
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,6 @@
 (require racket/contract
          racket/format
          racket/match
-         racket/string
          tzinfo)
 
 (provide/contract

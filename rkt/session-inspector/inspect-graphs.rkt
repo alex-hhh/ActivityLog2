@@ -16,7 +16,6 @@
 
 (require (rename-in srfi/48 (format format-48))
          data-frame
-         data-frame/private/bsearch
          math/statistics
          plot-container
          plot-container/hover-util
@@ -36,6 +35,7 @@
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
          "../session-df/xdata-series.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
@@ -714,6 +714,9 @@
           (hover-callback #f)))
 
     (define (refresh-plot)
+      ;; will be set back below, but we don't want `draw-marker-at` to attempt
+      ;; to use an invalid series.
+      (set! the-plot-snip #f)
       (let ((pstate plot-state)
             (ppstate previous-plot-state)
             (pdata plot-data))
@@ -744,6 +747,9 @@
                     (void)))))))))
 
     (define (refresh-cached-bitmap)
+      ;; will be set back below, but we don't want `draw-marker-at` to attempt
+      ;; to use an invalid series.
+      (set! the-plot-snip #f)
       (let ((pstate plot-state)
             (pdata plot-data))
         (queue-task
@@ -922,7 +928,9 @@
     (define y-axis-items
       `(("Speed" ,axis-speed ,convert-m/s->speed ,speed->string)
 	("Pace" ,axis-pace ,convert-m/s->pace ,pace->string)
-        ("Zone" ,axis-speed-zone ,(lambda (x) (val->zone x zones)) ,(lambda (x y) (format-48 "~1,1F" x)))
+        ("Zone" ,axis-speed-zone
+                ,(lambda (x) (and zones (value->zone zones x)))
+                ,(lambda (x y) (if x (format-48 "~1,1F" x) "")))
         ("GAP" ,axis-gap ,convert-m/s->pace ,pace->string)))
 
     (define/override (get-average-renderer)
@@ -946,7 +954,7 @@
       (set! zones #f)
       (when data-frame
         (define sid (df-get-property data-frame 'session-id))
-        (set! zones (get-session-sport-zones sid 2)))
+        (set! zones (sport-zones-for-session sid 'pace)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
@@ -1020,10 +1028,12 @@
 
     (define y-axis-items
       `(("BPM" ,axis-hr-bpm ,values ,heart-rate->string/bpm)
-	("% of Max" ,axis-hr-pct ,(lambda (v) (val->pct-of-max v zones))
-         ,(lambda (v) (heart-rate->string/pct v zones)))
-	("Zone" ,axis-hr-zone ,(lambda (v) (val->zone v zones))
-         ,(lambda (v) (heart-rate->string/zone v zones)))))
+	("% of Max" ,axis-hr-pct
+                    ,(lambda (v) (and zones (value->pct-of-max zones v)))
+                    ,(lambda (v) (if zones (heart-rate->string/pct v zones) "")))
+	("Zone" ,axis-hr-zone
+                ,(lambda (v) (and zones (value->zone zones v)))
+                ,(lambda (v) (if zones (heart-rate->string/zone v zones) "")))))
 
     (define/override (get-average-renderer)
       (let ((avg (get-avg-hr)))
@@ -1047,7 +1057,7 @@
       (when data-frame
         (define sid (df-get-property data-frame 'session-id))
         (set! avg-hr #f)
-        (set! zones (get-session-sport-zones sid 1)))
+        (set! zones (sport-zones-for-session sid 'heart-rate)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)
@@ -1295,8 +1305,9 @@
 
     (define y-axis-items
       `(("Watts" ,axis-power ,values ,power->string)
-	("Zone" ,axis-power-zone ,(lambda (v) (val->zone v zones))
-         ,(lambda (v) (format-48 "~1,1F" (val->zone v zones))))))
+	("Zone" ,axis-power-zone
+                ,(lambda (v) (and zones (value->zone zones v)))
+                ,(lambda (v) (if zones (format-48 "~1,1F" (value->zone zones v)) "")))))
 
     (define/override (get-average-renderer)
       (let ((avg (get-avg-power)))
@@ -1319,7 +1330,7 @@
       (set! zones #f)
       (when data-frame
         (define sid (df-get-property data-frame 'session-id))
-        (set! zones (get-session-sport-zones sid 3)))
+        (set! zones (sport-zones-for-session sid 'power)))
       (super set-data-frame data-frame))
 
     (define/override (is-valid-for? data-frame)

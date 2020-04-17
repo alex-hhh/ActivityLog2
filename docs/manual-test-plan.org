@@ -1,0 +1,160 @@
+
+* [0/9] Sport Zones Test Plan
+
+The following test plan aims to check that the sport zone functionality works
+throughout the entire AL2 application.  Some Sport Zone functionality is
+tested in automated tests, but not all of it.
+
+** TODO Edit Session Effort Dialog
+
+   *NOTE* This dialog is available from the "Activity/Edit Effort..." menu,
+   when an activity is selected.
+
+Check that HR based effort estimation can be set, also check that HR based TSS
+cannot be set for sessions with no HR zones (e.g. swim)
+
+Check that opening different activities shows different HR based TSS (HR based
+TSS should be calculated separately for each activity)
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Export Fit Settings Dialog (empty database)
+
+   *NOTE* This dialog can be accessed from the "Athlete/Export Settings to
+   Device..." menu.
+
+Create a new (empty) database (File/New Database... menu), than re-start
+ActivityLog2.
+
+Open the "Export Fit Settings" dialog -- it should open without errors, birth
+date should be 1/1/2000, Gender Male, height 1.8, Bodyweight will be empty and
+must be filled in before the export button is available.  No sport zones will
+be available.
+
+Select an export location and export the data.  Only the
+`athlete-settings.fit` file should be created at the selected destination.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Export Fit Settings Dialog (existing database with data and zones)
+
+   *NOTE* This dialog can be accessed from the "Athlete/Export Settings to
+   Device..." menu.
+
+Open an existing database with data and sport zones.
+
+Open the "Export Fit Settings" dialog -- it should open without errors, and
+fields should be filled in correctly.
+
+Select all zones to export, than export the data to an existing directory.
+Three files should be created, `run-settings.fit`, `bike-settings.fit` and
+`athlete-settings.fit`.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Session Inspector (empty database)
+
+Import one of the test sessions (run or bike) in an empty database (with no
+sport zones), than open the activity.  You can find sample activities in the
+"test/test-data" folder.
+
+*Overview Tab* -- Heart Rate badge will display HR and Max HR, but not zones
+or percent of max.
+
+*Charts (Graphs) Tab* -- on the speed chart, select Zone (you must select
+switching from a non-zone plot to a zone one).  The chart should display "No
+Data To Plot" for the zone plots, and hovering over the other plots should
+work.  The "Color by Zone" check-box can be set/unset, but it should not do
+anything.
+
+*Histogram Tab* -- for speed and heart rate, the "Color by Zone" checkbox
+should be grayed out, and the charts should display fine.
+
+*Quadrant Tab* -- should display fine, but there will be no Zone Shading on
+the plot, the "Show Zones" check-box is available, but does nothing.
+
+*Model Parameters Tab* -- should inform the user that there are no sport zones
+or critical power values set for this session.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Session Inspector (existing database with data and zones)
+
+Open an existing database with data and sport zones.  Open a session which has
+Zones.
+
+*Overview Tab* -- Heart Rate badge will display HR and Max HR, and next to
+those values, the zone and percent of max.
+
+*Charts (Graphs) Tab* -- on the speed chart, select Zone (you must select
+switching from a non-zone plot to a zone one).  The chart should display the
+zone plots, and hovering over the other plots should work.  The "Color by
+Zone" check-box can be set/unset, and zone coloring should work.
+
+*Histogram Tab* -- for speed and heart rate, the "Color by Zone" checkbox
+should be working and charts should be shaded with zones when selected.
+
+*Quadrant Tab* -- should display fine, the "Show Zones" check-box is
+available and enables/disables zone shading correctly.
+
+*Model Parameters Tab* -- should contain tables for the zones (Pace, HR and
+Power, as appropriate), as well as Critical Power/Velocity
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Time-In-Zone (TIZ) trends chart (empty database)
+
+Import one of the test sessions (run or bike) in an empty database (with no
+sport zones), than open the activity.  You can find sample activities in the
+"test/test-data" folder.
+
+Create a TIZ plot for the type of sport and one of the zone based metrics
+(Heart Rate, Pace or Power if a cycling activity was imported)
+
+The plot should display "No Data To Plot"
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Time-In-Zone (TIZ) trends chart (existing database with data and zones)
+
+Open an existing database with data and sport zones and create a TIZ chart.
+
+Check that the chart can be created, labels in the legend are correct, and
+hover badge displays correctly when mouse moves over the bars.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Histogram Trends Chart (empty database)
+
+Import one of the test sessions (run or bike) in an empty database (with no
+sport zones), than open the activity.  You can find sample activities in the
+"test/test-data" folder.
+
+Create a HR Zone histogram plot -- it should display "No Data to Plot"
+
+Create a HR BPM histogram plot, and select "Color By Zone", the plot should
+show, but without zone shading.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)
+
+** TODO Histogram Trends Chart (existing database with data and zones)
+
+Open an existing database with data and sport zones.
+
+Create a HR Zone histogram plot, with and without "Color by Zone".  The plot
+should display correctly, with zone shading, if this was selected.
+
+Create a histogram chart for a Run or Bike activity for a zone based metric
+(Pace, HR or Power).  Select "Color by Zone".  The chart should be correctly
+displayed, with zone shading for the histogram bars.
+
+Check that there are no errors in the log file
+(%APPDATADIR%/ActivityLog/ActivityLogDbg.log file)

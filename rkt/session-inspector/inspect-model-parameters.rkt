@@ -20,17 +20,13 @@
          pict
          pict/snip
          racket/class
-         racket/format
          racket/gui/base
-         racket/list
          racket/match
          racket/math
-         "../color-theme.rkt"
-         (prefix-in ct: "../color-theme.rkt")
          "../dbapp.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../session-df/native-series.rkt"
+         "../sport-zone.rkt"
          "../sport-charms.rkt")
 
 (provide model-parameters-panel%)
@@ -97,63 +93,17 @@
     (send editor insert s)
     (insert-newline editor)))
 
-;; Return the sport zone ID's and their validity ranges that apply for a
-;; session identified by SID (a session id)
-(define (get-sport-zones-for-session db sid)
-  (query-rows db
-              "
-select VSZFS.zone_id, VSZFS.zone_metric_id, VSZ.valid_from, VSZ.valid_until
-  from V_SPORT_ZONE_FOR_SESSION VSZFS,
-       V_SPORT_ZONE VSZ
- where VSZFS.session_id = ?
-   and VSZ.zone_id = VSZFS.zone_id
-order by VSZFS.zone_metric_id" sid))
-
-(define (get-sport-zones db zone-id)
-  (for/list (([name value]
-              (in-query db "select zone_name, zone_value
-                              from SPORT_ZONE_ITEM
-                             where sport_zone_id = ?
-                             order by zone_number" zone-id)))
-    (list (if (sql-null? name) "" (~a name)) value)))
-
-(define pd-background (make-object color% #xff #xf8 #xdc 0.75))
 (define pd-item-color (make-object color% #x2f #x4f #x4f))
 (define pd-label-color (make-object color% #x77 #x88 #x99))
 (define pd-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
-(define pd-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
-(define pd-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+(define pd-item-font (send the-font-list find-or-create-font 14 'default 'normal 'normal))
+(define pd-label-font (send the-font-list find-or-create-font 12 'default 'italic 'light))
 (define pd-title-face (cons pd-item-color pd-title-font))
 (define pd-item-face (cons pd-item-color pd-item-font))
 (define pd-label-face (cons pd-item-color pd-label-font))
-(define pd-header-font (send the-font-list find-or-create-font 16 'default 'normal 'bold))
+(define pd-header-font (send the-font-list find-or-create-font 16 'default 'normal 'normal))
 (define pd-header-face (cons header-color pd-header-font))
 (define pd-sub-heading-face (cons pd-label-color pd-label-font))
-
-;; Return a PICT with a visual representation of sport ZONES (as returned by
-;; `get-sport-zones`).  FMT-FN is used to format zone values (for example when
-;; they are pace values)
-(define (zones-pict zones #:fmt-fn (fmt-fn (lambda (z) (~a (exact-round z)))))
-  (define items
-    (for/fold ([result (list (text "Color" pd-label-face)
-                             (text "Upper" pd-label-face)
-                             (text "Lower" pd-label-face)
-                             (text "Zone" pd-label-face))])
-              ([(item index) (in-indexed (in-list zones))]
-               [nitem (in-list (cdr zones))])
-      (match-define (list name start) item)
-      (match-define (list _ end) nitem)
-      (cons (colorize (disk 20) (cdr (list-ref (ct:zone-colors) index)))
-            (cons (text (fmt-fn end) pd-item-face)
-                  (cons (text (fmt-fn start) pd-item-face)
-                        (cons (text name pd-label-face)
-                              result))))))
-  (table 4
-         (reverse items)
-         (list lc-superimpose rc-superimpose rc-superimpose cc-superimpose)
-         cc-superimpose
-         20
-         10))
 
 ;; Return the critical power parameters (CP, W'Prime, Tau) and the validity
 ;; range that apply to a session identified by SID (a session id)
@@ -165,19 +115,19 @@ order by VSZFS.zone_metric_id" sid))
  where VCPFS.session_id = ?
    and VCP.cp_id = VCPFS.cp_id" sid))
 
-;; Insert a "validity range" message into the editor.  FROM and TO are the
-;; timestamps for the range.
-(define (insert-validity-range editor from to)
-  (if (> to (- (current-seconds) 300))
-      ;; The validity SQL code for time zones will always generate a timestamp
-      ;; for the "to" part, and the last timezone will have the current time,
-      ;; so we can just discard that.
-      (insert-paragraph editor
-                        (format "Valid from ~a" (calendar-date->string from)))
-      (insert-paragraph editor
-                        (format "Valid from ~a to ~a"
-                                (calendar-date->string from)
-                                (calendar-date->string to)))))
+;; Insert the sport zone information about the session SID (a session id),
+;; SPORT is the sport type for the session.
+(define (insert-sport-zone-info editor sid sport)
+  (define zones (all-sport-zones-for-session sid))
+  (if (null? zones)
+      (begin
+        (insert-heading editor "Sport Zones")
+        (insert-paragraph editor "No sport zones are defined for this session."))
+      (for ([zone (in-list zones)])
+        (define p (inset (pp-sport-zones/pict zone) 30))
+        (define start-position (send editor last-position))
+        (send editor insert (new pict-snip% [pict p]))
+        (send editor change-style top-align-style start-position (send editor last-position)))))
 
 (define (validity-range->string from to)
   (if (> to (- (current-seconds) 300))
@@ -186,57 +136,6 @@ order by VSZFS.zone_metric_id" sid))
       ;; so we can just discard that.
       (format "Valid from ~a" (calendar-date->string from))
       (format "Valid from ~a to ~a" (calendar-date->string from) (calendar-date->string to))))
-
-;; Insert the sport zone information about the session SID (a session id),
-;; SPORT is the sport type for the session.
-(define (insert-sport-zone-info editor sid sport)
-  (let ((zones (get-sport-zones-for-session (current-database) sid)))
-    (if (null? zones)
-        (begin
-          (insert-heading editor "Sport Zones")
-          (insert-paragraph editor "No sport zones are defined for this session."))
-        (begin
-          (for ((zone zones))
-            (match-define (vector zid zmetric valid-from valid-until) zone)
-            (define zvals (get-sport-zones (current-database) zid))
-            (case zmetric
-              ((1)
-               (let ((h (text "Heart Rate Zones (BPM)" pd-header-face))
-                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
-                     (z (zones-pict zvals)))
-                 (define p (inset (vl-append 10 h v z) 30))
-                 (let ((start-position (send editor last-position)))
-                   (send editor insert (new pict-snip% [pict p]))
-                   (send editor change-style top-align-style start-position (send editor last-position)))))
-              ((2)
-               (let ((h (text (format "Speed / Pace Zones (~a)"
-                                      (if (eq? (al-pref-measurement-system) 'metric)
-                                          (cond ((is-lap-swimming? sport) "min/100m")
-                                                ((is-runnig? sport) "min/km")
-                                                (#t "km/h"))
-                                          (cond ((is-lap-swimming? sport) "min/100yd")
-                                                ((is-runnig? sport) "min/mile")
-                                                (#t "miles/h"))))
-                              pd-header-face))
-                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
-                     (z (zones-pict zvals
-                                    #:fmt-fn
-                                    (cond
-                                      ((is-lap-swimming? sport) swim-pace->string)
-                                      ((is-runnig? sport) pace->string)
-                                      (#t speed->string)))))
-                 (define p (inset (vl-append 10 h v z) 30))
-                 (let ((start-position (send editor last-position)))
-                   (send editor insert (new pict-snip% [pict p]))
-                   (send editor change-style top-align-style start-position (send editor last-position)))))
-              ((3)
-               (let ((h (text "Power Zones (watts)" pd-header-face))
-                     (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
-                     (z (zones-pict zvals)))
-                 (define p (inset (vl-append 10 h v z) 30))
-                 (let ((start-position (send editor last-position)))
-                   (send editor insert (new pict-snip% [pict p]))
-                   (send editor change-style top-align-style start-position (send editor last-position)))))))))))
 
 (define no-cp-text
   "No critical power or velocity parameters are defined for this session.")
@@ -267,7 +166,7 @@ order by VSZFS.zone_metric_id" sid))
                                       (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
                                       (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
                      (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
-                  
+
                   ((is-swimming? sport)
                    (let ((items (list (text "CV" pd-label-face)
                                       (text (swim-pace->string cp #t) pd-item-face)
