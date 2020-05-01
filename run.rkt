@@ -2,7 +2,7 @@
 ;; run.rkt -- toplevel file to run the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,7 @@
          (for-syntax racket/base))
 
 ;; Check and inform the user that these packages need to be installed...
-(check-missing-modules tzinfo tzgeolookup data-frame plot-container)
+(check-missing-modules tzinfo tzgeolookup data-frame plot-container gui-widget-mixins)
 
 ;; Start up a splash screen, rest of the application will be lazy-required
 ;; below.  This will make the splash screen show up while the rest of the app

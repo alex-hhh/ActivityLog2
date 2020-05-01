@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,8 @@
          "trends-tiz.rkt"
          "trends-trivol.rkt"
          "trends-tt.rkt"
-         "trends-vol.rkt")
+         "trends-vol.rkt"
+         "trends-irisk.rkt")
 
 (provide view-trends%)
 
@@ -51,6 +52,7 @@
 (define-runtime-path trends-scatter-file "../../img/trends/trends-scatter.png")
 (define-runtime-path trends-ae-file "../../img/trends/trends-ae.png")
 (define-runtime-path trends-hm-file "../../img/trends/trends-hm.png")
+(define-runtime-path trends-irisk-file "../../img/trends/trends-irisk.png")
 
 ;; A trends chart declaration.  Contains some description and a sample image,
 ;; plus the class to be instantiated for the actual trends chart.
@@ -59,6 +61,10 @@
 (define chart-types
   (sort
    (list
+    (tdecl
+     "Injury Risk Dashboard" 'irisk irisk-trends-chart% trends-irisk-file
+     "Injury Risk Dashboard for swim, bike and run activities, based on duration, distance and effort")
+
     (tdecl
      "Body Weight" 'bw bw-trends-chart% trends-bw-file
      "Plot body weight over time.")

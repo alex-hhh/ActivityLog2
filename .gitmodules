@@ -19,3 +19,6 @@
 [submodule "pkgs/plot-container"]
 	path = pkgs/plot-container
 	url = https://github.com/alex-hhh/plot-container.git
+[submodule "pkgs/gui-widget-mixins"]
+	path = pkgs/gui-widget-mixins
+	url = https://github.com/alex-hhh/gui-widget-mixins.git

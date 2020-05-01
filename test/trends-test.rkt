@@ -2,7 +2,7 @@
 ;; trends-test.rkt -- test the trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -52,6 +52,7 @@
          "../rkt/trend-charts/trends-hist.rkt"
          "../rkt/trend-charts/trends-scatter.rkt"
          "../rkt/trend-charts/trends-heatmap.rkt"
+         "../rkt/trend-charts/trends-irisk.rkt"
          "../rkt/widgets/map-widget/map-tiles.rkt"
          "test-util.rkt"
          "custom-test-runner.rkt")
@@ -220,6 +221,14 @@
    'sport '(#f . #f)
    'equipment '()
    'labels '()))
+
+(define irisk-settings
+  (hash
+   'name "IRisk"
+   'title "Injury Risk"
+   'before 15
+   'after 5
+   'load 35))
 
 (define (make-test-snip-canvas snip-canvas-class)
   (define f (new frame% [label "test-frame"] [width 150] [height 150]))
@@ -641,6 +650,33 @@
          (check-true (file-exists? test-image-file))
          ;; NOTE: we don't export any data from this chart
          (check-false (file-exists? test-data-file)))))
+
+   (test-case "IRISK trends / empty database"
+     (with-fresh-database
+       (lambda (db)
+         (define result
+           (do-tc-check db irisk-trends-chart% irisk-settings test-snip-canvas%))
+         (check < 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         (check-false (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file)))))
+   (test-case "IRISK trends / non-empty database"
+     ;; NOTE: the test database contains activities, but does not contain any
+     ;; GPS data (since it is stripped out from the test databases) xso this is
+     ;; an incomplete test, but it is better than nothing...
+     (unless (file-exists? test-database)
+       (skip-test))
+     (with-database
+       test-database
+       (lambda (db)
+         (define result
+           (do-tc-check db irisk-trends-chart% irisk-settings test-snip-canvas%))
+         (check < 0 (send result get-num-set-background-message-calls))
+         (check = 1 (send result get-num-snips-set))
+         (check = 0 (send result get-num-floating-snips-set))
+         (check-false (file-exists? test-image-file))
+         (check-true (file-exists? test-data-file)))))
    ))
 
 (module+ test

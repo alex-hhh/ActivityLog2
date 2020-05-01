@@ -4,7 +4,7 @@ Before you can build or run the application, you will need to install some
 packages that ActivityLog2 depends on, on the command line run the following
 command:
 
-    raco pkg install --auto tzinfo tzlookup data-frame plot-container
+    raco pkg install --auto tzinfo tzgeolookup data-frame plot-container gui-widget-mixins
 
 **NOTE** if you are on a Windows platform, you may have to setup a package
 catalog to pick up packages from the pkgs folder, see the `Building
