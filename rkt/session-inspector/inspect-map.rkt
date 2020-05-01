@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -228,6 +228,7 @@
       (send map-view resize-to-fit))
 
     (define (highlight-lap lap)
+      (send map-view begin-edit-sequence)
       ;; Remove custom any lap and set all other tracks to default pen and
       ;; z-order (effectively un-highlights any highlighted lap).
       (send map-view delete-group 'custom)
@@ -269,7 +270,8 @@
       (when zoom-to-lap?
         (send map-view resize-to-fit selected-lap))
 
-      (set! selected-lap-data lap))
+      (set! selected-lap-data lap)
+      (send map-view end-edit-sequence))
 
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
@@ -298,6 +300,7 @@
           (send map-view export-image-to-file file))))
 
     (define/public (set-session session df)
+      (send map-view begin-edit-sequence)
       (set! the-session session)
       (set! data-frame df)
       (set! export-file-name #f)
@@ -352,6 +355,7 @@
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)
       (set! selected-lap #f)
-      (send interval-coice set-session session df))
+      (send interval-coice set-session session df)
+      (send map-view end-edit-sequence))
 
     ))

@@ -43,9 +43,9 @@
 
 ;; The pen and brush to draw the "current location" marker on the map
 (define current-location-pen
-  (send the-pen-list find-or-create-pen (make-color 68 114 196) 5 'solid))
+  (send the-pen-list find-or-create-pen (make-color 170 51 119) 5 'solid))
 (define current-location-brush
-  (send the-brush-list find-or-create-brush (make-color 68 114 196 0.5) 'solid))
+  (send the-brush-list find-or-create-brush (make-color 170 51 119 0.5) 'solid))
 
 ;; Default pen and Z-order for the tracks added to the map (when the user does
 ;; not specify one explicitly.
@@ -496,6 +496,17 @@
 
     (define debug? (get-pref 'activity-log:draw-map-bounding-box (lambda () #f)))
 
+    ;; Used by {begin,end}-edit-sequence to prevent the map from being
+    ;; refreshed when several operations are done at once.  Map is refreshed
+    ;; when the level is 0
+    (define edit-sequence-level 0)
+
+    ;; Invoke the request-refresh callback, but only if we are not inside an
+    ;; edit sequence.
+    (define/private (refresh)
+      (when (zero? edit-sequence-level)
+        (request-refresh)))
+
     ;; When #f, the tiles are not drawn, only the tracks.
     (define show-map-layer? #t)
 
@@ -554,7 +565,7 @@
       (set! group-zorder (send other internal-get-group-zorder))
       (set! markers (send other internal-get-markers))
       (limit-origin width height)
-      (request-refresh))
+      (refresh))
 
     ;; Adjust the map origin such that we don't have to draw past the map
     ;; edges at the current zoom level
@@ -575,7 +586,7 @@
       (limit-origin w h)
       (set! width w)
       (set! height h)
-      (request-refresh))
+      (refresh))
 
     (define last-mouse-x #f)
     (define last-mouse-y #f)
@@ -609,7 +620,7 @@
                  (set! origin-x (- origin-x (- mouse-x last-mouse-x)))
                  (set! origin-y (- origin-y (- mouse-y last-mouse-y)))
                  (limit-origin width height)
-                 (request-refresh))
+                 (refresh))
                (set! last-mouse-x mouse-x)
                (set! last-mouse-y mouse-y))
              ;; Event was handled
@@ -708,7 +719,7 @@
     ;; Timer to schedule a re-paint of the canvas when we have some missing
     ;; tiles -- hopefully the tiles will arrive by the time we get to re-paint
     (define redraw-timer
-      (new timer% [notify-callback (lambda () (request-refresh))]))
+      (new timer% [notify-callback (lambda () (refresh))]))
 
     ;; Timer to schedule a map drag event to pan the current location in view
     (define auto-drag-map-timer
@@ -788,7 +799,7 @@
            (set! last-current-location-x #f)
            (set! last-current-location-y #f)
            (on-current-location-updated)
-           (request-refresh)
+           (refresh)
            (on-zoom-level-change the-zoom-level))]))
 
     (public show-map-layer)
@@ -798,13 +809,13 @@
         [(flag)
          (unless (equal? show-map-layer? flag)
            (set! show-map-layer? flag)
-           (request-refresh))]))
+           (refresh))]))
 
     ;; Clear the map of all tracks and markers.
     (define/public (clear)
       (set! tracks '())
       (set! markers '())
-      (request-refresh))
+      (refresh))
 
     ;; Add a GPS track to the map.  TRACK is a sequence of (Vector LAT LON)
     ;; and GROUP is a group identifier for the track.  Tracks are grouped
@@ -815,14 +826,14 @@
     (define/public (add-track track group)
       (define gtrack (new track% [track track] [group group]))
       (set! tracks (cons gtrack tracks))
-      (request-refresh))
+      (refresh))
 
     ;; Add a label on the map at a specified position a (Vector LAT LON)
     (define/public (add-marker pos text direction color)
       (define gmarker (new marker% [pos pos] [text text]
                            [direction direction] [color color]))
       (set! markers (cons gmarker markers))
-      (request-refresh))
+      (refresh))
 
     ;; Called when the current location has been updated, handles redisplay of
     ;; the current location as well as auto-dragging the map, if this is
@@ -836,7 +847,7 @@
                  (or last-current-location-x last-current-location-y))
         (set! last-current-location-x #f)
         (set! last-current-location-x #f)
-        (request-refresh))
+        (refresh))
 
       (when the-current-location
         (let* ((point (lat-lon->map-point
@@ -856,7 +867,7 @@
                     (>= (abs (- last-current-location-x px)) 1.0)
                     (>= (abs (- last-current-location-y py)) 1.0)))
           (when need-refresh?
-            (request-refresh)
+            (refresh)
             ;; Only update this if we need to refresh -- otherwise we can
             ;; creep out in small increments and never notice it!
             (set! last-current-location-x px)
@@ -873,7 +884,7 @@
               (set! origin-y (exact-round (- origin-y (* dy 0.1))))
               (limit-origin width height)
               (send auto-drag-map-timer start 100)
-              (request-refresh))))))
+              (refresh))))))
 
     ;; Get and set the current location of the map
     (public current-location)
@@ -904,7 +915,7 @@
             ; silly way in which inspect-map uses the widget.
             (set! group-pens (make-hash))
             (set! default-pen pen)))
-      (request-refresh))
+      (refresh))
 
     ;; Set the Z-ORDER used to draw a track group.  If GROUP is #f, al the
     ;; tracks will use this Z-ORDER and the tracks are drawn in the order they
@@ -917,7 +928,7 @@
             ; silly way in which inspect-map uses the widget.
             (set! group-zorder (make-hash))
             (set! default-zorder zorder)))
-      (request-refresh))
+      (refresh))
 
     ;; Delete all tracks in GROUP, or delete all tracks if GROUP is #f.
     (define/public (delete-group group)
@@ -926,7 +937,7 @@
                    #:unless (or (not group) (equal? group (send track get-group))))
           track))
       (set! tracks ntracks)
-      (request-refresh))
+      (refresh))
 
     ;; Return the bounding box for all tracks in GROUP, or if GROUP is #f for
     ;; all tracks on the map.
@@ -969,7 +980,7 @@
         (set! origin-x (- cx (/ width 2)))
         (set! origin-y (- cy (/ height 2))))
       (limit-origin width height)
-      (request-refresh))
+      (refresh))
 
     ;; Resize (set the zoom level) and center the map so that all tracks in
     ;; GROUP are visible.  If GROUP is #f, resize and center the map such that
@@ -979,7 +990,7 @@
         (when bbox
           (zoom-level (select-zoom-level bbox width height))))
       (center-map group)
-      (request-refresh))
+      (refresh))
 
     ;; move the map such that POSITION is in the center
     (define/public (move-to position)
@@ -990,13 +1001,29 @@
         (set! origin-x (- cx (/ width 2)))
         (set! origin-y (- cy (/ height 2))))
       (limit-origin width height)
-      (request-refresh))
+      (refresh))
 
     ;; Write an image of the current map to FILE-NAME
     (define/public (export-image-to-file file-name)
       (let ((bmp (make-bitmap width height)))
         (draw (new bitmap-dc% [bitmap bmp]) 0 0)
         (send bmp save-file file-name 'png)))
+
+    ;; Start an edit sequence.  The map will not be refreshed while an edit
+    ;; sequence is in progress, allowing the caller to make many map
+    ;; modifications in one go without a refresh being queued in-between.  An
+    ;; edit sequence is completed by calling `end-edit-sequence`.  Edit
+    ;; sequence can be nested.
+    (define/public (begin-edit-sequence)
+      (set! edit-sequence-level (add1 edit-sequence-level)))
+
+    ;; End an edit sequence started by `begin-edit-sequence`.
+    (define/public (end-edit-sequence)
+      (when (zero? edit-sequence-level)
+        (error "map-impl%/end-edit-sequence: bad call"))
+      (set! edit-sequence-level (sub1 edit-sequence-level))
+      (when (zero? edit-sequence-level)
+        (refresh)))
 
     (when track
       (add-track track 0))

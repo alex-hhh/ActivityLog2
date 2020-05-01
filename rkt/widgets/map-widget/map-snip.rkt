@@ -42,7 +42,9 @@
    (center-map (->*m () ((or/c #f symbol?)) any/c))
    (move-to (->m (vector/c flonum? flonum?) any/c))
    (resize-to-fit (->*m () ((or/c #f symbol? number?)) any/c))
-   (export-image-to-file (->m path-string? any/c))))
+   (export-image-to-file (->m path-string? any/c))
+   (begin-edit-sequence (->m any/c))
+   (end-edit-sequence (->m any/c))))
 
 (provide
  (contract-out [map-snip% map-snip%/c]))
@@ -101,7 +103,7 @@
       (let ([snip (new this% [width width] [height height])])
         (send snip copy-map-impl-from map-impl)
         snip))
-    
+
     (define/override (resize w h)
       (send map-impl resize w h)
       (set! width w)
@@ -193,6 +195,12 @@
 
     (define/public (export-image-to-file file-name)
       (send map-impl export-image-to-file file-name))
+
+    (define/public (begin-edit-sequence)
+      (send map-impl begin-edit-sequence))
+
+    (define/public (end-edit-sequence)
+      (send map-impl end-edit-sequence))
 
     (define/public (on-zoom-level-change zl)
       (void))
