@@ -76,7 +76,8 @@
 ;; NOTE: this function is called a lot of times for each plot, but with the
 ;; same arguments and it would make a great candidate for memoization.
 (define (ivl-extents df series start end)
-  (df-lookup* df "timestamp" series start end))
+  (define max-timestamp (df-ref df (sub1 (df-row-count df)) "timestamp"))
+  (df-lookup* df "timestamp" series start (min end max-timestamp)))
 
 (define (find-change-point p0 p1 f0 f1 epsilon factor-fn key-fn)
   (match-define (vector x0 y0 z0 ...) p0) ; previous
@@ -534,7 +535,7 @@
     ;; Token corresponding to the PD instance that was used to generate the
     ;; CACHED-BITMAP.  If cached-bitmap-token is not the same as (ps-token
     ;; plot-state), the cached-bitmap is outdated.
-    (define cached-bitmap-token #f)
+    (define cached-bitmap-token -1)
 
     (define y-axis-by-sport (make-hash)) ; saved as a preference
 
@@ -742,8 +743,7 @@
                       (set! previous-plot-state pstate)
                       (set! plot-state pstate)
                       (set! plot-data npdata)
-                      (set! cached-bitmap-token (pd-token npdata))
-                      (send graph-canvas refresh))
+                      (set! cached-bitmap-token (pd-token npdata)))
                     (void)))))))))
 
     (define (refresh-cached-bitmap)
@@ -791,7 +791,7 @@
                           ;; Stop points are blue, teleport points are red
                           (vrule x #:style 'short-dash #:color (if (member p tp) "red" "blue")))))))))
 
-        (if (equal? (pd-token plot-data) (ps-token plot-state))
+        (if (and (equal? (pd-token plot-data) (ps-token plot-state)) the-plot-snip)
             (refresh-cached-bitmap)
             (refresh-plot))))
 

@@ -314,15 +314,15 @@
     (define/public (get-database)
       the-database)
     (define/public (get-selected-sid)
-      (when selected-row-index
+      (and selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))
           (if data (vector-ref data 0) #f))))
     (define/public (get-selected-sport)
-      (when selected-row-index
+      (and selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))
           (if data (cons (sql-column-ref data 5 0) (sql-column-ref data 6 0)) #f))))
     (define/public (get-selected-guid)
-      (when selected-row-index
+      (and selected-row-index
         (let ((data (send lb get-data-for-row selected-row-index)))
           (if data
               (let ((guid (vector-ref data 7)))
@@ -331,7 +331,7 @@
                     guid))
               #f))))
     (define/public (after-update sid)
-      (when selected-row-index
+      (and selected-row-index
         (let ((new-data (get-activity-1 the-database sid)))
           (send lb update-row selected-row-index new-data))))
     (define/public (after-new sid)

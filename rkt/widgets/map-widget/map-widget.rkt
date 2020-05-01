@@ -42,7 +42,7 @@
    (delete-group (->m (or/c #f symbol? integer?) any/c))
    (center-map (->*m () ((or/c #f symbol?)) any/c))
    (move-to (->m (vector/c real? real?) any/c))
-   (resize-to-fit (->*m () ((or/c #f symbol?)) any/c))
+   (resize-to-fit (->*m () ((or/c #f symbol? number?)) any/c))
    (export-image-to-file (->m path-string? any/c))))
 
 (provide

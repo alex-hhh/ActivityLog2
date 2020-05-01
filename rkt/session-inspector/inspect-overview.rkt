@@ -150,7 +150,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string) 
    ))
 
@@ -211,7 +211,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *bike-timing-fields*
@@ -317,7 +317,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *swim-timing-fields*
@@ -354,7 +354,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score 
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor number->string)
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
 
 (define *other-timing-fields*

@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -75,7 +75,7 @@
                      (values (+ y pad) min-height)
                      (values y min-height))))))
 
-      (list (exact-round cx) (exact-round cy) cw ch))
+      (list (exact-truncate cx) (exact-truncate cy) (exact-truncate cw) (exact-truncate ch)))
 
     ;; Calculate the minimum size of the container given the minimum size
     ;; requirements of its children.

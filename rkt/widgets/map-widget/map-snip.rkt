@@ -4,7 +4,7 @@
 ;; tiles retrieved from the net are cached locally in a persistent store.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,7 @@
    (delete-group (->m (or/c #f symbol? integer?) any/c))
    (center-map (->*m () ((or/c #f symbol?)) any/c))
    (move-to (->m (vector/c flonum? flonum?) any/c))
-   (resize-to-fit (->*m () ((or/c #f symbol?)) any/c))
+   (resize-to-fit (->*m () ((or/c #f symbol? number?)) any/c))
    (export-image-to-file (->m path-string? any/c))))
 
 (provide
