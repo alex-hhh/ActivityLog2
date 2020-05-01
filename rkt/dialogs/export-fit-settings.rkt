@@ -23,7 +23,7 @@
          racket/match
          racket/string
          "../fit-file/fit-file.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")

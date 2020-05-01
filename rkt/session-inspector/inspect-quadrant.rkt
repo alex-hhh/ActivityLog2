@@ -35,7 +35,7 @@
          racket/match
          racket/math
          "../session-df/native-series.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 

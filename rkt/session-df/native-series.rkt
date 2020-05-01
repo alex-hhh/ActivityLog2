@@ -24,8 +24,8 @@
          racket/math
          (prefix-in ct: "../color-theme.rkt")
          "../fmt-util.rkt"
-         "../pdmodel.rkt"
-         "../sport-zone.rkt"
+         "../models/critical-power.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "series-metadata.rkt")
 

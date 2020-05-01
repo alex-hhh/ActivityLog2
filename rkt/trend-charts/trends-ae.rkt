@@ -31,7 +31,7 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")

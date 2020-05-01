@@ -35,8 +35,8 @@
          racket/vector
          "../dbutil.rkt"
          "../fmt-util.rkt"
-         "../gap.rkt"
-         "../sport-zone.rkt"
+         "../models/gap.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/map-widget/map-util.rkt"

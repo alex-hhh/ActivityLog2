@@ -24,7 +24,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../session-df/session-df.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt")
 

@@ -35,7 +35,7 @@
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
          "../session-df/xdata-series.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")

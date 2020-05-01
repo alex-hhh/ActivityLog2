@@ -31,7 +31,7 @@
          "../weather.rkt"
          "../widgets/main.rkt"
          "../widgets/map-widget/map-util.rkt"
-         "../sport-zone.rkt")
+         "../models/sport-zone.rkt")
 
 (provide inspect-overview-panel%)
 

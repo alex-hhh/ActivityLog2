@@ -25,7 +25,7 @@
          racket/match
          "../database.rkt"
          "../fmt-util.rkt"
-         "../sport-zone.rkt"
+         "../models/sport-zone.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
 

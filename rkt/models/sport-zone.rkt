@@ -25,10 +25,10 @@
          racket/format
          pict
          db
-         "dbapp.rkt"
-         "color-theme.rkt"
-         "fmt-util.rkt"
-         "fmt-util-ut.rkt")
+         "../dbapp.rkt"
+         "../color-theme.rkt"
+         "../fmt-util.rkt"
+         "../fmt-util-ut.rkt")
 
 
 ;;......................................................... sz structure ....

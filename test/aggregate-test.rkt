@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,7 +22,7 @@
          "../rkt/bavg-util.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/metrics.rkt"
-         "../rkt/pdmodel.rkt"
+         "../rkt/models/critical-power.rkt"
          "../rkt/session-df/native-series.rkt"
          "../rkt/utilities.rkt"
          "custom-test-runner.rkt")

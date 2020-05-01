@@ -3,7 +3,7 @@
 ;; supported for swimming activites.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -32,7 +32,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../metrics.rkt"
-         "../pdmodel.rkt"
+         "../models/critical-power.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt")

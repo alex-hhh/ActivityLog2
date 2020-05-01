@@ -3,7 +3,7 @@
 ;; gap.rkt -- Grade Adjusted Pace calculations
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,7 +16,7 @@
 ;; more details.
 
 (require data-frame/private/bsearch
-         "fmt-util.rkt"                ; for convert-pace->m/s, convert-m/s->pace
+         "../fmt-util.rkt"          ; for convert-pace->m/s, convert-m/s->pace
          )
 
 ;; Grade Adjusted Pace is calculated by obtaining a multiplier factor value
