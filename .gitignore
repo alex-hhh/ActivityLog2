@@ -32,4 +32,5 @@ ChangeLog
 TAGS
 flycheck_*
 test-results-*.xml
+test/test-results/
 

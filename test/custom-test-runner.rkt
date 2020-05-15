@@ -2,7 +2,7 @@
 ;; custom-test-runner.rkt -- run tests and report the results in JUnit format
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -169,8 +169,19 @@
 ;; Convert a list of test suite results (tsr struct instances) to an XEXPR in
 ;; JUnit test result format.
 (define (tsrs->junit-xepr tsrs package)
+  (define-values (total failures errors skipped duration)
+    (for/fold ([t 0] [f 0] [e 0] [s 0] [d 0])
+              ([result (in-list tsrs)])
+      (match-define (tsr name timestamp duration total failures errors skipped results) result)
+      (values (+ t total) (+ f failures) (+ e errors) (+ s skipped) (+ d duration))))
   `(testsuites
-    ()
+    ((name ,package)
+     (tests ,(~a total))
+     (failures ,(~a failures))
+     (errors ,(~a errors))
+     (skipped ,(~a skipped))
+     ;; NOTE: time needs to be in seconds
+     (time ,(~a (/ duration 1000.0))))
     ,@(for/list ([(tsr id) (in-indexed (reverse tsrs))])
         (tsr->junit-xexpr tsr package id))))
 

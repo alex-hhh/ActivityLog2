@@ -561,8 +561,8 @@ where S.id = CPFS.session_id
    ))
 
 (module+ test
-  (run-tests #:package "db-tests"
-             #:results-file "test-results-db.xml"
+  (run-tests #:package "db-test"
+             #:results-file "test-results/db-test.xml"
              db-tests))
 
 ;;(test/gui db-tests)

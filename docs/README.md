@@ -1,4 +1,4 @@
-# Running the application from source
+# Running the Application From Source
 
 Before you can build or run the application, you will need to install some
 packages that ActivityLog2 depends on, on the command line run the following
@@ -10,17 +10,19 @@ command:
 catalog to pick up packages from the pkgs folder, see the `Building
 ActivityLog2` section below.
 
-After that, the simplest way to run ActivityLog2 from source is to start
-DrRacket, open the file "run.rkt" and click on the "Run" button, or press
-"Ctrl-R". You can also run ActivityLog2 from the command line using the
-following command:
+With dependencies installed, the simplest way to run ActivityLog2 from source
+is to start DrRacket, open the file "run.rkt" and click on the "Run" button,
+or press "Ctrl-R". You can also run ActivityLog2 from the command line using
+the following command:
 
     racket run.rkt
 
-The above will take a long time, especially the first time it is run.  You can
-also build a standalone distribution, see below.
+Running the command above may take a long time for the application to start
+up, especially the first time it is run.  You can also build a standalone
+distribution, which will start faster.  For details on how to do that,
+continue reading.
 
-# Building a stand alone distribution
+# Building a Stand Alone Distribution
 
 ## Prerequisites
 
@@ -31,13 +33,13 @@ This can be downloaded from "http://racket-lang.org/".  ActivityLog2 is build
 and tested using the latest Racket version and previous versions may or may
 not work.
 
-### Installer (optional)
+### Installer (Windows only, and optional)
 
 For creating a Windows installer, see the documentation in the [scripts
 folder](../etc/scripts/README.md), this is not needed if you only want to
 build and run the application on your local machine.
 
-## API Keys for web services
+## API Keys for Web Services
 
 ActivityLog2 uses web services for some of the functionality.  Currently two
 services are used: [DarkSky.net](https://www.darksky.com/) is used to retrieve
@@ -62,27 +64,39 @@ development and they will also be embedded in any built executable.
 ## Building ActivityLog2
 
 ActivityLog2 depends on some additional packages and the official ActivityLog2
-build has them version controlled in the "pkgs/" folder.  After you cloned
-this repository, you will need to update the submodules using the commands:
+build has these under version control in the "pkgs/" sub-folder and will need
+to be installed before building or running the application.  Once installed
+these packages will be available for all Racket programs (Unfortunately,
+Racket has no concept of virtual environments for packages.)
+
+You don't need to install dependencies as outlined below.  If you want, you
+can install the following packages directly from the racket package catalog:
+`tzinfo`, `tzgeolookup`, `data-frame`, `plot-container` and
+`gui-widget-mixins`.  If you go this route, you may not have the exact
+versions which are used by ActivityLog2, and may encounter problems.
+
+**Update Submodules** after you cloned this repository, you will need to
+update the submodules using the commands:
 
     git submodule update --init --recursive
 
-After than you will need to add the pkgs folder to the list of Racket catalogs
-by running the command below:
+**Setup Package Catalog** next, you will need to add the "pkgs/" sub-folder to
+the list of Racket catalogs by running the command below:
 
-    sh etc/scripts/setup-catalog.sh pkgs/
+    bash etc/scripts/setup-catalog.sh pkgs/
 
-The above step is not necessary for casual use, as the packages are also
-available in the standard package catalog, but some of the packages might
-contain additional fixes and updates which are not available in the official
-package catalog yet.
+**Install Dependencies** Once the catalog is set up, you will need to install
+dependencies:
 
-You will need to install the dependent packages:
+    raco pkg install --auto al2-dependencies
 
-    raco pkg install --auto tzinfo tzgeolookup data-frame plot-container
+**Build Or Run the Application** Once the packages are set up, you can run the
+application using the following command:
 
-An ActivityLog2 executable and an installer can be built from the command line
-by typing the command below:
+    racket run.rkt
+
+... or build the ActivityLog2 executable and an installer using the following
+command:
 
     racket build.rkt
 
@@ -110,7 +124,7 @@ Note that if compiled files are present, racket will not re-compile modified
 files, you will need to recompile them explicitly, otherwise you will
 encounter load errors when trying to run ActivityLog2.
 
-## Some other notes in separate documents
+## Some Other Notes in Separate Documents
 
 * [database.md](./database.md) describes how data is stored and used by the
   application
@@ -142,12 +156,12 @@ The file "version.txt" contains the current version number, without the BUILD
 part (e.g. 1.8.99), and the build script picks up the version from this file
 -- when changing version numbers, this is the only file that should change.
 
-## Test suite
+## Test Suite
 
-ActivityLog2 has a test suite, this runs on Travis, each time data is pushed
-to a branch or a pull request is created.  The main aim of the test suite is
-to ensure that the application builds and packages cleanly and that the data
-storage and basic data operations work.
+ActivityLog2 has a test suite, this runs on Azure Pipelines, each time data is
+pushed to a branch or a pull request is created.  The main aim of the test
+suite is to ensure that the application builds and packages cleanly and that
+the data storage and basic data operations work.
 
 Tests can also be run manually using the following commands:
 
@@ -206,7 +220,7 @@ will run slow:
 
     racket -l errortrace -t run.rkt
 
-### Tracing function calls
+### Tracing Function Calls
 
 The [rkt/al-profiler.rkt](../rkt/al-profiler.rkt) module contains definitions
 which allow tracing individual function calls.  It is more practical than the

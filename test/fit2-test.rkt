@@ -2,7 +2,7 @@
 ;; fit2-test.rkt -- tests for reading fit files
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -42,5 +42,5 @@
 
 (module+ test
   (run-tests #:package "fit2-test"
-             #:results-file "test-results-fit2.xml"
+             #:results-file "test-results/fit2-test.xml"
              fit-device-name-tests))

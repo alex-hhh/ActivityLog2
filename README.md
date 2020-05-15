@@ -4,8 +4,6 @@
 
 [![Build Status](https://dev.azure.com/alexharsanyi0641/ActivityLog2/_apis/build/status/alex-hhh.ActivityLog2?branchName=master)](https://dev.azure.com/alexharsanyi0641/ActivityLog2/_build/latest?definitionId=1&branchName=master)
 
-[![Build Status](https://travis-ci.org/alex-hhh/ActivityLog2.svg?branch=master)](https://travis-ci.org/alex-hhh/ActivityLog2)
-
 Import swim, bike and run and other activities from .FIT files.  Display
 plots, scatter plots, histograms, maps and other views for activities.  Show
 reports and trends from activity data and track equipment usage.

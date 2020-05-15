@@ -29,6 +29,7 @@
          "../rkt/dbapp.rkt"
          "../rkt/session-df/hrv.rkt"
          "../rkt/fmt-util.rkt"
+         "../rkt/fmt-util-ut.rkt"
          "../rkt/database.rkt")
 
 (provide/contract
@@ -42,9 +43,12 @@
  (all-from-out data-frame)
  (all-from-out "../rkt/session-df/hrv.rkt")
  (all-from-out "../rkt/fmt-util.rkt")
+ (all-from-out "../rkt/fmt-util-ut.rkt")
  (all-from-out "../rkt/session-df/session-df.rkt")
  (all-from-out "../rkt/dbapp.rkt")
  (all-from-out "../rkt/utilities.rkt"))
+
+(set-dbglog-to-standard-output #t)
 
 
 ;;.............................................................. prelude ....

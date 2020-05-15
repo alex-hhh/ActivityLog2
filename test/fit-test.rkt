@@ -415,8 +415,8 @@ select count(*)
   ;; purposes.
   (set-dbglog-to-standard-output #f)
 
-  (run-tests #:package "fit-files"
-             #:results-file "test-results-fit-files.xml"
+  (run-tests #:package "fit-test"
+             #:results-file "test-results/fit-test.xml"
              ;; #:only '(("FIT file reading" "f0032.fit"))
              fit-files-test-suite))
 

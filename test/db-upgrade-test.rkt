@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -75,7 +75,7 @@
        (test-upgrade db)))))
 
 (module+ test
-  (run-tests #:package "db-upgrade"
-             #:results-file "test-results-db-upgrade.xml"
+  (run-tests #:package "db-upgrade-test"
+             #:results-file "test-results/db-upgrade-test.xml"
              db-upgrade-test-suite))
 

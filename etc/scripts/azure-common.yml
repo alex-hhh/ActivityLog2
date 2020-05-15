@@ -7,7 +7,7 @@ steps:
       # We use the -i (isolation mode) here to catch any dependencies that
       # might not be tracked as submodules...
       bash ./etc/scripts/setup-catalog.sh -i pkgs/
-      raco pkg install --auto tzinfo tzgeolookup data-frame plot-container gui-widget-mixins
+      raco pkg install --batch --no-docs --auto al2-dependencies
     displayName: Setup package catalog and install packages
 
   - script: racket build.rkt
@@ -49,52 +49,17 @@ steps:
   - script: raco test test/fit2-test.rkt
     displayName: Basic FIT file decoding tests (fit2-test)
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: 'test/test-results-fit2.xml'
-      testRunTitle: 'fit2-test on $(Agent.OS)'
-    displayName: Publish Test Results (fit2-test)
-
   - script: raco test test/db-test.rkt
     displayName: Test Database Import (db-test)
-
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: 'test/test-results-db.xml'
-      testRunTitle: 'db-test on $(Agent.OS)'
-    displayName: Publish Test Results (db-test)
 
   - script: raco test test/db-upgrade-test.rkt
     displayName: Test Database Upgrade (db-upgrade-test)
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: 'test/test-results-db-upgrade.xml'
-      testRunTitle: 'db-upgrade-test on $(Agent.OS)'
-    displayName: Publish Test Results (db-upgrade-test)
-
   - script: raco test test/trends-test.rkt
     displayName: Test Trends Chart (trends-test)
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: 'test/test-results-trend-charts.xml'
-      testRunTitle: 'trends-test on $(Agent.OS)'
-    displayName: Publish Test Results (trends-test)
-
   - script: raco test test/aggregate-test.rkt
     displayName: Test Agregate Data (aggregate-test)
-
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: 'test/test-results-aggregate.xml'
-      testRunTitle: 'aggregate-test on $(Agent.OS)'
-    displayName: Publish Test Results (aggregate-test)
 
   - script: raco test test/fit-test.rkt
     displayName: Test File Import (fit-test)
@@ -102,6 +67,7 @@ steps:
   - task: PublishTestResults@2
     condition: succeededOrFailed()
     inputs:
-      testResultsFiles: 'test/test-results-fit-files.xml'
-      testRunTitle: 'fit-test on $(Agent.OS)'
-    displayName: Publish Test Results (fit-test)
+      testResultsFiles: 'test/test-results/*.xml'
+      testRunTitle: 'AL2 Tests on $(Agent.OS)'
+      mergeTestResults: true
+    displayName: Publish Test Results

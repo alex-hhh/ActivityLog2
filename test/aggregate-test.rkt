@@ -190,6 +190,6 @@
          (if db (check-hist 5 17 year axis) (skip-test)))))))
 
 (module+ test
-  (run-tests #:package "aggregate"
-             #:results-file "test-results-aggregate.xml"
+  (run-tests #:package "aggregate-test"
+             #:results-file "test-results/aggregate-test.xml"
              aggregate-test-suite))

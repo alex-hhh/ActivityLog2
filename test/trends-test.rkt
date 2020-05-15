@@ -680,7 +680,7 @@
    ))
 
 (module+ test
-  (run-tests #:package "trend-charts"
-             #:results-file "test-results-trend-charts.xml"
+  (run-tests #:package "trends-test"
+             #:results-file "test-results/trends-test.xml"
              trend-charts-test-suite))
 
