@@ -49,6 +49,9 @@ steps:
   - script: raco test test/fit2-test.rkt
     displayName: Basic FIT file decoding tests (fit2-test)
 
+  - script: raco test test/fthr-test.rkt
+    displayName: FTHR Tests (fthr-test)
+
   - script: raco test test/db-test.rkt
     displayName: Test Database Import (db-test)
 

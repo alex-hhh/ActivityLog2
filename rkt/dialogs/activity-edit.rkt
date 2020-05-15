@@ -38,7 +38,8 @@
  "edit-session-tss.rkt"
  "edit-session-weather.rkt"
  "edit-lap-swim.rkt"
- "../elevation-correction.rkt")
+ "../elevation-correction.rkt"
+ "fthr-analysis.rkt")
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)
@@ -98,10 +99,11 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define (on-demand m)
       (send target before-popup)
       ;; Enable/disable appropiate menus
-      (let ((sid (and target (send target get-selected-sid)))
-            (have-sid? (and target (number? (send target get-selected-sid))))
-            (have-guid? (and target (string? (send target get-selected-guid))))
-            (is-lap-swim? (and target (equal? (send target get-selected-sport) '(5 . 17)))))
+      (let* ((sport (and target (send target get-selected-sport)))
+             (sid (and target (send target get-selected-sid)))
+             (have-sid? (and target (number? (send target get-selected-sid))))
+             (have-guid? (and target (string? (send target get-selected-guid))))
+             (is-lap-swim? (and target (equal? sport '(5 . 17)))))
         (send inspect-menu-item enable (and have-sid? the-inspect-callback))
         (send edit-menu-item enable have-sid?)
         (send fixup-elevation-menu-item enable have-sid?)
@@ -116,7 +118,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         ;; TODO: we need to enable it only if there's an actual file to export.
         (send export-original-menu-item enable have-sid?)
         (send export-csv-menu-item enable have-sid?)
-        (send export-gpx-menu-item enable have-sid?)))
+        (send export-gpx-menu-item enable have-sid?)
+        ;; FTHR analysis is only available for bike and run activities
+        (send fthr-menu-item enable (and have-sid? sport (member (car sport) '(1 2))))))
 
     (define (on-popdown m e)
       (send target after-popdown))
@@ -284,6 +288,12 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
                              toplevel '(ok stop)))))))
 
+    (define (on-fthr-analysis m e)
+      (let ((sid (send target get-selected-sid))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (show-fthr-analisys-dashboard toplevel db sid)))
+
     (define (switch-to-view m e)
       (send target switch-to-view))
 
@@ -309,6 +319,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Inspect ..." on-inspect))
     (define edit-menu-item
       (make-menu-item "Edit ..." on-edit #\E))
+    (define fthr-menu-item
+      (make-menu-item "FTHR Analysis ..." on-fthr-analysis))
+    (new separator-menu-item% [parent the-menu])
     (define fixup-elevation-menu-item
       (make-menu-item "Fixup elevation ..." on-fixup-elevation))
     (define clear-elevation-menu-item
