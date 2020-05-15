@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(32);
+insert into SCHEMA_VERSION(version) values(33);
 
 
 --........................................................ Enumerations ....
@@ -614,6 +614,24 @@ create view V_SPORT_ZONE_FOR_SESSION as
                  where S.sport_id = VSZ2.sport_id
                    and S.sub_sport_id = VSZ2.sub_sport_id
                    and S.start_time between VSZ2.valid_from and VSZ2.valid_until)));
+
+-- Stores the session which was used to determine a sport zone.  E.g. a time
+-- trial, FTP or FTHR session can be used to determine pace, heart rate or
+-- power zones.  That session can be linked to the zones it determined using
+-- this table.  This is used for code which automatically determines sport
+-- zones, currently FTHR analysis does that and this table is used to
+-- determine if the sport zones from a FTHR session have already been set.
+--
+-- WARNING: this table does not hold the sport zone which applies to a
+-- session, see V_SPORT_ZONE_FOR_SESSION instead.
+create table SPORT_ZONE_SOURCE (
+  zone_id integer not null,
+  session_id integer not null,
+
+  foreign key (zone_id) references SPORT_ZONE(id) on delete cascade,
+  foreign key (session_id) references A_SESSION(id) on delete cascade
+);
+
 
 -- List the sport zones in a user friendly format (dereferencing sport names
 -- and metric names and adding the number of sessions that use each zone

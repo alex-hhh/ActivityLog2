@@ -2,7 +2,7 @@
 ;; dbapp.rkt -- open the application database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -49,9 +49,10 @@
 (define-runtime-path p30-file "../sql/migrations/p30-xdata.sql")
 (define-runtime-path p31-file "../sql/migrations/p31-named-zones.sql")
 (define-runtime-path p32-file "../sql/migrations/p32-time-zone.sql")
+(define-runtime-path p33-file "../sql/migrations/p33-szsource.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 32)
+(define (schema-version) 33)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -69,7 +70,8 @@
    28 p29-file
    29 p30-file
    30 p31-file
-   31 p32-file))
+   31 p32-file
+   32 p33-file))
 
 (define the-current-database #f)
 
