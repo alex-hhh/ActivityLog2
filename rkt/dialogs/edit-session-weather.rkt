@@ -2,7 +2,7 @@
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -186,10 +186,11 @@
                               "Unknown error while fetching weather"))
                     (send fetch-weather-button enable #t))))))
              (let ((observations (get-daily-observations-for-session db sid)))
-               (queue-callback
-                (lambda ()
-                  (send fetch-weather-button enable #t)
-                  (setup-observations observations)))))))))
+               (when observations ; will be #f if weather data download is disabled
+                 (queue-callback
+                  (lambda ()
+                    (send fetch-weather-button enable #t)
+                    (setup-observations observations))))))))))
 
     (define (on-observation-selected index)
       (setup-weather-fields (list-ref observations index) #t))
@@ -362,7 +363,7 @@ from SESSION_WEATHER where session_id =?" sid)))
 
     (define/public (begin-edit parent database session-id)
       (clear-weather-fields)
-      (send fetch-weather-button enable #t)
+      (send fetch-weather-button enable (and (allow-weather-download) (ds-api-key)))
       (set! db database)
       (set! sid session-id)
 
