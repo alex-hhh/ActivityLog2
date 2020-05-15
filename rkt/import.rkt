@@ -2,7 +2,7 @@
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -167,7 +167,7 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
           begin-stage "Updating metrics for new sessions" (length sessions)))
   (for ((sid (in-list sessions))
         (n (in-range (length sessions))))
-    (update-time-in-zone-data sid db)
+    (update-some-session-metrics sid db)
     (when progress-monitor
       (send progress-monitor set-progress (+ n 1)))))
 

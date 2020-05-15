@@ -2,7 +2,7 @@
 ;; time-in-zone.rkt -- time spent in each sport zone for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,14 +20,15 @@
          racket/class
          racket/match
          racket/math
+         racket/runtime-path
+         racket/contract
+         racket/gui
          "dialogs/edit-session-tss.rkt"
          "session-df/hrv.rkt"
          "session-df/session-df.rkt"
          "utilities.rkt"
-         "widgets/main.rkt")
-
-(provide update-time-in-zone-data)
-(provide interactive-update-time-in-zone-data)
+         "widgets/main.rkt"
+         "dbutil.rkt")
 
 (define (decoupling df s1 s2 #:start (start 0) #:stop (stop (df-row-count df)))
   (let ((half-point (exact-truncate (/ (+ start stop) 2))))
@@ -134,10 +135,22 @@ select P.id
  where P.session_id = ?
  order by P.start_time")))
 
-;; Update the TIME_IN_ZONE table with data for a session.  Both heart rate and
-;; power zones are updated (if available).  Previous data for this session is
-;; deleted.
-(define (update-time-in-zone-data sid db)
+;; Update some derived metrics for the session SID.  The following are
+;; updated:
+;;
+;; * TIME_IN_ZONE data (previous one, if exists, is deleted first)
+;;
+;; * Session TSS (only if the session does not already have one)
+;;
+;; * The Aerobic Decoupling field for the entire session and each individual
+;;   lap
+;;
+;; * HRV for the entire session, if the session has HRV data,
+;;
+;; NOTE: This function is called for sessions that have been freshly imported,
+;; and should probably be moved in import.rkt.
+;;
+(define (update-some-session-metrics sid db)
   (let* ((session (session-df db sid))
          (sport (df-get-property session 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
@@ -191,9 +204,14 @@ select P.id
 
     ))
 
-;; Update the time in zone information for all sessions in the database.
-;; Provides a progress bar and allows the user to cancel the operation.
-(define (interactive-update-time-in-zone-data database [parent-window #f])
+;; Update some session metrics (by calling `update-some-session-metrics` for
+;; all the sessions in the database.  This displays a dialog box allowing the
+;; user to select "begin" to start the update (the user may also cancel, in
+;; which case the update is canceled, with partial progress only).  This is
+;; intended to be used from the "Tools" menu of AL2, and should not normally
+;; be needed, since the application keeps this data consistent -- it might be
+;; useful if the user modifies the database outside the application.
+(define (update-tiz/interactive database [parent-window #f])
 
   (define progress-dialog
     (new progress-dialog%
@@ -216,7 +234,96 @@ select P.id
           (lambda (e)                   ; log the exception, than propagate it
             (dbglog "while updating session ~a: ~a" sid e)
             (raise e))))
-        (update-time-in-zone-data sid database)))
+        (update-some-session-metrics sid database)))
     (dbglog "interactive-update-time-in-zone-data complete"))
 
   (send progress-dialog run parent-window task))
+
+
+(define-runtime-path tiz-outdated-query-file "../sql/queries/tiz-outdated.sql")
+(define tiz-outdated-sql (define-sql-statement tiz-outdated-query-file))
+
+;; Return a list of session ID's that had their sport zones changed when we
+;; changed validity times for the sport zones.  The TIME_IN_ZONE data for
+;; these sessions will have to be updated.
+(define (get-tiz-outdated-sessions db)
+  (query-list db (tiz-outdated-sql)))
+
+;; Update metrics by calling `update-some-session-metrics` for each of the
+;; session id in SESSIONS.  This pops up a dialog box showing progress, but
+;; does not wait for the user to click any button, the process will start as
+;; soon as the dialog box is shown.
+;;
+;; This function is intended to be used by code which modifies sport zones and
+;; need to update the affected sessions.  See also `get-tiz-outdated-sessions`
+;; to determine which sessions need to be updated.
+;;
+(define (update-tiz-for-sessions/interactive sessions database parent-window)
+
+  (define frame #f)
+  (define message-field #f)
+  (define progress-bar #f)
+  (define last-msg #f)
+  (define title "Updating Sessions")
+
+  (define (cb msg crt max)
+    ;; Setting the same message causes it to flicker.  Avoid doing that.
+    (when (and msg (not (equal? last-msg msg)))
+      (set! last-msg msg)
+      (send message-field set-label msg))
+    (when (and crt max)
+      (let ((new-progress (exact-round (* 100 (/ crt max)))))
+        (send progress-bar set-value new-progress))))
+
+  (define (task-thread)
+    (with-handlers
+      (((lambda (e) #t)
+        (lambda (e) (dbglog-exception "interactive-update-time-in-zone" e))))
+      (dbglog "interactive-update-time-in-zone started")
+      (define num-sessions (length sessions))
+      (for ([(sid n) (in-indexed sessions)])
+        (with-handlers
+          (((lambda (e) #t)
+            (lambda (e)                   ; log the exception, than propagate it
+              (dbglog "while updating session ~a: ~a" sid e)
+              (raise e))))
+          (update-some-session-metrics sid database)
+          (cb (format "Updating session ~a" sid) n num-sessions)))
+      (dbglog "interactive-update-time-in-zone completed")
+      (send frame show #f)))
+
+  (set! frame (new
+               (class dialog%
+                 (super-new)
+                 (define/override (on-superwindow-show show?)
+                   (thread/dbglog
+                    #:name "interactive-update-time-in-zone"
+                    task-thread)))
+               [width 400] [height 250]
+               [parent parent-window]
+               [stretchable-width #f] [stretchable-height #f]
+               [label title]))
+  (let ((pane (make-horizontal-pane frame)))
+    (send pane border 20)
+    (new message% [parent pane] [label (sql-export-icon)]
+         [stretchable-height #f] [stretchable-width #f])
+    (let ((p2 (make-vertical-pane pane)))
+      (set! message-field (new message% [parent p2] [label ""] [min-width 200]))
+      (set! progress-bar (new gauge% [parent p2] [label ""] [range 100]))))
+  (send progress-bar set-value 0)
+  (send frame show #t)      ; on-superwindow-show will start the update thread
+  (void))
+
+
+;;............................................................. provides ....
+
+(provide/contract
+ (get-tiz-outdated-sessions (-> connection? (listof exact-nonnegative-integer?)))
+ (update-some-session-metrics (-> exact-nonnegative-integer? connection? any/c))
+ (update-tiz-for-sessions/interactive (-> (listof exact-nonnegative-integer?)
+                                          connection?
+                                          (or/c (is-a?/c frame%) (is-a?/c dialog%) #f)
+                                          any/c))
+ (update-tiz/interactive (-> connection?
+                             (or/c (is-a?/c frame%) (is-a?/c dialog%) #f)
+                             any/c)))

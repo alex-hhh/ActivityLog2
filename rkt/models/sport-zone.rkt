@@ -26,6 +26,7 @@
          pict
          db
          "../dbapp.rkt"
+         "../dbutil.rkt"
          "../color-theme.rkt"
          "../fmt-util.rkt"
          "../fmt-util-ut.rkt")
@@ -212,6 +213,112 @@ select id, max(valid_from) from SPORT_ZONE
 (define (zone->label zone)
   (define index (max 0 (min (sub1 (vector-length zone-labels)) (exact-truncate zone))))
   (vector-ref zone-labels index))
+
+
+;;................................. insert sport zones into the database ....
+
+;; Store the sport zones Z in the database DB.  If these sport zones were
+;; fetched from the database, that is `sz-id` is not #f, the old zones are
+;; completely deleted and a new set of zones are inserted in the database.
+;; The ID if the SPORT_ZONE entry is returned.
+;;
+;; The behavior if `put-sport-zones` when the zones are fetched from the
+;; database is unusual and by default, it will raise an error if sport zones
+;; are stored back in the database.  The EXISTS parameter controls whether to
+;; replace sport zones or not (i.e. delete previous zones).  It should be set
+;; to 'replace if the caller wants to replace existing sport zones.
+(define (put-sport-zones z #:database (db (current-database))
+                         #:exists (exists 'error))
+  (when (and (sz-id z) (equal? exists 'error))
+    (error (format "put-sport-zones: cowardly refusing to replace existing sport zones")))
+  (call-with-transaction
+   db
+   (lambda ()
+     ;; Delete existing sport zones first, we never actually update sport
+     ;; zones, instead we delete an entry and create a new one instead.
+     (when (sz-id z)
+       (delete-sport-zones z #:database db))
+     (match-define (sz sport sub-sport metric boundaries names _c valid-from _u _id) z)
+     (query-exec
+      db
+      "insert into SPORT_ZONE (
+         sport_id, sub_sport_id, zone_metric_id, valid_from)
+       values (?, ?, ?, ?)"
+      sport (or sub-sport sql-null) (metric->id metric) valid-from)
+     (define zid (db-get-last-pk "SPORT_ZONE" db))
+     (for ([(boundary number) (in-indexed (in-vector boundaries))]
+           [name (in-vector names)])
+       (query-exec db
+                   "insert into SPORT_ZONE_ITEM (
+                      sport_zone_id, zone_number, zone_name, zone_value)
+                    values(?, ?, ?, ?)" zid number name boundary))
+     zid)))
+
+
+;;................................................. deleting sport zones ....
+
+;; Delete the sport zones Z (either a sz structure or the database id of a
+;; SPORT_ZONE entry) from the database DB.  Nothing will be done if the Z
+;; structure has #f as the ID, for example when it was created by
+;; `sport-zones-from-threshold`
+(define (delete-sport-zones z #:database (db (current-database)))
+  (define id (if (sz? z) (sz-id z) z))
+  (when id
+    (call-with-transaction
+     db
+     (lambda ()
+       ;; Not technically part of the "sport zone" itself, but TIME_IN_ZONE
+       ;; data for this sport zone must be deleted -- once we do this, some
+       ;; sessions might miss their TIME_IN_ZONE data, the time-in-zone.rkt
+       ;; has functions to re-construct data for sessions which need it, and
+       ;; any program which deletes sport zones will need to deal with that
+       ;; problem.
+       (query-exec db "delete from TIME_IN_ZONE where sport_zone_id = ?" id)
+       (query-exec db "delete from SPORT_ZONE_ITEM where sport_zone_id = ?" id)
+       (query-exec db "delete from SPORT_ZONE where id = ?" id)))))
+
+
+;;.......................................... threshold based sport zones ....
+
+;; Create sport zones from a threshold value (zones are defined as percentages
+;; of the threshold value)
+;;
+;; SPORT, SUB-SPORT define the sport for which the zones apply
+;;
+;; METRIC is one of the zone metrics ('heart-rate, 'pace or 'power)
+;;
+;; THRESHOLD is the threshold value (such as Threshold Heart Rate, Threshold
+;; Pace, or FTP)
+;;
+;; ZONE-DEFINITIONS is a list of percentages of the Threshold value which are
+;; used to define the zones.  Each item in the list is a list of 3 elements:
+;; the zone name, the definition type ('absolute or 'percent) and the absolute
+;; or percent value to be used for that zone.
+
+(define (sport-zones-from-threshold
+         sport sub-sport metric threshold zone-definitions
+         #:valid-from (valid-from (current-seconds)))
+  (define boundaries
+    (for/vector ([item (in-list zone-definitions)])
+      (match-define (list name type factor) item)
+      (let ((value (if (equal? type 'absolute) factor (* factor threshold))))
+        (exact->inexact value))))
+  (define names
+    (for/vector ([item (in-list zone-definitions)])
+      (match-define (list name type factor) item)
+      name))
+  (define colors (for/vector ([color (in-list (zone-colors))]
+                              [index (in-range (vector-length boundaries))])
+                   (cdr color)))
+  (sz sport
+      sub-sport
+      metric
+      boundaries
+      names
+      colors
+      valid-from
+      #f
+      #f))
 
 
 ;;................................................. formatting utilities ....
@@ -488,13 +595,14 @@ select id, max(valid_from) from SPORT_ZONE
 
 ;;............................................................. provides ....
 
+(define zone-metric/c (or/c 'heart-rate 'pace 'power))
+
 (provide (struct-out sz))
 (provide/contract
  (metric->id (-> symbol? exact-nonnegative-integer?))
  (id->metric (-> exact-nonnegative-integer? symbol?))
 
- (sport-zones-for-session (->* (exact-nonnegative-integer?
-                                (or/c 'heart-rate 'pace 'power))
+ (sport-zones-for-session (->* (exact-nonnegative-integer? zone-metric/c)
                                (#:database connection?)
                                (or/c #f sz?)))
  (all-sport-zones-for-session (->* (exact-nonnegative-integer?)
@@ -502,15 +610,31 @@ select id, max(valid_from) from SPORT_ZONE
                                    (listof sz?)))
  (sport-zones-for-sport (->* (exact-nonnegative-integer?
                               (or/c #f exact-nonnegative-integer?)
-                              (or/c 'heart-rate 'pace 'power))
+                              zone-metric/c)
                              (#:database connection?)
                              (or/c #f sz?)))
+
+ (sport-zones-from-threshold (->* (exact-nonnegative-integer?
+                                   (or/c #f exact-nonnegative-integer?)
+                                   zone-metric/c
+                                   (and/c real? positive?)
+                                   (listof (list/c string? (or/c 'absolute 'percent) real?)))
+                                  (#:valid-from exact-positive-integer?)
+                                  sz?))
+
  (value->zone (-> sz? real? real?))
  (value->pct-of-max (-> sz? real? real?))
  (zone->zone-name (-> sz? real? string?))
  (zone->label (-> real? symbol?))
  (sz-count (-> sz? exact-integer?))
 
+ (delete-sport-zones (->* ((or/c sz? exact-nonnegative-integer?))
+                          (#:database connection?)
+                          any/c))
+ (put-sport-zones (->* (sz?)
+                       (#:database connection?
+                        #:exists (or/c 'replace 'error))
+                       exact-nonnegative-integer?))
  (heart-rate->string/bpm (-> real? string?))
  (heart-rate->string/pct (-> real? sz? string?))
  (heart-rate->string/zone (-> real? sz? string?))

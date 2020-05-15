@@ -2,7 +2,7 @@
 ;; edit-sz.rkt -- Edit the Sport Zones stored in the database
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../sport-charms.rkt"
+         "../models/sport-zone.rkt"
          "../time-in-zone.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
@@ -370,98 +371,22 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
        ("VO2 Max" #f)
        ("Maximum" #f)))))
 
-(define (delete-sport-zone db zone-id)
-  (query-exec db "delete from TIME_IN_ZONE where sport_zone_id = ?" zone-id)
-  (query-exec db "delete from SPORT_ZONE_ITEM where sport_zone_id = ?" zone-id)
-  (query-exec db "delete from SPORT_ZONE where id = ?" zone-id))
-
 (define (put-sport-zone db sport zmetric valid-from zones)
-  (when (> (length zones) 3)
-    (query-exec db
-                "insert into SPORT_ZONE(sport_id, sub_sport_id, zone_metric_id, valid_from)
-                    values (?, ?, ?, ?)"
-                sport sql-null zmetric valid-from)
-    (let ((zid (db-get-last-pk "SPORT_ZONE" db)))
-      (for ([(zdef znum) (in-indexed zones)])
-        (match-define (list text zone) zdef)
-        (query-exec db
-                    "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_name, zone_value)
-                      values(?, ?, ?, ?)" zid znum text zone)))))
+  (define z (sz sport #f
+                (id->metric zmetric)
+                (for/vector ([b (in-list zones)])
+                  (match-define (list name boundary) b)
+                  boundary)
+                (for/vector ([b (in-list zones)])
+                  (match-define (list name boundary) b)
+                  name)
+                (for/vector ([n (in-range (length zones))])
+                  (make-object color% n n n))
+                valid-from
+                #f                      ; valid until
+                #f))
+  (put-sport-zones z #:database db))
 
-;; Return a list of session ID's that had their sport zones changed when we
-;; changed validity times for the sport zones.  The TIME_IN_ZONE data for
-;; these sessions will have to be updated.
-(define (get-modified-sessions db)
-  (query-list
-   db
-   ;; distinct is needed because we might get duplicates when both the HR and
-   ;; power/pace zones change for an activity.  Also, we only look for HR and
-   ;; POWER zones (1 and 3), as these are the only ones for which we calculate
-   ;; TIME_IN_ZONE data
-   "select distinct VSZFS.session_id
-  from V_SPORT_ZONE_FOR_SESSION VSZFS
- where VSZFS.zone_metric_id in (1, 3)
-   and not exists(select * from TIME_IN_ZONE TIZ
-                   where TIZ.session_id = VSZFS.session_id
-                     and TIZ.sport_zone_id = VSZFS.zone_id)"))
-
-;; Update time in zone data for SESSIONS.  Displays a progress window to keep
-;; the user informed.
-(define (interactive-update-time-in-zone sessions database parent-window)
-
-  (define frame #f)
-  (define message-field #f)
-  (define progress-bar #f)
-  (define last-msg #f)
-  (define title "Updating Sessions")
-
-  (define (cb msg crt max)
-    ;; Setting the same message causes it to flicker.  Avoid doing that.
-    (when (and msg (not (equal? last-msg msg)))
-      (set! last-msg msg)
-      (send message-field set-label msg))
-    (when (and crt max)
-      (let ((new-progress (exact-round (* 100 (/ crt max)))))
-        (send progress-bar set-value new-progress))))
-
-  (define (task-thread)
-    (with-handlers
-      (((lambda (e) #t)
-        (lambda (e) (dbglog-exception "interactive-update-time-in-zone" e))))
-      (dbglog "interactive-update-time-in-zone started")
-      (define num-sessions (length sessions))
-      (for ([(sid n) (in-indexed sessions)])
-        (with-handlers
-          (((lambda (e) #t)
-            (lambda (e)                   ; log the exception, than propagate it
-              (dbglog "while updating session ~a: ~a" sid e)
-              (raise e))))
-          (update-time-in-zone-data sid database)
-          (cb (format "Updating session ~a" sid) n num-sessions)))
-      (dbglog "interactive-update-time-in-zone completed")
-      (send frame show #f)))
-
-  (set! frame (new
-               (class dialog%
-                 (super-new)
-                 (define/override (on-superwindow-show show?)
-                   (thread/dbglog
-                    #:name "interactive-update-time-in-zone"
-                    task-thread)))
-               [width 400] [height 250]
-               [parent parent-window]
-               [stretchable-width #f] [stretchable-height #f]
-               [label title]))
-  (let ((pane (make-horizontal-pane frame)))
-    (send pane border 20)
-    (new message% [parent pane] [label (sql-export-icon)]
-         [stretchable-height #f] [stretchable-width #f])
-    (let ((p2 (make-vertical-pane pane)))
-      (set! message-field (new message% [parent p2] [label ""] [min-width 200]))
-      (set! progress-bar (new gauge% [parent p2] [label ""] [range 100]))))
-  (send progress-bar set-value 0)
-  (send frame show #t)      ; on-superwindow-show will start the update thread
-  (void))
 
 (define edit-sz-dialog%
   (class edit-dialog-base%
@@ -588,7 +513,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                          zones)
                    => (lambda (zones)
                         (maybe-start-transaction)
-                        (delete-sport-zone database (sz-id data))
+                        (delete-sport-zones (sz-id data) #:database database)
                         (put-sport-zone database sport metric (car zones) (cdr zones))
                         (refresh-contents))))))))
     
@@ -600,7 +525,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
         (when selected-row
           (let ((data (send szlb get-data-for-row selected-row)))
             (maybe-start-transaction)
-            (delete-sport-zone database (sz-id data))
+            (delete-sport-zones (sz-id data) #:database database)
             (refresh-contents)))))
 
     (define cdefs (make-sz-columns))
@@ -620,7 +545,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 
     ;; Show a confirmation dialog if too many sessions need to be updated.
     ;; There is a bit of heuristic here: some sessions will always show up in
-    ;; the GET-MODIFIED-SESSIONS, usually because they don't have any HR/POWER
+    ;; the GET-TIZ-OUTDATED-SESSIONS, usually because they don't have any HR/POWER
     ;; data and there are HR/POWER zones that cover their date range.  We try
     ;; to capture these in ORIGINAL-MODIFIED-SESSION-COUNT and only show the
     ;; dialog if more sessions than that have been updated.  However,
@@ -645,12 +570,12 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
       ;; NOTE: we need to return #t if we want to close the dialog, #t
       ;; otherwise
       (if result
-          (let* ((sessions (get-modified-sessions database))
+          (let* ((sessions (get-tiz-outdated-sessions database))
                  (num-sessions (length sessions)))
             (cond ((= num-sessions 0) #t)
                   ((maybe-show-confirmation-dialog num-sessions)
                    (maybe-start-transaction)
-                   (interactive-update-time-in-zone
+                   (update-tiz-for-sessions/interactive
                     sessions
                     database
                     (send this get-top-level-window))
@@ -664,7 +589,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
       (set! parent-window parent)
       (on-sport-selected)
       (refresh-contents)
-      (set! original-modified-session-count (length (get-modified-sessions database)))
+      (set! original-modified-session-count (length (get-tiz-outdated-sessions database)))
       (if (send this do-edit parent)
           (when (in-transaction? database)
             (commit-transaction database))

@@ -16,6 +16,8 @@
          rackunit
          racket/match
          data-frame
+         racket/class
+         racket/draw
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"
@@ -105,12 +107,51 @@ select count(*)
         or position_long is not null)")))
     (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
 
+;; Store a new set of sport zones in the database for SPORT/SUB-SPORT and the
+;; ZONE-METRIC.
+;;
+;; ZONES are defined as a list of numbers representing zone boundaries, first
+;; item is the minimum value and last item is the maximum value for the metric
+;;
+;; ZONE-NAMES, when present is a list of strings, one for each zone.  Can be
+;; #f, in which case the zones are unnamed and the software will simply call
+;; them "Zone 0", "Zone 1", etc.
+;;
+;; VALID-FROM defines the unix timestamp when these set of sport zones are
+;; valid from and they default to current time.  The zones will be valid until
+;; another zone definition with a more recent timestamp is defined.
+;;
+;; DATABASE is the database connection and default to `(current-database)`
+;;
+;; Returns the zone ID for the newly defined sport zones
+;;
+;;
+;; THIS IS A TEST FUNCTION, use `put-sport-zones` from models/sport-zone.rkt
+;; for in-application use.
+(define (db-put-sport-zones sport sub-sport zone-metric zones
+                            #:zone-names (zone-names #f)
+                            #:valid-from (valid-from (current-seconds))
+                            #:database (db (current-database)))
+  (define z (sz sport sub-sport
+                (id->metric zone-metric)
+                (list->vector zones)
+                (if zone-names
+                    (list->vector zone-names)
+                    (for/vector ((n (in-range (length zones)))) (format "Zone ~a" n)))
+                (for/vector ([n (in-range (length zones))])
+                  (make-object color% n n n))
+                valid-from
+                #f                      ; valid until
+                #f))
+  (put-sport-zones z #:database db))
+
+
 (define (fill-sport-zones db #:valid-from (valid-from (current-seconds)))
-  (put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220)
+  (db-put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220)
                    #:valid-from valid-from)
-  (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220)
+  (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220)
                    #:valid-from valid-from)
-  (put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)
+  (db-put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)
                    #:valid-from valid-from))
 
 
@@ -484,13 +525,48 @@ where S.id = CPFS.session_id
          ;; No sport zones yet
          (check-false (sport-zones-for-session 1 'heart-rate #:database db))
          ;; Put in sport zones which are after the imported session
-         (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
          ;; Still no sport zones
          (check-false (sport-zones-for-session 1 'heart-rate #:database db))
          ;; Put in sport zones which cover the imported session
-         (put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from 1)
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from 1)
          ;; We should find sport zones for this activity
          (check-pred sz? (sport-zones-for-session 1 'heart-rate #:database db)))))
+
+   (test-case "Delete Sport Zones By Id"
+     (with-fresh-database
+       (lambda (db)
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
+         (define z (sport-zones-for-sport 1 #f 'heart-rate))
+         (check-pred sz? z)
+         (delete-sport-zones (sz-id z) #:database db)
+         ;; They should be no more
+         (check-false (sport-zones-for-sport 1 #f 'heart-rate)))))
+
+   (test-case "Delete Sport Zones"
+     (with-fresh-database
+       (lambda (db)
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
+         (define z (sport-zones-for-sport 1 #f 'heart-rate))
+         (check-pred sz? z)
+         (delete-sport-zones z #:database db)
+         ;; They should be no more
+         (check-false (sport-zones-for-sport 1 #f 'heart-rate)))))
+
+   (test-case "Sport Zones From Threshold"
+     (define sample-zones
+       '(("One" absolute 23)
+         ("Two" percent 0.5)
+         ("Three" percent 1.1)))
+     (define sz (sport-zones-from-threshold 1 #f 'heart-rate 180 sample-zones #:valid-from 1000))
+
+     (match-define (vector one two three) (sz-boundaries sz))
+     (check-= one 23 1.0)
+     (check-= two 90 1.0)
+     (check-= three 198 1.0)
+     (check-equal? (sz-names sz) #("One" "Two" "Three"))
+     (check-equal? (sz-valid-from sz) 1000)
+     (check-false (sz-valid-until sz)))
 
    ))
 
@@ -529,7 +605,7 @@ where S.id = CPFS.session_id
               ;; that there are no duplicate TIZ information for the same
               ;; metric
               (fill-sport-zones db #:valid-from (- ts 100))
-              (update-time-in-zone-data sid db)
+              (update-some-session-metrics sid db)
               (check-time-in-zone df db file)))
            (check = 1 (activity-count db))
            (db-check-tile-code db)))))

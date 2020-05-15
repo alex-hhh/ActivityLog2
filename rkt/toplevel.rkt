@@ -2,7 +2,7 @@
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -998,7 +998,7 @@
       (interactive-fixup-elevation database #f tl-frame))
 
     (define/public (rebuild-time-in-zone-data)
-      (interactive-update-time-in-zone-data database tl-frame))
+      (update-tiz/interactive database tl-frame))
 
     (define/public (auto-detect-time-zones)
       (interactive-update-time-zones database tl-frame))

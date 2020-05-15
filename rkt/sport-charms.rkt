@@ -51,9 +51,6 @@
                                                   positive-number? ; WPRIME
                                                   (or/c #f positive-number?) ; TAU
                                                   )))]
- [put-sport-zones (->* (sport-id? sport-id? zone-metric? sport-zones?)
-                       (#:valid-from positive-number?)
-                       any/c)]
  [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
  [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
  [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
@@ -272,23 +269,6 @@
               (list cp wprime tau))
             #f))
       #f))
-
-(define (put-sport-zones sport sub-sport zone-metric zones
-                         #:valid-from (valid-from (current-seconds)))
-  (call-with-transaction
-   (current-database)
-   (lambda ()
-     (when (> (length zones) 3)
-       (query-exec (current-database)
-                   "insert into SPORT_ZONE(sport_id, sub_sport_id, zone_metric_id, valid_from)
-                    values (?, ?, ?, ?)"
-                   sport (if sub-sport sub-sport sql-null) zone-metric valid-from)
-       (let ((zid (db-get-last-pk "SPORT_ZONE" (current-database))))
-         (for ((zone (in-list zones))
-               (znum (in-range (length zones))))
-           (query-exec (current-database)
-                       "insert into SPORT_ZONE_ITEM(sport_zone_id, zone_number, zone_value)
-                      values(?, ?, ?)" zid znum zone)))))))
 
 (define (get-athlete-ftp (db (current-database)))
   (let ((v (query-maybe-value db "select ftp from ATHLETE")))
