@@ -174,7 +174,7 @@
        (query-exec db "delete from BAVG_CACHE where session_id = ?" sid)
        (query-exec db "delete from HIST_CACHE where session_id = ?" sid)
        (query-exec db "delete from SCATTER_CACHE where session_id = ?" sid)
-       (update-time-in-zone-data sid db)))))
+       (update-some-session-metrics sid db)))))
 
 ;; Determine the power which contains (1 - q) percent of the values.  I.e. if
 ;; q = 0.005, returns the power value where only 0.5% of the samples are
