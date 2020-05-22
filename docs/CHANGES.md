@@ -6,6 +6,41 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.9.0
+
+New release containing assorted new features and bug fixes, the most important
+of them are:
+
+* ActivityLog2 will display the local time where the activity took place.
+  Timezones are detected from GPS coordinates and can be set manually for
+  other activities.  See #11 and the [blog
+  post](https://alex-hhh.github.io/2019/10/local-time.html) about this
+  feature.
+
+* A new "Functional Threshold Analysis Dashboard" for determining sport zones.
+  For more details, see [this blog
+  post](https://alex-hhh.github.io/2020/05/threshold-analysis-in-activitylog2.html)
+
+* New "Injury Risk" Trend Chart, based on [this blog
+  post](https://alex-hhh.github.io/2019/02/data-visualization-dashboard.html)
+
+* Scatter plots in trend charts now support dual series such as Torque
+  Effectiveness and Pedal Smoothness.  These are power-related series,
+  recorded for the left and right pedal separately.  When such a series is
+  selected, two plots will be displayed side-by-side, one for the left pedal,
+  one for the right pedal.  See also #3.
+
+* Fix a bug which caused incorrect segment to be highlighted when selecting
+  laps in the Graphs View.  See also AB#3.
+
+* Map view will be correctly zoomed when the first activity is opened.  See
+  also AB#7.
+
+* Fix an error being displayed when trying to fetch weather data when the
+  weather data download was disabled in the "Preferences" dialog.  See also
+  AB#18.
+
+
 # Release 1.8.2
 
 This is a bug fix release containing the following fixes:
