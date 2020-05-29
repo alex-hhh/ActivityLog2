@@ -1,5 +1,5 @@
 #lang racket/base
-;; al-profiler.rkt -- profiling and tracing capabilities
+;; al2-profiler.rkt -- profiling and tracing capabilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
 ;; Copyright (C) 2016, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
@@ -42,6 +42,7 @@
          racket/string)
 
 (provide define/profile
+         define/private/profile
          define/public/profile
          define/augment/profile
 
@@ -68,12 +69,19 @@
 ;; `profile-data` instance.
 (define profile-db (make-hash))
 
-;; NOTE: currently, we ignore modules, so we don't support instrumenting
-;; functions with the same name even when they would be in different modules
+;; NOTE: currently, functions with the same name have their data merged into
+;; one.  This works OK when we have functions inside a class definition, as
+;; they are practically methods, but we also don't make distinctions between a
+;; function with the same name defined in separate modules.
+;;
+;; To help out, we print a warning indicating that profile data will be
+;; merged.
 (define (make-profile-data name)
   (when (hash-ref profile-db name #f)
-    (eprintf "*** warning: redefining ~a~%" name))
-  (let ((data (profile-data name #t 0 empty-statistics)))
+    (eprintf "*** warning: redefining ~a, will merge profile data~%" name))
+  (let ((data
+         (hash-ref profile-db name
+                   (lambda () (profile-data name #t 0 empty-statistics)))))
     (hash-set! profile-db name data)
     data))
 
@@ -166,6 +174,19 @@
        #'(begin
            (define/profile fname+args body ...)
            (public name)
+           (define name+args fname+args)))]))
+
+;; Same as define/public/profile but for private methods.  Same limitations too
+(define-syntax (define/private/profile stx)
+  (syntax-case stx ()
+    [(_ (name . args) body ...)
+     (with-syntax*
+         ([fname (format-id stx "~a-profiled" (syntax->datum #'name))]
+          [fname+args (datum->syntax stx (list* #'fname #'args))]
+          [name+args (datum->syntax stx (list* #'name #'args))])
+       #'(begin
+           (define/profile fname+args body ...)
+           (private name)
            (define name+args fname+args)))]))
 
 ;; Same as define/public/profile but for augmented methods of a class.  Same

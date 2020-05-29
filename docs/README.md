@@ -222,12 +222,12 @@ will run slow:
 
 ### Tracing Function Calls
 
-The [rkt/al-profiler.rkt](../rkt/al-profiler.rkt) module contains definitions
-which allow tracing individual function calls.  It is more practical than the
+The [al2-profiler](../pkgs/al2-profiler) package contains definitions which
+allow tracing individual function calls.  It is more practical than the
 "trace" module shipped with Racket, as it allows to explicitly specify which
 functions to trace.  To use it, require the "al-profiler.rkt" module and
 replace `define` calls with `define/trace` calls.  This also works for method
 names, where `define/public` can be replaced with `define/public/trace`.
 
-The "rkt/al-profiler.rkt" module also contains a small profiler, see that file
-for more details.
+The [al2-profiler](../pkgs/al2-profiler) module also contains a small
+profiler, see that file for more details.
