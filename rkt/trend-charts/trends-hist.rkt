@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -330,7 +330,7 @@
          (or (not dual?) (= 3 (vector-length (vector-ref histogram 0))))))
 
   (define format-value
-    (send axis1 value-formatter (hash-ref params 'sport)))
+    (send axis1 value-formatter (hash-ref params 'sport) #:show-unit-label? #t))
 
   (and (valid?)
        (list
@@ -387,6 +387,7 @@
     (define cached-data #f)
     (define histogram-data #f)
     (define generation 0)
+    (define value-formatter #f)
 
     (define (get-generation) generation)
 
@@ -398,7 +399,8 @@
 
     (define/override (invalidate-data)
       (set! cached-data #f)
-      (set! histogram-data #f))
+      (set! histogram-data #f)
+      (set! value-formatter #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -450,13 +452,15 @@
         (when (and slot (< slot (vector-length histogram-data)))
           (define item (vector-ref histogram-data slot))
           (when (and series (< series (sub1 (vector-length item))))
+            (define slot (vector-ref item 0))
+            (define label (if value-formatter (value-formatter slot) ""))
             ;; NOTE first item in the vector is the bucket name, not the value
             (define value (vector-ref item (add1 series)))
             (when (<= y value)
               (let ((tag (cond ((hash-ref params 'show-as-pct?)
-                                (format "~a %" (~r value #:precision 1)))
+                                (format "~a % @ ~a" (~r value #:precision 1) label))
                                ((is-lap-swimming? (hash-ref params 'sport))
-                                (format "~a pool lengths" (~r value #:precision 1)))
+                                (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
                                (#t
                                 (duration->string value)))))
                 (add-renderer (hover-label x y tag)))))))
@@ -483,11 +487,15 @@
                (define data (or previous-data (fetch-data database params report-progress)))
                (define hist (prepare-histogram data params))
                (define rt (make-renderer-tree hist data params))
+               (define vf (send (list-ref (hist-axis data) 0)
+                                value-formatter
+                                (hash-ref params 'sport)))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (set! histogram-data hist)
+                    (set! value-formatter vf)
                     (define snip (insert-plot-snip canvas (first (hist-axis data)) params rt))
                     (when snip (set-mouse-event-callback snip plot-hover-callback)))))))
             (begin

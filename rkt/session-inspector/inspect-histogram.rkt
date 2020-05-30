@@ -2,7 +2,7 @@
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -112,6 +112,7 @@
     (define color-by-zone? #f)
     (define bucket-width 1)
     (define outlier-trim 0)
+    (define value-formatter #f)
 
     ;; Map a sport to an Y axis selection, to be restored when a similar sport
     ;; is selected.
@@ -277,13 +278,15 @@
         (when (and slot histogram-data (< slot (vector-length histogram-data)))
           (define item (vector-ref histogram-data slot))
           (when (and series (< series (sub1 (vector-length item))))
+            (define slot (vector-ref item 0))
+            (define label (if value-formatter (value-formatter slot) ""))
             ;; NOTE first item in the vector is the bucket name, not the value
             (define value (vector-ref item (add1 series)))
             (when (<= y value)
               (let ((tag (cond (show-as-percentage?
-                                (format "~a %" (~r value #:precision 1)))
+                                (format "~a % @ ~a" (~r value #:precision 1) label))
                                ((lap-swimming?)
-                                (format "~a pool lengths" (~r value #:precision 1)))
+                                (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
                                (#t
                                 (duration->string value)))))
                 (set! renderer (list (hover-label x y tag))))))))
@@ -376,7 +379,11 @@
                                                                 (df-get-property df 'sport)
                                                                 (df-get-property df 'session-id))
                                       #:color (send axis1 plot-color)))))
-                          (#t #f))))
+                          (#t #f)))
+                    (vf (send axis1 value-formatter
+                              (df-get-property df 'sport)
+                              (df-get-property df 'session-id)
+                              #:show-unit-label? #t)))
                (queue-callback
                 (lambda ()
                   ;; Discard this snip if a new refresh was started after we
@@ -388,8 +395,13 @@
                         (begin
                           (set! plot-rt rt)
                           (set! histogram-data (or combined-histograms h1))
+                          (set! value-formatter vf)
                           (put-plot-snip))
-                        (send plot-pb set-background-message "No data to plot")))))))))))
+                        (begin
+                          (set! plot-rt #f)
+                          (set! histogram-data #f)
+                          (set! value-formatter #f)
+                          (send plot-pb set-background-message "No data to plot"))))))))))))
 
     ;; Save the axis specific plot parameters for the current axis
     (define (save-params-for-axis)

@@ -3,7 +3,7 @@
 ;; series-metadata.rkt --meta data about data series in session data frames
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -141,7 +141,7 @@
     ;; the session occurred.  An implementation can ignore these arguments if
     ;; they don't make sense, and it should also be prepared to handle both of
     ;; them being #f
-    (define/public (value-formatter sport (sid #f))
+    (define/public (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
       (lambda (p)
         (if (rational? p)
             (~r p #:precision (fractional-digits))

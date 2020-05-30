@@ -58,18 +58,6 @@
 
 ;;.......................................................... chart-view% ....
 
-(define message-font
-  (send the-font-list find-or-create-font 36 'default 'normal 'normal))
-
-(define (draw-centered-message dc msg font)
-  (let-values (([cw ch] (send dc get-size))
-               ([w h x y] (send dc get-text-extent msg font #t)))
-    (send dc set-font font)
-    (send dc set-text-foreground "gray")
-    (let ((ox (- (/ cw 2) (/ w 2)))
-          (oy (- (/ ch 2) (/ h 2))))
-      (send dc draw-text msg ox oy))))
-
 ;; Return the X values in the data-frame DF for START and END timestamps.
 ;; Returns a list of two values, start-x and end-x
 ;;
@@ -275,38 +263,72 @@
 ;; An empty plot data structure, for convenience.
 (define empty-pd (pd 0 #f #f #f #f #f #f))
 
-;; Find the y values corresponding to the X value in the plot data.  This is
-;; used to display the Y values on hover.  It returns six values: x, y1, y2
-;; and labels for x y1 and y2 using the corresponding series formatter.  y2
-;; and the label for y2 will be #f if there is no secondary axis defined for
-;; the plot.
+;; Returns a function which finds the y values corresponding to the X value in
+;; the plot data.  This is used to display the Y values on hover.  It the
+;; built function will return six values: x, y1, y2 and labels for x y1 and y2
+;; using the corresponding series formatter.  y2 and the label for y2 will be
+;; #f if there is no secondary axis defined for the plot.
 ;;
 ;; NOTE: the y values displayed are the actual values at position X.  There
 ;; might be a discrepancy between what is displayed and what the plot shows,
 ;; as there is some filtering and line simplification going on for the plots.
-(define (find-y-values plot-state x)
+(define (make-y-values-finder plot-state)
+
   (define df (ps-df plot-state))
   (define x-axis (ps-x-axis plot-state))
-  (define y-axis (ps-y-axis plot-state))
-  (define y-axis2 (ps-y-axis2 plot-state))
-  (define xseries (send x-axis series-name))
-  (define yseries1 (send y-axis series-name))
-  (define yseries2 (if y-axis2 (send y-axis2 series-name) #f))
-  (define xfmt (send x-axis value-formatter
-                     (df-get-property df 'sport)
-                     (df-get-property df 'session-id)))
-  (define yfmt (send y-axis value-formatter
-                     (df-get-property df 'sport)
-                     (df-get-property df 'session-id)))
-  (define y1 (or (df-lookup df xseries yseries1 x)
-                 (send y-axis missing-value)))
-  (define y2 (if yseries2
-                 (or (df-lookup df xseries yseries2 x)
-                     (send y-axis2 missing-value))
-                 #f))
-  ;; NOTE: we might land on a #f value in the original data series.  Normally,
-  ;; we should look up a neighbor...
-  (values x y1 y2 (xfmt x) (if y1 (yfmt y1) "") (if y2 (yfmt y2) "")))
+
+  (define xseries (and x-axis (send x-axis series-name)))
+
+  (cond
+    ((or (not df)
+         (not x-axis)
+         (not (df-contains? df xseries)))
+     ;; We need at least a data frame and an x series
+     (lambda (x) (values x #f #f "" "" "")))
+    (#t
+     (define y-axis (ps-y-axis plot-state))
+     (define y-axis2 (ps-y-axis2 plot-state))
+
+     (define yseries1 (and y-axis (send y-axis series-name)))
+     (define yseries2 (and y-axis2 (send y-axis2 series-name)))
+
+     (define sport (df-get-property df 'sport))
+     (define sid (df-get-property df 'sid))
+
+     (define xfmt
+       (send x-axis value-formatter sport sid #:show-unit-label? #t))
+     (define yfmt
+       (and y-axis
+            (send y-axis value-formatter sport sid #:show-unit-label? #t)))
+     (define yfmt2
+       (and y-axis2
+            (send y-axis2 value-formatter sport sid #:show-unit-label? #t)))
+
+     (define have-yseries1? (and yseries1 (df-contains? df yseries1)))
+     (define have-yseries2? (and yseries2 (df-contains? df yseries2)))
+
+     (cond ((and have-yseries1? have-yseries2?)
+            (lambda (x)
+              (define y1 (or (df-lookup df xseries yseries1 x)
+                             (send y-axis missing-value)))
+              (define y2 (or (df-lookup df xseries yseries2 x)
+                             (send y-axis2 missing-value)))
+              ;; NOTE: we might land on a #f value in the original data
+              ;; series.  Normally, we should look up a neighbor...
+              (values x y1 y2 (xfmt x) (if y1 (yfmt y1) "") (if y2 (yfmt2 y2) ""))))
+           (have-yseries1?
+            (lambda (x)
+              (define y1 (or (df-lookup df xseries yseries1 x)
+                             (send y-axis missing-value)))
+              (values x y1 #f (xfmt x) (if y1 (yfmt y1) "") "")))
+           (have-yseries1?
+            (lambda (x)
+              (define y2 (or (df-lookup df xseries yseries2 x)
+                             (send y-axis2 missing-value)))
+              (values x #f y2 (xfmt x) "" (if y2 (yfmt2 y2) ""))))
+           (#t
+            (lambda (x)
+              (values x #f #f (xfmt x) "" "")))))))
 
 ;; Find the swim stroke name at the X value on the plot.  Returns #f if the
 ;; PLOT-STATE is not for a swim activity or the y-axis is not supposed to
@@ -539,6 +561,9 @@
 
     (define y-axis-by-sport (make-hash)) ; saved as a preference
 
+    ;; Function to find y values in the plot-data (see `make-y-values-finder`)
+    (define find-y-values (make-y-values-finder plot-state))
+
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when one of the axis
     ;; changes.
@@ -695,17 +720,20 @@
             (match-define (list xmin xmax color) (pd-hlivl plot-data))
             (add-renderer (hover-vrange xmin xmax color)))
           (when x
-            (define-values (_ y1 y2 xlab ylab1 ylab2) (find-y-values plot-state x))
+            (define-values (_ y1 y2 xlab ylab1 ylab2) (find-y-values x))
+            (define y-min (car (pd-y-range plot-data)))
             (cond ((and y1 y2)
-                   (let ((label (string-append ylab1 "/" ylab2 " @ " xlab)))
-                     (add-renderer (hover-label x (max y1 y2) label))))
+                   ;; NOTE: if we consider y2, it needs to be transformed when
+                   ;; dual-axis? is #t
+                   (let ((label (string-append ylab1 " / " ylab2 " @ " xlab)))
+                     (add-renderer (hover-label x y-min label))))
                   (y1
                    (let ((label (string-append ylab1 " @ " xlab))
                          (swim-stroke (find-swim-stroke plot-state x)))
-                     (add-renderer (hover-label x y1 label swim-stroke))))
+                     (add-renderer (hover-label x y-min label swim-stroke))))
                   (y2
                    (let ((label (string-append ylab2 " @ " xlab)))
-                     (add-renderer (hover-label x y2 label)))))
+                     (add-renderer (hover-label x y-min label)))))
             (add-renderer (hover-vrule x)))
           (set-overlay-renderers the-plot-snip rt))))
 
@@ -727,24 +755,22 @@
            (let ((npdata (update-plot-data pdata ppstate pstate)))
              (queue-callback
               (lambda ()
-                (if (= (pd-token npdata) (ps-token plot-state))
-                    (begin
-                      (if (pd-plot-rt npdata)
-                          (begin
-                            (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
-                            (set-mouse-event-callback the-plot-snip plot-hover-callback)
-                            (when (pd-hlivl npdata)
-                              (match-define (list xmin xmax color) (pd-hlivl npdata))
-                              (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
-                          (begin
-                            (set! the-plot-snip #f)
-                            (send graph-canvas clear-all)
-                            (send graph-canvas set-background-message "No data for plot...")))
-                      (set! previous-plot-state pstate)
-                      (set! plot-state pstate)
-                      (set! plot-data npdata)
-                      (set! cached-bitmap-token (pd-token npdata)))
-                    (void)))))))))
+                (when (= (pd-token npdata) (ps-token plot-state))
+                  (if (pd-plot-rt npdata)
+                      (begin
+                        (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
+                        (set-mouse-event-callback the-plot-snip plot-hover-callback)
+                        (when (pd-hlivl npdata)
+                          (match-define (list xmin xmax color) (pd-hlivl npdata))
+                          (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
+                      (begin
+                        (set! the-plot-snip #f)
+                        (send graph-canvas clear-all)
+                        (send graph-canvas set-background-message "No data for plot...")))
+                  (set! previous-plot-state pstate)
+                  (set! plot-state pstate)
+                  (set! plot-data npdata)
+                  (set! find-y-values (make-y-values-finder plot-state))))))))))
 
     (define (refresh-cached-bitmap)
       ;; will be set back below, but we don't want `draw-marker-at` to attempt
