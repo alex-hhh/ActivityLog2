@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -328,12 +328,14 @@ where id = ?" time-zone sid))))))
 
     (define (switch-tabs selected)
       (let ((tab (list-ref installed-tabs selected)))
+        (send detail-panel begin-container-sequence)
         (send detail-panel change-children (lambda (o) (list (tdata-panel tab))))
         (with-busy-cursor
           (lambda ()
             (unless (equal? (tdata-generation tab) generation)
               (set-tdata-generation! tab generation)
-              (send (tdata-contents tab) set-session session data-frame))))))
+              (send (tdata-contents tab) set-session session data-frame))))
+        (send detail-panel end-container-sequence)))
 
     (define (set-session-df sdf)
       (set! data-frame sdf)
@@ -369,9 +371,7 @@ where id = ?" time-zone sid))))))
             (set! tabs (cons model-params tabs))))
 
         (set! installed-tabs (reverse tabs))
-        (send detail-panel set (map tdata-name installed-tabs)))
-
-      (collect-garbage 'major))
+        (send detail-panel set (map tdata-name installed-tabs))))
     
     (define/public (set-session sid)
       (set! generation (add1 generation))
@@ -398,8 +398,7 @@ where id = ?" time-zone sid))))))
         (send detail-panel set (map tdata-name installed-tabs)))
       
       (send detail-panel set-selection 0)
-      (switch-tabs 0)
-      (collect-garbage 'major))
+      (switch-tabs 0))
 
     (define (refresh-session-summary)
       (set! session (db-fetch-session session-id the-database))

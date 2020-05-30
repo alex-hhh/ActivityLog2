@@ -304,10 +304,10 @@
   (for ((s the-sections))
     (new menu-item%
          [parent view-menu]
-         [label (tl-section-name s)]
+         [label (send s get-name)]
          [callback
           (lambda (m e)
-            (send toplevel select-section (tl-section-tag s)))]))
+            (send toplevel select-section (send s get-tag)))]))
 
   view-menu)
 
@@ -749,7 +749,59 @@
 
 ;;..................................................... toplevel-window% ....
 
-(struct tl-section (name tag panel content))
+;; Hold an application page in the top level window.  We'll have one of these
+;; for the activities view, caldenar, reports, trends, equipment, etc.
+(define tl-page%
+  (class object%
+    (init-field name tag parent content-constructor)
+    (super-new)
+
+    (define the-panel #f)
+    (define the-content #f)
+
+    (define/public (get-panel)
+      (unless the-panel
+        (set! the-panel (new horizontal-panel% [parent parent] [style '(deleted)])))
+      the-panel)
+
+    (define/public (get-content)
+      (unless the-content
+        (let ([panel (get-panel)])
+          (send panel begin-container-sequence)
+          (set! the-content (content-constructor panel))
+          (send panel end-container-sequence)))
+      the-content)
+
+    (define/public (get-name)
+      name)
+
+    (define/public (get-tag)
+      tag)
+
+    (define/public (activated)
+      (send (get-content) activated))
+
+    (define/public (refresh)
+      (when the-content                 ; only refresh if we were created
+        (send the-content refresh)))
+
+    (define/public (can-exit?)
+      (if the-content
+          (send the-content can-exit?)
+          ;; Content was not created, so it cannot block exit
+          #t))
+
+    (define/public (unsaved-edits?)
+      (if the-content
+          (send the-content unsaved-edits?)
+          ;; Content was not created, so it cannot have unsaved edits
+          #f))
+
+    (define/public (save-visual-layout)
+      (when the-content
+        (send the-content save-visual-layout)))
+
+    ))
 
 (define toplevel-window%
   (class object%
@@ -805,10 +857,14 @@
 
     (begin
 
-      (define (add-section name tag content-constructor-fn)
-        (let* ((panel (new horizontal-panel% [parent tl-panel] [style '(deleted)]))
-               (content (content-constructor-fn panel)))
-          (set! the-sections (cons (tl-section name tag panel content) the-sections))))
+      (define (add-section name tag content-constructor)
+        (define page
+          (new tl-page%
+               [parent tl-panel]
+               [name name]
+               [tag tag]
+               [content-constructor content-constructor]))
+        (set! the-sections (cons page the-sections)))
 
       ;; NOTE: sections need to be added in the reverse order in which they
       ;; will appear in the `section-selector'
@@ -858,7 +914,7 @@
 
     (send section-selector clear)
     (for ((section the-sections))
-      (send section-selector append (tl-section-name section)))
+      (send section-selector append (send section get-name)))
 
     ;;; Construct the toplevel menu bar
 
@@ -878,7 +934,7 @@
     (define (can-close-toplevel?)
       (and (check-unsaved-edits)
            (let* ((section (get-section-by-tag 'workouts))
-                  (result (send (tl-section-content section) can-exit?)))
+                  (result (send section can-exit?)))
              (unless result
                (switch-to-section section)
                (send section-selector select (get-section-index 'workouts) #t))
@@ -889,7 +945,7 @@
     ;; care about them (and therefore can be discarded)
     (define (check-unsaved-edits)
       (define section (get-section-by-tag 'session-view))
-      (define unsaved-edits? (send (tl-section-content section) unsaved-edits?))
+      (define unsaved-edits? (send section unsaved-edits?))
       (if unsaved-edits?
           (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
                                              "Review" "Discard" #f
@@ -914,9 +970,7 @@
       (dbglog "closing toplevel% for ~a" database-path)
 
       ;; Tell all our sections to save their visual layout
-      (for-each (lambda (section)
-                  (send (tl-section-content section) save-visual-layout))
-                the-sections)
+      (for-each (lambda (section) (send section save-visual-layout)) the-sections)
 
       (send section-selector save-visual-layout)
 
@@ -944,13 +998,13 @@
         (exit 0)))
 
     (define (get-section-by-tag tag)
-      (findf (lambda (s) (eq? tag (tl-section-tag s))) the-sections))
+      (findf (lambda (s) (eq? tag (send s get-tag))) the-sections))
 
     (define (get-section-index tag)
       (let loop ((index 0)
                  (sections the-sections))
         (cond ((null? sections) #f)
-              ((eq? tag (tl-section-tag (car sections))) index)
+              ((eq? tag (send (car sections) get-tag)) index)
               (#t (loop (+ index 1) (cdr sections))))))
 
     (define (inspect-session dbid)
@@ -958,7 +1012,7 @@
         (with-busy-cursor
           (lambda ()
             (let ((s (get-section-by-tag 'session-view)))
-              (send (tl-section-content s) set-session dbid)
+              (send (send s get-content) set-session dbid)
               (switch-to-section s)
               (send section-selector select (get-section-index 'session-view) #t))))))
     (set-inspect-callback inspect-session)
@@ -966,12 +1020,12 @@
     (define (switch-to-section section)
       (unless (eq? the-selected-section section)
         (when the-selected-section
-          (send tl-panel delete-child (tl-section-panel the-selected-section)))
+          (send tl-panel delete-child (send the-selected-section get-panel)))
         (set! the-selected-section section)
         (when the-selected-section
-          (send tl-panel add-child (tl-section-panel the-selected-section))
+          (send tl-panel add-child (send the-selected-section get-panel))
           (send tl-frame set-status-text "")
-          (send (tl-section-content section) activated))
+          (send section activated))
         (send tl-panel reflow-container)))
 
     (define (switch-to-section-by-num n)
@@ -987,11 +1041,11 @@
     (define/public (get-frame) tl-frame)
     (define/public (get-database) database)
     (define/public (get-selected-section)
-      (and the-selected-section (tl-section-content the-selected-section)))
+      (and the-selected-section (send the-selected-section get-content)))
 
     (define/public (refresh-current-view)
       (when the-selected-section
-        (send (tl-section-content the-selected-section) refresh)))
+        (send the-selected-section refresh)))
 
     ;; Tools implementation
     (define/public (rebuild-elevation-data)
@@ -1081,13 +1135,12 @@
       (unless (get-pref 'activity-log:allow-weather-download (lambda () #t))
         (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))
-        (send (tl-section-content equipment) log-due-items))
+        (send (send equipment get-content) log-due-items))
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (when (or (sql-null? nsessions) (zero? nsessions))
           (notify-user
            #:tag 'empty-database
-           'info "There are no activities in the database.  Import some using the \"File\" menu.")))
-      (collect-garbage 'major))
+           'info "There are no activities in the database.  Import some using the \"File\" menu."))))
 
     (define (open-another-activity-log file)
       (dbglog "open-another-activity-log: will try to open ~a" file)
@@ -1151,7 +1204,7 @@
                                (begin
                                  (do-post-import-tasks database)
                                  (let ((equipment (get-section-by-tag 'equipment)))
-                                   (send (tl-section-content equipment) log-due-items)))
+                                   (send (send equipment get-content) log-due-items)))
                                (message-box
                                 "Import failed" (format "Failed to import ~a: ~a" file ecode)
                                 tl-frame '(stop ok))))))))
@@ -1166,7 +1219,7 @@
                   ((eq? ecode 'ok)
                    (do-post-import-tasks database)
                    (let ((equipment (get-section-by-tag 'equipment)))
-                     (send (tl-section-content equipment) log-due-items)))
+                     (send (send equipment get-content) log-due-items)))
 
                   (#t
                    (message-box
@@ -1190,7 +1243,7 @@
                 (send (new import-dialog%) run tl-frame database dir)
                 (refresh-current-view)
                 (let ((equipment (get-section-by-tag 'equipment)))
-                  (send (tl-section-content equipment) log-due-items))
+                  (send (send equipment get-content) log-due-items))
                 dir)
               ;; This can happen since the "get-directory" will not check if
               ;; the initial directory exists (and it might not if it is on a
