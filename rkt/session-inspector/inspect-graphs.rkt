@@ -420,6 +420,8 @@
 
 (define (make-guest-transform base-min base-max guest-min guest-max)
   (define base-range (- base-max base-min))
+  (when (zero? base-range)
+    (error "make-guest-transform: zero base range"))
   (define guest-range (- guest-max guest-min))
   (invertible-function
    (lambda (v)                          ; Transform from base to guest

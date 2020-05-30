@@ -1163,9 +1163,20 @@
       (unless (or (nan? v) (nan? mean) (nan? stddev))
         (set! high v))))
   (when (and low high)
-    (let ((extend (* 0.05 (- high low))))
-      (set! high (+ high extend))
-      (set! low (- low extend))))
+    (define actual-range (- high low))
+    ;; Ensure a minimum range for the plot, based off the fractional digits.
+    ;; This is used when we have a constant stream of data and the
+    ;; actual-range is zero, or close to zero
+    (define min-range (* 2 10 (expt 10 (- (send y-axis fractional-digits)))))
+    (define extend (* 0.05 actual-range))
+    (if (> (+ actual-range (* 2 extend)) min-range)
+        (begin
+          (set! high (+ high extend))
+          (set! low (- low extend)))
+        (let ((middle (* 0.5 (+ low high)))
+              (h (* 0.5 min-range)))
+           (set! high (+ middle h))
+          (set! low (- middle h)))))
   (cons low high))
 
 ;; Combine two Y ranges (as produced by `get-plot-y-range')
