@@ -28,6 +28,8 @@
          racket/list
          racket/match
          racket/math
+         racket/format
+         racket/vector
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
@@ -41,7 +43,7 @@
          "../widgets/main.rkt")
 
 (provide graph-panel%)
-(provide elevation-graph%)
+(provide elevation-graph% grade+calt-graph% grade+alt-graph%)
 
 (define *header-font*
   (send the-font-list find-or-create-font 15 'default 'normal 'normal))
@@ -120,7 +122,7 @@
   (for/list ((item fdata))
     (match-define (cons factor data) item)
     (define color (cdr (assoc factor factor-colors)))
-    (make-plot-renderer data yr #:color color #:width 4.0)))
+    (make-plot-renderer data yr #:color color #:width 3.0)))
 
 ;; A function that generates integer tokens (effectively a counter).  It uses
 ;; a channel and a separate thread so that tokens can be correctly generated
@@ -148,6 +150,7 @@
                   color?
                   filter
                   ivl
+                  dual-axis?
                   struct-name)
   (-> nonnegative-integer?
       (or/c #f data-frame?)
@@ -159,6 +162,7 @@
       boolean?
       nonnegative-integer?
       (or/c #f (cons/c number? number?))
+      boolean?
       any/c
       any)
   (values
@@ -171,7 +175,8 @@
    zoom?
    color?
    filter
-   ivl))
+   ivl
+   dual-axis?))
 
 ;; Plot state, defines data and input parameters for a plot: data frame, what
 ;; axis do we plot, etc
@@ -198,12 +203,16 @@
    filter
    ;; interval to highlight.  This can be #f for no highlighted interval, or a
    ;; cons of start and end timestamps.
-   ivl)
+   ivl
+   ;; when #t, the secondary plot data is not in the same scale as the first
+   ;; one, so it needs to be adjusted and another set of labels will need to
+   ;; be plotted to the right of the plot for the secondary axis
+   dual-axis?)
   #:guard ps-guard
   #:transparent)
 
 ;; The "empty" plot state, defined for convenience
-(define empty-ps (ps 0 #f #f #f #f #f #f #f 0 #f))
+(define empty-ps (ps 0 #f #f #f #f #f #f #f 0 #f #f))
 
 ;; Guard function for the PD structure.  Can be used to add contracts to its
 ;; fields (disabled for now, for performance reasons).
@@ -215,16 +224,18 @@
          y-range
          plot-rt
          hlivl
+         guest-transform
          struct-name)
-  ;; (-> nonnegative-integer?
-  ;;     (or/c #f ts-data/c)
-  ;;     (or/c #f ts-data/c)
-  ;;     (or/c #f (listof (cons/c any/c ts-data/c)))
-  ;;     (or/c #f y-range/c)
-  ;;     (or/c #f (treeof renderer2d?))
-  ;;     (or/c #f (list number? number? (is-a?/c color%)))
-  ;;     any/c
-  ;;     any)
+  (-> nonnegative-integer?
+      (or/c #f ts-data/c)
+      (or/c #f ts-data/c)
+      (or/c #f (listof (cons/c any/c ts-data/c)))
+      (or/c #f y-range/c)
+      (or/c #f (treeof renderer2d?))
+      (or/c #f (list/c number? number? (is-a?/c color%)))
+      (or/c #f invertible-function?)
+      any/c
+      any)
   (values
    token                             ; NOTE: don't generate a new token here!
    sdata
@@ -232,7 +243,8 @@
    fdata
    y-range
    plot-rt
-   hlivl))
+   hlivl
+   guest-transform))
 
 ;; Plot Data, contains the data that is ready to plot, based on a
 ;; corresponding PS structure
@@ -256,12 +268,15 @@
    ;; The plot renderer tree for the data
    plot-rt
    ;; The highlighted interval for the data.
-   hlivl)
+   hlivl
+   ;; When the plot state indicates that the plot has dual axis, this slot
+   ;; contains the guest transform for the secondary axis.
+   guest-transform)
   #:guard pd-guard
   #:transparent)
 
 ;; An empty plot data structure, for convenience.
-(define empty-pd (pd 0 #f #f #f #f #f #f))
+(define empty-pd (pd 0 #f #f #f #f #f #f #f))
 
 ;; Returns a function which finds the y values corresponding to the X value in
 ;; the plot data.  This is used to display the Y values on hover.  It the
@@ -360,18 +375,26 @@
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
             sdata (df-select df "swim_stroke")))
+          ((and (ps-color? ps) fdata sdata2)
+           (list
+            (make-plot-renderer-for-splits fdata y-range (send y factor-colors))
+            (make-plot-renderer sdata2 y-range
+                                #:color (send y2 plot-color)
+                                #:width 2
+                                #:alpha 0.9
+                                #:label (send y2 plot-label))))
           ((and (ps-color? ps) fdata)
            (make-plot-renderer-for-splits fdata y-range (send y factor-colors)))
           ((and sdata sdata2)
            (list
             (make-plot-renderer sdata y-range
                                 #:color (send y plot-color)
-                                #:width 1
+                                #:width 2
                                 #:alpha 0.9
                                 #:label (send y plot-label))
             (make-plot-renderer sdata2 y-range
                                 #:color (send y2 plot-color)
-                                #:width 1
+                                #:width 2
                                 #:alpha 0.9
                                 #:label (send y2 plot-label))))
           (sdata
@@ -393,7 +416,25 @@
         (let ((c (send y plot-color)))
           (append (ivl-extents df series (car ivl) (cdr ivl))
                   (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
-          #f)))
+        #f)))
+
+(define (make-guest-transform base-min base-max guest-min guest-max)
+  (define base-range (- base-max base-min))
+  (define guest-range (- guest-max guest-min))
+  (invertible-function
+   (lambda (v)                          ; Transform from base to guest
+     (let ([p (/ (- v base-min) base-range)])
+       (+ guest-min (* p guest-range))))
+   (lambda (v)                          ; Transform from guest to base
+     (let ([p (/ (- v guest-min) guest-range)])
+       (+ base-min (* p base-range))))))
+
+(define (guest->base guest-data transform)
+  (let ([tr (invertible-function-g transform)])
+    (for/vector ([item guest-data])
+      (define c (vector-copy item))
+      (vector-set! c 1 (tr (vector-ref item 1)))
+      c)))
 
 ;; Produce a new PD structure given an old PD and PS structure and a new PS
 ;; structure.  This function determines what has changed between OLD-PS and
@@ -402,7 +443,8 @@
 (define/contract (update-plot-data old-pd old-ps new-ps)
   (-> pd? ps? ps? pd?)
   (unless (equal? (ps-token old-ps) (pd-token old-pd))
-    (error "update-plot-data -- token mismatch"))
+    (error (format "update-plot-data: token mismatch PS: ~a, PD: ~a"
+                   (ps-token old-ps) (pd-token old-pd))))
   (cond
     ((or (eq? old-ps new-ps)
          (equal? (ps-token old-ps) (ps-token new-ps)))
@@ -429,11 +471,13 @@
                 (not (and (eq? (ps-df old-ps) (ps-df new-ps))
                           (eq? (ps-x-axis old-ps) (ps-x-axis new-ps))
                           (eq? (ps-y-axis2 old-ps) (ps-y-axis2 new-ps))
-                          (equal? (ps-filter old-ps) (ps-filter new-ps)))))))
+                          (equal? (ps-filter old-ps) (ps-filter new-ps))
+                          (equal? (ps-dual-axis? old-ps) (ps-dual-axis? new-ps)))))))
      ;; need new fdata if we update sdata or color? has changed or there is no
      ;; fdata in old-pd
      (define need-fdata?
-       (and (ps-color? new-ps)
+       (and (ps-df new-ps)
+            (ps-color? new-ps)
             (or need-sdata?
                 (not (pd-fdata old-pd)))))
 
@@ -485,8 +529,9 @@
                                     #:epsilon epsilon)
                    #f)))
            (pd-fdata old-pd)))
+
      ;; Calculate new Y-RANGE, if needed, or reuse the one from OLD-PD.
-     (define y-range
+     (define-values (y-range guest-transform)
        (if (or need-sdata? need-sdata2?)
            (let* ((y (ps-y-axis new-ps))
                   (y2 (ps-y-axis2 new-ps))
@@ -494,16 +539,22 @@
                   (st2 (if sdata2 (ds-stats sdata2) #f))
                   (yr1 (if st1 (get-plot-y-range st1 y) #f))
                   (yr2 (if st2 (get-plot-y-range st2 y2) #f)))
-             (cond ((and yr1 yr2)
-                    (combine-y-range yr1 yr2))
-                   (yr1)
-                   (yr2)
-                   (#t #f)))
-           (pd-y-range old-pd)))
+             (cond
+               ((and (ps-dual-axis? new-ps) yr1 yr2)
+                (values yr1 (make-guest-transform (car yr1) (cdr yr1) (car yr2) (cdr yr2))))
+               ((and yr1 yr2)
+                (values (combine-y-range yr1 yr2) #f))
+               (yr1 (values yr1 #f))
+               (yr2 (values yr2 #f))
+               (#t #f)))
+           (values (pd-y-range old-pd) (pd-guest-transform old-pd))))
+
+     (when (and need-sdata2? guest-transform)
+       (set! sdata2 (guest->base sdata2 guest-transform)))
 
      ;; Temporary PD structure, used to pass them on to the renderer tree
      ;; functions.
-     (define tmp-pd (pd (ps-token new-ps) sdata sdata2 fdata y-range #f #f))
+     (define tmp-pd (pd (ps-token new-ps) sdata sdata2 fdata y-range #f #f guest-transform))
 
      ;; Calculate a new plot renderer tree if needed, or reuse the one from
      ;; OLD-PD
@@ -531,35 +582,27 @@
 (define graph-view%
   (class object%
     (init parent)
-    (init-field text tag
-                [min-height 250]
-                [hover-callback (lambda (x) (void))]
-                [style '()])
+    (init-field
+     primary-y-axis
+     [headline #f]           ; see get-headline
+     [preferences-tag #f]    ; see get-preferences-tag
+     [min-height 10]
+     [hover-callback (lambda (x) (void))]
+     [secondary-y-axis #f]
+     [dual-axis? #f]
+     [style '()])
     (super-new)
 
     (define show-stop-points?
       (get-pref 'activity-log:debug:show-stop-points? (lambda () #f)))
     (define stop-point-renderers '())
 
-    (define previous-plot-state empty-ps)
-    (define plot-state empty-ps)
-    (define plot-data empty-pd)
-
-    ;; True if the plot is shown, false if hidden, controlled by the Show/Hide
-    ;; button.
-    (define show-graph? #t)
-
-    ;; When #t, the plot is not refreshed when parameters change.  This is
-    ;; used to prevent multiple refresh calls when there are multiple changes
-    ;; in one go.
-    (define flush-suspended? #f)
-
-    ;; Token corresponding to the PD instance that was used to generate the
-    ;; CACHED-BITMAP.  If cached-bitmap-token is not the same as (ps-token
-    ;; plot-state), the cached-bitmap is outdated.
-    (define cached-bitmap-token -1)
-
-    (define y-axis-by-sport (make-hash)) ; saved as a preference
+    (define plot-state (struct-copy ps empty-ps
+                                    [y-axis primary-y-axis]
+                                    [y-axis2 secondary-y-axis]
+                                    [dual-axis? dual-axis?]))
+    (define previous-plot-state plot-state)
+    (define plot-data (struct-copy pd empty-pd [token (ps-token plot-state)]))
 
     ;; Function to find y values in the plot-data (see `make-y-values-finder`)
     (define find-y-values (make-y-values-finder plot-state))
@@ -569,91 +612,39 @@
     ;; changes.
     (define export-file-name #f)
 
-    (let ((pref (get-pref tag (lambda () #f))))
-      (when (and pref (eqv? (length pref) 3))
-        (set! show-graph? (second pref))
-        (set! y-axis-by-sport (hash-copy (third pref)))))
+    (define/public (get-headline)       ; TODO: cache it after we get rid of set-y-axis
+      (or headline
+          (let ([primary (ps-y-axis plot-state)])
+            (send primary axis-label))))
 
-    ;; The panel that contains the entire graph view
-    (define panel (new (class vertical-panel%
-                         (init) (super-new)
-                         (define/public (interactive-export-image)
-                           (on-interactive-export-image)))
-                       [parent parent]
-                       [style (remove-duplicates (append '(border) style))]
-                       [border 1]
-                       [spacing 0]
-                       [stretchable-height show-graph?]
-                       [alignment '(center top)]))
-
-    (define/public (get-panel) panel)
-
-    ;; Panel containing the title and other controls for this graph
-    (define title-panel (new horizontal-pane% [parent panel]
-                             [border 0]
-                             [spacing 5]
-                             [vert-margin 0]
-                             [stretchable-height #f]
-                             [alignment '(center center)]))
-
-    ;; The toggle button with icon and message go into an unnamed panel
-    (let ((hp (new horizontal-pane% [parent title-panel]
-                   [border 0]
-                   [spacing 2]
-                   [vert-margin 0]
-                   [stretchable-height #f]
-                   [alignment '(left center)]))
-          (cb (lambda (button event)
-                (set! show-graph? (not show-graph?))
-                (if show-graph?
-                    (begin
-                      (send panel add-child graph-canvas)
-                      (send button set-label "Hide")
-                      (refresh))
-                    (begin
-                      (send panel delete-child graph-canvas)
-                      (send button set-label "Show")))
-                ;; Make the panel non stretchable if the graph is not visible.
-                ;; This will ensure it occupies the minimum space needed.
-                (send panel stretchable-height show-graph?)
-                (send panel reflow-container))))
-      (new button% [parent hp] [label (if show-graph? "Hide" "Show")]
-           [vert-margin 0] [callback cb])
-      (new message% [parent hp] [label text] [font graph-title-font]))
-
-    ;; Panel containing a popup box selecting different things to display
-    ;; (this is setup by derived classes via `setup-y-axis-items`
-    (define optional-items-panel (new horizontal-pane% [parent title-panel]
-                                      [spacing 5]
-                                      [stretchable-height #f]
-                                      [alignment '(right center)]))
-
-    (define y-axis-choice #f)
-
-    (define/public (setup-y-axis-items y-axis-choices)
-      ;; First remove all previous children from the panel
-      (send optional-items-panel change-children (lambda (old) '()))
-
-      (when y-axis-choices
-	(set! y-axis-choice
-              (new choice% [parent optional-items-panel]
-                   [label "Display: "]
-                   [choices y-axis-choices]
-                   [callback (lambda (c e)
-                               (let* ((df (ps-df plot-state))
-                                      (index (send c get-selection))
-                                      (sport (and df (df-get-property df 'sport))))
-                                 (when sport
-                                   (hash-set! y-axis-by-sport sport index))
-                                 (on-y-axis-selected index)))]))
-        (send y-axis-choice set-selection 0)
-        (on-y-axis-selected 0)))
+    (define/public (get-preferences-tag) ; TODO: cache it after we get rid of set-y-axis
+      (or preferences-tag
+          (let ([primary (ps-y-axis plot-state)]
+                [secondary (ps-y-axis2 plot-state)])
+            (define tag (cond ((and primary secondary)
+                               (string-append
+                                (send primary series-name)
+                                "+"
+                                (send secondary series-name)))
+                              (primary
+                               (send primary series-name))
+                              (secondary
+                               (send secondary series-name))
+                              (#t
+                               "unknown")))
+            (string->symbol (string-append "al2-graphs:" tag)))))
 
     (define (put-plot output-fn pd ps)
       ;; (-> (-> (treeof renderer2d?) any/c) pd? ps? any/c)
 
       (define x-axis (ps-x-axis ps))
       (define y-axis (ps-y-axis ps))
+      (define y-axis2 (ps-y-axis2 ps))
+      ;; NOTE: look for the guest-transform if we want to know if this is a
+      ;; dual axis plot -- just because (ps-dual-axis? ps) is #t, it does not
+      ;; necessarily mean we actually have a dual axis plot -- the data for
+      ;; the secondary series might be missing from the data frame.
+      (define dual-axis? (pd-guest-transform pd))
       (define df (ps-df ps))
 
       (define (full-render-tree)
@@ -684,7 +675,14 @@
                      [plot-x-ticks (get-x-axis-ticks)]
                      [plot-x-label #f]
                      [plot-y-ticks (send y-axis plot-ticks)]
-                     [plot-y-label (send y-axis axis-label)])
+                     [plot-y-label (send y-axis axis-label)]
+                     [plot-y-far-label
+                      (if dual-axis? (send y-axis2 axis-label) #f)]
+                     [plot-y-far-ticks
+                      (if dual-axis?
+                          (ticks-scale (send y-axis2 plot-ticks)
+                                       (pd-guest-transform pd))
+                          (send y-axis plot-ticks))])
         (output-fn (full-render-tree))))
 
     (define (put-plot/canvas canvas pd ps)
@@ -698,21 +696,34 @@
        pd ps))
 
     (define graph-canvas
-      (new plot-container% [parent panel] [columns 1]
+      (new plot-container% [parent parent] [columns 1]
            [min-height min-height]
-           [style (if show-graph? '() '(deleted))]))
+           [style '()]))
 
-    (define/public (suspend-flush)
-      (send graph-canvas suspend-flush)
-      (set! flush-suspended? #t))
-    (define/public (resume-flush)
-      (send graph-canvas resume-flush)
-      (set! flush-suspended? #f))
+    (define/public (get-graph-canvas) graph-canvas)
+
+    (define edit-sequence-count 0)
+
+    (define/public (begin-edit-sequence)
+      (when (zero? edit-sequence-count)
+        (send graph-canvas suspend-flush))
+      (set! edit-sequence-count (add1 edit-sequence-count)))
+
+    (define/public (end-edit-sequence)
+      (when (zero? edit-sequence-count)
+        (error "graph-view%/resume-flush: invalid call"))
+      (set! edit-sequence-count (sub1 edit-sequence-count))
+      (when (zero? edit-sequence-count)
+        (send graph-canvas resume-flush)
+        (refresh)))
+
+    (define/public (in-edit-sequence?)
+      (> edit-sequence-count 0))
 
     (define the-plot-snip #f)
 
     (define/public (draw-marker-at x)
-      (when (and the-plot-snip show-graph?)
+      (when the-plot-snip
         (let ((rt '()))
           (define (add-renderer r) (set! rt (cons r rt)))
           ;; Add the highlight overlay back in...
@@ -772,34 +783,8 @@
                   (set! plot-data npdata)
                   (set! find-y-values (make-y-values-finder plot-state))))))))))
 
-    (define (refresh-cached-bitmap)
-      ;; will be set back below, but we don't want `draw-marker-at` to attempt
-      ;; to use an invalid series.
-      (set! the-plot-snip #f)
-      (let ((pstate plot-state)
-            (pdata plot-data))
-        (queue-task
-         "graph-view%/refresh-cached-bitmap"
-         (lambda ()
-           (when (pd-plot-rt pdata)
-             (queue-callback
-              (lambda ()
-                (if (= (pd-token pdata) cached-bitmap-token)
-                    (if (pd-plot-rt pdata)
-                        (begin
-                          (set! the-plot-snip (put-plot/canvas graph-canvas pdata pstate))
-                          (set-mouse-event-callback the-plot-snip plot-hover-callback)
-                          (when (pd-hlivl pdata)
-                            (match-define (list xmin xmax color) (pd-hlivl pdata))
-                            (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
-                        (begin
-                          (set! the-plot-snip #f)
-                          (send graph-canvas clear-all)
-                          (send graph-canvas set-background-message "No data for plot...")))
-                    (void)))))))))
-
     (define (refresh)
-      (when (and (not flush-suspended?) show-graph?)
+      (unless (in-edit-sequence?)
 
         (when show-stop-points?
           ;; NOTE: this code runs for every plot, even though it produces the
@@ -817,37 +802,55 @@
                           ;; Stop points are blue, teleport points are red
                           (vrule x #:style 'short-dash #:color (if (member p tp) "red" "blue")))))))))
 
-        (if (and (equal? (pd-token plot-data) (ps-token plot-state)) the-plot-snip)
-            (refresh-cached-bitmap)
-            (refresh-plot))))
+        (refresh-plot)))
 
     (define/public (get-average-renderer)
-      #f)
+      (define df (ps-df plot-state))
+      (define sport (df-get-property df 'sport #f))
+      (define primary-renderer
+        (let ([metadata (ps-y-axis plot-state)])
+          (and metadata
+               (let* ([series (send metadata series-name)]
+                      [st (df-statistics df series)]
+                      [formatter (send metadata value-formatter sport)])
+                 (hrule (statistics-mean st)
+                        #:label (format "Avg ~a ~a"
+                                        (or (send metadata plot-label) "")
+                                        (formatter (statistics-mean st))))))))
+      (define secondary-renderer
+        (let ([metadata (ps-y-axis2 plot-state)])
+          (and metadata
+               (let* ([series (send metadata series-name)]
+                      [st (df-statistics df series)]
+                      [formatter (send metadata value-formatter sport)])
+                 (hrule (statistics-mean st)
+                        #:label (format "Avg ~a ~a"
+                                        (or (send metadata plot-label) "")
+                                        (formatter (statistics-mean st))))))))
 
-    (define/public (on-y-axis-selected index)
-      #f)
+      (filter values (list primary-renderer secondary-renderer)))
 
     ;; Return #t if this graph can display some data for DATA-FRAME (e.g. a
     ;; cadence graph is only valid if there is cadence series in the data
-    ;; frame).  This needs to be overridden.
-    (define/public (is-valid-for? data-frame) #f)
+    ;; frame).  This can be overridden, but by default we look for the series
+    ;; that are specified by the primary and secondary y axis.
+    (define/public (is-valid-for? df)
+      (define primary (ps-y-axis plot-state))
+      (define secondary (ps-y-axis2 plot-state))
+      (or (and primary (df-contains? df (send primary series-name)))
+          (and secondary (df-contains? df (send secondary series-name)))))
 
     (define/public (save-visual-layout)
       (put-pref
-       tag
-       (list #t show-graph? y-axis-by-sport)))
+       (get-preferences-tag)
+       (list #t #t (hash))))
 
     (define/public (set-data-frame df)
-      (suspend-flush)
+      (begin-edit-sequence)
       (set! plot-state (struct-copy ps plot-state [df df] [ivl #f]))
       (set! export-file-name #f)
-      (when (and y-axis-choice df)
-        (let* ((sport (df-get-property df 'sport))
-               (y-axis-index (hash-ref y-axis-by-sport sport 0)))
-          (send y-axis-choice set-selection y-axis-index)
-          (on-y-axis-selected y-axis-index)))
       (set! stop-point-renderers '())   ; clear them, will be set in on-y-axis-selected
-      (resume-flush)
+      (end-edit-sequence)
       ;; When a new data frame is set, remove the old plot immediately, as it
       ;; is not relevant anymore.
       (set! the-plot-snip #f)
@@ -860,8 +863,21 @@
       (refresh))
 
     (define/public (color-by-zone flag)
+      ;; Set the flag
       (set! plot-state (struct-copy ps plot-state [color? flag]))
-      (refresh))
+      ;; But only refresh, if this actually changes the colors (i.e. the Y
+      ;; axis can split by factors)
+      (define df (ps-df plot-state))
+      (when df
+        (define sport (df-get-property df 'sport))
+        (define sid (df-get-property df 'session-id))
+        (define primary-y-axis (ps-y-axis plot-state))
+        (define secondary-y-axis (ps-y-axis2 plot-state))
+        (define have-color-by-zone
+          (or (and primary-y-axis (send primary-y-axis factor-fn sport sid))
+              (and secondary-y-axis (send secondary-y-axis factor-fn sport sid))))
+        (when have-color-by-zone
+          (refresh))))
 
     (define/public (set-filter-amount a)
       (set! plot-state (struct-copy ps plot-state [filter a]))
@@ -875,20 +891,19 @@
       (set! plot-state (struct-copy ps plot-state [x-axis new-x-axis]))
       (refresh))
 
-    (define/public (set-y-axis new-y-axis (new-y-axis2 #f))
-      (set! plot-state (struct-copy ps plot-state [y-axis new-y-axis] [y-axis2 new-y-axis2]))
-      (set! export-file-name #f)
-      (refresh))
-
     (define/public (highlight-interval start-timestamp end-timestamp)
-      (set! plot-state (struct-copy ps plot-state [ivl (cons start-timestamp end-timestamp)]))
+      (set! plot-state (struct-copy ps plot-state
+                                    [ivl
+                                     (if (and start-timestamp end-timestamp)
+                                         (cons start-timestamp end-timestamp)
+                                         #f)]))
       ;; need full refresh if zoom to lap is set, as the actual plotted data will change.
-      (if (ps-zoom? plot-state)
-          (refresh)
-          (begin
-            (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
-            (set! previous-plot-state plot-state)
-            (when the-plot-snip
+      (cond ((ps-zoom? plot-state)
+             (refresh))
+            (#t ;(not (in-edit-sequence?))
+             (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
+             (set! previous-plot-state plot-state)
+             (when the-plot-snip
               (if (pd-hlivl plot-data)
                   (match-let (((list xmin xmax color) (pd-hlivl plot-data)))
                     (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color))))
@@ -925,614 +940,171 @@
           (set! export-file-name file)
           (export-image-to-file file))))
 
-    (define/public (get-name) text)
-    (define/public (get-tag) tag)
-
     ))
 
 
-;;......................................................... speed-graph% ....
+;;........................................................ series graphs ....
 
 (define speed-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:speed-graph]
-               [text "Speed "])
-    (inherit setup-y-axis-items set-y-axis get-data-frame)
+    (super-new [primary-y-axis axis-speed])))
 
-    (define zones #f)
-    (define selected-y-axis 0)
-    (define avg-speed #f)
+(define pace-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-pace])))
 
-    (define (get-avg-speed)
-      (unless avg-speed
-        (let ((st (df-statistics (get-data-frame) "spd")))
-          (set! avg-speed (statistics-mean st))))
-      avg-speed)
+(define speed-zone-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-speed-zone])))
 
-    (define y-axis-items
-      `(("Speed" ,axis-speed ,convert-m/s->speed ,speed->string)
-	("Pace" ,axis-pace ,convert-m/s->pace ,pace->string)
-        ("Zone" ,axis-speed-zone
-                ,(lambda (x) (and zones (value->zone zones x)))
-                ,(lambda (x y) (if x (format-48 "~1,1F" x) "")))
-        ("GAP" ,axis-gap ,convert-m/s->pace ,pace->string)))
-
-    (define/override (get-average-renderer)
-      (let ((avg (get-avg-speed)))
-	(if avg
-            (let* ((item (list-ref y-axis-items selected-y-axis))
-                   (speed-converter (third item))
-                   (speed-formatter (fourth item))
-                   (avg-val (speed-converter avg))
-                   (label (string-append "Avg " (speed-formatter avg #t))))
-              (function (lambda (x) avg-val) #:label label))
-            #f)))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-speed #f)
-      (set! zones #f)
-      (when data-frame
-        (define sid (df-get-property data-frame 'session-id))
-        (set! zones (sport-zones-for-session sid 'pace)))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (for/or ([series '("speed" "pace" "speed-zone")])
-        (df-contains? data-frame series)))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-    ))
-
-
-;;..................................................... elevation-graph% ....
+(define grade-adjusted-pace-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-gap])))
 
 (define elevation-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:elevation-graph]
-               [text "Elevation "])
-    (inherit setup-y-axis-items set-y-axis)
+    (super-new [primary-y-axis axis-elevation])
+    ;; Don't display an average line for the elevation
+    (define/override (get-average-renderer) #f)))
 
-    (define selected-y-axis 0)
+(define corrected-elevation-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-corrected-elevation])
+    ;; Don't display an average line for the elevation
+    (define/override (get-average-renderer) #f)))
 
-    (define y-axis-items
-      `(("Elevation (original)" ,axis-elevation)
-        ("Elevation (corrected)" ,axis-corrected-elevation)
-        ("Grade" ,axis-grade)))
+(define grade-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-grade])))
 
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
+(define grade+calt-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-grade]
+               [secondary-y-axis axis-corrected-elevation]
+               [dual-axis? #t]
+               [headline "Grade + Elevation (corrected)"])))
 
-    (define/override (set-data-frame data-frame)
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "alt" "calt"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-    ))
-
-
-;;.................................................... heart-rate-graph% ....
-
+(define grade+alt-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-grade]
+               [secondary-y-axis axis-elevation]
+               [dual-axis? #t]
+               [headline "Grade + Elevation (original)"])))
 
 (define heart-rate-graph%
   (class graph-view%
-    (init parent)
+    (super-new [primary-y-axis axis-hr-bpm])))
 
-    (super-new [parent parent]
-               [tag 'activity-log:hr-graph]
-               [text "Heart Rate "])
+(define heart-rate-zones-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-hr-zone])))
 
-    (inherit setup-y-axis-items set-y-axis get-data-frame)
-
-    (define selected-y-axis 0)
-    (define zones #f)
-    (define avg-hr #f)
-
-    (define (get-avg-hr)
-      (unless avg-hr
-        (let ((st (df-statistics (get-data-frame) "hr")))
-          (set! avg-hr (statistics-mean st))))
-      avg-hr)
-
-    (define y-axis-items
-      `(("BPM" ,axis-hr-bpm ,values ,heart-rate->string/bpm)
-	("% of Max" ,axis-hr-pct
-                    ,(lambda (v) (and zones (value->pct-of-max zones v)))
-                    ,(lambda (v) (if zones (heart-rate->string/pct v zones) "")))
-	("Zone" ,axis-hr-zone
-                ,(lambda (v) (and zones (value->zone zones v)))
-                ,(lambda (v) (if zones (heart-rate->string/zone v zones) "")))))
-
-    (define/override (get-average-renderer)
-      (let ((avg (get-avg-hr)))
-	(if avg
-            (let* ((item (list-ref y-axis-items selected-y-axis))
-                   (bpm-converter (third item))
-                   (bpm-formatter (fourth item))
-                   (avg-val (bpm-converter avg))
-                   (label (string-append "Avg " (bpm-formatter avg))))
-              (function (lambda (x) avg-val) #:label label))
-            #f)))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-hr #f)
-      (set! zones #f)
-      (when data-frame
-        (define sid (df-get-property data-frame 'session-id))
-        (set! avg-hr #f)
-        (set! zones (sport-zones-for-session sid 'heart-rate)))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "hr" "hr-pct" "hr-zone"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-    ))
-
-
-;;....................................................... cadence-graph% ....
+(define heart-rate-pct-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-hr-pct])))
 
 (define cadence-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:cadence-graph]
-               [text "Cadence "])
-    (inherit set-y-axis get-data-frame setup-y-axis-items)
+    (super-new [primary-y-axis axis-cadence])))
 
-    (define sport #f)
-    (define selected-y-axis 0)
-    (define avg-cadence #f)
-    (define avg-stride #f)
-
-    (define (get-avg-cadence)
-      (unless avg-cadence
-        (let ((stats (df-statistics (get-data-frame) "cad")))
-          (set! avg-cadence (statistics-mean stats))))
-      avg-cadence)
-
-    (define (get-avg-stride)
-      (unless avg-stride
-        (let ((stats (df-statistics (get-data-frame) "stride")))
-          (set! avg-stride (statistics-mean stats))))
-      avg-stride)
-
-    (define y-axis-items
-      `(("Cadence" ,axis-cadence ,get-avg-cadence ,(lambda (v) (cadence->string v sport #t)))
-	("Stride" ,axis-stride ,get-avg-stride ,(lambda (c) (stride->string c #t)))))
-
-    (define/override (get-average-renderer)
-      (let* ((item (list-ref y-axis-items selected-y-axis))
-             (avg-fn (third item))
-             (fmt-fn (fourth item)))
-        (let ((avg (avg-fn)))
-          (if avg
-              (let* ((label (string-append "Avg " (fmt-fn avg))))
-                (function (lambda (x) avg) #:label label))
-              #f))))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-cadence #f)
-      (set! avg-stride #f)
-      (when data-frame
-        (let ((sp (df-get-property data-frame 'sport)))
-          (set! sport (vector-ref sp 0))))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "cad" "stride"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-    ))
-
-
-;;................................................... vosc-vratio-graph% ....
-
-(define vosc-vratio-graph%
+(define stride-graph%
   (class graph-view%
-    (init parent)
+    (super-new [primary-y-axis axis-stride])))
 
-    (super-new [parent parent]
-               [tag 'activity-log:vosc-vratio-graph]
-               [text "Vertical Oscillation "])
-
-    (inherit set-y-axis get-data-frame setup-y-axis-items)
-    (define sport #f)
-    (define selected-y-axis 0)
-    (define avg-vosc #f)
-    (define avg-vratio #f)
-
-    (define (get-avg-vosc)
-      (unless avg-vosc
-        (let ((stats (df-statistics (get-data-frame) "vosc")))
-          (set! avg-vosc (statistics-mean stats))))
-      avg-vosc)
-
-    (define (get-avg-vratio)
-      (unless avg-vratio
-        (let ((stats (df-statistics (get-data-frame) "vratio")))
-          (set! avg-vratio (statistics-mean stats))))
-      avg-vratio)
-
-    (define y-axis-items
-      `(("VOSC" ,axis-vertical-oscillation ,get-avg-vosc ,(lambda (v) (vosc->string v #t)))
-	("VRATIO" ,axis-vratio ,get-avg-vratio ,(lambda (c) (vratio->string c #t)))))
-
-    (define/override (get-average-renderer)
-      (let* ((item (list-ref y-axis-items selected-y-axis))
-             (avg-fn (third item))
-             (fmt-fn (fourth item)))
-        (let ((avg (avg-fn)))
-          (if avg
-              (let* ((label (string-append "Avg " (fmt-fn avg))))
-                (function (lambda (x) avg) #:label label))
-              #f))))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-vosc #f)
-      (set! avg-vratio #f)
-      (if data-frame
-          (let ((sp (df-get-property data-frame 'sport)))
-            (set! sport (vector-ref sp 0)))
-          (set! sport #f))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "vosc" "vratio"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-    ))
-
-
-;;........................................................... gct-graph% ....
-
-(define gct-graph%
+(define vertical-oscillation-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:gct-graph]
-               [text "Ground Contact Time "])
+    (super-new [primary-y-axis axis-vertical-oscillation])))
 
-    (inherit set-y-axis get-data-frame setup-y-axis-items)
+(define vertical-ratio-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-vratio])))
 
-    (define sport #f)
-    (define selected-y-axis 0)
-    (define avg-gct #f)
-    (define avg-gct-pct #f)
+(define ground-contact-time-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-stance-time])))
 
-    (define (get-avg-gct)
-      (unless avg-gct
-        (let ((stats (df-statistics (get-data-frame) "gct")))
-          (set! avg-gct (statistics-mean stats))))
-      avg-gct)
-
-    (define (get-avg-gct-pct)
-      (unless avg-gct-pct
-        (let ((stats (df-statistics (get-data-frame) "pgct")))
-          (set! avg-gct-pct (statistics-mean stats))))
-      avg-gct-pct)
-
-    (define y-axis-items
-      `(("as time (ms)" ,axis-stance-time ,get-avg-gct ,(lambda (v) (stance-time->string v #t)))
-	("as percent" ,axis-stance-time-percent ,get-avg-gct-pct ,(lambda (v) (stance-time-pct->string v #t)))))
-
-    (define/override (get-average-renderer)
-      (let* ((item (list-ref y-axis-items selected-y-axis))
-             (avg-fn (third item))
-             (fmt-fn (fourth item)))
-        (let ((avg (avg-fn)))
-          (if avg
-              (let* ((label (string-append "Avg " (fmt-fn avg))))
-                (function (lambda (x) avg) #:label label))
-              #f))))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-gct #f)
-      (set! avg-gct-pct #f)
-      (when data-frame
-        (let ((sp (df-get-property data-frame 'sport)))
-          (set! sport (vector-ref sp 0))))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "gct" "pgct"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-
-
-    ))
-
-
-;.......................................................... wbal-graph% ....
+(define ground-contact-percent-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-stance-time-percent])))
 
 (define wbal-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:wbal-graph]
-               [text "W' Bal "])
-
-    (send this set-y-axis axis-wbal)
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame "wbal"))
-
-    ))
-
-
-;;..................................................... power-graph% ....
+    (super-new [primary-y-axis axis-wbal])))
 
 (define power-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:power-graph]
-               [text "Power "])
-    (inherit set-y-axis get-data-frame setup-y-axis-items)
+    (super-new [primary-y-axis axis-power])))
 
-    (define selected-y-axis 0)
-    (define zones #f)
-    (define avg-power #f)
+(define power+wbal-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-power]
+               [secondary-y-axis axis-wbal]
+               [dual-axis? #t]
+               [headline "Power + W'Bal"])))
 
-    (define (get-avg-power)
-      (unless avg-power
-        (let ((st (df-statistics (get-data-frame) "pwr")))
-          (set! avg-power (statistics-mean st))))
-      avg-power)
-
-    (define y-axis-items
-      `(("Watts" ,axis-power ,values ,power->string)
-	("Zone" ,axis-power-zone
-                ,(lambda (v) (and zones (value->zone zones v)))
-                ,(lambda (v) (if zones (format-48 "~1,1F" (value->zone zones v)) "")))))
-
-    (define/override (get-average-renderer)
-      (let ((avg (get-avg-power)))
-	(if avg
-            (let* ((item (list-ref y-axis-items selected-y-axis))
-                   (pwr-converter (third item))
-                   (pwr-formatter (fourth item))
-                   (avg-val (pwr-converter avg))
-                   (label (string-append "Avg " (pwr-formatter avg))))
-              (function (lambda (x) avg-val) #:label label))
-            #f)))
-
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (set-y-axis (second (list-ref y-axis-items index)))))
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-power #f)
-      (set! zones #f)
-      (when data-frame
-        (define sid (df-get-property data-frame 'session-id))
-        (set! zones (sport-zones-for-session sid 'power)))
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "pwr" "pwr-zone"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (set-y-axis (second (list-ref y-axis-items 0)))
-    (set! selected-y-axis 0)
-    ))
-
-
-;;..................................................... left-right-balance-graph% ....
+(define power-zone-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-power-zone])))
 
 (define lrbal-graph%
   (class graph-view%
-    (init parent)
-
-    (super-new [parent parent]
-               [tag 'activity-log:lrbal-graph]
-               [text "Left-Right Balance "])
-
-    (inherit set-y-axis get-data-frame setup-y-axis-items)
-
-    (define avg-lrbal #f)
-
-    (define (get-avg-lrbal)
-      (unless avg-lrbal
-        (let ((st (df-statistics (get-data-frame) "lrbal")))
-          (set! avg-lrbal (statistics-mean st))))
-      avg-lrbal)
-
-    (define/override (get-average-renderer)
-      (let ((avg (get-avg-lrbal)))
-        (if avg
-            (let ((label (format-48 "Avg ~1,1F%" avg)))
-              (function (lambda (x) avg) #:label label))
-            #f)))
-
-    (set-y-axis axis-left-right-balance)
-
-    (define/override (set-data-frame data-frame)
-      (set! avg-lrbal #f)
-      (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame "lrbal"))
-
-    ))
-
-
-;;.......................................................... teff-graph% ....
+    (super-new [primary-y-axis axis-left-right-balance])))
 
 (define teff-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:teff-graph]
-               [text "Torque Effectiveness "])
-
-    (send this set-y-axis
-          axis-left-torque-effectiveness
-          axis-right-torque-effectiveness)
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "lteff" "rteff"))
-
-    ))
-
-
-;;......................................................... psmth-graph% ....
+    (super-new [primary-y-axis axis-left-torque-effectiveness]
+               [secondary-y-axis axis-right-torque-effectiveness])))
 
 (define psmth-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:psmth-graph]
-               [text "Pedal Smoothness "])
-
-    (send this set-y-axis
-          axis-left-pedal-smoothness
-          axis-right-pedal-smoothness)
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "lpsmth" "rpsmth"))
-
-    ))
-
-
-;;........................................................... pco-graph% ....
+    (super-new [primary-y-axis axis-left-pedal-smoothness]
+               [secondary-y-axis axis-right-pedal-smoothness])))
 
 (define pco-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:pco-graph]
-               [text "Platform Centre Offset "])
+    (super-new [primary-y-axis axis-left-platform-centre-offset]
+               [secondary-y-axis axis-right-platform-centre-offset])))
 
-    (send this set-y-axis
-          axis-left-platform-centre-offset
-          axis-right-platform-centre-offset)
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any? data-frame "lpco" "rpco"))
-
-    ))
-
-
-;;.................................................... Power Phase Graph ....
-
-(define power-phase-graph%
+(define pp-start-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:power-phase-graph]
-               [text "Power Phase "])
+    (super-new [primary-y-axis axis-left-power-phase-start]
+               [secondary-y-axis axis-right-power-phase-start])))
 
-    (inherit set-y-axis get-data-frame  setup-y-axis-items)
+(define pp-end-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-left-power-phase-end]
+               [secondary-y-axis axis-right-power-phase-end])))
 
-    (define (setup-pp-start)
-      (set-y-axis axis-left-power-phase-start
-                  axis-right-power-phase-start))
-    (define (setup-pp-end)
-      (set-y-axis axis-left-power-phase-end
-                  axis-right-power-phase-end))
-    (define (setup-pp-angle)
-      (set-y-axis axis-left-power-phase-angle
-                  axis-right-power-phase-angle))
-    (define (setup-ppp-start)
-      (set-y-axis axis-left-peak-power-phase-start
-                  axis-right-peak-power-phase-start))
-    (define (setup-ppp-end)
-      (set-y-axis axis-left-peak-power-phase-end
-                  axis-right-peak-power-phase-end))
-    (define (setup-ppp-angle)
-      (set-y-axis axis-left-peak-power-phase-angle
-                  axis-right-peak-power-phase-angle))
+(define pp-angle-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-left-power-phase-angle]
+               [secondary-y-axis axis-right-power-phase-angle])))
 
-    (define y-axis-items
-      `(("PP Start" ,setup-pp-start)
-        ("PP End" ,setup-pp-end)
-        ("PP Angle" ,setup-pp-angle)
-        ("Peak PP Start" ,setup-ppp-start)
-        ("Peak PP End" ,setup-ppp-end)
-        ("Peak PP Angle" ,setup-ppp-angle)))
+(define ppp-start-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-left-peak-power-phase-start]
+               [secondary-y-axis axis-right-peak-power-phase-start])))
 
-    (define selected-y-axis #f)
+(define ppp-end-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-left-peak-power-phase-end]
+               [secondary-y-axis axis-right-peak-power-phase-end])))
 
-    (define/override (on-y-axis-selected index)
-      (unless (equal? selected-y-axis index)
-        (set! selected-y-axis index)
-        (let ((fn (list-ref (list-ref y-axis-items index) 1)))
-          (fn))))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains/any?
-       data-frame
-       "lpps" "lppe" "lppa" "rpps" "rppe" "rppa"
-       "lppps" "lpppe" "lpppa" "rppps" "rpppe" "rpppa"))
-
-    (setup-y-axis-items (map car y-axis-items))
-    (on-y-axis-selected 0)
-
-    ))
+(define ppp-angle-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-left-peak-power-phase-angle]
+               [secondary-y-axis axis-right-peak-power-phase-angle])))
 
 
 ;;..................................................... swim-pace-graph% ....
 
 (define swim-pace-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:swim-pace-graph]
-               [text "Swim Pace "])
+    (super-new [primary-y-axis axis-swim-pace]
+               [preferences-tag 'activity-log:swim-pace-graph]
+               [headline "Swim Pace"])
 
-    (inherit set-y-axis get-data-frame)
-    (set-y-axis axis-swim-pace)
+    (inherit get-data-frame)
 
     (define avg-speed #f)
 
@@ -1561,14 +1133,11 @@
 
 (define swim-swolf-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:swim-swolf-graph]
-               [text "SWOLF "])
+    (super-new [primary-y-axis axis-swim-swolf]
+               [preferences-tag 'activity-log:swim-swolf-graph]
+               [headline "SWOLF"])
 
-    (inherit set-y-axis get-data-frame)
-
-    (set-y-axis axis-swim-swolf)
+    (inherit get-data-frame)
 
     (define avg-swolf #f)
 
@@ -1589,9 +1158,6 @@
       (set! avg-swolf #f)
       (super set-data-frame data-frame))
 
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame "swolf"))
-
     ))
 
 
@@ -1599,14 +1165,11 @@
 
 (define swim-stroke-count-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:swim-stroke-count-graph]
-               [text "Stroke Count "])
+    (super-new [primary-y-axis axis-swim-stroke-count]
+               [preferences-tag 'activity-log:swim-stroke-count-graph]
+               [headline "Stroke Count"])
 
-    (inherit set-y-axis get-data-frame)
-    (set-y-axis axis-swim-stroke-count)
-
+    (inherit get-data-frame)
     (define avg-stroke-count #f)
 
     (define (get-avg-stroke-count)
@@ -1626,9 +1189,6 @@
       (set! avg-stroke-count #f)
       (super set-data-frame data-frame))
 
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame "strokes"))
-
     ))
 
 
@@ -1636,13 +1196,11 @@
 
 (define swim-cadence-graph%
   (class graph-view%
-    (init parent)
-    (super-new [parent parent]
-               [tag 'activity-log:swim-cadence-graph]
-               [text "Swim Cadence "])
+    (super-new [primary-y-axis axis-swim-avg-cadence]
+               [preferences-tag 'activity-log:swim-cadence-graph]
+               [headline "Swim Cadence"])
 
-    (inherit set-y-axis get-data-frame)
-    (set-y-axis axis-swim-avg-cadence)
+    (inherit get-data-frame)
 
     (define avg-cadence #f)
 
@@ -1662,9 +1220,6 @@
     (define/override (set-data-frame data-frame)
       (set! avg-cadence #f)
       (super set-data-frame data-frame))
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame "cad"))
 
     ))
 
@@ -1800,7 +1355,7 @@
                 (append h (cons (car (cdr t)) (cons (car t) (cdr (cdr t))))))
           (send visible-lb clear)
           (for ([item visible])
-            (send visible-lb append (send item get-name)))
+            (send visible-lb append (send item get-headline)))
           (send visible-lb set-selection nindex)
           (enable-disable-buttons))))
 
@@ -1809,10 +1364,10 @@
     (define (refill)
       (send visible-lb clear)
       (for ([item visible])
-        (send visible-lb append (send item get-name)))
+        (send visible-lb append (send item get-headline)))
       (send available-lb clear)
       (for ([item available])
-        (send available-lb append (send item get-name))))
+        (send available-lb append (send item get-headline))))
 
     ;; Called when the user clicks on the "Show/Hide" button.  If an item is
     ;; selected in the VISIBLE-LB it will be moved into the AVAILABLE-LB and
@@ -1873,7 +1428,7 @@
             (#t
              (set! visible
                    (for*/list ([tag visible-tags]
-                               [g (in-value (findf (lambda (g) (eq? tag (send g get-tag))) all-graphs))]
+                               [g (in-value (findf (lambda (g) (eq? tag (send g get-preferences-tag))) all-graphs))]
                                #:when g)
                      g))
              (set! available
@@ -1881,7 +1436,7 @@
       (refill)
       (enable-disable-buttons)
       (if (send this do-edit parent)
-          (for/list ([item visible]) (send item get-tag))
+          (for/list ([item visible]) (send item get-preferences-tag))
           #f))
     ))
 
@@ -1903,30 +1458,49 @@
   ;; NOTE: all graphs are created as 'deleted, so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
-  (list
-   (new speed-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new elevation-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new heart-rate-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new cadence-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new vosc-vratio-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new gct-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new power-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new wbal-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new lrbal-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new teff-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new psmth-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new pco-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new power-phase-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+  (for/list ([c% (in-list (list speed-graph%
+                                pace-graph%
+                                speed-zone-graph%
+                                grade-adjusted-pace-graph%
+                                elevation-graph%
+                                corrected-elevation-graph%
+                                grade-graph%
+                                grade+calt-graph%
+                                grade+alt-graph%
+                                heart-rate-graph%
+                                heart-rate-zones-graph%
+                                heart-rate-pct-graph%
+                                cadence-graph%
+                                stride-graph%
+                                vertical-oscillation-graph%
+                                vertical-ratio-graph%
+                                ground-contact-time-graph%
+                                ground-contact-percent-graph%
+                                wbal-graph%
+                                power-graph%
+                                power+wbal-graph%
+                                power-zone-graph%
+                                lrbal-graph%
+                                teff-graph%
+                                psmth-graph%
+                                pco-graph%
+                                pp-start-graph%
+                                pp-end-graph%
+                                pp-angle-graph%
+                                ppp-start-graph%
+                                ppp-end-graph%
+                                ppp-angle-graph%))])
+    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-swim-graphs parent hover-callback)
   ;; NOTE: all graphs are created as '(deleted), so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
-  (list
-   (new swim-pace-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new swim-swolf-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new swim-stroke-count-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])
-   (new swim-cadence-graph% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+  (for/list ([c% (in-list (list swim-pace-graph%
+                                swim-swolf-graph%
+                                swim-stroke-count-graph%
+                                swim-cadence-graph%))])
+    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-xdata-graphs parent hover-callback)
   (for/list ([md (get-available-xdata-metadata)])
@@ -1981,15 +1555,21 @@
 
     (define (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
-      (for-each (lambda (g) (send g zoom-to-lap zoom)) graphs))
+      (for ([g (in-list graphs)])
+        (queue-callback
+         (lambda () (send g zoom-to-lap zoom)))))
 
     (define (color-by-zone flag)
       (set! color-by-zone? flag)
-      (for-each (lambda (g) (send g color-by-zone flag)) graphs))
+      (for ([g (in-list graphs)])
+        (queue-callback
+         (lambda () (send g color-by-zone flag)))))
 
     (define (show-average-line show)
       (set! show-avg? show)
-      (for-each (lambda (g) (send g show-average-line show)) graphs))
+      (for ([g (in-list graphs)])
+        (queue-callback
+         (lambda () (send g show-average-line show)))))
 
     (define (highlight-lap n lap)
       (let* ((start (lap-start-time lap))
@@ -1997,18 +1577,22 @@
              ;; use floor because timestamps are at 1 second precision and
              ;; this ensures swim laps are correctly highlighted.
              (end (floor (+ start elapsed))))
-        (for ([g graphs])
-          (send g highlight-interval start end))))
+        (for ([g (in-list graphs)])
+          (queue-callback
+           (lambda ()
+             (send g highlight-interval start end))))))
 
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
         (when the-session
           (hash-set! x-axis-by-sport (session-sport the-session) index))
-        (for-each (lambda (g) (send g set-x-axis x-axis)) graphs)))
+        (for ([g (in-list graphs)])
+          (queue-callback (lambda () (send g set-x-axis x-axis))))))
 
     (define (set-filter-amount a)
       (set! filter-amount a)
-      (for-each (lambda (g) (send g set-filter-amount a)) graphs))
+      (for ([g (in-list graphs)])
+          (queue-callback (lambda () (send g set-filter-amount a)))))
 
     (define panel (new horizontal-pane%
                        [parent parent]
@@ -2100,11 +1684,11 @@
 
     (send filter-amount-choice set-selection filter-amount)
 
-    (define graphs-panel (new vertical-panel%
+    (define graphs-panel (new grid-pane%
                               [parent charts-panel]
                               [border 0]
-                              [spacing 1]
-                              [style '(vscroll)]
+                              [spacing 0]
+                              [columns 1]
                               [alignment '(left top)]))
 
     (define default-graphs-1 #f)
@@ -2172,52 +1756,87 @@
         'x-axis-by-sport x-axis-by-sport
         'graphs-by-sport graphs-by-sport)))
 
+    ;; Return the available graphs for SESSION.  For non-lap swimming
+    ;; activities, we only use the graphs for which we have data.
+    (define (get-graphs-for-session session)
+      (define sport (session-sport session))
+      (define visible (hash-ref graphs-by-sport sport #f))
+
+      (define candidates
+        (cond (visible
+               ;; If we already have a list of graphs that are visible, select
+               ;; them.
+               (define c
+                 (for/list ([g (if (is-lap-swimming? data-frame)
+                                   (swim-graphs)
+                                   (append (default-graphs) (xdata-graphs)))]
+                            #:when (member (send g get-preferences-tag) visible))
+                   g))
+               ;; Ensure the graphs are in the same order as the visible list
+               ;; (this is controlled by the "select series" dialog box.
+               (for/list ([v (in-list visible)])
+                 (for/first ([g (in-list c)]
+                             #:when (equal? v (send g get-preferences-tag)))
+                   g)))
+              ;; If there are no visible graphs, select suitable defaults.  We
+              ;; have too many plots to put them all, but the user can always
+              ;; select the one they want
+              (#t
+               (define chart-classes
+                 (cond
+                   ((is-runnig? sport)
+                    (list pace-graph% heart-rate-graph% cadence-graph%))
+                   ((is-cycling? sport)
+                    (list power-graph% heart-rate-graph% speed-graph% cadence-graph%))
+                   ((is-swimming? sport)
+                    (list swim-pace-graph% swim-cadence-graph% swim-swolf-graph%))
+                   (#t
+                    (list speed-graph% power-graph% heart-rate-graph% cadence-graph%))))
+               (define candidates
+                 (if (is-lap-swimming? data-frame)
+                     (swim-graphs)
+                     (append (default-graphs) (xdata-graphs))))
+               (for/list ([c (in-list chart-classes)])
+                 (for/first ([g (in-list candidates)] #:when (is-a? g c))
+                   g)))))
+
+      ;; Since no visible tags were present, we just made up some default
+      ;; lists, set them here, so they show up correctly when the user opens
+      ;; the "Select data series" dialog.
+      (unless visible
+        (define tags (for/list ([g (in-list candidates)])
+                       (send g get-preferences-tag)))
+        (hash-set! graphs-by-sport sport tags))
+
+      (for/list ([g (in-list candidates)]
+                 #:when (and g (send g is-valid-for? data-frame)))
+        g))
+
     (define (setup-graphs-for-current-session)
 
-      ;; Return the available graphs for SESSION.  For non-lap swimming
-      ;; activities, we only use the graphs for which we have data.
-      (define (get-graphs-for-session session)
-        (define visible (hash-ref graphs-by-sport (session-sport session) #f))
-
-        (define candidates
-          (append
-           (if (is-lap-swimming? data-frame)
-               (swim-graphs)
-               (for/list ([g (default-graphs)] #:when (send g is-valid-for? data-frame))
-                 g))
-           (for/list ([g (xdata-graphs)] #:when (send g is-valid-for? data-frame))
-             g)))
-
-        ;; NOTE: a #f value for VISIBLE means all graphs are visible.  The '()
-        ;; value means that no graphs are visible.
-        (if visible
-            (for*/list ([tag visible]
-                        [g (in-value (findf (lambda (g) (eq? tag (send g get-tag))) candidates))]
-                        #:when g)
-              g)
-            candidates))
 
       (set! graphs (get-graphs-for-session the-session))
+      (let ([graph-count (length graphs)])
+        (cond ((<= graph-count 3)
+               (send graphs-panel column-count 1))
+              ((<= graph-count 6)
+               (send graphs-panel column-count 2))
+              (#t
+               (send graphs-panel column-count 3))))
       (send graphs-panel change-children
-            (lambda (old) (map (lambda (g) (send g get-panel)) graphs)))
-      ;; Attempt to reflow the container so the plot canvas knows its size
-      ;; when the plots are about to be inserted -- this does not work,
-      ;; unfortunately and the plots are inserted than resized immediately,
-      ;; causing an unpleasant flicker.  I suspect this has to do something
-      ;; with the 'vscroll option on the graph panel, as the other plots
-      ;; (scatter, histogram, etc) don't have this problem.
-      (send graphs-panel reflow-container)
+            (lambda (old) (map (lambda (g) (send g get-graph-canvas)) graphs)))
       (let* ((sel (send x-axis-choice get-selection))
              (x-axis (cdr (list-ref x-axis-choices sel))))
         (for-each (lambda (g)
-                    (send g suspend-flush)
+                    (send g begin-edit-sequence)
                     (send g set-x-axis x-axis)
                     (send g zoom-to-lap zoom-to-lap?)
                     (send g color-by-zone color-by-zone?)
                     (send g show-average-line show-avg?)
                     (send g set-filter-amount filter-amount)
+                    (send g highlight-interval #f #f)
                     (send g set-data-frame data-frame)
-                    (send g resume-flush))
+                    (send g end-edit-sequence))
                   graphs)))
 
     (define/public (set-session session df)

@@ -21,6 +21,7 @@
          racket/dict
          racket/gui/base
          racket/match
+         math/statistics
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
@@ -194,24 +195,50 @@
 
     (send map-view track-current-location #t)
 
-    (define elevation-graph
-      (let ((p (new horizontal-pane% [parent map-panel] [stretchable-height #f])))
-        (new elevation-graph% [parent p] [min-height 150]
-             [hover-callback (lambda (x) (on-hover x))])))
+    (define elevation-graph-pane
+      (new horizontal-pane% [parent map-panel] [stretchable-height #f]))
 
-    (send elevation-graph zoom-to-lap zoom-to-lap?)
-    (send elevation-graph set-filter-amount 0) ; no elevation filtering
+    (define the-elevation-graph #f)
+
+    (define grade+alt-graph
+      (new grade+alt-graph%
+           [parent elevation-graph-pane]
+           [min-height 150]
+           [style '(deleted)]
+           [hover-callback (lambda (x) (on-hover x))]))
+
+    (define grade+calt-graph
+      (new grade+calt-graph%
+           [parent elevation-graph-pane]
+           [min-height 150]
+           [style '(deleted)]
+           [hover-callback (lambda (x) (on-hover x))]))
+
+    (send grade+alt-graph begin-edit-sequence)
+    (send grade+alt-graph zoom-to-lap zoom-to-lap?)
+    (send grade+alt-graph set-filter-amount 0) ; no elevation filtering
+    (send grade+alt-graph set-x-axis axis-distance)
+    (send grade+alt-graph end-edit-sequence)
+
+    (send grade+calt-graph begin-edit-sequence)
+    (send grade+calt-graph zoom-to-lap zoom-to-lap?)
+    (send grade+calt-graph set-filter-amount 0) ; no elevation filtering
+    (send grade+calt-graph set-x-axis axis-distance)
+    (send grade+calt-graph end-edit-sequence)
 
     (define (on-hover x)
-      (send elevation-graph draw-marker-at x)
-      (send map-view current-location (and x (lookup-position data-frame x))))
+      (when the-elevation-graph
+        (send the-elevation-graph draw-marker-at x))
+      (define location (and x (lookup-position data-frame x)))
+      (send map-view current-location location))
 
     (define selected-lap #f)
     (define selected-lap-data #f)
 
     (define (zoom-to-lap flag)
       (set! zoom-to-lap? flag)
-      (send elevation-graph zoom-to-lap flag)
+      (when the-elevation-graph
+        (send the-elevation-graph zoom-to-lap flag))
       (when zoom-to-lap?
         (send map-view resize-to-fit selected-lap)))
 
@@ -246,7 +273,8 @@
             (elapsed (lap-elapsed-time lap)))
 
         ;; Highlight corresponding lap on the elevation graph
-        (send elevation-graph highlight-interval start (+ start elapsed))
+        (when the-elevation-graph
+          (send the-elevation-graph highlight-interval start (+ start elapsed)))
 
         (set! selected-lap (if custom-lap? 'custom (- lap-num 1)))
 
@@ -300,15 +328,32 @@
           (send map-view export-image-to-file file))))
 
     (define/public (set-session session df)
-      (send map-view begin-edit-sequence)
       (set! the-session session)
       (set! data-frame df)
       (set! export-file-name #f)
-      (send elevation-graph set-data-frame df)
-      (send elevation-graph set-x-axis axis-distance)
-      (send map-view clear)
+      (set! the-elevation-graph
+        (cond ((df-contains? df "calt") grade+calt-graph)
+              ((df-contains? df "alt") grade+alt-graph)
+              (#t #f)))
+      (when the-elevation-graph
+        (send the-elevation-graph begin-edit-sequence)
+        (send the-elevation-graph highlight-interval #f #f)
+        (send the-elevation-graph zoom-to-lap zoom-to-lap?)
+        (send the-elevation-graph set-data-frame df)
+        (send the-elevation-graph end-edit-sequence))
+      (send elevation-graph-pane
+            change-children
+            (lambda (old)
+              (define canvas
+                (and the-elevation-graph
+                     (send the-elevation-graph get-graph-canvas)))
+              (if canvas (list canvas) '())))
+
       (send info-message set-label
             (if (allow-tile-download) "" "Map tile download disabled"))
+
+      (set! selected-lap #f)
+      (send interval-coice set-session session df)
 
       ;; Add the data tracks
 
@@ -321,6 +366,9 @@
       (define laps (df-get-property data-frame 'laps))
       (define start (vector-ref laps 0))
       (define start-idx 0)
+
+      (send map-view begin-edit-sequence)
+      (send map-view clear)
 
       (for ([(lap group) (in-indexed (in-sequences (in-vector laps 1) (in-value #f)))])
         (for ([t teleports] #:when (and (< start t) lap (< t lap)))
@@ -354,8 +402,6 @@
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
       (send map-view resize-to-fit)
-      (set! selected-lap #f)
-      (send interval-coice set-session session df)
       (send map-view end-edit-sequence))
 
     ))

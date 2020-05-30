@@ -1180,7 +1180,7 @@
 ;;
 (define (make-plot-renderer data-series y-range
                             #:color (color #f)
-                            #:width (width 2)
+                            #:width (width 3)
                             #:alpha (alpha #f)
                             #:label (label #f))
   (let ((kwd '()) (val '()))
