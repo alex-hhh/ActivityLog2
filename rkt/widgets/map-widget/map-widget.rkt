@@ -76,6 +76,11 @@
         (let-values ([(w h) (send canvas get-size)])
           (send map-impl resize w h))
         (set! first-paint? #f))
+      (when delayed-resize-to-fit?
+        ;; Handle the delayed resize-to-fit here, it seems that handling it in
+        ;; `on-superwindow-show` is done after the first paint is called.
+        (resize-to-fit)
+        (set! delayed-resize-to-fit? #f))
       (send map-impl draw dc 0 0))
 
     ;; This is the canvas on which we paint the map.  We intercept the mouse
