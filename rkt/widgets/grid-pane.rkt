@@ -32,9 +32,24 @@
 ;; stretchable, but this pane is, than all columns/rows will be stretched.
 (define grid-pane%
   (class panel%                         ; making it a panel% allows `change-children`
-    (init-field columns)
+    (init columns)
     (super-new)
-    (inherit border spacing get-alignment stretchable-width stretchable-height)
+    (inherit border spacing get-alignment stretchable-width stretchable-height
+             container-flow-modified)
+
+    ;; Keep the number of columns here, it might change (see column-count)
+    (define the-column-count columns)
+
+    ;; Get or set the number of columns in the grid view.  Setting the column
+    ;; count will cause the panel to be re-flowed and items arranged according
+    ;; to the new number of columns.
+    (public column-count)
+    (define column-count
+      (case-lambda
+        [() the-column-count]
+        [(c)
+         (set! the-column-count c)
+         (container-flow-modified)]))
 
     ;; Return placement information for the child item given INFO containing
     ;; the minimum dimensions of the child and its horizontal/vertical stretch
@@ -42,9 +57,9 @@
     ;; row/column) and CELL-WIDTH CELL-HEIGHT are the dimensions of a cell.
     ;;
     ;; Returns a list giving the position of the child and its dimensions.
-    (define (child-placement info index x y cell-width cell-height)
+    (define/private (child-placement info index x y cell-width cell-height)
       (match-define (list min-width min-height hstretch? vstretch?) info)
-      (define-values (row col) (quotient/remainder index columns))
+      (define-values (row col) (quotient/remainder index the-column-count))
       (define-values (halign valign) (get-alignment))
 
       (define-values (cx cw)
@@ -80,18 +95,18 @@
     ;; Calculate the minimum size of the container given the minimum size
     ;; requirements of its children.
     (define/override (container-size info)
-      (define rows (exact-ceiling (/ (length info) columns)))
-      (define column-widths (make-vector columns 0))
+      (define rows (exact-ceiling (/ (length info) the-column-count)))
+      (define column-widths (make-vector the-column-count 0))
       (define row-heights (make-vector rows 0))
 
       (for (((item index) (in-indexed info)))
         (match-define (list min-width min-height hstretch? vstretch?) item)
-        (define-values (row column) (quotient/remainder index columns))
+        (define-values (row column) (quotient/remainder index the-column-count))
         (vector-set! column-widths column (max (vector-ref column-widths column) min-width))
         (vector-set! row-heights row (max (vector-ref row-heights row) min-height)))
 
       (values
-       (+ (border) (border) (* (sub1 columns) (spacing))
+       (+ (border) (border) (* (sub1 the-column-count) (spacing))
           (for/fold ((min-width 0))
                     ((w (in-vector column-widths)))
             (+ min-width w)))
@@ -105,7 +120,7 @@
     ;; STRETCHABLE-ITEMS is a vector of boolean values, #t indicates that the
     ;; corresponding item in ITEM-SIZES can be scaled up.  The ITEM-SIZES
     ;; vector is modified in place.
-    (define (adjust-item-sizes! item-sizes stretchable-items total-size)
+    (define/private (adjust-item-sizes! item-sizes stretchable-items total-size)
       (define nitems (vector-length item-sizes))
       ;; Available size to distribute among items (excludes the borders and
       ;; spacing between the items)
@@ -131,7 +146,7 @@
             (for ([index (in-range nitems)])
               (define nsize (* scale (vector-ref item-sizes index)))
               (vector-set! item-sizes index (exact-round nsize))))))
-  
+
     ;; Calculate placement information for all children, given their minimum
     ;; size requirements in INFO and the dimensions of the container (WIDTH,
     ;; HEIGHT).
@@ -139,17 +154,17 @@
     ;; Returns a list of positions and sizes for each child (in the same order
     ;; as the items in INFO).
     (define/override (place-children info width height)
-      (define rows (exact-ceiling (/ (length info) columns)))
-      (define col-widths (make-vector columns 0))
+      (define rows (exact-ceiling (/ (length info) the-column-count)))
+      (define col-widths (make-vector the-column-count 0))
       (define row-heights (make-vector rows 0))
       ;; Determines which rows and columns can be stretched: a row or column
       ;; can be stretched if *all* items in it can be stretched
-      (define col-stretch (make-vector columns #t))
+      (define col-stretch (make-vector the-column-count #t))
       (define row-stretch (make-vector rows #t))
 
       (for (((item index) (in-indexed info)))
         (match-define (list min-width min-height hstretch? vstretch?) item)
-        (define-values (row column) (quotient/remainder index columns))
+        (define-values (row column) (quotient/remainder index the-column-count))
         (vector-set! col-widths column (max (vector-ref col-widths column) min-width))
         (vector-set! col-stretch column (and (vector-ref col-stretch column) hstretch?))
         (vector-set! row-heights row (max (vector-ref row-heights row) min-height))
@@ -161,7 +176,7 @@
         (adjust-item-sizes! row-heights row-stretch height))
 
       (for/list (((item index) (in-indexed info)))
-        (define-values (row column) (quotient/remainder index columns))
+        (define-values (row column) (quotient/remainder index the-column-count))
         (define cell-width (vector-ref col-widths column))
         (define cell-height (vector-ref row-heights row))
         (define cell-x (+ (border)
