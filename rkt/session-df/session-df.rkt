@@ -43,7 +43,19 @@
          "series-metadata.rkt"
          "xdata-series.rkt")
 
-(define y-range/c (cons/c (or/c #f number?) (or/c #f number?)))
+
+;; Check if R is a valid plot range, as produced by `get-plot-y-range` and
+;; used by several other functions.  This is used in the `y-range/c` contract.
+(define (valid-range? r)
+  (and (pair? r)
+       (let ((a (car r))
+             (b (cdr r)))
+         (and (real? a) (not (nan? a)) (not (infinite? a))
+              (real? b) (not (nan? b)) (not (infinite? b))
+              (> b a)))))
+
+(define y-range/c (flat-named-contract 'y-range/c valid-range?))
+
 (define color/c (or/c (is-a?/c color%) (list/c real? real? real?)))
 (define factor-colors/c (listof (cons/c symbol? color/c)))
 
@@ -1145,39 +1157,45 @@
 ;; Determine the min/max y values for a plot based on STATS (as collected by
 ;; `ds-stats') and the Y-AXIS.
 (define (get-plot-y-range stats y-axis)
-  (define high #f)
-  (define low #f)
-  (let ((range (send y-axis y-range)))
-    (when range
-      (set! low (car range))
-      (set! high (cdr range))))
-  (define mean (statistics-mean stats))
-  (define stddev (statistics-stddev stats))
-  (define width 3.0)
-  (unless low
-    (let ((v (statistics-min stats)))
-      (unless (or (nan? v) (nan? mean) (nan? stddev))
-        (set! low v))))
-  (unless high
-    (let ((v (statistics-max stats)))
-      (unless (or (nan? v) (nan? mean) (nan? stddev))
-        (set! high v))))
-  (when (and low high)
-    (define actual-range (- high low))
-    ;; Ensure a minimum range for the plot, based off the fractional digits.
-    ;; This is used when we have a constant stream of data and the
-    ;; actual-range is zero, or close to zero
-    (define min-range (* 2 10 (expt 10 (- (send y-axis fractional-digits)))))
-    (define extend (* 0.05 actual-range))
-    (if (> (+ actual-range (* 2 extend)) min-range)
-        (begin
-          (set! high (+ high extend))
-          (set! low (- low extend)))
-        (let ((middle (* 0.5 (+ low high)))
-              (h (* 0.5 min-range)))
-           (set! high (+ middle h))
-          (set! low (- middle h)))))
-  (cons low high))
+  ;; Start with the y-range defined by Y-AXIS, if any
+  (define-values (low high)
+    (let ([srange (send y-axis y-range)])
+      (if srange
+          (values (car srange) (cdr srange))
+          (values #f #f))))
+
+  (let ([v (statistics-min stats)])
+    (unless (or (nan? v) (infinite? v))
+      (set! low (if low (min low v) v))))
+
+  (let ([v (statistics-max stats)])
+    (unless (or (nan? v) (infinite? v))
+      (set! high (if high (max high v) v))))
+
+  ;; Unclear what to do here, but our callers would have even less of a
+  ;; clue...
+  (unless (and low high)
+    (error "get-plot-y-range (~a): bad bounds: min ~a, max ~a"
+           (send y-axis series-name)
+           low
+           high))
+
+  ;; Now check if the range is too small and adjust it.
+  (define arange (- high low))
+
+  ;; Ensure a minimum range for the plot, based off the fractional digits.
+  ;; This is used when we have nearly constant values in the data series and
+  ;; the actual range is zero, or close to zero
+  (define mrange (* 2 10 (expt 10 (- (send y-axis fractional-digits)))))
+
+  (define extend (* 0.05 arange))
+
+  (if (> (+ arange (* 2 extend)) mrange)
+      (cons (- low extend) (+ high extend))
+      ;; Create a small range in the middle of LOW and HIGH
+      (let ((middle (* 0.5 (+ low high)))
+            (h (* 0.5 mrange)))
+        (cons (- middle h) (+ middle h)))))
 
 ;; Combine two Y ranges (as produced by `get-plot-y-range')
 (define (combine-y-range yr1 yr2)

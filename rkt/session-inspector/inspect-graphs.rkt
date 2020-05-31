@@ -418,10 +418,33 @@
                   (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
         #f)))
 
-(define (make-guest-transform base-min base-max guest-min guest-max)
+;; Construct an invertible-function? which transforms a value such that the
+;; GUEST-MIN .. GUEST-MAX range is transformed to BASE-MIN .. BASE-MAX ranges.
+;; Ideally data should be transformed only between the ranges, but the actual
+;; functions would work outside this domain as well.  There are some
+;; restriction on the base and guest ranges, see contract below
+(define/contract (make-guest-transform base-min base-max guest-min guest-max)
+
+  ;; This contract checks that the parameters are correct as needed by this
+  ;; application: they must be real numbers and not NaN and infinites, and
+  ;; base-max > base-min and guest-max > guest-min (this is implicitly
+  ;; checked, as there is no `abs` call in the #:pre/name section).  Also, we
+  ;; check that the range is greater than a small number (1e-4) -- technically
+  ;; we would only need to check for zero, as that makes it impossible to
+  ;; generate the transform, but very small ranges are also suspicious for the
+  ;; types of data we deal with in this application
+  (->i ([base-min (and/c real? (not/c infinite?) (not/c nan?))]
+        [base-max (and/c real? (not/c infinite?) (not/c nan?))]
+        [guest-min (and/c real? (not/c infinite?) (not/c nan?))]
+        [guest-max (and/c real? (not/c infinite?) (not/c nan?))])
+       ()
+       #:pre/name (base-min base-max guest-min guest-max)
+       "empty base or guest range"      ; see note above
+       (and (> (- base-max base-min) 1e-4)
+            (> (- guest-max guest-min) 1e-4))
+       (result invertible-function?))
+
   (define base-range (- base-max base-min))
-  (when (zero? base-range)
-    (error "make-guest-transform: zero base range"))
   (define guest-range (- guest-max guest-min))
   (invertible-function
    (lambda (v)                          ; Transform from base to guest
