@@ -72,21 +72,21 @@
     (define (on-canvas-paint canvas dc)
       (when first-paint?
         ;; If this is our first paint, we can determine the size of the canvas
-        ;; (before the first paint invocation, the size will be 0.
+        ;; (before the first paint invocation, the size will be 0).
         (let-values ([(w h) (send canvas get-size)])
           (send map-impl resize w h))
         (set! first-paint? #f))
       (when delayed-resize-to-fit?
         ;; Handle the delayed resize-to-fit here, it seems that handling it in
         ;; `on-superwindow-show` is done after the first paint is called.
-        (resize-to-fit)
-        (set! delayed-resize-to-fit? #f))
+        (resize-to-fit))
       (send map-impl draw dc 0 0))
 
     ;; This is the canvas on which we paint the map.  We intercept the mouse
     ;; and keyboard events to pass them on to the map-impl% object.
     (define canvas
       (new (class canvas% (init) (super-new)
+             (inherit get-dc)
              (define/override (on-size w h)
                (send map-impl resize w h))
              (define/override (on-event event)
@@ -95,12 +95,25 @@
              (define/override (on-char event)
                (define dc (send this get-dc))
                (send map-impl on-char dc 0 0 0 0 event))
+
+             ;; NOTE: the `on-paint` method is called before
+             ;; on-superwindow-show, and the is-shown? method returns true
+             ;; before `on-superwindow-show` is called.  We attempt to control
+             ;; ordering here, so that a resize to fit is called before the
+             ;; first paint is done.  See also AB#7
+             (define visible? #f)
+
              (define/override (on-superwindow-show shown?)
-               (when (and shown? delayed-resize-to-fit?)
-                 (resize-to-fit)
-                 (set! delayed-resize-to-fit? #f))))
+               (unless (equal? visible? shown?)
+                 (set! visible? shown?)
+                 (when (and shown? delayed-resize-to-fit?)
+                   (resize-to-fit))))
+             (define/override (on-paint)
+               (set! visible? #t)
+               (on-canvas-paint this (get-dc)))
+             (define/public (is-visible?)
+               visible?))
            [parent parent]
-           [paint-callback on-canvas-paint]
            [style '(no-autoclear)]))
 
     ;; The map implementation, handles drawing and event handling
@@ -161,9 +174,12 @@
       (send map-impl move-to position))
 
     (define/public (resize-to-fit [group #f])
-      (when (send canvas is-shown?)     ; AB#7
-        (send map-impl resize-to-fit group)
-        (set! delayed-resize-to-fit? #t)))
+      (if (send canvas is-visible?)     ; AB#7
+          (begin
+            (send map-impl resize-to-fit group)
+            (set! delayed-resize-to-fit? #f))
+          (begin
+            (set! delayed-resize-to-fit? #t))))
 
     (define/public (export-image-to-file file-name)
       (send map-impl export-image-to-file file-name))
