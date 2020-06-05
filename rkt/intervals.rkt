@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -295,7 +295,7 @@
         (values
          (if low (min a low) a)
          (if high (max a high) a))))
-    (define epsilon (/ (- high low) 20))
+    (define epsilon (max 1e-2 (/ (- high low) 20)))
     (define peaks(rdp-simplify data #:epsilon epsilon #:destroy-original? #t))
     (define segments
       (if (> (vector-length peaks) 1)

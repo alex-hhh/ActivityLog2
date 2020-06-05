@@ -65,6 +65,8 @@
   (list
    axis-speed
    axis-pace
+   axis-elevation
+   axis-corrected-elevation
    axis-gap
    axis-speed-zone
    axis-grade
@@ -288,7 +290,7 @@
                                ((lap-swimming?)
                                 (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
                                (#t
-                                (duration->string value)))))
+                                (format "~a @ ~a" (duration->string value) label)))))
                 (set! renderer (list (hover-label x y tag))))))))
       (set-overlay-renderers snip renderer))
 

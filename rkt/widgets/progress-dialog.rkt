@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -66,7 +66,7 @@
                  [stretchable-height #f] [stretchable-width #f]))
           (let ((pane (new vertical-pane% [parent pane] [spacing 1] [alignment '(left top)])))
             (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))
-            (set! message-box (new message% [parent pane] [label ""] [min-width 200]))))
+            (set! message-box (new message% [parent pane] [label ""] [min-width 200] [auto-resize #t]))))
         (let ((pane (new horizontal-pane% [parent pane] [border 0]
                          [stretchable-height #f] [alignment '(right center)])))
           (set! update-button (new button%

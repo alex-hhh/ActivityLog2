@@ -401,7 +401,8 @@
            (make-plot-renderer sdata y-range
                                #:color (send y plot-color)))
           (sdata2
-           (error "plot-data-renderer-tree -- unexpected combination"))
+           (make-plot-renderer sdata2 y-range
+                               #:color (send y2 plot-color)))
           (#t #f))))
 
 ;; Produce a highlight interval data structure from the PD and PS structures.
@@ -1249,26 +1250,6 @@
     ))
 
 
-;......................................................... xdata-graph% ....
-
-(define xdata-graph%
-  (class graph-view%
-    (init-field parent metadata)
-
-    (let ((sn (send metadata series-name))
-          (hl (send metadata headline)))
-      (super-new [parent parent]
-                 [tag (string->symbol (string-append "activity-log:" sn))]
-                 [text (string-append hl " ")]))
-
-    (send this set-y-axis metadata)
-
-    (define/override (is-valid-for? data-frame)
-      (df-contains? data-frame (send metadata series-name)))
-
-    ))
-
-
 ;;............................................ select-data-series-dialog% ....
 
 ;; A dialog box used to select the data series that are displayed in the
@@ -1529,11 +1510,11 @@
 
 (define (make-xdata-graphs parent hover-callback)
   (for/list ([md (get-available-xdata-metadata)])
-    (new xdata-graph%
+    (new graph-view%
          [parent parent]
          [style '(deleted)]
          [hover-callback hover-callback]
-         [metadata md])))
+         [primary-y-axis md])))
 
 (define graph-panel%
   (class object%

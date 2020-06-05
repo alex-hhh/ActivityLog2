@@ -62,6 +62,8 @@
    axis-pace
    axis-gap
    axis-speed-zone
+   axis-elevation
+   axis-corrected-elevation
    axis-grade
    axis-hr-bpm
    axis-hr-pct
@@ -462,7 +464,7 @@
                                ((is-lap-swimming? (hash-ref params 'sport))
                                 (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
                                (#t
-                                (duration->string value)))))
+                                (format "~a @ ~a" (duration->string value) label)))))
                 (add-renderer (hover-label x y tag)))))))
 
       (set-overlay-renderers snip renderers))

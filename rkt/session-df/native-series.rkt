@@ -769,6 +769,7 @@
          (define/override (axis-label) "W' Bal")
          (define/override (should-filter?) #f)
          (define/override (series-name) "wbal")
+         (define/override (y-range) '(0 . #f))
          (define/override (name) "WBal")
          )))
 (register-series-metadata axis-wbal)
