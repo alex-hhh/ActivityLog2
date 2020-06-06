@@ -21,7 +21,7 @@
          racket/math
          tzgeolookup
          "database.rkt"
-         "elevation-correction.rkt"
+         "models/elevation-correction.rkt"
          "session-df/session-df.rkt"
          "time-in-zone.rkt"
          "utilities.rkt"

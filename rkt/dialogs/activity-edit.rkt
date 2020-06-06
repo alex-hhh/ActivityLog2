@@ -38,7 +38,7 @@
  "edit-session-tss.rkt"
  "edit-session-weather.rkt"
  "edit-lap-swim.rkt"
- "../elevation-correction.rkt"
+ "../models/elevation-correction.rkt"
  "fthr-analysis.rkt")
 
 (provide activity-operations<%>)

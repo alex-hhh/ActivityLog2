@@ -28,7 +28,7 @@
          racket/port
          "dbapp.rkt"
          "dbutil.rkt"
-         "elevation-correction.rkt"
+         "models/elevation-correction.rkt" ; for lat-lon->tile-code
          "fit-file/fit-defs.rkt"
          "fit-file/fit-file.rkt"
          "utilities.rkt")

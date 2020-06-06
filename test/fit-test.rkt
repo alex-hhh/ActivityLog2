@@ -188,7 +188,7 @@ select count(*)
    (test-case "f0001.fit"
      (do-basic-checks "./test-fit/f0001.fit" 18 14035))
    (test-case "f0002.fit"
-     (do-basic-checks "./test-fit/f0002.fit" 16 500))
+     (do-basic-checks "./test-fit/f0002.fit" 17 500))
    (test-case "f0003.fit"
      (do-basic-checks "./test-fit/f0003.fit" 14 47))
    (test-case "f0004.fit"
@@ -341,7 +341,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0029.fit"
      (do-basic-checks
-      "./test-fit/f0029.fit" '(15 17 31 16 30) '(943 814 24062 330 19656)
+      "./test-fit/f0029.fit" '(16 18 31 16 30) '(943 814 24062 330 19656)
       #:expected-session-count 5
       #:extra-db-checks
       (lambda (db)
@@ -417,6 +417,6 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0032.fit"))
+             ;; #:only '(("FIT file reading" "f0029.fit"))
              fit-files-test-suite))
 

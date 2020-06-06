@@ -32,7 +32,7 @@
          "dialogs/edit-seasons.rkt"
          "dialogs/edit-sz.rkt"
          "dialogs/export-fit-settings.rkt"
-         "elevation-correction.rkt"
+         "models/elevation-correction.rkt"
          "import.rkt"
          "metrics.rkt"
          "session-inspector/view-session.rkt"
@@ -983,10 +983,10 @@
 
       (when database
 
-        ;; (call-with-output-file "profile.txt"
-        ;;   #:mode 'text
-        ;;   #:exists 'append
-        ;;   profile-display)
+        #;(call-with-output-file "profile.txt"
+          #:mode 'text
+          #:exists 'append
+          profile-display)
 
         (disconnect database)
         (set! database #f))
