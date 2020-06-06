@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(33);
+insert into SCHEMA_VERSION(version) values(34);
 
 
 --........................................................ Enumerations ....
@@ -428,7 +428,7 @@ create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
 -- need to scan this index, speeding the lookup.  We pay for this by having a
 -- larger index size.
 create index IX1_A_TRACKPOINT
-  on A_TRACKPOINT(tile_code, position_lat, position_long, altitude);
+  on A_TRACKPOINT(tile_code, position_lat, position_long, altitude, timestamp);
 
 
 --............................................................... Xdata ....
