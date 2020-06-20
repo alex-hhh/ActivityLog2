@@ -23,3 +23,8 @@ runtime.  The files are referenced by `define-runtime-path` and packaged into th
   product ID used in fit files and is used to name devices.  These are used
   when a device serial number is first seen and a new EQUIPMENT entry is
   created in the database.
+
+* `fthr-defs.json` contains definitions for sport zones based on power, pace
+  or heart rate thresholds.  It is used by [fthr.rkt](../rkt/models/fthr.rkt)
+  and it is described in [this blog
+  post](https://alex-hhh.github.io/2020/05/threshold-analysis-in-activitylog2.html)

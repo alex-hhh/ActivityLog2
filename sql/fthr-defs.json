@@ -6,14 +6,14 @@
         "duration" : 1200,
         "threshold" : 1.0,
         "zone_definition" : [
-            { "name" : "Zone 1", "percent" : 0 },
+            { "name" : "Zone 1", "absolute" : 55 },
             { "name" : "Zone 2", "percent" : 0.85 },
             { "name" : "Zone 3", "percent" : 0.90 },
             { "name" : "Zone 4", "percent" : 0.95 },
             { "name" : "Zone 5a", "percent" : 1.00 },
             { "name" : "Zone 5b", "percent" : 1.03 },
             { "name" : "Zone 5c", "percent" : 1.06 },
-            { "name" : "Max", "percent" : 2.0 }
+            { "name" : "Max", "absolute" : 190 }
         ]
     },
     {
@@ -41,14 +41,14 @@
         "duration" : 1200,
         "threshold" : 1.0,
         "zone_definition" : [
-            { "name" : "Zone 1", "percent" : 0 },
+            { "name" : "Zone 1", "absolute" : 55 },
             { "name" : "Zone 2", "percent" : 0.81 },
             { "name" : "Zone 3", "percent" : 0.90 },
             { "name" : "Zone 4", "percent" : 0.94 },
             { "name" : "Zone 5a", "percent" : 1.00 },
             { "name" : "Zone 5b", "percent" : 1.03 },
             { "name" : "Zone 5c", "percent" : 1.06 },
-            { "name" : "Max", "percent" : 2.0 }
+            { "name" : "Max", "absolute" : 190 }
         ]
     },
     {

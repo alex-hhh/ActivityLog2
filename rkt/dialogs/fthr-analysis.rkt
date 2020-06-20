@@ -960,6 +960,7 @@ select S.start_time,
     (define/private (load-data db session-id)
       (set! database db)
       (set! fthr-data (load-fthr-data db session-id))
+      (send dashboard-contents begin-container-sequence)
       (queue-task "fthr-analysis/setup-plots"
                   (lambda () (setup-plots plot-panel fthr-data)))
       (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
@@ -978,12 +979,14 @@ select S.start_time,
 
       (setup-analysis-display session-id
                               secondary
-                              pz
+                              sz
                               secondary-best
                               secondary-zones
                               secondary-group-box
                               secondary-description
-                              set-secondary-button))
+                              set-secondary-button)
+
+      (send dashboard-contents end-container-sequence))
 
     (define/private (on-close-dashboard)
       (set! database #f)
