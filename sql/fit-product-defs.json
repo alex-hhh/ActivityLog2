@@ -8,6 +8,10 @@
                 "name" : "Heart Rate Monitor"
             },
             {
+                "product_id" : [16, 20],
+                "name" : "Garmin Cadence Sensor 2"
+            },
+            {
                 "product_id" : [473, 474, 475, 494],
                 "name" : "Garmin FR301"
             },
@@ -248,8 +252,16 @@
                 "name" : "Garmin Fenix 5x +"
             },
             {
-                "product_id" : 3291,
+                "product_id" : [3291, 3516],
                 "name" : "Garmin Fenix 6x"
+            },
+            {
+                "product_id" : [3287, 3288, 3512, 3513],
+                "name" : "Garmin Fenix 6s"
+            },
+            {
+                "product_id" : [3289, 3290, 3514, 3515],
+                "name" : "Garmin Fenix 6"
             },
             {
                 "product_id" : 3112,
@@ -268,8 +280,16 @@
                 "name" : "Garmin Instinct"
             },
             {
+                "product_id" : 3192,
+                "name" : "Garmin Speed Sensor 2"
+            },
+            {
                 "product_id" : 3299,
                 "name" : "Garmin HRM Dual"
+            },
+            {
+                "product_id" : [ 3405, 3639 ],
+                "name" : "Garmin Swim 2"
             },
             {
                 "product_id" : 20119,
@@ -494,6 +514,16 @@
         "manufacturer_id" : 260,
         "name" : "Zwift",
         "products" : []
+    },
+    {
+        "manufacturer_id" : 263,
+        "name" : "Favero",
+        "products" : [
+            {
+                "product_id" : 12,
+                "name" : "Favero Assioma Duo"
+            }
+        ]
     },
     {
         "manufacturer_id" : 267,
