@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(34);
+insert into SCHEMA_VERSION(version) values(35);
 
 
 --........................................................ Enumerations ....
@@ -665,8 +665,16 @@ create table CRITICAL_POWER (
   sub_sport_id integer,
   cp real not null, -- critical power (watts), or cricital velocity (m/s)
   wprime real not null, -- anaerobic work capacity (W' in joules, or D' in meters)
-  tau real   -- wprime reconstitution time constant, see doc/critical-power.md
-  );
+
+  -- DEPRECATED: wprime reconstitution time constant, see
+  -- doc/critical-power.md.  We keep it here, but it is no longer used by the
+  -- application.
+  tau real,
+  -- maximum power or velocity according to the CP3 model, or null for the CP2
+  -- model.  Technically, the CP3 model uses a `k` constant, but that has
+  -- little practical meaning, so we store Pmax.  `k` can be determine from
+  -- cp, wprime and pmax.
+  pmax real);
 
 create unique index IX0_CRITICAL_POWER
   on SPORT_ZONE(sport_id, sub_sport_id, valid_from);
@@ -686,6 +694,7 @@ create view V_CRITICAL_POWER as
          CP.cp as cp,
          CP.wprime as wprime,
          CP.tau as tau,
+         CP.pmax as pmax,
          CP.valid_from as valid_from,
          (select ifnull(min(CP1.valid_from - 1), strftime('%s', datetime('now', '+1 day')) + 0)
             from CRITICAL_POWER CP1
@@ -729,6 +738,7 @@ create view MV_CRITICAL_POWER as
          VCP.cp as cp,
          VCP.wprime as wprime,
          VCP.tau as tau,
+         VCP.pmax as pmax,
          datetime(VCP.valid_from, 'unixepoch', 'localtime') as valid_from,
          datetime(VCP.valid_until, 'unixepoch', 'localtime') as valid_until,
          (select count(VCPFS.session_id)

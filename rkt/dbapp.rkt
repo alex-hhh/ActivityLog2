@@ -51,9 +51,10 @@
 (define-runtime-path p32-file "../sql/migrations/p32-time-zone.sql")
 (define-runtime-path p33-file "../sql/migrations/p33-szsource.sql")
 (define-runtime-path p34-file "../sql/migrations/p34-clusters.sql")
+(define-runtime-path p35-file "../sql/migrations/p35-cp3.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 34)
+(define (schema-version) 35)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -73,7 +74,8 @@
    30 p31-file
    31 p32-file
    32 p33-file
-   33 p34-file))
+   33 p34-file
+   34 p35-file))
 
 (define the-current-database #f)
 
