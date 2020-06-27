@@ -3,6 +3,11 @@ $v = $Env:RACKET_VERSION;  # 7.0 or newer -- as pre 7.0 naming convention is dif
 $p = $Env:RACKET_PLATFORM; # i386 or x86_64
 $exit_code = 0
 
+# Allow the Invoke-WebRequest below to use any secure protocol, by default it
+# appears that only TLS1.0 is used, and the racket download website no longer
+# supports that
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+
 if (! $v -or $v -eq "") {
     $v = "7.2"; # default to 7.2 if a version was not specified
 }
