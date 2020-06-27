@@ -16,9 +16,7 @@ See also the [CHANGES](./docs/CHANGES.md),
 [CONTRIBUTING](./docs/CONTRIBUTING.md) and
 [CODE_OF_CONDUCT](./docs/CODE_OF_CONDUCT.md) files.
 
-<p align="center"> <img align="center" width="800" alt="session view"
-src="https://drive.google.com/uc?export=download&id=1sktF8A_3CCe-9KYdc7YHJWLsDTs4ffy8"
-/> </p>
+![ActivityLog2](https://i.imgur.com/uYhOBZv.png)
 
 ## Features
 
