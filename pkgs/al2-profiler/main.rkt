@@ -97,6 +97,7 @@
 (define (profile-reset name)
   (let ((data (hash-ref profile-db name #f)))
     (when data
+      (set-profile-data-ncalls! data 0)
       (set-profile-data-stats! data empty-statistics))))
 
 ;; Enable/Disable data collection for all instrumented functions.
@@ -107,6 +108,7 @@
 ;; Reset collected data for all instrumented functions.
 (define (profile-reset-all)
   (for ([item (in-hash-values profile-db)])
+    (set-profile-data-ncalls! item 0)
     (set-profile-data-stats! item empty-statistics)))
 
 ;; Display collected statistics.
