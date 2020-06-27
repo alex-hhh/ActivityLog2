@@ -30,15 +30,9 @@ while other parts of the application can attach additional properties:
   happen at constant intervals (e.g. 1 second), so the "weight" can be
   different for each data point when calculating an average.  This can be set
   to #f if no weighting is to be done.
-* **critical-power** the critical power value used for this session.  If this
-  is a bike session, it is a power value in watts, if it is a run session, the
-  value is a speed in meters/second
-* **wprime** is the value for the W' parameter in the critical power
-  equation. If this is a bike session, it is a "work" value in joules, if it
-  is a run session, the value is a distance in meters.
-* **tau** is the W' reconstitution time constant.  It represents the time it
-  takes for 63% of W' to be recovered when the athlete stops exercising
-  entirely.
+* **critical-power** the critical power value used for this session.  This is
+  a CP2 or CP3 structure defined in
+  [critical-power.rkt](../rkt/model/critical-power.rkt)
 
 For more information about the critical-power, wprime and tau properties, see
 the implementation notes on [Critical Power](./critical-power.md)

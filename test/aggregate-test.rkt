@@ -42,19 +42,23 @@
   (define ammax (get-aggregate-mmax candidates axis (lambda (msg) (void))))
   (check > (length ammax) 0)
   (when (send axis have-cp-estimate?)
-    (define cp2params (cp2search 120 300 720 1200))
+    (define cp2params
+      (hash
+       'verify #t
+       'model 'cp2
+       'an-start 120
+       'an-end 300
+       'ae-start 720
+       'ae-end 1200))
     (define mmax-fn (aggregate-mmax->spline-fn ammax))
     (define cp-estimate (send axis cp-estimate mmax-fn cp2params))
-    (match-define (cp2 cp wprime fn t1 t2 cost) cp-estimate)
+    (match-define (cp2 cp wprime) cp-estimate)
     (check > cp 0)
     (check > wprime 0)
-    (printf "~a: [[ CP ~a; W' ~a; t1 ~a; t2 ~a; cost ~a ]]~%"
+    (printf "~a: [[ CP ~a; W' ~a ]]~%"
             (send axis series-name)
             (~r cp #:precision 2)
-            (~r wprime #:precision 2)
-            (exact-round t1)
-            (exact-round t2)
-            (~r cost #:precision 2)))
+            (~r wprime #:precision 2)))
   (define aheat (get-aggregate-mmax-heat-map candidates ammax 0.90 axis))
   (check = (length aheat) (length ammax)))
 

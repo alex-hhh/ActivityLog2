@@ -2,7 +2,7 @@
 ;; edit-cp.rkt -- edit the Critical Power values stored in the database
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2017, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,7 @@
 (provide get-cp-editor)
 
 (define cp-query
-  "select VCP.cp_id, VCP.cp, VCP.wprime, VCP.tau, VCP.valid_from, VCP.valid_until, 
+  "select VCP.cp_id, VCP.cp, VCP.wprime, VCP.pmax, VCP.valid_from, VCP.valid_until,
           (select count(*) from V_CRITICAL_POWER_FOR_SESSION VCPFS where VCPFS.cp_id = VCP.cp_id) as session_count
      from V_CRITICAL_POWER VCP
     where sport_id = ?
@@ -36,7 +36,7 @@
 (define (cp-id data) (vector-ref data 0))
 (define (cp-cp data) (vector-ref data 1))
 (define (cp-wprime data) (vector-ref data 2))
-(define (cp-tau data) (sql-column-ref data 3)) ; NOTE: tau can be NULL
+(define (cp-pmax data) (sql-column-ref data 3)) ; NOTE: pmax can be NULL
 (define (cp-valid-from data) (vector-ref data 4))
 (define (cp-valid-until data) (vector-ref data 5))
 (define (cp-session-count data) (vector-ref data 6))
@@ -57,11 +57,11 @@
    (qcolumn "D'"
             (lambda (row) (short-distance->string (cp-wprime row) #t))
             cp-wprime)
-   (qcolumn "Tau"
+   (qcolumn "Vmax"
             (lambda (row)
-              (let ((tau (cp-tau row)))
-                (if tau (number->string tau) "")))
-            (lambda (row) (or  (cp-tau row) 0)))
+              (let ((pmax (cp-pmax row)))
+                (if pmax (swim-pace->string pmax) "")))
+            (lambda (row) (or  (cp-pmax row) 0)))
    (qcolumn "Session Count"
             (lambda (row)
               (let ((sc (cp-session-count row)))
@@ -84,11 +84,11 @@
    (qcolumn "D'"
             (lambda (row) (short-distance->string (cp-wprime row) #t))
             cp-wprime)
-   (qcolumn "Tau"
+   (qcolumn "Vmax"
             (lambda (row)
-              (let ((tau (cp-tau row)))
-                (if tau (number->string tau) "")))
-            (lambda (row) (or  (cp-tau row) 0)))
+              (let ((pmax (cp-pmax row)))
+                (if pmax (pace->string pmax) "")))
+            (lambda (row) (or  (cp-pmax row) 0)))
    (qcolumn "Session Count"
             (lambda (row)
               (let ((sc (cp-session-count row)))
@@ -111,11 +111,11 @@
    (qcolumn "W'"
             (lambda (row) (work->string (cp-wprime row) #t))
             cp-wprime)
-   (qcolumn "Tau"
+   (qcolumn "Pmax"
             (lambda (row)
-              (let ((tau (cp-tau row)))
-                (if tau (number->string tau) "")))
-            (lambda (row) (or  (cp-tau row) 0)))
+              (let ((pmax (cp-pmax row)))
+                (if pmax (power->string pmax #t) "")))
+            (lambda (row) (or  (cp-pmax row) 0)))
    (qcolumn "Session Count"
             (lambda (row)
               (let ((sc (cp-session-count row)))
@@ -142,7 +142,7 @@
       (new date-input-field% [parent pane] [label ""] [stretchable-width #f]
            [allow-empty? #f]))
     (define cp-message
-      (new message% [parent pane] [label "CP:"]))
+      (new message% [parent pane] [label "CP"]))
     (define cp-field
       (new number-input-field% [parent pane] [label ""]
            [cue-text "watts"] [allow-empty? #f]
@@ -174,13 +174,26 @@
            [stretchable-width #f] [allow-empty? #f]
            [cue-text "meters"]
            [min-width 100]))
-    (define tau-message
-      (new message% [parent pane] [label "Tau"] [style '(deleted)]))
-    (define tau-field
+
+    (define vmax-message
+      (new message% [parent pane] [label "Vmax"] [style '(deleted)]))
+    (define vmax-field
+      (new pace-input-field% [parent pane]
+           [label ""] [style '(single deleted)]
+           [min-width 100] [stretchable-width #f]
+           [allow-empty? #t]))
+    (define swim-vmax-field
+      (new swim-pace-input-field% [parent pane]
+           [label ""] [style '(single deleted)]
+           [min-width 100] [stretchable-width #f]
+           [allow-empty? #t]))
+    (define pmax-message
+      (new message% [parent pane] [label "Pmax"] [style '(deleted)]))
+    (define pmax-field
       (new number-input-field%
            [parent pane] [label ""] [style '(single deleted)]
            [stretchable-width #f] [allow-empty? #t]
-           [cue-text "seconds"]
+           [cue-text "watts"]
            [min-width 100]
            [min-value 0] [max-value 3600]))
 
@@ -189,30 +202,32 @@
              (and (send valid-from-field has-valid-value?)
                   (send cv-field has-valid-value?)
                   (send dprime-field has-valid-value?)
-                  (send tau-field has-valid-value?)))
+                  (send vmax-field has-valid-value?)))
             ((eq? mode 'bike)
              (and (send valid-from-field has-valid-value?)
                   (send cp-field has-valid-value?)
                   (send wprime-field has-valid-value?)
-                  (send tau-field has-valid-value?)))
+                  (send pmax-field has-valid-value?)))
             ((eq? mode 'swim)
              (and (send valid-from-field has-valid-value?)
                   (send swim-cv-field has-valid-value?)
                   (send dprime-field has-valid-value?)
-                  (send tau-field has-valid-value?)))
+                  (send swim-vmax-field has-valid-value?)))
             (#t #f)))
 
-    (define/public (show-dialog parent type valid-from cp wprime tau)
+    (define/public (show-dialog parent type valid-from cp wprime pmax)
       (set! mode type)
       (cond ((eq? type 'run)
              (send pane change-children
                    (lambda (old) (list valid-from-message valid-from-field
                                        cv-message cv-field
                                        dprime-message dprime-field
-                                       tau-message tau-field)))
+                                       vmax-message vmax-field)))
              (send cv-field set-pace-value cp)
              (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
-             (send tau-field set-value (if tau (format "~a" tau) ""))
+             (if pmax
+                 (send vmax-field set-pace-value pmax)
+                 (send vmax-field set-value ""))
              (if valid-from
                  (send valid-from-field set-date-value valid-from)
                  (send valid-from-field set-value "")))
@@ -221,10 +236,12 @@
                    (lambda (old) (list valid-from-message valid-from-field
                                        cv-message swim-cv-field
                                        dprime-message dprime-field
-                                       tau-message tau-field)))
+                                       vmax-message swim-vmax-field)))
              (send swim-cv-field set-pace-value cp)
              (send dprime-field set-value (if wprime (short-distance->string wprime) ""))
-             (send tau-field set-value (if tau (format "~a" tau) ""))
+             (if pmax
+                 (send swim-vmax-field set-pace-value pmax)
+                 (send swim-vmax-field set-value ""))
              (if valid-from
                  (send valid-from-field set-date-value valid-from)
                  (send valid-from-field set-value "")))
@@ -233,36 +250,33 @@
                    (lambda (old) (list valid-from-message valid-from-field
                                        cp-message cp-field
                                        wprime-message wprime-field
-                                       tau-message tau-field)))
+                                       pmax-message pmax-field)))
              (send cp-field set-value (if cp (format "~a" cp) ""))
              (send wprime-field set-value (if wprime (format "~a" wprime) ""))
-             (send tau-field set-value (if tau (format "~a" tau) ""))
+             (send pmax-field set-value (if pmax (format "~a" pmax) ""))
              (if valid-from
                  (send valid-from-field set-date-value valid-from)
                  (send valid-from-field set-value ""))))
       (if (send this do-edit parent)
-          (let ((tau (let ((tau (send tau-field get-converted-value)))
-                       (if (number? tau) tau #f))))
-            (cond ((eq? mode 'run)
-                   (list
-                    (send valid-from-field get-converted-value)
-                    (send cv-field get-converted-value)
-                    (send dprime-field get-converted-value)
-                    tau))
-                  ((eq? mode 'swim)
-                   (list
-                    (send valid-from-field get-converted-value)
-                    (send swim-cv-field get-converted-value)
-                    (send dprime-field get-converted-value)
-                    tau))
-                  ((eq? mode 'bike)
-                   (list
-                    (send valid-from-field get-converted-value)
-                    (send cp-field get-converted-value)
-                    (send wprime-field get-converted-value)
-                    tau))
-                  (#t
-                   #f)))
+          (cond ((eq? mode 'run)
+                 (list
+                  (send valid-from-field get-converted-value)
+                  (send cv-field get-converted-value)
+                  (send dprime-field get-converted-value)
+                  (send vmax-field get-converted-value)))
+                ((eq? mode 'swim)
+                 (list
+                  (send valid-from-field get-converted-value)
+                  (send swim-cv-field get-converted-value)
+                  (send dprime-field get-converted-value)
+                  (send swim-vmax-field get-converted-value)))
+                ((eq? mode 'bike)
+                 (list
+                  (send valid-from-field get-converted-value)
+                  (send cp-field get-converted-value)
+                  (send wprime-field get-converted-value)
+                  (send pmax-field get-converted-value)))
+                (#t #f))
           #f))
 
     ))
@@ -317,12 +331,12 @@
     ;; Called when the sport selection has changed.  Populate the list box
     ;; with CP data for the relevant sport.
     (define (on-sport-selected index)
-      
+
       (define (populate sport cdefs)
         (let ((rows (query-rows database cp-query sport)))
           (send cplb setup-column-defs cdefs)
           (send cplb set-data rows)))
-      
+
       (cond ((eqv? index 1)             ; running
              (populate 1 cp-columns-run))
             ((eqv? index 0)
@@ -356,9 +370,9 @@
       (unless (in-transaction? database)
         (start-transaction database #:option 'immediate)))
 
-    (define (put-cp sport valid-from cp wprime tau)
+    (define (put-cp sport valid-from cp wprime pmax)
       (define qtext
-        "insert into CRITICAL_POWER(sport_id, valid_from, cp, wprime, tau)
+        "insert into CRITICAL_POWER(sport_id, valid_from, cp, wprime, pmax)
               values (?, ?, ?, ?, ?)")
       (query-exec database
                   qtext
@@ -366,14 +380,14 @@
                         ((eq? sport 'swim) 5)
                         ((eq? sport 'bike) 2)
                         (#t (error "Unknown sport")))
-                  valid-from cp wprime (or tau sql-null)))
+                  valid-from cp wprime (or pmax sql-null)))
 
-    (define (update-cp id valid-from cp wprime tau)
+    (define (update-cp id valid-from cp wprime pmax)
       (define qtext
         "update CRITICAL_POWER
-            set valid_from = ?, cp = ?, wprime = ?, tau = ?
+            set valid_from = ?, cp = ?, wprime = ?, pmax = ?
           where id = ?")
-      (query-exec database qtext valid-from cp wprime (or tau sql-null) id))
+      (query-exec database qtext valid-from cp wprime (or pmax sql-null) id))
 
     (define (delete-cp id)
       (define qtext "delete from CRITICAL_POWER where id = ?")
@@ -389,9 +403,9 @@
                          (send this get-top-level-window)
                          sport #f #f #f #f))
       (when data
-        (match-define (list valid-from cp wprime tau) data)
+        (match-define (list valid-from cp wprime pmax) data)
         (maybe-start-transaction)
-        (put-cp sport valid-from cp wprime tau)
+        (put-cp sport valid-from cp wprime pmax)
         (refresh-contents)))
 
     ;; Called when the user clicks the "Edit" button.  Pops up a dialog to
@@ -409,11 +423,11 @@
                                (cp-valid-from data)
                                (cp-cp data)
                                (cp-wprime data)
-                               (cp-tau data))))
+                               (cp-pmax data))))
               (when ndata
-                (match-define (list valid-from cp wprime tau) ndata)
+                (match-define (list valid-from cp wprime pmax) ndata)
                 (maybe-start-transaction)
-                (update-cp (cp-id data) valid-from cp wprime tau)
+                (update-cp (cp-id data) valid-from cp wprime pmax)
                 ;; Refresh the entire list
                 (refresh-contents)))))))
 

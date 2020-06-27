@@ -55,6 +55,9 @@ steps:
   - script: raco test test/fthr-test.rkt
     displayName: FTHR Tests (fthr-test)
 
+  - script: raco test test/cp-test.rkt
+    displayName: Critical Power Tests (cp-test)
+
   - script: raco test test/db-test.rkt
     displayName: Test Database Import (db-test)
 

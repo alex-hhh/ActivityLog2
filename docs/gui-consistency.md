@@ -27,6 +27,9 @@ logged:
 * `critical-power-parameters-changed` #f -- logged when critical power
   parameters have changed via the "Athlete/Edit Critical Power..." menu item.
   The data part is always #f
+* `sport-zone-parameters-changed` #f -- logged when sport zone parameters have
+  changed via the "Athlete/Sport Zones..." menu item.  The data part is always
+  #f
 * `weather-data-changed` SID -- logged when weather data associated with a
   session has been added or updated.  The data part is the session ID.
 * `measurement-system-changed` NEW-VAL -- logged when the measurement system

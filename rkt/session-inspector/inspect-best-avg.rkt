@@ -174,28 +174,36 @@
 
 ;; Return suitable plot bounds for a mean-max plor, considering all input
 ;; data.  Returns four values: MIN-X, MAX-X, MIN-Y, MAX-Y.
-(define (plot-bounds axis zero-base? mean-max-data bests-data)
-  (let-values (((min-x max-x min-y max-y) (get-mean-max-bounds mean-max-data))
-               ((bmin-x bmax-x bmin-y bmax-y) (aggregate-mmax-bounds bests-data)))
-    (let ((inverted? (send axis inverted-mean-max?)))
-      (values
-       min-x
-       max-x
-       (if zero-base? 0 (if inverted? (if bmin-y (min bmin-y min-y) min-y) min-y))
-       (if (not inverted?) (if bmax-y (max bmax-y max-y) max-y) max-y)
-       ))))
+(define (plot-bounds axis zero-base? mean-max-data bests-data cp-data)
+  (define inverted? (send axis inverted-mean-max?))
 
-;; Create a CP2 structure, containing critical power information) from the
-;; data frame DF.  This is used to plot the critical power curve for the
-;; respective axis.
-;;
-;; Return #f if no critical power data is present in the data frame.
-(define (make-cp2-from-df df)
-  (let ((cp (df-get-property df 'critical-power))
-        (wprime (df-get-property df 'wprime)))
-    (if (and cp wprime)
-        (cp2 cp wprime (make-cp-fn cp wprime) #f #f #f)
-        #f)))
+  ;; Start with the interval defined by the MEAN-MAX-DATA...
+  (define-values (min-x-0 max-x-0 min-y-0 max-y-0)
+    (get-mean-max-bounds mean-max-data))
+
+  ;; Adjust the Y range to fit the BESTS-DATA as well (if any).  Note that an
+  ;; inverted series such as PACE, will need to update the minimum value, not
+  ;; the maximum one.
+  (define-values (min-x-1 max-x-1 min-y-1 max-y-1)
+    (let-values ([(bmin-x bmax-x bmin-y bmax-y) (aggregate-mmax-bounds bests-data)])
+      (values min-x-0 max-x-0
+              (if (and inverted? bmin-y) (min bmin-y min-y-0) min-y-0)
+              (if (and (not inverted?) bmax-y) (max bmax-y max-y-0) max-y-0))))
+
+  ;; The CP3 model also has a limit at 0, so adjust the Y limit so the model
+  ;; is inside the plot too (CP2 is infinite at 0, and would dwarf the rest of
+  ;; the plot, so we don't adjust for it).  If the series is inverted, we
+  ;; adjust the minimum Y value.
+  (define-values (min-x-2 max-x-2 min-y-2 max-y-2)
+    (let ([pmax (and (cp3? cp-data) ((cp3-function cp-data) min-x-0))])
+      (if pmax
+          (values min-x-1 max-x-1
+                  (if inverted? (min pmax min-y-1) min-y-1)
+                  (if inverted? max-y-1 (max pmax max-y-1)))
+          (values min-x-1 max-x-1 min-y-1 max-y-1))))
+
+  ;; Finally, if we are instructed to start the plot at 0, we do so...
+  (values min-x-2 max-x-2 (if zero-base? 0 min-y-2) max-y-2))
 
 (define mean-max-plot-panel%
   (class object% (init parent) (super-new)
@@ -271,7 +279,6 @@
 
     ;; Graph data
     (define data-frame #f)
-    (define cp-data #f)
     (define mean-max-data '())
     (define mean-max-plot-fn #f)
     (define mean-max-aux-data '())
@@ -430,12 +437,14 @@
         (let ((rt (list (tick-grid) plot-rt)))
           (when best-rt
             (set! rt (cons best-rt rt)))
-          (let ((mean-max-axis (get-series-axis))
+          (let ([cp-data (df-get-property data-frame 'critical-power)]
+                (mean-max-axis (get-series-axis))
                 (aux-axis (get-aux-axis))
                 ;; get the location of the pd-model-snip here, it will be lost
                 ;; once we insert a new plot in the canvas.
                 (saved-location (get-snip-location pd-model-snip)))
-            (let-values (((min-x max-x min-y max-y) (plot-bounds (get-series-axis) zero-base? mean-max-data bests-data)))
+            (let-values (((min-x max-x min-y max-y)
+                          (plot-bounds (get-series-axis) zero-base? mean-max-data bests-data cp-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
               (if (> (length mean-max-aux-data) 0)
@@ -487,7 +496,6 @@
       (unless (> inhibit-refresh 0)
         ;; Capture all needed data, as we will work in a different thread.
         (let ((df data-frame)
-              (cp cp-data)
               (cache data-cache)
               (axis (get-series-axis))
               (aux-axis (get-aux-axis))
@@ -517,9 +525,8 @@
                        #:zero-base? zerob?)
                       renderer-tree)))
              (define pd-function
-               (if (and cp (send axis have-cp-estimate?))
-                   (send axis pd-function cp)
-                   #f))
+               (let ((cp-data (df-get-property df 'critical-power)))
+                 (and cp-data (send axis pd-function cp-data))))
              (when pd-function
                (set! renderer-tree
                      (cons (function pd-function #:color "red" #:width 1.5 #:style 'long-dash)
@@ -740,7 +747,6 @@
       (set! inhibit-refresh (add1 inhibit-refresh))
       (save-params-for-sport)
       (set! data-frame df)
-      (set! cp-data (make-cp2-from-df df))
       (set! data-cache (make-hash))
       (set! img-export-file-name #f)
       (set! data-export-file-name #f)

@@ -23,10 +23,13 @@
          racket/gui/base
          racket/match
          racket/math
+         racket/format
          "../dbapp.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../models/sport-zone.rkt"
+         "../models/critical-power.rkt"
+         "../models/cp-util.rkt"
          "../sport-charms.rkt")
 
 (provide model-parameters-panel%)
@@ -105,16 +108,6 @@
 (define pd-header-face (cons header-color pd-header-font))
 (define pd-sub-heading-face (cons pd-label-color pd-label-font))
 
-;; Return the critical power parameters (CP, W'Prime, Tau) and the validity
-;; range that apply to a session identified by SID (a session id)
-(define (get-critical-power-for-session db sid)
-  (query-maybe-row db "
-  select VCPFS.cp_id, VCP.cp, VCP.wprime, VCP.tau, VCP.valid_from, VCP.valid_until
-  from V_CRITICAL_POWER_FOR_SESSION VCPFS,
-       V_CRITICAL_POWER VCP
- where VCPFS.session_id = ?
-   and VCP.cp_id = VCPFS.cp_id" sid))
-
 ;; Insert the sport zone information about the session SID (a session id),
 ;; SPORT is the sport type for the session.
 (define (insert-sport-zone-info editor sid sport)
@@ -142,7 +135,10 @@
 
 ;; Insert the critical power (or velocity) information about the session SID
 ;; (a session id), SPORT is the sport type for the session.
-(define (insert-critical-power-info editor sid sport)
+(define (insert-critical-power-info editor df sport)
+
+  (define cp-data (df-get-property df 'critical-power))
+  (define validity (df-get-property df 'critical-power-validity))
 
   (define title
     (cond
@@ -151,46 +147,64 @@
       ((is-swimming? sport) "Critical Velocity")
       (#t "Critical Power")))
 
-    (let ((cp-info (get-critical-power-for-session (current-database) sid)))
-      (if cp-info
-          (match-let (((vector id cp wprime tau valid-from valid-until) cp-info))
-            (let ((actual-tau (if (sql-null? tau) (/ wprime cp) tau))
-                  (implicit-tau? (sql-null? tau)))
-              (define cp-pict
-                (cond
-                  ((is-runnig? sport)
-                   (let ((items (list (text "CV" pd-label-face)
-                                      (text (pace->string cp #t) pd-item-face)
-                                      (text "D'" pd-label-face)
-                                      (text (short-distance->string wprime #t) pd-item-face)
-                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
-                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
-                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
+  (if cp-data
+      (let-values ([(cp wprime k pmax)
+                    (match cp-data
+                      ((cp2 cp wprime) (values cp wprime #f #f))
+                      ((cp3 cp wprime k) (values cp wprime k (cp3-pmax cp-data))))]
+                   [(valid-from valid-until)
+                    (match validity
+                      ((cp-validity id sport sub-sport valid-from valid-until)
+                       (values valid-from valid-until))
+                      (#f (values #f #f)))])
+        (define tau (/ wprime cp))
+        (define cp-pict
+          (cond
+            ((is-runnig? sport)
+             (let ((items (list (text "CV" pd-label-face)
+                                (text (pace->string cp #t) pd-item-face)
+                                (text "D'" pd-label-face)
+                                (text (short-distance->string wprime #t) pd-item-face)
+                                (text "Vmax" pd-label-face)
+                                (text (if pmax (pace->string pmax #t) "---") pd-item-face)
+                                (text "k" pd-label-face)
+                                (text (if k (format "~a seconds" (~r (exact-round k) #:precision 0)) "---") pd-item-face)
+                                (text "τ" pd-label-face)
+                                (text (format "~a seconds" (exact-round tau)) pd-item-face))))
+               (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
 
-                  ((is-swimming? sport)
-                   (let ((items (list (text "CV" pd-label-face)
-                                      (text (swim-pace->string cp #t) pd-item-face)
-                                      (text "D'" pd-label-face)
-                                      (text (short-distance->string wprime #t) pd-item-face)
-                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
-                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
-                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
-                  (#t
-                   (let ((items (list (text "CP" pd-label-face)
-                                      (text (power->string cp #t) pd-item-face)
-                                      (text "W'" pd-label-face)
-                                      (text (format "~a joules" (exact-round wprime)) pd-item-face)
-                                      (text (if implicit-tau? "Tau (implicit)" "Tau") pd-label-face)
-                                      (text (format "~a seconds" (exact-round actual-tau)) pd-item-face))))
-                     (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))))
-              (let ((h (text title pd-header-face))
-                    (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
-                    (z cp-pict))
-                (define p (inset (vl-append 10 h v z) 30))
-                (let ((start-position (send editor last-position)))
-                  (send editor insert (new pict-snip% [pict p]))
-                  (send editor change-style top-align-style start-position (send editor last-position))))))
-          (insert-paragraph editor no-cp-text))))
+            ((is-swimming? sport)
+             (let ((items (list (text "CV" pd-label-face)
+                                (text (swim-pace->string cp #t) pd-item-face)
+                                (text "D'" pd-label-face)
+                                (text (short-distance->string wprime #t) pd-item-face)
+                                (text "Vmax" pd-label-face)
+                                (text (if pmax (swim-pace->string pmax #t) "---") pd-item-face)
+                                (text "k" pd-label-face)
+                                (text (if k (format "~a seconds" (~r (exact-round k) #:precision 0)) "---") pd-item-face)
+                                (text "τ" pd-label-face)
+                                (text (format "~a seconds" (exact-round tau)) pd-item-face))))
+               (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))
+            (#t
+             (let ((items (list (text "CP" pd-label-face)
+                                (text (power->string cp #t) pd-item-face)
+                                (text "W'" pd-label-face)
+                                (text (format "~a joules" (exact-round wprime)) pd-item-face)
+                                (text "Pmax" pd-label-face)
+                                (text (if pmax (power->string pmax #t) "---") pd-item-face)
+                                (text "k" pd-label-face)
+                                (text (if k (format "~a seconds" (~r (exact-round k) #:precision 0)) "---") pd-item-face)
+                                (text "τ" pd-label-face)
+                                (text (format "~a seconds" (exact-round tau)) pd-item-face))))
+               (table 2 items (list lc-superimpose lc-superimpose) cc-superimpose 20 10)))))
+        (let ((h (text title pd-header-face))
+              (v (text (validity-range->string valid-from valid-until) pd-sub-heading-face))
+              (z cp-pict))
+          (define p (inset (vl-append 10 h v z) 30))
+          (let ((start-position (send editor last-position)))
+            (send editor insert (new pict-snip% [pict p]))
+            (send editor change-style top-align-style start-position (send editor last-position)))))
+        (insert-paragraph editor no-cp-text)))
 
 ;; Insert a "remarks" section into the editor, instructing the user on how to
 ;; edit or add sport zones or CP data.
@@ -230,7 +244,7 @@
         (if sid
             (begin
               (insert-sport-zone-info text sid sport)
-              (insert-critical-power-info text sid sport)
+              (insert-critical-power-info text df sport)
               (insert-newline text)
               (insert-remarks text))
             (insert-heading text "No session id defined for data frame")))

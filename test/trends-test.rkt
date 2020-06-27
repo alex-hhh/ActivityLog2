@@ -143,6 +143,7 @@
    'labels '()
    'equipment '()
    'series "cad"
+   'model 'cp2
    'estimate-cp?  #f
    'ae-start 720
    'ae-end 1200

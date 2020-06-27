@@ -184,21 +184,38 @@
 
     (define cp-gb (make-group-box-panel (send this get-client-pane)))
 
+    (define nm-range-start-input #f)
+    (define nm-range-end-input #f)
     (define an-range-start-input #f)
     (define an-range-end-input #f)
     (define ae-range-start-input #f)
     (define ae-range-end-input #f)
 
-    (define estimate-cp-checkbox
+    (define estimate-cp-choice
       (let ((p (make-horizontal-pane cp-gb #f)))
         (send p spacing al-dlg-item-spacing)
-        (new check-box% [parent p] [label "Estimate Critical Power or Velocity (2 Parameter Model)"]
-             [value #f]
-             [callback (lambda (c e) (on-estimate-cp (send c get-value)))])))
+        (new choice%
+             [parent p]
+             [label "Estimate Critical Power or Velocity  "]
+             [choices '("None" "2 Parameter Model (CP2)" "3 Parameter Model (CP3)")]
+             [callback (lambda (c e) (on-estimate-cp (send c get-selection)))])))
 
     (let ((p (new grid-pane% [parent cp-gb]
                   [spacing al-dlg-item-spacing] [columns 3]
                   [alignment '(left center)])))
+      (new message% [parent p] [label "Neuromuscular search range"])
+      (set! nm-range-start-input
+            (new number-input-field% [parent p]
+                 [label ""] [cue-text "seconds"]
+                 [min-value 0] [allow-empty? #f]
+                 [stretchable-width #f]
+                 [valid-value-cb (lambda (v) (on-nm-range-start v))]))
+      (set! nm-range-end-input
+            (new number-input-field% [parent p]
+                 [label ""] [cue-text "seconds"]
+                 [min-value 0] [allow-empty? #f]
+                 [stretchable-width #f]
+                 [valid-value-cb (lambda (v) (on-nm-range-end v))]))
       (new message% [parent p] [label "Anaerobic search range"])
       (set! an-range-start-input
             (new number-input-field% [parent p]
@@ -227,6 +244,8 @@
                  [valid-value-cb (lambda (v) (on-ae-range-end v))])))
 
     ;; Default ranges for the search intervals
+    (send nm-range-start-input set-numeric-value 15)
+    (send nm-range-end-input set-numeric-value 45)
     (send an-range-start-input set-numeric-value 120)
     (send an-range-end-input set-numeric-value 300)
     (send ae-range-start-input set-numeric-value 720)
@@ -235,20 +254,47 @@
     (define (on-series-selected series-index)
       (let* ((axis (list-ref axis-choices series-index))
              (have-cp-estimator? (send axis have-cp-estimate?)))
-        (send estimate-cp-checkbox enable have-cp-estimator?)
-        (on-estimate-cp have-cp-estimator?)))
+        (send estimate-cp-choice enable have-cp-estimator?)
+        (send estimate-cp-choice set-selection (if have-cp-estimator? 2 0))
+        (on-estimate-cp (if have-cp-estimator? 2 0))))
 
     (define (on-estimate-cp v)
-      (send an-range-start-input enable v)
-      (send an-range-end-input enable v)
-      (send ae-range-start-input enable v)
-      (send ae-range-end-input enable v))
+      (case v
+        ((0)
+         (send nm-range-start-input enable #f)
+         (send nm-range-end-input enable #f)
+         (send an-range-start-input enable #f)
+         (send an-range-end-input enable #f)
+         (send ae-range-start-input enable #f)
+         (send ae-range-end-input enable #f))
+        ((1)                            ; CP2
+         (send nm-range-start-input enable #f)
+         (send nm-range-end-input enable #f)
+         (send an-range-start-input enable #t)
+         (send an-range-end-input enable #t)
+         (send ae-range-start-input enable #t)
+         (send ae-range-end-input enable #t))
+        ((2)                            ; CP3
+         (send nm-range-start-input enable #t)
+         (send nm-range-end-input enable #t)
+         (send an-range-start-input enable #t)
+         (send an-range-end-input enable #t)
+         (send ae-range-start-input enable #t)
+         (send ae-range-end-input enable #t))))
 
     (define (validate-cp-ranges)
-      (let ((anstart (send an-range-start-input get-converted-value))
+      (let ((nmstart (send nm-range-start-input get-converted-value))
+            (nmend (send nm-range-end-input get-converted-value))
+            (anstart (send an-range-start-input get-converted-value))
             (anend (send an-range-end-input get-converted-value))
             (aestart (send ae-range-start-input get-converted-value))
             (aeend (send ae-range-end-input get-converted-value)))
+        (when (number? nmstart)
+          (send nm-range-start-input mark-valid
+                (or (not nmend) (eq? nmend 'empty) (< nmstart nmend))))
+        (when (number? nmend)
+          (send nm-range-end-input mark-valid
+                (or (not nmstart) (eq? nmstart 'empty) (< nmend anstart))))
         (when (number? anstart)
           (send an-range-start-input mark-valid
                 (or (not anend) (eq? anend 'empty) (< anstart anend))))
@@ -259,6 +305,10 @@
           (send ae-range-start-input mark-valid
                 (or (not aeend) (eq? aeend 'empty) (< aestart aeend))))))
 
+    (define (on-nm-range-start s)
+      (validate-cp-ranges))
+    (define (on-nm-range-end s)
+      (validate-cp-ranges))
     (define (on-an-range-start s)
       (validate-cp-ranges))
     (define (on-an-range-end e)
@@ -276,17 +326,32 @@
     (install-axis-choices
      (append default-axis-choices (get-available-xdata-metadata database))
      #f)
-    
+
     (define/override (has-valid-data?)
-      (or (not (send estimate-cp-checkbox is-enabled?))
-          (not (send estimate-cp-checkbox get-value))
-          (and
-           (number? (send an-range-start-input get-converted-value))
-           (number? (send an-range-end-input get-converted-value))
-           (number? (send ae-range-start-input get-converted-value))
-           (number? (send ae-range-end-input get-converted-value)))))
+      (or (not (send estimate-cp-choice is-enabled?))
+          (let ((cp-model (send estimate-cp-choice get-selection)))
+            (case cp-model
+              ((0) #t)
+              ((1)
+               (and
+                (number? (send an-range-start-input get-converted-value))
+                (number? (send an-range-end-input get-converted-value))
+                (number? (send ae-range-start-input get-converted-value))
+                (number? (send ae-range-end-input get-converted-value))))
+              ((2)
+               (and
+                (number? (send nm-range-start-input get-converted-value))
+                (number? (send nm-range-end-input get-converted-value))
+                (number? (send an-range-start-input get-converted-value))
+                (number? (send an-range-end-input get-converted-value))
+                (number? (send ae-range-start-input get-converted-value))
+                (number? (send ae-range-end-input get-converted-value))))))))
 
     (define/public (get-chart-settings)
+      (define cp-model
+        (if (send estimate-cp-choice is-enabled?)
+            (send estimate-cp-choice get-selection)
+            0))
       (hash-union
        (send session-filter get-restore-data)
        (hash
@@ -298,7 +363,10 @@
         'show-heat? (send show-heat-checkbox get-value)
         'heat-percent (let ((v (send heat-percent-input get-converted-value)))
                         (if (real? v) (/ v 100.0) v))
-        'estimate-cp? (send estimate-cp-checkbox get-value)
+        'model (case cp-model ((0) 'none) ((1) 'cp2) ((2) 'cp3))
+        'estimate-cp? (> cp-model 0)
+        'nm-start (send nm-range-start-input get-converted-value)
+        'nm-end (send nm-range-end-input get-converted-value)
         'an-start (send an-range-start-input get-converted-value)
         'an-end (send an-range-end-input get-converted-value)
         'ae-start (send ae-range-start-input get-converted-value)
@@ -324,7 +392,16 @@
         (if (number? heat-pct)
             (send heat-percent-input set-numeric-value (* 100 heat-pct))
             (send heat-percent-input set-value "")))
-      (send estimate-cp-checkbox set-value (hash-ref data 'estimate-cp? #f))
+      (define model (hash-ref data 'model 'none))
+      (send estimate-cp-choice set-selection (case model ((none) 0) ((cp2) 1) ((cp3) 2)))
+      (let ((nmstart (hash-ref data 'nm-start 15)))
+        (if (number? nmstart)
+            (send nm-range-start-input set-numeric-value nmstart)
+            (send nm-range-start-input set-value "")))
+      (let ((nmend (hash-ref data 'nm-end 45)))
+        (if (number? nmend)
+            (send nm-range-end-input set-numeric-value nmend)
+            (send nm-range-end-input set-value "")))
       (let ((anstart (hash-ref data 'an-start 120)))
         (if (number? anstart)
             (send an-range-start-input set-numeric-value anstart)
@@ -344,7 +421,7 @@
 
       (validate-cp-ranges)
       (on-series-selected (send series-selector get-selection))
-      (on-estimate-cp (send estimate-cp-checkbox get-value)))
+      (on-estimate-cp (send estimate-cp-choice get-selection)))
 
     (define/public (show-dialog parent)
       (send session-filter on-before-show-dialog)
@@ -361,74 +438,90 @@
     (fetch-candidate-sessions db (car sport) (cdr sport) start end
                               #:label-ids labels #:equipment-ids equipment)))
 
-(struct tmmax (axis data heat-map plot-fn zero-base? cp-fn cp-pict))
+(struct tmmax (axis data heat-map plot-fn zero-base? cp cp-fn cp-pict))
 
 (define (fetch-data database params progress-callback)
   (let* ((lap-swimming? (is-lap-swimming? (hash-ref params 'sport)))
          (candidates (candidate-sessions database params))
          (axis (find-series-metadata (hash-ref params 'series) lap-swimming?)))
     (unless axis (error "no axis for series"))
-    (define data (get-aggregate-mmax candidates axis progress-callback))
+
+    (define (read-session-callback percent)
+      (define msg (format "Reading sessions (~a %)"
+                          (exact-round (* percent 100.0))))
+      (progress-callback msg))
+    (define data (get-aggregate-mmax candidates axis read-session-callback))
     (define heat-map
-      (and (hash-ref params 'show-heat? #f)
+      (and (not (null? candidates))
+           (hash-ref params 'show-heat? #f)
            (number? (hash-ref params 'heat-percent #f))
            (let ((pct (hash-ref params 'heat-percent 0.95)))
              (get-aggregate-mmax-heat-map candidates data pct axis))))
-    (define plot-fn
-      (aggregate-mmax->spline-fn data))
-    (define cp-fn #f)
-    (define cp-pict #f)
-    (when plot-fn
-      (when (and (send axis have-cp-estimate?)
-                 (hash-ref params 'estimate-cp?))
-        (define search-params
-          (let ((an-start (hash-ref params 'an-start))
-                (an-end (hash-ref params 'an-end))
-                (ae-start (hash-ref params 'ae-start))
-                (ae-end (hash-ref params 'ae-end)))
-            (cp2search an-start an-end ae-start ae-end)))
-        (define cp2 (send axis cp-estimate plot-fn search-params))
-        (set! cp-fn (send axis pd-function cp2))
-        (set! cp-pict (send axis pd-data-as-pict cp2 plot-fn))))
+    (define (cp3-progress-callback percent)
+      (define msg (format "Finding CP3 parameters (~a %)"
+                          (exact-round (* percent 100.0))))
+      (progress-callback msg))
+    (define plot-fn (aggregate-mmax->spline-fn data))
+    (define-values (cp cp-fn cp-pict)
+      (if (and plot-fn
+               (send axis have-cp-estimate?)
+               (hash-ref params 'estimate-cp?))
+          (let* ((nparams (if (equal? (hash-ref params 'model #f) 'cp3)
+                              (hash-set params 'progress-callback cp3-progress-callback)
+                              params))
+                 (cp (send axis cp-estimate plot-fn nparams)))
+            (values
+             cp
+             (send axis pd-function cp)
+             (send axis pd-data-as-pict cp plot-fn)))
+          (values #f #f #f)))
 
-    (tmmax axis data heat-map
+    (tmmax axis
+           data
+           heat-map
            plot-fn
            (hash-ref params 'zero-base?)
+           cp
            cp-fn
            cp-pict)))
 
 (define (make-renderer-tree data)
-
-  (let-values (((min-x max-x min-y max-y) (aggregate-mmax-bounds (tmmax-data data))))
-    (when (tmmax-zero-base? data) (set! min-y 0))
-    (if (tmmax-plot-fn data)
-        (let ((rt (list
-                   (tick-grid)
-                   (function (tmmax-plot-fn data)
-                             #:color (send (tmmax-axis data) plot-color)
-                             #:width 3))))
-          (when (tmmax-cp-fn data)
-            (set! rt
-                  (cons (function (tmmax-cp-fn data) #:color "red" #:width 1.5 #:style 'long-dash) rt)))
-          (when (tmmax-heat-map data)
-            (let* ((range (* 0.3 (- max-y min-y)))
-                   (raw-fn (spline (tmmax-heat-map data)))
-                   ;; NOTE: splines will have huge peaks when two points with
-                   ;; opposing tangents are close together, this makes the
-                   ;; heat map appear to go over 100%.  Fix that manually with
-                   ;; the `min` call.
-                   (fn (lambda (x) (let ((y (min 0.98 (raw-fn x)))) (+ min-y (* range y))))))
-              (set! rt (cons (function-interval
-                              (lambda (x) min-y)
-                              (lambda (x) (+ min-y range))
-                              #:color '(#xdc #xdc #xdc)
-                              #:line1-style 'transparent
-                              #:line2-style 'transparent)
-                             rt))
-              (set! rt (cons (function fn #:color '(#xb0 #x30 #x60) #:width 2)
-                             rt))))
-          (values rt min-x max-x min-y max-y))
-        (values #f #f #f #f #f))))
+  (define-values (min-x max-x min-y max-y) (aggregate-mmax-bounds (tmmax-data data)))
+  (when (tmmax-zero-base? data) (set! min-y 0))
+  ;; Adjust MAX-Y (or MIN-Y for inverted plots) to include the CP3 max value
+  ;; (CP2 goes to infinity at small values, so it is not useful to adjust the
+  ;; plot for it).
+  (when (and (tmmax-cp data) (cp3? (tmmax-cp data)))
+    (if (send (tmmax-axis data) inverted-mean-max?)
+        (set! min-y ((tmmax-cp-fn data) min-x))
+        (set! max-y ((tmmax-cp-fn data) min-x))))
+  (define rt (list (tick-grid)))
+  (define (push-renderer r) (set! rt (cons r rt)))
+  (when (tmmax-plot-fn data)
+    (push-renderer
+     (function (tmmax-plot-fn data)
+               #:color (send (tmmax-axis data) plot-color)
+               #:width 3)))
+  (when (tmmax-cp-fn data)
+    (push-renderer
+     (function (tmmax-cp-fn data) #:color "red" #:width 2.0 #:style 'long-dash)))
+  (when (tmmax-heat-map data)
+    (let* ((range (* 0.3 (- max-y min-y)))
+           (raw-fn (spline (tmmax-heat-map data)))
+           ;; NOTE: splines will have huge peaks when two points with opposing
+           ;; tangents are close together, this makes the heat map appear to
+           ;; go over 100%.  Fix that manually with the `min` call.
+           (fn (lambda (x) (let ((y (min 0.98 (raw-fn x)))) (+ min-y (* range y))))))
+      (push-renderer (function-interval
+                      (lambda (x) min-y)
+                      (lambda (x) (+ min-y range))
+                      #:color '(#xdc #xdc #xdc)
+                      #:line1-style 'transparent
+                      #:line2-style 'transparent))
+      (push-renderer (function fn #:color '(#xb0 #x30 #x60) #:width 2))))
+  (if (tmmax-plot-fn data)
+      (values rt min-x max-x min-y max-y)
+      (values #f #f #f #f #f)))
 
 (define (generate-plot output-fn axis renderer-tree)
   (parameterize ([plot-x-ticks (mean-max-ticks)]
@@ -562,12 +655,11 @@
             (queue-task
              "mmax-trends-chart%/put-plot-snip"
              (lambda ()
-               (define (report-progress p)
+               (define (report-progress message)
                  (queue-callback
                   (lambda ()
                     (when (= saved-generation (get-generation))
-                      (send canvas set-background-message
-                            (format "Working (~a %)..." (exact-round (* p 100.0))))))))
+                      (send canvas set-background-message message)))))
                (define data (or previous-data (fetch-data database params report-progress)))
                (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
                (queue-callback

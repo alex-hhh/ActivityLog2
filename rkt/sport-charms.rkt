@@ -46,11 +46,6 @@
  [get-swim-stroke-color (-> swim-stroke? color?)]
  [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
- [get-session-critical-power (-> positive-number?
-                                 (or/c #f (list/c positive-number? ; CP
-                                                  positive-number? ; WPRIME
-                                                  (or/c #f positive-number?) ; TAU
-                                                  )))]
  [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
  [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
  [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
@@ -253,22 +248,6 @@
                                         (eq? sub-sport u-sub-sport)))))
                            in-use))))
             *sport-names*)))
-
-(define scp-query
-  "select CP.cp, CP.wprime, CP.tau
-     from V_CRITICAL_POWER_FOR_SESSION VCPFS, CRITICAL_POWER CP
-    where VCPFS.session_id = ? and VCPFS.cp_id = CP.id")
-
-(define (get-session-critical-power session-id)
-  (if (current-database)
-      (let ((r (query-maybe-row (current-database) scp-query session-id)))
-        (if r
-            (let ((cp (sql-column-ref r 0))
-                  (wprime (sql-column-ref r 1))
-                  (tau (sql-column-ref r 2)))
-              (list cp wprime tau))
-            #f))
-      #f))
 
 (define (get-athlete-ftp (db (current-database)))
   (let ((v (query-maybe-value db "select ftp from ATHLETE")))

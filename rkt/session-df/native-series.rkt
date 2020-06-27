@@ -22,6 +22,7 @@
          racket/format
          racket/list
          racket/math
+         racket/match
          (prefix-in ct: "../color-theme.rkt")
          "../fmt-util.rkt"
          "../models/critical-power.rkt"
@@ -96,6 +97,38 @@
                      (loop dmid tmid dhigh thigh))
                     (#t
                      (loop dlow tlow dmid tmid))))))))
+
+(define (estimate-critical-power pd params)
+  ;; If PARAMS contains a 'progress-callback key, it is used as the progress
+  ;; callback for the CP3 fit
+  (define progress-callback (hash-ref params 'progress-callback #f))
+  (case (hash-ref params 'model 'cp2)
+    ((cp2)
+     (let ([an-start (hash-ref params 'an-start 120.0)]
+           [an-end (hash-ref params 'an-end 300.0)]
+           [ae-start (hash-ref params 'ae-start 720.0)]
+           [ae-end (hash-ref params 'ae-end 1200.0)])
+       (define-values (cp fit-params)
+         (cp2-fit pd an-start an-end ae-start ae-end))
+       ;; NOTE: Unit tests pass 'verify #t
+       (when (hash-ref params 'verify #f)
+         (cp2-check-results cp fit-params pd))
+       cp))
+    ((cp3)
+     (let ([nm-start (hash-ref params 'nm-start 15.0)]
+           [nm-end (hash-ref params 'nm-end 45.0)]
+           [an-start (hash-ref params 'an-start 120.0)]
+           [an-end (hash-ref params 'an-end 300.0)]
+           [ae-start (hash-ref params 'ae-start 720.0)]
+           [ae-end (hash-ref params 'ae-end 1200.0)])
+       (define-values (cp fit-params)
+         (cp3-fit pd nm-start nm-end an-start an-end ae-start ae-end progress-callback))
+       ;; NOTE: Unit tests pass 'verify #t
+       (when (hash-ref params 'verify #f)
+         (cp3-check-results cp fit-params pd))
+       cp))
+    (else
+     (raise (format "estimate-critical-power: unknown model: ~a" (hash-ref params 'model))))))
 
 
 ;;........................................................ axis-distance ....
@@ -230,39 +263,71 @@
 
     (define/override (cp-estimate bavg-fn params)
       (define afn (lambda (t) (convert-pace->m/s (bavg-fn t))))
-      ;; Check that the bavg function can provide values for the CP2
-      ;; search range.  The cp2search structure is already validated via
-      ;; a #:guard, so we only need to check that the bavg function is
-      ;; valid at the AEEND point.
-      (and (bavg-fn (cp2search-aeend params))
-           (search-best-cp/exhausive
-            afn params
-            #:cp-precision 3 #:wprime-precision 1)))
+      (estimate-critical-power afn params))
 
     (define/override (pd-function cp-params)
-      (define fn (cp2-fn cp-params))
+      (define fn
+        (cond ((cp2? cp-params)
+               (cp2-function cp-params))
+              ((cp3? cp-params)
+               (cp3-function cp-params))
+              (#t
+               (raise "pd-function: unknown CP model parameters"))))
       (lambda (t)
         (let ((spd (fn t)))
           (if spd (convert-m/s->pace spd) #f))))
 
     (define/override (pd-data-as-pict cp-params bavgfn)
       (define metric? (eq? (al-pref-measurement-system) 'metric))
-      (define fn (cp2-fn cp-params))
+
+      (define-values (cp wprime k pmax fn)
+        (match cp-params
+          ((cp2 cp wprime) (values cp wprime #f #f (cp2-function cp-params)))
+          ((cp3 cp wprime k) (values cp wprime k (cp3-pmax cp-params) (cp3-function cp-params)))))
+
       (define dfn
         (lambda (t)
           (let ((val (bavgfn t)))
             (if val (convert-m/s->pace val) #f))))
 
-      (define title (text "Model" pd-title-face))
-      (define dprime (short-distance->string (round (cp2-wprime cp-params))))
-      (define cv (pace->string (cp2-cp cp-params)))
+      (define title
+        (cond ((cp2? cp-params)
+               (text "CP2 Model" pd-title-face))
+              ((cp3? cp-params)
+               (text "CP3 Model" pd-title-face))
+              (#t
+               ;; We're going to fail later
+               (text "Model" pd-title-face))))
+
       (define picts
         (list (text "CV" pd-label-face)
-              (text cv pd-item-face)
+              (text (pace->string cp) pd-item-face)
               (text (if metric? "min/km" "min/mile") pd-label-face)
               (text "D'" pd-label-face)
-              (text dprime pd-item-face)
+              (text (short-distance->string (round wprime)) pd-item-face)
               (text (if metric? "meters" "yards") pd-label-face)))
+
+      (when pmax
+        (set! picts
+              (append picts
+                      (list (text "Vmax" pd-label-face)
+                            (text (pace->string pmax) pd-item-face)
+                            (text (if metric? "min/km" "min/mile") pd-label-face)))))
+      (when k
+        (set! picts
+              (append picts
+                      (list (text "k" pd-label-face)
+                            (text (~r (round k) #:precision 0) pd-item-face)
+                            (text "seconds" pd-label-face)))))
+
+      ;; NOTE: we could have used cp2-recovery-constant and
+      ;; cp3-recovery-constant, but they are the same.
+      (set! picts
+            (append picts
+                    (list (text "τ" pd-label-face)
+                          (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                          (text "seconds" pd-label-face))))
+
       (define p1
         (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
 
@@ -687,30 +752,56 @@
     (define/override (have-cp-estimate?) #t)
 
     (define/override (cp-estimate bavg-fn params)
-      ;; Check that the bavg function can provide values for the CP2
-      ;; search range.  The cp2search structure is already validated via
-      ;; a #:guard, so we only need to check that the bavg function is
-      ;; valid at the AEEND point.
-      (and (bavg-fn (cp2search-aeend params))
-           (search-best-cp/exhausive
-            bavg-fn params
-            #:cp-precision 1 #:wprime-precision -2)))
+      (estimate-critical-power bavg-fn params))
 
     (define/override (pd-function cp-params)
-      (cp2-fn cp-params))
+      (cond ((cp2? cp-params)
+             (cp2-function cp-params))
+            ((cp3? cp-params)
+             (cp3-function cp-params))
+            (#t
+             (raise "pd-function: unknown CP model parameters"))))
 
     (define/override (pd-data-as-pict cp-params bavgfn)
-      (define title (text "Model" pd-title-face))
-      (define wprime (~r (round (cp2-wprime cp-params)) #:precision 0))
-      (define cp (~r (round (cp2-cp cp-params)) #:precision 0))
-      (define fn (cp2-fn cp-params))
+      (define title
+        (cond ((cp2? cp-params)
+               (text "CP2 Model" pd-title-face))
+              ((cp3? cp-params)
+               (text "CP3 Model" pd-title-face))
+              (#t
+               ;; We're going to fail later
+               (text "Model" pd-title-face))))
+      (define-values (cp wprime k pmax fn)
+        (match cp-params
+          ((cp2 cp wprime) (values cp wprime #f #f (cp2-function cp-params)))
+          ((cp3 cp wprime k) (values cp wprime k (cp3-pmax cp-params) (cp3-function cp-params)))))
       (define picts
         (list (text "CP" pd-label-face)
-              (text cp pd-item-face)
+              (text (~r (round cp) #:precision 0) pd-item-face)
               (text "watts" pd-label-face)
               (text "W'" pd-label-face)
-              (text wprime pd-item-face)
+              (text (~r (round wprime) #:precision 0) pd-item-face)
               (text "joules" pd-label-face)))
+      (when pmax
+        (set! picts
+              (append picts
+                      (list (text "Pmax" pd-label-face)
+                            (text (~r (round pmax) #:precision 0) pd-item-face)
+                            (text "watts" pd-label-face)))))
+      (when k
+        (set! picts
+              (append picts
+                      (list (text "k" pd-label-face)
+                            (text (~r (round k) #:precision 0) pd-item-face)
+                            (text "seconds" pd-label-face)))))
+
+      ;; NOTE: we could have used cp2-recovery-constant and
+      ;; cp3-recovery-constant, but they are the same.
+      (set! picts
+            (append picts
+                    (list (text "τ" pd-label-face)
+                          (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                          (text "seconds" pd-label-face))))
       (define p1
         (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
 
@@ -1134,39 +1225,70 @@
 
          (define/override (cp-estimate bavg-fn params)
            (define afn (lambda (t) (convert-swim-pace->m/s (bavg-fn t))))
-           ;; Check that the bavg function can provide values for the CP2
-           ;; search range.  The cp2search structure is already validated via
-           ;; a #:guard, so we only need to check that the bavg function is
-           ;; valid at the AEEND point.
-           (and (bavg-fn (cp2search-aeend params))
-                (search-best-cp/exhausive
-                 afn params
-                 #:cp-precision 3 #:wprime-precision 1)))
+           (estimate-critical-power afn params))
 
          (define/override (pd-function cp-params)
-           (define fn (cp2-fn cp-params))
+           (define fn
+             (cond ((cp2? cp-params)
+                    (cp2-function cp-params))
+                   ((cp3? cp-params)
+                    (cp3-function cp-params))
+                   (#t
+                    (raise "pd-function: unknown CP model parameters"))))
            (lambda (t)
              (let ((spd (fn t)))
                (if spd (convert-m/s->swim-pace spd) #f))))
 
          (define/override (pd-data-as-pict cp-params bavgfn)
            (define metric? (eq? (al-pref-measurement-system) 'metric))
-           (define fn (cp2-fn cp-params))
+
+           (define-values (cp wprime k pmax fn)
+             (match cp-params
+               ((cp2 cp wprime) (values cp wprime #f #f (cp2-function cp-params)))
+               ((cp3 cp wprime k) (values cp wprime k (cp3-pmax cp-params) (cp3-function cp-params)))))
+
            (define dfn
              (lambda (t)
                (let ((val (bavgfn t)))
                  (if val (convert-m/s->swim-pace val) #f))))
 
-           (define title (text "Model" pd-title-face))
-           (define dprime (short-distance->string (round (cp2-wprime cp-params))))
-           (define cv (swim-pace->string (cp2-cp cp-params)))
+           (define title
+        (cond ((cp2? cp-params)
+               (text "CP2 Model" pd-title-face))
+              ((cp3? cp-params)
+               (text "CP3 Model" pd-title-face))
+              (#t
+               ;; We're going to fail later
+               (text "Model" pd-title-face))))
+
            (define picts
              (list (text "CV" pd-label-face)
-                   (text cv pd-item-face)
+                   (text (swim-pace->string cp) pd-item-face)
                    (text (if metric? "min/100m" "min/100yd") pd-label-face)
                    (text "D'" pd-label-face)
-                   (text dprime pd-item-face)
+                   (text (short-distance->string (round wprime)) pd-item-face)
                    (text (if metric? "meters" "yards") pd-label-face)))
+           (when pmax
+             (set! picts
+                   (append picts
+                           (list (text "Vmax" pd-label-face)
+                                 (text (swim-pace->string pmax) pd-item-face)
+                                 (text (if metric? "min/100m" "min/100yd") pd-label-face)))))
+           (when k
+             (set! picts
+                   (append picts
+                           (list (text "k" pd-label-face)
+                                 (text (~r (round k) #:precision 0) pd-item-face)
+                                 (text "seconds" pd-label-face)))))
+
+           ;; NOTE: we could have used cp2-recovery-constant and
+           ;; cp3-recovery-constant, but they are the same.
+           (set! picts
+                 (append picts
+                         (list (text "τ" pd-label-face)
+                               (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                               (text "seconds" pd-label-face))))
+
            (define p1
              (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
 

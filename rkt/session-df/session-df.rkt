@@ -37,6 +37,8 @@
          "../fmt-util.rkt"
          "../models/gap.rkt"
          "../models/sport-zone.rkt"
+         "../models/cp-util.rkt"
+         "../models/critical-power.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/map-widget/map-util.rkt"
@@ -134,12 +136,10 @@
     (unless (df-has-non-na? df series)
       (df-del-series df series)))
 
-  (define cp-data (get-session-critical-power session-id))
-  (when cp-data
-    (match-define (list cp wprime tau) cp-data)
-    (df-put-property df 'critical-power cp)
-    (df-put-property df 'wprime wprime)
-    (df-put-property df 'tau tau))
+  (define-values (cp-data cp-validity)
+    (critical-power-for-session session-id #:database db))
+  (df-put-property df 'critical-power cp-data)
+  (df-put-property df 'critical-power-validity cp-validity)
 
   (df-put-property df 'is-lap-swim? is-lap-swim?)
   (df-put-property df 'sport sport)
@@ -862,12 +862,11 @@
 (define (add-wbald-series df base-series)
 
   (define sid (df-get-property df 'session-id))
-  (define cp (df-get-property df 'critical-power))
-  (define wprime (df-get-property df 'wprime))
-  (define tau (df-get-property df 'tau))
-
-  (define tau-rate
-    (if tau (/ (/ wprime cp) tau) 1.0))
+  (define-values (cp wprime)
+    (match (df-get-property df 'critical-power)
+      (#f (values #f #f))
+      ((cp2 cp wprime) (values cp wprime))
+      ((cp3 cp wprime k) (values cp wprime))))
 
   (when (and (df-contains? df "elapsed" base-series) cp wprime)
 
@@ -887,7 +886,7 @@
              (if (< v cp)
                  (let ((rate (/ (- wprime wbal) wprime))
                        (delta (- cp v)))
-                   (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                   (set! wbal (+ wbal (* delta dt rate))))
                  (let ((delta (- v cp)))
                    (set! wbal (- wbal (* delta dt))))))))
        wbal))))
@@ -895,12 +894,11 @@
 (define (add-wbald-series/gap df)
 
   (define sid (df-get-property df 'session-id))
-  (define cp (df-get-property df 'critical-power))
-  (define wprime (df-get-property df 'wprime))
-  (define tau (df-get-property df 'tau))
-
-  (define tau-rate
-    (if tau (/ (/ wprime cp) tau) 1.0))
+  (define-values (cp wprime)
+    (match (df-get-property df 'critical-power)
+      (#f (values #f #f))
+      ((cp2 cp wprime) (values cp wprime))
+      ((cp3 cp wprime k) (values cp wprime))))
 
   (cond
     ((and (df-contains? df "elapsed" "spd" "grade") cp wprime)
@@ -920,7 +918,7 @@
               (if (< v cp)
                   (let ((rate (/ (- wprime wbal) wprime))
                         (delta (- cp v)))
-                    (set! wbal (+ wbal (* tau-rate delta dt rate))))
+                    (set! wbal (+ wbal (* delta dt rate))))
                   (let ((delta (- v cp)))
                     (set! wbal (- wbal (* delta dt))))))))
         wbal)))
@@ -941,8 +939,11 @@
 (define (add-wbali-series df base-series)
 
   (define sid (df-get-property df 'session-id))
-  (define cp (df-get-property df 'critical-power))
-  (define wprime (df-get-property df 'wprime))
+  (define-values (cp wprime)
+    (match (df-get-property df 'critical-power)
+      (#f (values #f #f))
+      ((cp2 cp wprime) (values cp wprime))
+      ((cp3 cp wprime k) (values cp wprime))))
 
   (when (and (df-contains? df "elapsed" base-series) cp wprime)
 
@@ -1418,38 +1419,30 @@
 ;; frames.
 (define (refresh-df sid df)
   (if (df-get-property df 'dirty-wbal)
-      (let ((cp-data (get-session-critical-power sid)))
+      (let ((new-cp-data (critical-power-for-session sid)))
         (cond
-          (cp-data
-           (match-let (((list cp wprime tau) cp-data))
-             (let ((cp1 (df-get-property df 'critical-power))
-                   (wprime1 (df-get-property df 'wprime))
-                   (tau1 (df-get-property df 'tau))
-                   (sport (df-get-property df 'sport)))
-
-               (if (and (equal? cp cp1) (equal? wprime wprime1) (equal? tau tau1))
-                   (begin
-                     ;; parameters are the same, no need to change anything
-                     (df-del-property df 'dirty-wbal)
-                     df)
-                   (let ((new-df (df-shallow-copy df)))
-                     (df-del-property new-df 'dirty-wbal)
-                     (df-put-property new-df 'critical-power cp)
-                     (df-put-property new-df 'wprime wprime)
-                     (df-put-property new-df 'tau tau)
-                     (cond ((eqv? (vector-ref sport 0) 1) ; running
-                            (add-wbald-series new-df "spd"))
-                           ((eqv? (vector-ref sport 0) 2) ; biking
-                            (add-wbald-series new-df "pwr")))
-                     (hash-set! df-cache sid new-df)
-                     new-df)))))
+          (new-cp-data
+           (define old-cp-data (df-get-property df 'critical-power))
+           (if (equal? new-cp-data old-cp-data)
+               (begin
+                 ;; parameters are the same, no need to change anything
+                 (df-del-property df 'dirty-wbal)
+                 df)
+               (let ((new-df (df-shallow-copy df))
+                     (sport (df-get-property df 'sport)))
+                 (df-del-property new-df 'dirty-wbal)
+                 (df-put-property new-df 'critical-power new-cp-data)
+                 (cond ((eqv? (vector-ref sport 0) 1) ; running
+                        (add-wbald-series new-df "spd"))
+                       ((eqv? (vector-ref sport 0) 2) ; biking
+                        (add-wbald-series new-df "pwr")))
+                 (hash-set! df-cache sid new-df)
+                 new-df)))
           (#t
            ;; We no longer have CP params for this data frame, delete them.
            (let ((new-df (df-shallow-copy df)))
              (df-del-property new-df 'dirty-wbal)
              (df-del-property new-df 'critical-power)
-             (df-del-property new-df 'wprime)
-             (df-del-property new-df 'tau)
              (df-del-series new-df "wbal")
              (hash-set! df-cache sid new-df)
              new-df))
@@ -1495,7 +1488,6 @@
     (append (hash-keys df-cache)
             (hash-keys df-cache2)))
   (for ((sid sids))
-    (define cp-data (get-session-critical-power sid))
     (define df (or (hash-ref df-cache sid #f)
                    (hash-ref df-cache2 sid #f)))
     (when df                            ; might no longer be here
@@ -1511,7 +1503,8 @@
       (case tag
         ((measurement-system-changed database-opened)
          (clear-session-df-cache))
-        ((session-updated session-updated-data session-deleted)
+        ((session-updated session-updated-data session-deleted
+                          sport-zone-parameters-changed)
          (clear-session-df-cache data))
         ((critical-power-parameters-changed) (mark-wbal-dirty)))
       (loop (async-channel-try-get log-event-source)))))
