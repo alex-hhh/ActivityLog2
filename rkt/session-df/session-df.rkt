@@ -477,6 +477,12 @@
   ;; start and end point.
   (define maximum-monotonic 100.0)
 
+  ;; Minimum distance between points for which we calculate the grade.  If
+  ;; iteration resulted in a segment smaller than this, we will interpolate
+  ;; the grade between the adjacent points of this segment (small segments
+  ;; result in grade spikes)
+  (define minimum-valid 30.0)
+
   ;; Minimum altidute difference in a range for which we split the range.  If
   ;; the altidute difference in a range is less than this, we consider the
   ;; range monotonic.
@@ -542,6 +548,8 @@
   ;; The grade series we will fill in
   (define grade (make-vector (vector-length alt) #f))
 
+  (define delayed-segments '())
+
   ;; NOTE: in all functions below, the START, END range is inclusive!!!
 
   ;; Compute the distance between START and END (indexes in the DST vector)
@@ -562,8 +570,10 @@
            ;; slope with greater precision than that, and the extra false
            ;; precision creates problems with the plot.
            (rslp (and slp (/ (round (* slp 10.0)) 10.0))))
-      (for ([idx (in-range start (add1 end))])
-        (vector-set! grade idx rslp))))
+      (if (< dist minimum-valid)
+          (set! delayed-segments (cons (cons start end) delayed-segments))
+          (for ([idx (in-range start (add1 end))])
+            (vector-set! grade idx rslp)))))
   ;; Find the minimum and maximum altitude between START and END and return 4
   ;; values: min-alt, min-alt position, max-alt, max-alt position.
   (define (find-min-max-alt start end)
@@ -596,12 +606,14 @@
   (define (iterate start end)
     (let ((dist (delta-dist start end)))
       (cond
-        ((< dist maximum-monotonic) (monotonic-slope start end))
+        ((< dist maximum-monotonic)
+         (monotonic-slope start end))
         (#t
          (let-values (((min-alt min-alt-idx max-alt max-alt-idx)
                        (find-min-max-alt start end)))
            (if (< (- max-alt min-alt) minimum-altitude)
-               (monotonic-slope start end)
+               (begin
+                 (monotonic-slope start end))
                (let ((ranges (order-points start min-alt-idx max-alt-idx end)))
                  (if (= (length ranges) 2)
                      ;; range is monotonic, split it in two and recurse
@@ -613,6 +625,27 @@
                        (iterate s e))))))))))
 
   (iterate 0 (sub1 (vector-length grade)))
+
+  ;; Fix up the segments which were too small to have their slope
+  ;; calculated...  We interpolate or extend the grade values from adjacent
+  ;; segments.
+  (for ([segment (in-list delayed-segments)])
+    (match-define (cons start end) segment)
+    (define nstart (and (> start 0) (sub1 start)))
+    (define nend (and (< end (sub1 (vector-length grade))) (add1 end)))
+    (define gstart (and nstart (vector-ref grade nstart)))
+    (define gend (and nend (vector-ref grade nend)))
+    (cond ((and gstart gend)
+           (let ([dist (delta-dist nstart nend)]
+                 [dgrade (- gend gstart)])
+             (for ([i (in-range start (add1 end))])
+               (vector-set! grade i (+ gstart (* dgrade (/ (delta-dist nstart i) dist)))))))
+          (gstart
+           (for([i (in-range start (add1 end))])
+             (vector-set! grade i gstart)))
+          (gend
+           (for([i (in-range start (add1 end))])
+             (vector-set! grade i gend)))))
 
   ;; Only add the grade series if there are actually any values in it...
   (when (for/first ([g (in-vector grade)] #:when g) #t)

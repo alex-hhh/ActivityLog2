@@ -341,7 +341,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0029.fit"
      (do-basic-checks
-      "./test-fit/f0029.fit" '(16 18 31 16 30) '(943 814 24062 330 19656)
+      "./test-fit/f0029.fit" '(15 18 31 16 30) '(943 814 24062 330 19656)
       #:expected-session-count 5
       #:extra-db-checks
       (lambda (db)
