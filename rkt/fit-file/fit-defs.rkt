@@ -4,7 +4,7 @@
 ;; the SDK from https://www.thisisant.com/resources/fit/
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -769,6 +769,8 @@
     (20 . light-electric-vehicle)
     (25 . env-sensor)
     (26 . racquet)
+    (35 . ligts-network)
+    (40 . bike-radar)
     (119 . weight-scale)
     (120 . heart-rate)
     (121 . bike-speed-cadence)

@@ -91,17 +91,20 @@
     (raise-argument-error 'field-id "valid XDATA_FIELD.id" field-id))
   (match-define (vector app-id nm nf name units) row)
 
+  (define unit-label
+    (cond ((bytes? units) (bytes->string/utf-8 units))
+           ((string? units) units)
+           (#t (~a units))))
+
   (define field-label
     (string-append
      "XData "
      (cond ((bytes? name) (bytes->string/utf-8 name))
            ((string? name) name)
            (#t (~a name)))
-     " ("
-     (cond ((bytes? units) (bytes->string/utf-8 units))
-           ((string? units) units)
-           (#t (~a units)))
-     ")"))
+     (if (equal? unit-label "")
+         ""
+         (string-append " (" unit-label ")"))))
 
   (define fdef (or (find-field-definition app-id name) (hash)))
 

@@ -84,5 +84,29 @@
                 "histogram_bucket_slot" : 0.01
             }
         ]
+    },
+    {
+        "app_id" : "c5d949c39acb4e00bb2dc3b871e9e733",
+        "app_name" : "My Bike Radar Traffic",
+        "fields" : [
+            {
+                "name" : "passing_speedabs",
+                "headline" : "Vehicle Speed, Absolute (km/h)",
+                "axis_label" : "Overtaking Speed Absolute (km/h)",
+                "series" : "mbrt_absolute_speed"
+            },
+            {
+                "name" : "passing_speed",
+                "headline" : "Approach Speed, Relative (km/h)",
+                "axis_label" : "Approach Speed Relative (km/h)",
+                "series" : "mbrt_approach_speed"
+            },
+            {
+                "name" : "radar_current",
+                "headline" : "Vehicle Count",
+                "axis_label" : "Vehicle Count",
+                "series" : "mbrt_vehicle_count"
+            }
+        ]
     }
 ]

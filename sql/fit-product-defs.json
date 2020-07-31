@@ -272,6 +272,10 @@
                 "name" : "Garmin FR945"
             },
             {
+                "product_id" : 3121,
+                "name" : "Garmin Edge 530"
+            },
+            {
                 "product_id" : 3122,
                 "name" : "Garmin Edge 830"
             },
@@ -290,6 +294,10 @@
             {
                 "product_id" : [ 3405, 3639 ],
                 "name" : "Garmin Swim 2"
+            },
+            {
+                "product_id" : 3592,
+                "name" : "Garmin Varia RTL515"
             },
             {
                 "product_id" : 20119,
@@ -378,6 +386,10 @@
             {
                 "product_id" : 4096,
                 "name" : "Powertap G3"
+            },
+            {
+                "product_id" : 4353,
+                "name" : "Powercal"
             }
         ]
     },
