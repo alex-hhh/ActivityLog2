@@ -6,6 +6,32 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.10.0
+
+New release containing assorted new features and bug fixes, the most important
+of them are:
+
+* New look for the time/distance charts for the session inspector.  Plots are
+  now shown in multiple columns and dual series plots are available (for
+  example Power + W'Bal or Elevation + Grade).
+
+* Add support for the 3 parameter Critical Power model, both in estimating it
+  in the MMAX Trends Chart and when setting up athlete CP values for display
+  in the session inspector (the Athlete / Edit Critical Power... menu)
+
+* Elevation correction fixes: when averaging elevation, only different passes
+  over the area are considered, avoiding averaging against nearby points from
+  the same run.  This results in better corrected elevation values.
+
+* Avoid spikes in grade (slope) series: fixed a bug which caused unrealistic
+  spikes in the grade series
+
+* Fixed a bug in the FTHR Estimation dialog where the HR zones were showed
+  instead of the pace or power ones.
+
+* Improve readability of "hover labels" which displayed in plots: more
+  information is added to the labels and they are less transparent.
+
 # Release 1.9.0
 
 New release containing assorted new features and bug fixes, the most important
