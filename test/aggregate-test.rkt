@@ -13,7 +13,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/math
+(require al2-test-runner
+         racket/math
          racket/match
          racket/date
          racket/format
@@ -24,8 +25,7 @@
          "../rkt/metrics.rkt"
          "../rkt/models/critical-power.rkt"
          "../rkt/session-df/native-series.rkt"
-         "../rkt/utilities.rkt"
-         "custom-test-runner.rkt")
+         "../rkt/utilities.rkt")
 
 ;;(require rackunit/gui)
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!

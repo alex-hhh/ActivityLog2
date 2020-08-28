@@ -22,7 +22,8 @@
 ;; requires fit files to be present in the `test-fit` folder, these are
 ;; downloaded by the `.travis/download-test-data.sh` script.
 
-(require racket/format
+(require al2-test-runner
+         racket/format
          rackunit
          db
          "test-util.rkt"
@@ -33,8 +34,7 @@
          "../rkt/weather.rkt"
          "../rkt/database.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/fit-file/activity-util.rkt"
-         "custom-test-runner.rkt")
+         "../rkt/fit-file/activity-util.rkt")
 
 (define (do-basic-checks file series-count row-count
                          #:expected-session-count (expected-session-count 1)

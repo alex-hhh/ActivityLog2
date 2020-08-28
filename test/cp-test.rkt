@@ -18,9 +18,9 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require rackunit
+(require al2-test-runner
+         rackunit
          "../rkt/utilities.rkt"
-         "custom-test-runner.rkt"
          "../rkt/models/critical-power.rkt"
          "../rkt/metrics.rkt")
 

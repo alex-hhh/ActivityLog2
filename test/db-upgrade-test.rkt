@@ -12,12 +12,12 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db
+(require al2-test-runner
+         db
          racket/file
          rackunit
          "../rkt/dbapp.rkt"
-         "../rkt/utilities.rkt"
-         "custom-test-runner.rkt")
+         "../rkt/utilities.rkt")
 
 ;;(require rackunit/gui)
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!

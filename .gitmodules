@@ -22,3 +22,6 @@
 [submodule "pkgs/gui-widget-mixins"]
 	path = pkgs/gui-widget-mixins
 	url = https://github.com/alex-hhh/gui-widget-mixins.git
+[submodule "pkgs/al2-test-runner"]
+	path = pkgs/al2-test-runner
+	url = https://github.com/alex-hhh/al2-test-runner.git

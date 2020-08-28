@@ -12,7 +12,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require al2-test-runner
+         db/base
          rackunit
          racket/match
          data-frame
@@ -31,8 +32,7 @@
          "../rkt/workout-editor/wkstep.rkt"
          "../rkt/utilities.rkt"
          "../rkt/time-in-zone.rkt"
-         "test-util.rkt"
-         "custom-test-runner.rkt")
+         "test-util.rkt")
 
 (set-allow-weather-download #f)        ; don't download weather for unit tests
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!

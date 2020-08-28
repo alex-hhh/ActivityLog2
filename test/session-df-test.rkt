@@ -18,12 +18,12 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require rackunit
+(require al2-test-runner
+         rackunit
          racket/match
          math/statistics)
 (require "../rkt/session-df/session-df.rkt"
-         "../rkt/session-df/native-series.rkt"
-         "custom-test-runner.rkt")
+         "../rkt/session-df/native-series.rkt")
 
 (define session-df-tests
   (test-suite

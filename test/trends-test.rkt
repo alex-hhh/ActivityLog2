@@ -36,7 +36,8 @@
 ;; to be updated in the future, this file could provide a basis for testing
 ;; the upgrade code.
 
-(require racket/gui/base
+(require al2-test-runner
+         racket/gui/base
          rackunit
          plot-container
          "../rkt/utilities.rkt"
@@ -54,8 +55,7 @@
          "../rkt/trend-charts/trends-heatmap.rkt"
          "../rkt/trend-charts/trends-irisk.rkt"
          "../rkt/widgets/map-widget/map-tiles.rkt"
-         "test-util.rkt"
-         "custom-test-runner.rkt")
+         "test-util.rkt")
 
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!

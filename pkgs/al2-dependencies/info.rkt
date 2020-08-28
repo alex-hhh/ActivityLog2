@@ -32,7 +32,7 @@
                "data-frame"
                "plot-container"
                "gui-widget-mixins"))
-(define build-deps '())
+(define build-deps '("al2-test-runner"))
 (define scribblings '())
 (define pkg-desc "Meta package to install all ActivityLog2 dependencies")
 (define version "0.0")
