@@ -1,28 +1,4 @@
-# Running the Application From Source
-
-Before you can build or run the application, you will need to install some
-packages that ActivityLog2 depends on, on the command line run the following
-command:
-
-    raco pkg install --auto tzinfo tzgeolookup data-frame plot-container gui-widget-mixins
-
-**NOTE** if you are on a Windows platform, you may have to setup a package
-catalog to pick up packages from the pkgs folder, see the `Building
-ActivityLog2` section below.
-
-With dependencies installed, the simplest way to run ActivityLog2 from source
-is to start DrRacket, open the file "run.rkt" and click on the "Run" button,
-or press "Ctrl-R". You can also run ActivityLog2 from the command line using
-the following command:
-
-    racket run.rkt
-
-Running the command above may take a long time for the application to start
-up, especially the first time it is run.  You can also build a standalone
-distribution, which will start faster.  For details on how to do that,
-continue reading.
-
-# Building a Stand Alone Distribution
+# Building and Running the Application
 
 ## Prerequisites
 
@@ -39,7 +15,15 @@ For creating a Windows installer, see the documentation in the [scripts
 folder](../etc/scripts/README.md), this is not needed if you only want to
 build and run the application on your local machine.
 
-## API Keys for Web Services
+## API Keys for Web Services (optional)
+
+----
+
+**NOTE** You can no longer obtain an API key for weather download.  There is
+[a plan](https://github.com/alex-hhh/ActivityLog2/issues/46) to replace the
+service.
+
+----
 
 ActivityLog2 uses web services for some of the functionality.  Currently two
 services are used: [DarkSky.net](https://www.darksky.com/) is used to retrieve
@@ -61,7 +45,7 @@ application.  To use these keys, you need to set two environment variables:
 These environment variables will be used while ActivityLog2 is running during
 development and they will also be embedded in any built executable.
 
-## Building ActivityLog2
+## Building and Running ActivityLog2
 
 ActivityLog2 depends on some additional packages and the official ActivityLog2
 build has these under version control in the "pkgs/" sub-folder and will need
@@ -71,9 +55,10 @@ Racket has no concept of virtual environments for packages.)
 
 You don't need to install dependencies as outlined below.  If you want, you
 can install the following packages directly from the racket package catalog:
-`tzinfo`, `tzgeolookup`, `data-frame`, `plot-container` and
-`gui-widget-mixins`.  If you go this route, you may not have the exact
-versions which are used by ActivityLog2, and may encounter problems.
+`tzinfo`, `tzgeolookup`, `data-frame`, `plot-container`, `gui-widget-mixins`,
+`map-widget` and `al2-test-runner` (for running the tests).  If you go this
+route, you may not have the exact versions which are used by ActivityLog2, and
+may encounter problems.
 
 **Update Submodules** after you cloned this repository, you will need to
 update the submodules using the commands:
@@ -81,7 +66,8 @@ update the submodules using the commands:
     git submodule update --init --recursive
 
 **Setup Package Catalog** next, you will need to add the "pkgs/" sub-folder to
-the list of Racket catalogs by running the command below:
+the list of Racket catalogs by running the command below (`bash` is available
+on Windows as part of the `git` installation):
 
     bash etc/scripts/setup-catalog.sh pkgs/
 
@@ -91,7 +77,8 @@ dependencies:
     raco pkg install --auto al2-dependencies
 
 **Build Or Run the Application** Once the packages are set up, you can run the
-application using the following command:
+application using the following command (you can also open the `run.rkt` file
+in DrRacket and run it from within the IDE):
 
     racket run.rkt
 
@@ -163,7 +150,7 @@ pushed to a branch or a pull request is created.  The main aim of the test
 suite is to ensure that the application builds and packages cleanly and that
 the data storage and basic data operations work.
 
-Tests can also be run manually using the following commands:
+Tests can also be run manually using commands such as:
 
     raco test test/db-test.rkt
     raco test test/df-test.rkt
@@ -186,7 +173,7 @@ using `put-pref` (and `get-pref` to obtain their state):
 (put-pref 'activity-log:debug:show-stop-points? #t)
 ```
 
-The following options are deifned:
+The following options are defined:
 
 * `activity-log:debug:show-stop-points?` -- when set to `#t`, the session
   graphs and elevation graph on map view will show vertical lines for stop
@@ -220,7 +207,7 @@ will run slow:
 
     racket -l errortrace -t run.rkt
 
-### Tracing Function Calls
+### Profiling and Tracing Functions
 
 The [al2-profiler](../pkgs/al2-profiler) package contains definitions which
 allow tracing individual function calls.  It is more practical than the
@@ -231,3 +218,15 @@ names, where `define/public` can be replaced with `define/public/trace`.
 
 The [al2-profiler](../pkgs/al2-profiler) module also contains a small
 profiler, see that file for more details.
+
+This package is not installed by default, you can install it using
+
+```
+raco pkg install al2-profiler
+```
+
+or, if you didn't setup the package catalog using
+
+```
+rack pkg install ./pkgs/al2-profiler
+```

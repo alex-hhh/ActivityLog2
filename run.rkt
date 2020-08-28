@@ -22,7 +22,13 @@
          (for-syntax racket/base))
 
 ;; Check and inform the user that these packages need to be installed...
-(check-missing-modules tzinfo tzgeolookup data-frame plot-container gui-widget-mixins)
+(check-missing-modules
+ tzinfo
+ tzgeolookup
+ data-frame
+ plot-container
+ gui-widget-mixins
+ map-widget)
 
 ;; Start up a splash screen, rest of the application will be lazy-required
 ;; below.  This will make the splash screen show up while the rest of the app

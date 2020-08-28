@@ -3,7 +3,7 @@
 ;; trends-heatmap.rkt -- route heat maps displayed on a map
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,7 @@
          "../utilities.rkt"
          "../widgets/esc-controls.rkt"
          "../widgets/main.rkt"
-         "../widgets/map-widget/map-snip.rkt"
+         map-widget
          "trends-chart.rkt")
 
 (provide heatmap-chart%)

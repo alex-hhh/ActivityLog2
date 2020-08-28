@@ -15,20 +15,19 @@
 ;; more details.
 
 (require data-frame
+         map-widget
+         map-widget/utils
+         math/statistics
          plot
          racket/class
          racket/contract
          racket/dict
          racket/gui/base
          racket/match
-         math/statistics
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/session-df.rkt"
-         "../widgets/map-widget/map-tiles.rkt"
-         "../widgets/map-widget/map-util.rkt"
-         "../widgets/map-widget/map-widget.rkt"
          "inspect-graphs.rkt")
 
 (provide map-panel%)
@@ -60,7 +59,7 @@
           (match-let (((list lat lon) val))
             (and (real? lat)
                  (real? lon)
-                 (lat-lon->map-point lat lon)))))))
+                 (lat-lon->npoint lat lon)))))))
 
 ;; Lookup a GPS position in the data frame DF at distance DST.  The data frame
 ;; is assumed to have "lat", "lon", a "dst" and a "map-point" (see
@@ -90,12 +89,12 @@
            ;; happen if the track has gaps in it, for example if
            ;; running/riding through a tunnel.
            (if (and prev-pos next-pos)
-               (let ((pos (map-point
-                           (+ (* factor (map-point-x next-pos))
-                              (* (- 1 factor) (map-point-x prev-pos)))
-                           (+ (* factor (map-point-y next-pos))
-                              (* (- 1 factor) (map-point-y prev-pos))))))
-                 (let-values (((lat lon) (map-point->lat-lon pos)))
+               (let ((pos (npoint
+                           (+ (* factor (npoint-x next-pos))
+                              (* (- 1 factor) (npoint-x prev-pos)))
+                           (+ (* factor (npoint-y next-pos))
+                              (* (- 1 factor) (npoint-y prev-pos))))))
+                 (let-values (((lat lon) (npoint->lat-lon pos)))
                    (vector lat lon)))
                #f)))))
 

@@ -25,3 +25,6 @@
 [submodule "pkgs/al2-test-runner"]
 	path = pkgs/al2-test-runner
 	url = https://github.com/alex-hhh/al2-test-runner.git
+[submodule "pkgs/map-widget"]
+	path = pkgs/map-widget
+	url = https://github.com/alex-hhh/map-widget.git

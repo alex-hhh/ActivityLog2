@@ -140,7 +140,13 @@
 (module+ main
 
   ;; Check and inform the user that these packages need to be installed...
-  (check-missing-modules tzinfo tzgeolookup data-frame plot-container gui-widget-mixins)
+  (check-missing-modules
+   tzinfo
+   tzgeolookup
+   data-frame
+   plot-container
+   gui-widget-mixins
+   map-widget)
 
   ;; If this file is invoked from the command line, the application will be
   ;; built automatically (including the installer)

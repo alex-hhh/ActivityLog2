@@ -20,6 +20,7 @@
          data-frame/private/bsearch
          data-frame/private/rdp-simplify
          db/base
+         map-widget/utils
          math/statistics
          plot/no-gui
          plot/utils
@@ -35,16 +36,14 @@
          racket/vector
          "../dbutil.rkt"
          "../fmt-util.rkt"
-         "../models/gap.rkt"
-         "../models/sport-zone.rkt"
          "../models/cp-util.rkt"
          "../models/critical-power.rkt"
+         "../models/gap.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../widgets/map-widget/map-util.rkt"
          "series-metadata.rkt"
          "xdata-series.rkt")
-
 
 ;; Check if R is a valid plot range, as produced by `get-plot-y-range` and
 ;; used by several other functions.  This is used in the `y-range/c` contract.

@@ -28,8 +28,7 @@
 
 (require racket/format
          racket/math
-         racket/string
-         "widgets/map-widget/map-util.rkt")
+         racket/string)
 
 (provide wind->string
          temperature->string
@@ -61,7 +60,9 @@
          swim-pace-string->mps
 
          pace-label
-         swim-pace-label)
+         swim-pace-label
+
+         degrees->wind-rose)
 
 
 ;;........................................ converters to different units ....
@@ -253,6 +254,16 @@
 
 
 ;;......................................................... weather data ....
+
+(define wind-rose
+  #("NNE" "NE" "NEE" "E" "ESE" "SE" "SSE" "S" "SSW" "SW" "WSW" "W" "WNW" "NW" "NNW" "N"))
+
+(define (degrees->wind-rose deg)
+  (let* ((nslices (vector-length wind-rose))
+         (slice (/ 360.0 nslices))
+         (adjusted-deg 
+          (modulo (exact-round (- deg (/ slice 2))) 360)))
+    (vector-ref wind-rose (exact-truncate (/ adjusted-deg slice)))))
 
 ;; NOTE: SPEED is in meters/second
 ;; (: wind->string (-> Real Real String))

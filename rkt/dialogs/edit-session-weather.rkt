@@ -23,8 +23,7 @@
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../weather.rkt"
-         "../widgets/main.rkt"
-         "../widgets/map-widget/map-util.rkt")
+         "../widgets/main.rkt")
 
 (provide get-weather-editor)
 

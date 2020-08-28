@@ -30,7 +30,6 @@
          "../fmt-util.rkt"
          "../weather.rkt"
          "../widgets/main.rkt"
-         "../widgets/map-widget/map-util.rkt"
          "../models/sport-zone.rkt")
 
 (provide inspect-overview-panel%)

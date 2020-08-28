@@ -36,7 +36,7 @@
          racket/contract
          "../utilities.rkt"                ; for dbglog
          "../widgets/main.rkt"             ; for progress-dialog%
-         "../widgets/map-widget/map-util.rkt")
+         map-widget/utils)
 
 ;; On "tile-codes"
 ;;
@@ -203,7 +203,7 @@ order by timestamp")))
 ;;
 ;; WARNING: LAT, LON are in degrees!
 (define (candidate-tile-codes lat lon)
-  (define mp (lat-lon->map-point (exact->inexact lat) (exact->inexact lon)))
+  (define mp (lat-lon->npoint (exact->inexact lat) (exact->inexact lon)))
 
   (define (xy->tile-code x y)
     (bitwise-ior (arithmetic-shift x tile-level) y))
@@ -211,8 +211,8 @@ order by timestamp")))
   (define upper-limit 0.8)
   (define lower-limit 0.2)
 
-  (let* ((x0 (* tile-mult (map-point-x mp)))
-         (y0 (* tile-mult (map-point-y mp)))
+  (let* ((x0 (* tile-mult (npoint-x mp)))
+         (y0 (* tile-mult (npoint-y mp)))
          (x (exact-truncate x0))
          (y (exact-truncate y0))
          ;; xrem, yrem are the position of MP within the tile (0..1) range.
@@ -672,14 +672,13 @@ where position_lat is not null
 ;; Return a tile-code corresponding to the map point MP (see
 ;; `lat-lon->map-point')
 (define (map-point->tile-code mp)
-  (let ((x (exact-truncate (* tile-mult (map-point-x mp))))
-        (y (exact-truncate (* tile-mult (map-point-y mp)))))
+  (let ((x (exact-truncate (* tile-mult (npoint-x mp))))
+        (y (exact-truncate (* tile-mult (npoint-y mp)))))
     (bitwise-ior (arithmetic-shift x tile-level) y)))
 
 (define (lat-lon->tile-code lat lon)
-  (map-point->tile-code (lat-lon->map-point
-                         (exact->inexact lat)
-                         (exact->inexact lon))))
+  (map-point->tile-code
+   (lat-lon->npoint (exact->inexact lat) (exact->inexact lon))))
 
 ;; Update the tile code for any trackpoints in the database that don't have
 ;; one.

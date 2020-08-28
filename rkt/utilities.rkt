@@ -27,7 +27,8 @@
          racket/list
          racket/match
          racket/math
-         racket/port)
+         racket/port
+         the-application)
 
 (provide/contract
 
@@ -36,6 +37,7 @@
  (app-build-timestamp (-> string?))
  (app-build-number (-> (or/c string? #f)))
 
+ ;; Provided from the-application package
  (data-directory (-> path-string?))
  (preferences-file (-> path-string?))
  (put-pref (-> symbol? any/c any/c))
@@ -141,50 +143,6 @@
 (define (app-commit-id) (embedded-commit-id))
 (define (app-build-timestamp) (embedded-timestamp))
 (define (app-build-number) (embedded-build-number))
-
-;; Return the default place where data files are stored on this system.
-(define (get-pref-dir)
-  (if (eq? 'windows (system-type 'os))
-      (let ([pref-dir (getenv "LOCALAPPDATA")])
-        (if pref-dir
-            (string->path pref-dir)
-            (find-system-path 'pref-dir)))
-      (find-system-path 'pref-dir)))
-
-(define the-data-directory #f)
-
-;; Return the default directory where the application will store its data
-;; files.  This directory will be created if it does not exist.
-(define (data-directory)
-  (unless the-data-directory
-    (let ((dir (get-pref-dir)))
-      ;; dir might not exist, but make-directory* never fails
-      (let ((pref-dir (build-path dir "ActivityLog")))
-        (make-directory* pref-dir)
-        (set! the-data-directory pref-dir))))
-  the-data-directory)
-
-(define the-preferences-file #f)
-
-;; Return the name of the file used to store preferences.
-(define (preferences-file)
-  (unless the-preferences-file
-    (set! the-preferences-file
-          (build-path (data-directory) "ActivityLogPrefs.rktd")))
-  the-preferences-file)
-
-;; Store VALUE under NAME in the preferences file
-(define (put-pref name value)
-  (put-preferences (list name)
-                   (list value)
-                   (lambda (p) (error 'lock-fail "Failed to get the pref file lock" p))
-                   (preferences-file)))
-
-;; Retrieve the value for NAME from the preferences file, or return the value
-;; of FAIL-THUNK if it does not exist.
-(define (get-pref name fail-thunk)
-  (get-preference name fail-thunk 'timestamp (preferences-file)))
-
 
 (define the-log-port #f)                    ; port to which all log messages go
 (define log-to-standard-output #f)          ; when #t dbglog also prints to stdout

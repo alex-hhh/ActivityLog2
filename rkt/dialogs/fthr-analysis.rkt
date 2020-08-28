@@ -42,7 +42,7 @@
          "../utilities.rkt"
          "../weather.rkt"
          "../widgets/grid-pane.rkt"
-         "../widgets/map-widget/map-snip.rkt")
+         map-widget)
 
 ;; Return information about the session SID from the database.  This is used
 ;; to retrieve things like the session headline and start time (plus weather

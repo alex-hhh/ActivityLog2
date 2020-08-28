@@ -2,7 +2,7 @@
 ;; edit-preferences.rkt -- edit global preferences
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,7 @@
          "../fmt-util.rkt"
          "../weather.rkt"
          "../widgets/main.rkt"
-         "../widgets/map-widget/map-tiles.rkt")
+         map-widget)
 
 (provide get-preferences-dialog)
 
@@ -73,7 +73,7 @@
                    [parent p1]))
         (set! map-provider-choice
               (new choice% [label "Map tiles "] [parent p1]
-                   [choices (get-tile-provider-names)])))
+                   [choices (get-tile-providers)])))
       #f)
 
     (define (setup)
@@ -86,8 +86,8 @@
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
       (let ((allow? (allow-weather-download)))
         (send allow-weather-download-check-box set-value (if allow? #t #f)))
-      (let ((index (for/first ([(p idx) (in-indexed (get-tile-provider-names))]
-                                 #:when (equal? p (current-tile-provider-name)))
+      (let ((index (for/first ([(p idx) (in-indexed (get-tile-providers))]
+                                 #:when (equal? p (current-tile-provider)))
                        idx)))
           (when index
             (send map-provider-choice set-selection index))))
@@ -105,7 +105,7 @@
           (set-allow-tile-download val)))
 
       (let ((index (send map-provider-choice get-selection)))
-        (set-current-tile-provider (list-ref (get-tile-provider-names) index)))
+        (set-current-tile-provider (list-ref (get-tile-providers) index)))
 
       (let ((val (send allow-weather-download-check-box get-value)))
         (unless (eq? val (allow-weather-download))

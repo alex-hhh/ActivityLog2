@@ -37,26 +37,25 @@
 ;; the upgrade code.
 
 (require al2-test-runner
+         data-frame
+         map-widget
+         plot-container
          racket/gui/base
          rackunit
-         plot-container
-         "../rkt/utilities.rkt"
-         data-frame
          "../rkt/trend-charts/trends-ae.rkt"
+         "../rkt/trend-charts/trends-bavg.rkt"
          "../rkt/trend-charts/trends-bw.rkt"
+         "../rkt/trend-charts/trends-heatmap.rkt"
+         "../rkt/trend-charts/trends-hist.rkt"
+         "../rkt/trend-charts/trends-irisk.rkt"
          "../rkt/trend-charts/trends-pmc.rkt"
+         "../rkt/trend-charts/trends-scatter.rkt"
          "../rkt/trend-charts/trends-tiz.rkt"
          "../rkt/trend-charts/trends-trivol.rkt"
          "../rkt/trend-charts/trends-tt.rkt"
          "../rkt/trend-charts/trends-vol.rkt"
-         "../rkt/trend-charts/trends-bavg.rkt"
-         "../rkt/trend-charts/trends-hist.rkt"
-         "../rkt/trend-charts/trends-scatter.rkt"
-         "../rkt/trend-charts/trends-heatmap.rkt"
-         "../rkt/trend-charts/trends-irisk.rkt"
-         "../rkt/widgets/map-widget/map-tiles.rkt"
+         "../rkt/utilities.rkt"
          "test-util.rkt")
-
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 ;; Use 1 worker thread, so we can determine when tasks finish (See

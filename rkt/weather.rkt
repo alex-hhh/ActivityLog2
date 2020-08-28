@@ -15,9 +15,9 @@
 ;; more details.
 
 (require (for-syntax racket/base)
-         (rename-in srfi/48 (format format-48))
          db/base
          json
+         map-widget/utils
          net/url
          net/url-connect
          racket/contract
@@ -29,8 +29,7 @@
          racket/runtime-path
          racket/string
          "dbutil.rkt"
-         "utilities.rkt"
-         "widgets/map-widget/map-util.rkt")
+         "utilities.rkt")
 
 
 ;;........................................................... data types ....
@@ -211,8 +210,8 @@
         (values
          (vector-ref row 0)
          (vector-ref row 1)
-         (map-bbox (vector-ref row 2) (vector-ref row 3)
-                   (vector-ref row 4) (vector-ref row 5))))))
+         (bbox (vector-ref row 2) (vector-ref row 3)
+               (vector-ref row 4) (vector-ref row 5))))))
 
 (define (get-session-weather db sid)
   (and (can-do-web-requests?)

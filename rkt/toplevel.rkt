@@ -47,9 +47,8 @@
          "view-reports.rkt"
          "weather.rkt"
          "widgets/main.rkt"
-         "widgets/map-widget/map-tiles.rkt"
-         "widgets/map-widget/map-util.rkt"
-         "workout-editor/view-workouts.rkt")
+         "workout-editor/view-workouts.rkt"
+         map-widget)
 
 (provide toplevel-window%)
 
