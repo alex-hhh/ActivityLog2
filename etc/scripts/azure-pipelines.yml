@@ -11,6 +11,7 @@ jobs:
     variables:
       RACKET_VERSION: 7.8
       RACKET_DIR: $(Agent.BuildDirectory)/racket
+      runTests: true
 
     steps:
     - script: |
@@ -27,6 +28,12 @@ jobs:
     variables:
       RACKET_VERSION: 7.8
       RACKET_DIR: 'C:/Program Files/Racket'
+
+      # The windows build (and especially the tests) take a long time.  The
+      # tests run on Linux already and they are not platform specific, so we
+      # disable them on windows for now.
+
+      runTests: false
 
     steps:
     - powershell: |
@@ -68,18 +75,17 @@ jobs:
         iscc /DMyAppVersion=%V% etc\scripts\install.iss
       displayName: Creating Installer
 
-    - bash: |
-        bash ./etc/scripts/sign-release.sh
+    - bash: bash ./etc/scripts/sign-release.sh
       displayName: (Maybe) Sign Installer
 
     - task: CopyFiles@2
+      displayName: Move Installer Files to Staging Area
       inputs:
         targetFolder: $(Build.ArtifactStagingDirectory)
         contents: ActivityLog2Setup-*.*
-      displayName: Move Installer Files to Staging Area
 
     - task: PublishBuildArtifacts@1
+      displayName: Publish Installer Artifacts
       inputs:
         pathToPublish: $(Build.ArtifactStagingDirectory)
         artifactName: ActivityLog2Setup
-      displayName: Publish Installer Artifacts

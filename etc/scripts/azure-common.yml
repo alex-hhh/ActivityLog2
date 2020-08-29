@@ -10,6 +10,36 @@ steps:
       raco pkg install --batch --no-docs --auto al2-dependencies
     displayName: Setup package catalog and install packages
 
+
+  # On Linux, we need to start the virtual frame buffer, as the tests require
+  # a GUI (even if a virtual one)
+
+  - bash: |
+      (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
+      echo "##vso[task.setvariable variable=display]:99.0"
+    condition: eq(variables['Agent.OS'], 'Linux')
+    displayName: Start Xvfb for DISPLAY=99.0
+
+  # On Linux, run the tests on all the depdendent packages -- we are hoping to
+  # catch any potential compatibility issues between packages in our
+  # configuration (git submodule versions).  We only do this on Linux -- since
+  # the Windows build takes so much longer, this won't affect the total time
+  # for the build.
+
+  # We exclude the following: `catalog`, because it is not a package,
+  # `al2-profiler` because we don't install it anf `tzdata` because it is not
+  # installed on Linux (it only contains data files anyway)
+
+  - bash: |
+      set -e
+      PACKAGES=`ls pkgs/ | sed -e s+/++ -e /catalog/d -e /al2-profiler/d -e/tzdata/d`
+      for p in $PACKAGES; do
+         echo "*** Running tests in $p..."
+         raco test --no-run-if-absent --package $p
+      done
+    condition: eq(variables.runTests, true)
+    displayName: Run tests in dependent packages
+
   - script: racket build.rkt
     env:
       PLTSTDERR: 'error warning@optimizer'
@@ -33,50 +63,51 @@ steps:
       bash ./etc/scripts/fetch.sh -d -C test "1AErlDi7m0GWlwjkAaNi2pHnK6u1dwdqZ" # test-fit(13)
     env:
       TESTDATAPW: $(TESTDATAPW)
+    condition: eq(variables.runTests, true)
     displayName: (Maybe) Download Test Data
-
-  # On Linux, we need to start the virtual frame buffer, as the tests require
-  # a GUI (even if a virtual one)
-
-  - script: |
-      (/usr/bin/Xvfb :99 -screen 0 1280x1024x24 &)
-      echo "##vso[task.setvariable variable=display]:99.0"
-    displayName: Start Xvfb for DISPLAY=99.0
-    condition: eq(variables['Agent.OS'], 'Linux')
 
   # These are the actual test runs
 
   - script: raco test test/fit2-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Basic FIT file decoding tests (fit2-test)
 
   - script: raco test test/session-df-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Session data manipulation tests (session-df-test)
 
   - script: raco test test/fthr-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: FTHR Tests (fthr-test)
 
   - script: raco test test/cp-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Critical Power Tests (cp-test)
 
   - script: raco test test/db-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Test Database Import (db-test)
 
   - script: raco test test/db-upgrade-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Test Database Upgrade (db-upgrade-test)
 
   - script: raco test test/trends-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Test Trends Chart (trends-test)
 
   - script: raco test test/aggregate-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Test Agregate Data (aggregate-test)
 
   - script: raco test test/fit-test.rkt
+    condition: eq(variables.runTests, true)
     displayName: Test File Import (fit-test)
 
   - task: PublishTestResults@2
-    condition: succeededOrFailed()
     inputs:
       testResultsFiles: 'test/test-results/*.xml'
       testRunTitle: 'AL2 Tests on $(Agent.OS)'
       mergeTestResults: true
+    condition: and (succeededOrFailed(), eq(variables.runTests, true))
     displayName: Publish Test Results
