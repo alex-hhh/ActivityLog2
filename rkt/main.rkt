@@ -2,7 +2,7 @@
 ;; activity-log-main.rkt -- main application entry point
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,7 +19,8 @@
          "dbutil.rkt"
          "dialogs/first-run.rkt"
          "toplevel.rkt"
-         "utilities.rkt")
+         "utilities.rkt"
+         "app-info.rkt")
 
 (provide main)
 

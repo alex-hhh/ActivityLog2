@@ -18,11 +18,12 @@
          racket/class
          racket/draw
          racket/lazy-require
-         "rkt/utilities.rkt"
-         (for-syntax racket/base))
+         "rkt/check-missing-modules.rkt"
+         "rkt/app-info.rkt")
 
 ;; Check and inform the user that these packages need to be installed...
 (check-missing-modules
+ the-application
  tzinfo
  tzgeolookup
  data-frame

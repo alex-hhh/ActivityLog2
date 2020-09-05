@@ -27,7 +27,9 @@
 ;; to be installed separately.
 
 (define collection "al2-dependencies")
-(define deps '("the-application"
+(define deps '("base"
+
+               "the-application"
                "tzinfo"
                "tzgeolookup"
                "data-frame"

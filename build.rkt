@@ -29,8 +29,7 @@
          racket/math
          racket/port
          racket/string
-         racket/system
-         "rkt/utilities.rkt")
+         racket/system)
 
 ;; Create an ICO file from the bitmap BMP.  The resulting icon will be square
 ;; even if BMP is not.  The height of BMP will determine the size of the icon.
@@ -139,8 +138,11 @@
 
 (module+ main
 
+  (require "rkt/check-missing-modules.rkt")
+
   ;; Check and inform the user that these packages need to be installed...
   (check-missing-modules
+   the-application
    tzinfo
    tzgeolookup
    data-frame

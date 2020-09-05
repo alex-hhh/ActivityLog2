@@ -32,11 +32,6 @@
 
 (provide/contract
 
- (app-version (-> string?))
- (app-commit-id (-> string?))
- (app-build-timestamp (-> string?))
- (app-build-number (-> (or/c string? #f)))
-
  ;; Provided from the-application package
  (data-directory (-> path-string?))
  (preferences-file (-> path-string?))
@@ -67,82 +62,6 @@
  (retract-user-notification (-> symbol? any/c)))
 
 (provide user-notification-logger)
-
-(begin-for-syntax
-  (define-runtime-path version-id-file "../version.txt"))
-
-;; Evaluate to a string containing the version as stored in the ../version.txt
-;; file.
-(define-syntax (embedded-version stx)
-  (syntax-case stx ()
-    [_ #`(quote #,(with-handlers
-                    (((lambda (x) #t)
-                      (lambda (x)
-                        (printf "*** (embedded-version): ~a~%" (exn-message x))
-                        "no version")))
-                    ;; NOTE: version.txt is loaded from the current directory
-                    ;; of the compilation, which is the toplevel directory.
-                    (let ((version (string-trim (file->string version-id-file #:mode 'text)))
-                          ;; Azure Builds store a unique incrementing build id
-                          ;; in the BUILD_BUILDID environment variable.
-                          ;; Append it to the version number if we have it.
-                          ;; We use `string->number` so we won't be tricked by
-                          ;; silly environment variable values...
-                          (build-id (getenv "BUILD_BUILDID")))
-                      (if (and build-id (string->number build-id))
-                          (string-append version "." build-id)
-                          version))))]))
-
-(define-syntax (embedded-build-number stx)
-  (syntax-case stx ()
-    [_ #`(quote #,(with-handlers
-                    (((lambda (x) #t)
-                      (lambda (x)
-                        (printf "*** (embedded-version): ~a~%" (exn-message x))
-                        "no version")))
-                    ;; Azure build number
-                    (getenv "BUILD_BUILDNUMBER")))]))
-
-(begin-for-syntax
-  (define-runtime-path build-id-file "../build-id.txt"))
-
-;; Evaluate to a string containing the commit id as stored in the
-;; ../build-id.txt file.  This file is created by the build process (see
-;; build.rkt)
-(define-syntax (embedded-commit-id stx)
-  (syntax-case stx ()
-    [_ #`(quote #,(with-handlers
-                    (((lambda (x) #t)
-                      (lambda (x)
-                        ;; Silently ignore errors.  This file will be missing
-                        ;; if build.rkt was not run first.
-                        "no commit id")))
-                    ;; NOTE: build-id.txt is loaded from the current directory
-                    ;; of the compilation, which is the toplevel directory.
-                    (string-trim (file->string build-id-file #:mode 'text))))]))
-
-;; Evaluate to a string containing the current timestamp (at the time the
-;; macro is evaluated.
-(define-syntax (embedded-timestamp stx)
-  (syntax-case stx ()
-    [_ #`(quote #,(let ((ts (seconds->date (current-seconds))))
-                    (string-append
-                     (~a (date-year ts))
-                     "/"
-                     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
-                     "/"
-                     (~a (date-month ts) #:width 2 #:left-pad-string "0" #:align 'right)
-                     " "
-                     (~a (date-hour ts) #:width 2 #:left-pad-string "0" #:align 'right)
-                     ":"
-                     (~a (date-minute ts) #:width 2 #:left-pad-string "0" #:align 'right)
-                     ":"
-                     (~a (date-second ts) #:width 2 #:left-pad-string "0" #:align 'right))))]))
-
-(define (app-version) (embedded-version))
-(define (app-commit-id) (embedded-commit-id))
-(define (app-build-timestamp) (embedded-timestamp))
-(define (app-build-number) (embedded-build-number))
 
 (define the-log-port #f)                    ; port to which all log messages go
 (define log-to-standard-output #f)          ; when #t dbglog also prints to stdout
@@ -380,31 +299,3 @@
 (define (retract-user-notification tag)
   (log-message user-notification-logger 'info #f "" tag #f))
 
-(begin-for-syntax
-
-  ;; Return #t if the module identified by SYM can be loaded using a require
-  ;; statement, #f otherwise
-  (define (check-module sym)
-    (with-handlers
-      (((lambda (e) #t) (lambda (e) #f)))
-      (and ((current-module-name-resolver) sym #f #f #f) #t)))
-
-  ;; Check for any modules in MODULES which are missing and report them using
-  ;; the error function
-  (define (check-missing modules)
-    (define missing (for/list ([m modules] #:unless (check-module m)) m))
-
-    (unless (null? missing)
-      (error (format "You must install these packages: ~a
-*** HINT: see docs/README.md for more details" missing)))))
-
-;; A macro to check for missing modules and report them.  This is used by the
-;; application to print out a more meaningful message when a required module
-;; is missing.  This is used in run.rkt and build.rkt.
-(define-syntax (check-missing-modules stx)
-  (syntax-case stx ()
-    [(_ mod ...)
-     (let ([modsyms (syntax->datum #'(mod ...))])
-       #`(quote #,(check-missing modsyms)))]))
-
-(provide check-missing-modules)

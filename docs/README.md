@@ -94,6 +94,8 @@ also create an installer executable.
 
 # Developer Notes
 
+## More details on building
+
 You can separate the build steps if you open the file "build.rkt" in DrRacket,
 run it by clicking the "Run" button or pressing "Ctrl-R", than type the
 following expressions in the interactions window:
@@ -110,6 +112,27 @@ to speed things up:
 Note that if compiled files are present, racket will not re-compile modified
 files, you will need to recompile them explicitly, otherwise you will
 encounter load errors when trying to run ActivityLog2.
+
+## Working with submodules
+
+This application uses git submodules to track dependent packages.  Git
+provides detailed documentation for working with sub-modules, and this will
+not be repeated here, but here are a few important points to consider after
+changing branches, or pulling in new commits from a remote branch, in case the
+dependent modules have changed or new modules have been added:
+
+* Run `git submodule sync` to setup any new modules
+* Run `git submodule update` to obtain the version of the submodules referenced by
+  the current branch
+* Run the `etc/scripts/setup-catalog.sh` script again to re-build the package
+  catalog
+* Run `raco pkg update --deps search-auto al2-dependencies` to install any new
+  modules
+* Run `raco pkg setup` to re-build any files in dependent packages (will make
+  compilation and startup faster)
+
+Which commands you need to run depends on what has changed, and requires some
+experience.
 
 ## Some Other Notes in Separate Documents
 

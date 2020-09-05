@@ -19,7 +19,7 @@
          racket/gui/base
          racket/runtime-path
          "../dbapp.rkt"
-         "../utilities.rkt")
+         "../app-info.rkt")
 
 (define-runtime-path logo-file "../../img/logo/ActivityLog2.png")
 
