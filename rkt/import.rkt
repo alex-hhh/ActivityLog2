@@ -20,6 +20,7 @@
          racket/match
          racket/math
          tzgeolookup
+         geoid
          "database.rkt"
          "models/elevation-correction.rkt"
          "session-df/session-df.rkt"
@@ -53,6 +54,13 @@
   (update-old-style-equipment-serial db)
   (show-progress "updating equipment use...")
   (update-equipment-part-of db)
+  ;; NOTE: geoids are created when sessions are imported, not here.  This is
+  ;; to create any geoids for sessions which pre-existed in the database
+  ;; before the addition of geoids -- this is a bit of a hack, as the user
+  ;; will need to import an activity before they can access the heat maps, for
+  ;; example...
+  (show-progress "updating index for geographic locations...")
+  (update-some-geoids #:db db)
   (show-progress "updating corrected elevation...")
   (update-elevation-for-new-sessions sessions db)
   (show-progress "updating time in zone...")
@@ -262,3 +270,33 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
     (fixup-swim-drills db sid)
     (when progress-monitor
       (send progress-monitor set-progress (+ idx 1)))))
+
+
+;;........................................................ update geoids ....
+
+;; Update geoids for A_TRACKPOINT entries which have latitude / longitude
+;; data, but don't have a geoid.  Normally this would be the sessions that
+;; were just imported in the database
+(define (update-some-geoids #:db db #:limit (limit #f))
+  (define u (virtual-statement
+             (lambda (dbsys)
+               "update A_TRACKPOINT set geoid = ? where id = ?")))
+  (define q (if limit
+                (format "select id, position_lat, position_long
+                           from A_TRACKPOINT
+                          where position_lat is not null
+                            and position_long is not null
+                            and geoid is null
+                           limit ~a" limit)
+                "select id, position_lat, position_long
+                           from A_TRACKPOINT
+                          where position_lat is not null
+                            and position_long is not null
+                            and geoid is null"))
+  (define offset (arithmetic-shift 1 63))
+  (call-with-transaction
+   db
+   (lambda ()
+     (for ([(id lat lon) (in-query db q #:fetch 1000)])
+       (define geoid (- (lat-lng->geoid lat lon) offset))
+       (query-exec db u geoid id)))))

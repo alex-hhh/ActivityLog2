@@ -16,12 +16,16 @@
          db
          racket/file
          rackunit
+         racket/runtime-path
          "../rkt/dbapp.rkt"
          "../rkt/utilities.rkt")
 
 ;;(require rackunit/gui)
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
-(define test-dir "./test-db")
+
+;; NOTE: this needs to be a runtime path as we use a different `place` to open
+;; the database
+(define-runtime-path test-dir "./test-db")
 
 (define (candidate-databases)
   ;; Ensure that test-db directory exists (in case the download database

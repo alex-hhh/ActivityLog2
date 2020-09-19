@@ -29,7 +29,8 @@
  data-frame
  plot-container
  gui-widget-mixins
- map-widget)
+ map-widget
+ geoid)
 
 ;; Start up a splash screen, rest of the application will be lazy-required
 ;; below.  This will make the splash screen show up while the rest of the app

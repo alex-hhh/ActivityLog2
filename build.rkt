@@ -148,7 +148,8 @@
    data-frame
    plot-container
    gui-widget-mixins
-   map-widget)
+   map-widget
+   geoid)
 
   ;; If this file is invoked from the command line, the application will be
   ;; built automatically (including the installer)

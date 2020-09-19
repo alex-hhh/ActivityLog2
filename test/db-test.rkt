@@ -19,6 +19,7 @@
          data-frame
          racket/class
          racket/draw
+         geoid
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"
@@ -106,6 +107,23 @@ select count(*)
    and (position_lat is not null
         or position_long is not null)")))
     (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
+
+(define (db-check-geoids db)
+  (let ((cnt (query-value db "
+select count(*)
+  from A_TRACKPOINT
+ where geoid is null
+   and (position_lat is not null
+        or position_long is not null)")))
+    (check = 0 cnt "Missing geoids from A_TRACKPOINT"))
+
+  ;; Geoids are stored with an offset, this also acts as a test for
+  ;; `sqlite-integer->geoid` and `geoid->sqlite-integer` (used in the import)
+  ;; functions
+  (define ints (query-list db "select geoid from A_TRACKPOINT where geoid is not null"))
+  (define geoids (map sqlite-integer->geoid ints))
+  (unless (null? geoids)
+    (check-true (andmap valid-geoid? geoids))))
 
 ;; Store a new set of sport zones in the database for SPORT/SUB-SPORT and the
 ;; ZONE-METRIC.
@@ -608,7 +626,8 @@ where S.id = CPFS.session_id
               (update-some-session-metrics sid db)
               (check-time-in-zone df db file)))
            (check = 1 (activity-count db))
-           (db-check-tile-code db)))))
+           (db-check-tile-code db)
+           (db-check-geoids db)))))
 
    (test-case "Subsequent imports"
      (with-fresh-database

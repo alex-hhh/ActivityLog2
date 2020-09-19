@@ -35,7 +35,8 @@
                "data-frame"
                "plot-container"
                "gui-widget-mixins"
-               "map-widget"))
+               "map-widget"
+               "geoid"))
 (define build-deps '("al2-test-runner"))
 (define scribblings '())
 (define pkg-desc "Meta package to install all ActivityLog2 dependencies")

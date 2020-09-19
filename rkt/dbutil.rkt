@@ -3,7 +3,7 @@
 ;;               and other small helpers
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -184,7 +184,7 @@
                  #:allow-higher-version [allow-higher-version #f]
                  #:expected-version [expected-version #f]
                  #:progress-callback [progress-callback #f])
-  (let ((db (sqlite3-connect #:database database-file #:mode 'create)))
+  (let ((db (sqlite3-connect #:database database-file #:mode 'create #:use-place #t)))
     (when schema-file
       (maybe-create-schema database-file schema-file db progress-callback))
     (query-exec db "pragma foreign_keys = on")
@@ -200,7 +200,7 @@
 
 (define db-get-last-pk
   (let ((stmt (virtual-statement
-               (lambda (dbsys)
+                (lambda (dbsys)
                  "select seq from SQLITE_SEQUENCE where name = ?"))))
     (lambda (table-name db)
       (query-value db stmt table-name))))

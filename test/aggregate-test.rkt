@@ -19,6 +19,7 @@
          racket/date
          racket/format
          racket/class
+         racket/runtime-path
          rackunit
          "../rkt/bavg-util.rkt"
          "../rkt/dbapp.rkt"
@@ -80,8 +81,9 @@
                   rank))
   (check > total 0))
 
-;; This is downloaded by download-test-db.sh
-(define test-database "./test-db/al2-v29.db")
+;; This is downloaded by download-test-db.sh, this needs to be a runtime path
+;; because we use a `place` to open the sqlite database.
+(define-runtime-path test-database "./test-db/al2-v29.db")
 
 (define test-axis-run
   (list

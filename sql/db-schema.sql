@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(35);
+insert into SCHEMA_VERSION(version) values(36);
 
 
 --........................................................ Enumerations ....
@@ -418,6 +418,12 @@ create table A_TRACKPOINT (
   right_ppp_end real,
   tile_code integer,                    -- see elevation-correction.rkt
 
+  -- a 64 bit integer representing the geographic location of this point Note
+  -- that geoids are stored using an 2^63 offset to account for SQLite storing
+  -- 64 bit values as signed.  See notes on the documentation for the geoid
+  -- package.
+  geoid integer,
+
   foreign key (length_id) references A_LENGTH(id)
   );
 
@@ -429,6 +435,17 @@ create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
 -- larger index size.
 create index IX1_A_TRACKPOINT
   on A_TRACKPOINT(tile_code, position_lat, position_long, altitude, timestamp);
+
+-- NOTE: the latitude, longitude can be recovered from geoid, so we don't need
+-- to index those to make it a covering index for elevation correction, saving
+-- some space.  This is a covering index for the elevation correction query.
+create index IX2_A_TRACKPOINT
+  on A_TRACKPOINT(geoid, timestamp, altitude);
+
+-- Improve speed of heat map queries
+create index IX3_A_TRACKPOINT
+  on A_TRACKPOINT(length_id, geoid);
+
 
 
 --............................................................... Xdata ....

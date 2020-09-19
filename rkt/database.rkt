@@ -26,6 +26,7 @@
          racket/list
          racket/match
          racket/port
+         geoid
          "dbapp.rkt"
          "dbutil.rkt"
          "models/elevation-correction.rkt" ; for lat-lon->tile-code
@@ -147,17 +148,17 @@
                    avg_left_ppp_start,
                    avg_left_ppp_end,
                    avg_right_ppp_start,
-                   avg_right_ppp_end) 
+                   avg_right_ppp_end)
                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields `(total-timer-time total-elapsed-time
-                                   total-distance total-calories avg-speed 
+                                   total-distance total-calories avg-speed
                                    max-speed avg-heart-rate max-heart-rate
                                    avg-cadence max-cadence
                                    total-cycles avg-cycle-distance
-                                   total-ascent total-descent 
+                                   total-ascent total-descent
                                    total-corrected-ascent total-corrected-descent
                                    swim-stroke
-                                   avg-vertical-oscillation avg-stance-time 
+                                   avg-vertical-oscillation avg-stance-time
                                    avg-stance-time-percent
                                    avg-power max-power normalized-power
                                    left-right-balance
@@ -169,7 +170,7 @@
                                    avg-left-ppp-start avg-left-ppp-end
                                    avg-right-ppp-start avg-right-ppp-end)))
     (lambda (record db)
-      (let ((values (map (lambda (x) 
+      (let ((values (map (lambda (x)
                            (let ((y (if (procedure? x)
                                         (x record)
                                         (dict-ref record x #f))))
@@ -183,8 +184,8 @@
 (define db-insert-session
   (let ((stmt (virtual-statement
                (lambda (dbsys)
-                 "insert into A_SESSION(activity_id, summary_id, name, description, 
-                                        start_time, sport_id, sub_sport_id, pool_length, pool_length_unit, 
+                 "insert into A_SESSION(activity_id, summary_id, name, description,
+                                        start_time, sport_id, sub_sport_id, pool_length, pool_length_unit,
                                         training_effect, training_stress_score, intensity_factor)
                   values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))))
     (lambda (session activity-id db)
@@ -208,7 +209,7 @@
         ;; #(1 #f), the situation would magically fix itself when editing the
         ;; head line for the session, as that saved the sub-sport correctly.
         (when (equal? sub-sport 0) (set! sub-sport sql-null))
-        
+
         (query-exec
          db stmt activity-id summary-id name description
          start-time sport-id sub-sport pool-length pool-length-unit training-effect
@@ -263,12 +264,12 @@
                    position_lat, position_long, altitude, distance,
                    cadence, speed, heart_rate,
                    vertical_oscillation, stance_time, stance_time_percent,
-                   power, accumulated_power, left_right_balance, 
+                   power, accumulated_power, left_right_balance,
                    left_torque_effectiveness, right_torque_effectiveness,
                    left_pedal_smoothness, right_pedal_smoothness,
                    left_pco, right_pco, left_pp_start, left_pp_end, right_pp_start, right_pp_end,
-                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, tile_code)
-                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, tile_code, geoid)
+                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields
          `(timestamp position-lat position-long altitude distance cadence
                      speed heart-rate vertical-oscillation
@@ -282,9 +283,13 @@
                      ,(lambda (tp)
                         (let ((lat (dict-ref tp 'position-lat #f))
                               (lon (dict-ref tp 'position-long #f)))
-                          (and lat lon (lat-lon->tile-code lat lon)))))))
+                          (and lat lon (lat-lon->tile-code lat lon))))
+                     ,(lambda (tp)
+                        (let ((lat (dict-ref tp 'position-lat #f))
+                              (lon (dict-ref tp 'position-long #f)))
+                          (and lat lon (geoid->sqlite-integer (lat-lng->geoid lat lon))))))))
     (lambda (trackpoint length-id db)
-      (let ((values (map (lambda (x) 
+      (let ((values (map (lambda (x)
                            (let ((y (if (procedure? x)
                                         (x trackpoint)
                                         (dict-ref trackpoint x #f))))
@@ -293,7 +298,7 @@
                                    (#t sql-null))))
                          fields)))
         ;; Bulk import ocasionally fails here...
-        (with-handlers (((lambda (e) #t) 
+        (with-handlers (((lambda (e) #t)
                          (lambda (e)
                            (display (format "Failed to insert record: ~a, ~a~%" values e))
                            (raise e))))
@@ -577,8 +582,8 @@
           (raise (db-exn-activity-exists guid))))
       (let ((serial (dict-ref file-id 'serial-number #f)))
         (when serial
-          (let ((retired? (query-maybe-value 
-                           db 
+          (let ((retired? (query-maybe-value
+                           db
                            "select retired from EQUIPMENT where serial_number = ?"
                            serial)))
             (when (and retired? (> retired? 0))
@@ -591,8 +596,8 @@
   ;; escaped and transaction left open.
   (call-with-transaction
    db (lambda ()
-        (with-handlers 
-         ((db-exn-activity-exists? 
+        (with-handlers
+         ((db-exn-activity-exists?
            (lambda (e)
              (let ((guid (db-exn-activity-exists-guid e)))
                (cons 'already-exists guid))))
@@ -609,8 +614,8 @@
                             (read-fit-records fit-stream consumer)
                             (send consumer collect-activity)))
                 (aid (db-insert-activity activity db)))
-           (db-insert-activity-raw-data 
-            aid 
+           (db-insert-activity-raw-data
+            aid
             (if (path? file-name) (path->string file-name) file-name)
             data
             db)
@@ -633,8 +638,8 @@
 
 (define (db-re-import-activity activity-id db)
   (let ((data (db-extract-activity-raw-data activity-id db))
-        (file-name (query-value 
-                    db "select file_name from ACTIVITY_RAW_DATA where activity_id = ?" 
+        (file-name (query-value
+                    db "select file_name from ACTIVITY_RAW_DATA where activity_id = ?"
                     activity-id)))
     (call-with-transaction
      db
@@ -647,13 +652,13 @@
     (call-with-output-file out-file-name
       (lambda (port)
         (write-bytes data port)))))
-  
+
 
 
 ;.................................................... db-fetch-activity ....
 
 (define (db-extract-activity-raw-data activity-id db)
-  (let ((data (query-maybe-value 
+  (let ((data (query-maybe-value
                db "select data from ACTIVITY_RAW_DATA where activity_id = ?"
                activity-id)))
     (if data
@@ -800,15 +805,15 @@
   (db-extract-session (query-row db fetch-session-stmt session-id) db))
 
 (define (db-extract-session session-row db)
-  (let ((fields '(database-id start-time name description total-timer-time total-elapsed-time 
+  (let ((fields '(database-id start-time name description total-timer-time total-elapsed-time
                   total-distance total-calories avg-speed max-speed avg-heart-rate max-heart-rate
                   avg-cadence max-cadence total-cycles avg-cycle-distance total-ascent total-descent
                   total-corrected-ascent total-corrected-descent
                   swim-stroke sport sub-sport pool-length pool-length-unit
                   avg-vertical-oscillation avg-stance-time
                   avg-stance-time-percent total-training-effect
-                  avg-power max-power normalized-power 
-                  left-right-balance 
+                  avg-power max-power normalized-power
+                  left-right-balance
                   avg-left-torque-effectiveness avg-right-torque-effectiveness
                   avg-left-pedal-smoothness avg-right-pedal-smoothness
                   training-stress-score intensity-factor rpe-scale
@@ -873,7 +878,7 @@
                 (db-extract-lap lap db)))))
 
 (define (db-extract-lap lap-row db)
-  (let ((fields '(database-id start-time total-timer-time total-elapsed-time 
+  (let ((fields '(database-id start-time total-timer-time total-elapsed-time
                   total-distance total-calories avg-speed max-speed avg-heart-rate max-heart-rate
                   avg-cadence max-cadence total-cycles avg-cycle-distance total-ascent total-descent
                   total-corrected-ascent total-corrected-descent
@@ -943,7 +948,7 @@
                 (db-extract-length length db)))))
 
 (define (db-extract-length length-row db)
-  (let ((fields '(database-id start-time total-timer-time total-elapsed-time 
+  (let ((fields '(database-id start-time total-timer-time total-elapsed-time
                   total-distance total-calories avg-speed max-speed avg-heart-rate max-heart-rate
                   avg-cadence max-cadence total-cycles avg-cycle-distance total-ascent total-descent
                   total-corrected-ascent total-corrected-descent
@@ -1003,9 +1008,9 @@
                 (db-extract-trackpoint trackpoint)))))
 
 (define (db-extract-trackpoint trackpoint-row)
-  (let ((fields '(database-id timestamp position-lat position-long 
-                              altitude corrected-altitude distance cadence speed 
-                              heart-rate vertical-oscillation 
+  (let ((fields '(database-id timestamp position-lat position-long
+                              altitude corrected-altitude distance cadence speed
+                              heart-rate vertical-oscillation
                               stance-time stance-time-percent
                               power accumulated-power left-right-balance
                               left-torque-effectiveness right-torque-effectiveness
@@ -1018,16 +1023,16 @@
 (define db-extract-weater-for-session
   (let ((stmt (virtual-statement
                (lambda (dbsys)
-                 "select id, wstation, temperature, dew_point, humidity, 
+                 "select id, wstation, temperature, dew_point, humidity,
                          wind_speed, wind_gusts, wind_direction, pressure
                   from SESSION_WEATHER
                   where session_id = ?"))))
     (lambda (session-id db)
-      (let ((fields '(database-id source temperature dew-point humidity 
+      (let ((fields '(database-id source temperature dew-point humidity
                                   wind-speed wind-gusts wind-direction pressure))
             (row (query-maybe-row db stmt session-id)))
         (if row (db-row->alist fields row) '())))))
-    
+
 
 
 ;................................................... db-delete-sesssion ....
@@ -1097,7 +1102,7 @@
 ;; longer show up in any reports and won't be imported again when scannig
 ;; folders for FIT files.  The activtiy can be re-imported from data in
 ;; ACTIVTIY_RAW_DATA, if needed.
-(define db-delete-activity 
+(define db-delete-activity
   (let ((stmt (virtual-statement
                (lambda (dbsys)
                  "select S.id from A_SESSION S where S.activity_id = ?"))))
@@ -1114,7 +1119,7 @@
 ;; by `db-import-activities-from-directory'
 (define db-delete-activity-hard
   (let ((del-activtiy
-         (virtual-statement 
+         (virtual-statement
           (lambda (dbsys) "delete from ACTIVITY where id = ?")))
         (del-last-import
          (virtual-statement
@@ -1126,7 +1131,7 @@
          (virtual-statement
           (lambda (dbsys) "select id from A_SESSION where activity_id = ?"))))
     (lambda (activity-id db)
-      (call-with-transaction 
+      (call-with-transaction
        db (lambda ()
             (let ((sessions (query-list db sel-sessions activity-id)))
               (for-each (lambda (session) (db-delete-session session db)) sessions))

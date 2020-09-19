@@ -28,3 +28,6 @@
 [submodule "pkgs/map-widget"]
 	path = pkgs/map-widget
 	url = https://github.com/alex-hhh/map-widget.git
+[submodule "pkgs/geoid"]
+	path = pkgs/geoid
+	url = https://github.com/alex-hhh/geoid.git

@@ -42,6 +42,7 @@
          plot-container
          racket/gui/base
          rackunit
+         racket/runtime-path
          "../rkt/trend-charts/trends-ae.rkt"
          "../rkt/trend-charts/trends-bavg.rkt"
          "../rkt/trend-charts/trends-bw.rkt"
@@ -269,8 +270,9 @@
 (define test-image-file (make-temporary-file "al2-~a.png"))
 (define test-data-file (make-temporary-file "al2-~a.csv"))
 
-;; This is downloaded by download-test-db.sh
-(define test-database "./test-db/al2-v29.db")
+;; This is downloaded by download-test-db.sh, needs to be a runtime path,
+;; since we use a separate `place` to open the database
+(define-runtime-path test-database "./test-db/al2-v29.db")
 
 (define (do-tc-check db chart-class settings snip-canvas-class)
   (when (file-exists? test-image-file)
