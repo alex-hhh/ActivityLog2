@@ -80,16 +80,35 @@
             (find-change-point pmid p1 f0 f1 epsilon factor-fn key-fn)
             (find-change-point p0 pmid f0 f1 epsilon factor-fn key-fn)))))
 
-;; Split DATA-SERIES into continuous segments having the same factor
-;; (according to FACTOR-FN).  For example, if the data series contains heart
-;; rate and the FACTOR-FN returns zones, the function will split the data into
-;; segments that have the same heart rate zone.
+;; Split DATA-SERIES into segments having the same factor (according to
+;; FACTOR-FN).  For example, if the data series contains heart rate and the
+;; FACTOR-FN returns zones, the function will split the data into segments
+;; that have the same heart rate zone.
+;;
+;; Note that the intent for this data is to construct line renderers from it,
+;; and may not be useful for other purposes (in particular it groups the data
+;; points into lists, one for each factor values and "separates" segments
+;; within a factor value using +nan.0 values.
 (define (split-by-factor data-series factor-fn
                          #:key (key-fn values)
                          #:epsilon (epsilon 0.1))
-  (define result '())
+  (define result (make-hash))
   (define current-factor #f)
   (define seq '())
+
+  (define (put-sequence factor seq)
+    (hash-update!
+     result factor
+     (lambda (old)
+       (if (empty? old)
+           seq
+           ;; NOTE: the sequence of points with the same factor can be
+           ;; rendered all at once by inserting an element with a +nan.0 item
+           ;; in it, which will effectively put a gap in the lines -- doing
+           ;; this results in significantly faster rendering than having
+           ;; several line renderers, one for each segment.
+           (append old (list (vector +nan.0 +nan.0 0)) seq)))
+     '()))
 
   (let loop ((index 0))
     (when (< index (vector-length data-series))
@@ -104,7 +123,7 @@
             (let ((mp (find-change-point (car seq) item current-factor factor
                                          epsilon factor-fn key-fn)))
               (set! seq (cons mp seq))
-              (set! result (cons (cons current-factor (reverse seq)) result))
+              (put-sequence current-factor (reverse seq))
               (set! seq (list mp))
               (set! current-factor (factor-fn (key-fn mp)))
               (if (equal? factor current-factor)
@@ -112,10 +131,11 @@
                     (set! seq (cons item seq))
                     (loop (add1 index)))
                   (loop index)))))))
-  ;; Add last one
+  ;; Add the last one
   (when current-factor
-    (set! result (cons (cons current-factor (reverse seq)) result)))
-  (reverse result))
+    (put-sequence current-factor (reverse seq)))
+  (for/list ([(key value) (in-hash result)])
+    (cons key value)))
 
 ;; Return a list of plot renderers for data created by `split-by-factor`.
 (define (make-plot-renderer-for-splits fdata yr factor-colors)
