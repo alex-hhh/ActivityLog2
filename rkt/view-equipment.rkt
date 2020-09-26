@@ -2,7 +2,7 @@
 ;; view-equipment.rkt -- equipment and service log management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -657,7 +657,7 @@ where EQ.id = ?" eqid))
               (lambda (row)
                 (let ((v (fn row)))
                   (if v (format-48 "~1,2F" v) "")))
-              (lambda (row) (or (fn row) ""))))
+              (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row) (sql-column-ref row 14))))
      (qcolumn "Battery Status"
               (lambda (row)
