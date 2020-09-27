@@ -2,7 +2,7 @@
 ;; wk-fit.rkt -- read and write FIT workout files
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018,2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -61,7 +61,9 @@
     ;; supported by the wkstep structures.
     (define (duration-type-and-value workout-step)
       (define dtype (dict-ref workout-step 'duration-type))
-      (define dvalue (dict-ref workout-step 'duration-value))
+      (define dvalue
+        (or (equal? dtype 'open) ; need not be present for open duration types
+            (dict-ref workout-step 'duration-value)))
       (case dtype
         ((time) (values dtype (/ dvalue 1000)))
         ((distance) (values dtype (/ dvalue 100)))

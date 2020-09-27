@@ -6,6 +6,17 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.10.1
+
+Bugfix release, fixing the following bugs:
+
+* Fix workout import for workouts containing "open" steps (until lap button
+  press), see also #49
+
+* Fix sorting by battery voltage in the equipment view, see also AB#25
+
+* Speed-up rendering of charts which are colored by zone, see also AB#24
+
 # Release 1.10.0
 
 New release containing assorted new features and bug fixes, the most important
