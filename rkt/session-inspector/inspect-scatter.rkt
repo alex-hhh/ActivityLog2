@@ -2,7 +2,7 @@
 ;; inspect-scatter.rkt -- scatter plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -243,15 +243,13 @@
            (delayed (if delay (time-delay-series ds delay) ds))
            (grouped (group-samples delayed x-digits y-digits))
            (slr (slr-params delayed))
-           (renderer (list
-                      (scatter-group-renderer
-                       grouped
-                       #:color color
-                       #:label (and add-label?
+           (renderer (scatter-group-renderer
+                      grouped
+                      #:color color
+                      #:label (and add-label?
                                     (or (send yaxis plot-label)
-                                        (send xaxis plot-label))))
-                      (slr-renderer slr))))
-      (spstate ds bounds qbounds renderer))))
+                                        (send xaxis plot-label))))))
+      (spstate ds bounds qbounds (if slr (list renderer (slr-renderer slr)) renderer)))))
 
 (define scatter-plot-panel%
   (class object% (init parent) (super-new)
