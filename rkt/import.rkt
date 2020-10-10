@@ -293,10 +293,9 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
                           where position_lat is not null
                             and position_long is not null
                             and geoid is null"))
-  (define offset (arithmetic-shift 1 63))
   (call-with-transaction
    db
    (lambda ()
      (for ([(id lat lon) (in-query db q #:fetch 1000)])
-       (define geoid (- (lat-lng->geoid lat lon) offset))
+       (define geoid (geoid->sqlite-integer (lat-lng->geoid lat lon)))
        (query-exec db u geoid id)))))

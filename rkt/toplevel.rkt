@@ -21,6 +21,7 @@
          racket/match
          racket/math
          tzgeolookup
+         geoid
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
@@ -382,6 +383,12 @@
        [callback
         (lambda (m e)
           (send toplevel auto-detect-time-zones))])
+
+  (new menu-item%
+       [parent tools-menu] [label "Update geoids..."]
+       [callback
+        (lambda (m e)
+          (send toplevel update-some-geoids))])
 
   (new menu-item%
        [parent tools-menu] [label "Optimize database..."]
@@ -746,6 +753,56 @@
   (send progress-dialog run parent-window task))
 
 
+;;............................................ interactive-update-geoids ....
+
+(define (interactive-update-some-geoids database [parent-window #f])
+
+  (define progress-dialog
+    (new progress-dialog%
+         [title "Update geoids"]
+         [description "Add geoids to trackpoints"]
+         [icon (sql-export-icon)]))
+
+  (define (task progress-dialog)
+    (send progress-dialog set-message "Fetching trackpoint count...")
+    (define num-trackpoints
+      (query-value database
+                   "select count(*)
+                           from A_TRACKPOINT
+                          where position_lat is not null
+                            and position_long is not null
+                            and geoid is null"))
+    (dbglog "interactive-update-some-geoids started")
+    (define u (virtual-statement
+               (lambda (dbsys)
+                 "update A_TRACKPOINT set geoid = ? where id = ?")))
+    (define q "select id, position_lat, position_long
+                from A_TRACKPOINT
+               where position_lat is not null
+                 and position_long is not null
+                 and geoid is null")
+    (define current-progress 0)
+    (call-with-transaction
+     database
+     (lambda ()
+       (for ([(id lat lon) (in-query database q #:fetch 1000)]
+             [n (in-naturals)]
+             #:break (let ((progress (exact-round (* 100 (/ (+ 1 n) num-trackpoints)))))
+                       ;; Don't update the progress for each geoid, as there
+                       ;; would be too many of them...
+                       (if (> (- progress current-progress) 0.1)
+                           (begin
+                             (set! current-progress progress)
+                             (not (send progress-dialog set-progress progress)))
+                           ;; Don't break!
+                           #f)))
+         (define geoid (geoid->sqlite-integer (lat-lng->geoid lat lon)))
+         (query-exec database u geoid id))))
+    (dbglog "interactive-update-some-geoids complete"))
+
+  (send progress-dialog run parent-window task))
+
+
 ;;..................................................... toplevel-window% ....
 
 ;; Hold an application page in the top level window.  We'll have one of these
@@ -1055,6 +1112,9 @@
 
     (define/public (auto-detect-time-zones)
       (interactive-update-time-zones database tl-frame))
+
+    (define/public (update-some-geoids)
+      (interactive-update-some-geoids database tl-frame))
 
     (define/public (vacuum-database)
 
