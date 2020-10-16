@@ -1,7 +1,7 @@
--- gpspoints.sql -- fetch GPS data for a session
+-- geoidpoints.sql -- fetch geoids for a session
 --
 -- This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
--- Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -16,15 +16,10 @@
 -- You should have received a copy of the GNU General Public License along
 -- with this program.  If not, see <http://www.gnu.org/licenses/>.
 
--- this SQL query is used by trends-heatmap.rkt to fetch GPS points for a
--- session from the database
-
-select T.position_lat as lat,
-       T.position_long as lon
+select T.geoid
   from A_TRACKPOINT T, A_LENGTH L, A_LAP P
  where T.length_id = L.id
    and L.lap_id = P.id
    and P.session_id = ?
-   and T.position_lat is not null
-   and T.position_long is not null
- order by T.timestamp;
+   and T.geoid is not null
+ order by T.geoid;                      -- NOTE: this is not the track order!

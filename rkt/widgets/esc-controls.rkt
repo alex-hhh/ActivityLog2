@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -346,19 +346,19 @@
           (send dc set-font old-font))))
 
     (define/override (on-mouse-event dc control-x control-y inside? event)
-      (let ((type (send event get-event-type)))
-        (define pushed-button? (and (eq? type 'left-down) inside?))
-        (define clicked? (and (eq? type 'left-up) inside? pushed?))
-        (when clicked? (callback))
-
-        ;; Request redraw for the parent snip if the state of the button
-        ;; has changed.
-        (unless (and (eq? hover? inside?)
-                     (eq? pushed? pushed-button?))
-          (set! hover? inside?)
-          (set! pushed? pushed-button?)
-          (request-update))
-        (or pushed-button? clicked?)))
+      (define pushed-button? (and (send event button-down? 'left)
+                                  inside?))
+      (define clicked? (and (send event button-up? 'left)
+                            inside? pushed?))
+      (when clicked? (callback))
+      ;; Request redraw for the parent snip if the state of the button
+      ;; has changed.
+      (unless (and (eq? hover? inside?)
+                   (eq? pushed? pushed-button?))
+        (set! hover? inside?)
+        (set! pushed? pushed-button?)
+        (request-update))
+      (or pushed-button? clicked?))
 
     ))
 
@@ -634,13 +634,12 @@
           (send dc set-font old-font))))
 
     (define/override (on-mouse-event dc control-x control-y inside? event)
-      (let ((type (send event get-event-type)))
-        (define pushed-button? (and (eq? type 'left-down) inside?))
-        (define clicked? (and (eq? type 'left-up) inside? pushed?))
-        (when clicked?
-          (value (not (value)))
-          (callback (value)))
-        (set! pushed? pushed-button?)
-        (or pushed-button? clicked?)))
+      (define pushed-button? (and (send event button-down? 'left) inside?))
+      (define clicked? (and (send event button-up? 'left) inside? pushed?))
+      (when clicked?
+        (value (not (value)))
+        (callback (value)))
+      (set! pushed? pushed-button?)
+      (or pushed-button? clicked?))
 
     ))

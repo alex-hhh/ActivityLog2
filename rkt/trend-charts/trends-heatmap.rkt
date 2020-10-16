@@ -16,18 +16,21 @@
 ;; more details.
 
 (require db
+         geoid
+         map-widget
          plot-container/hover-util
          racket/class
+         racket/format
          racket/gui/base
          racket/hash
          racket/match
          racket/math
+         racket/vector
          "../dbutil.rkt"
          "../metrics.rkt"
          "../utilities.rkt"
          "../widgets/esc-controls.rkt"
          "../widgets/main.rkt"
-         map-widget
          "trends-chart.rkt")
 
 (provide heatmap-chart%)
@@ -145,6 +148,10 @@
       (new esc-gauge% [parent-snip this]
            [color item-color]
            [fill-color fill-color]))
+    (define point-count-label
+      (new esc-label% [parent-snip this]
+           [label "XXX.Xk GPS points"]
+           [color item-color]))
     (define zoom-label
       (new esc-label% [parent-snip this]
            [label "Zoom"]
@@ -183,6 +190,7 @@
 
     (set! controls
           (list load-gauge
+                point-count-label
                 zoom-label
                 zoom-plus-button
                 zoom-minus-button
@@ -190,7 +198,7 @@
                 show-map-tiles-checkbox))
 
     (define border 10)
-    (define vspacing 10)
+    (define vspacing 12)
     (define hspacing 5)
 
     ;; Determine the minimum size of this snip based of all the controls that
@@ -201,6 +209,7 @@
     ;; process, but for not they are not used here.
     (define (min-size dc)
       (define-values (lg-width lg-height) (send load-gauge min-size dc))
+      (define-values (pc-width pc-height) (send point-count-label min-size dc))
       (define-values (zl-width zl-height) (send zoom-label min-size dc))
       (define-values (zp-width zp-height) (send zoom-plus-button min-size dc))
       (define-values (zm-width zm-height) (send zoom-minus-button min-size dc))
@@ -208,6 +217,7 @@
       (define-values (sm-width sm-height) (send show-map-tiles-checkbox min-size dc))
 
       (send load-gauge size lg-width lg-height)
+      (send point-count-label size pc-width pc-height)
       (send zoom-label size zl-width zl-height)
       (send zoom-plus-button size zp-width zp-height)
       (send zoom-minus-button size zm-width zm-height)
@@ -216,18 +226,24 @@
 
       (define width
         (+ border
-           (max lg-width (+ zl-width hspacing zp-width hspacing zm-width)
+           (max lg-width
+                pc-width
+                (+ zl-width hspacing zp-width hspacing zm-width)
                 fw-width sm-width)
            border))
       (define height
         (+ border
            lg-height
            vspacing
+           pc-height
+           vspacing
+           vspacing
            (max zl-height zp-height zm-height)
            vspacing
            fw-height
            vspacing
            sm-height
+           vspacing
            border))
 
       (values width height))
@@ -237,17 +253,23 @@
     ;; nice to update the code to use some container snips.
     (define (arrange-controls)
       (define-values (lg-width lg-height) (send load-gauge size))
+      (define-values (pc-width pc-height) (send point-count-label size))
       (define-values (zl-width zl-height) (send zoom-label size))
       (define-values (zp-width zp-height) (send zoom-plus-button size))
       (define-values (zm-width zm-height) (send zoom-minus-button size))
       (define-values (fw-width fw-height) (send fit-to-window-button size))
       (define-values (sm-width sm-height) (send show-map-tiles-checkbox size))
 
-      (send load-gauge position border border)
-      (send load-gauge size (- width border border) lg-height)
+      (define y border)
 
-      (let ([y (+ border lg-height vspacing)]
-            [row-height (max zl-height zp-height zm-height)])
+      (send load-gauge position border y)
+      (send load-gauge size (- width border border) lg-height)
+      (set! y (+ y lg-height vspacing))
+
+      (send point-count-label position border y)
+      (set! y (+ y pc-height vspacing vspacing))
+
+      (let ([row-height (max zl-height zp-height zm-height)])
         (send zoom-label position
               border
               (+ y (/ (- row-height zl-height) 2)))
@@ -256,14 +278,14 @@
               (+ y (/ (- row-height zp-height) 2)))
         (send zoom-minus-button position
               (+ border zl-width hspacing zp-width hspacing)
-              (+ y (/ (- row-height zm-height) 2))))
-      (send fit-to-window-button position
-            border
-            (+ border lg-height vspacing (max zl-height zp-height zm-height) vspacing))
+              (+ y (/ (- row-height zm-height) 2)))
+        (set! y (+ y row-height vspacing)))
+
+      (send fit-to-window-button position border y)
       (send fit-to-window-button size (- width border border) fw-height)
-      (send show-map-tiles-checkbox position
-            border
-            (+ border lg-height vspacing (max zl-height zp-height zm-height) vspacing fw-height vspacing)))
+      (set! y (+ y fw-height vspacing))
+      (send show-map-tiles-checkbox position border y)
+      (set! y (+ y sm-height vspacing)))
 
     (define/public (set-load-progress percent)
       (send load-gauge value percent))
@@ -271,6 +293,15 @@
     (define/public (set-show-map-layer flag)
       (send show-map-tiles-checkbox value flag))
 
+    (define/public (set-point-count pc)
+      (define label
+        (cond ((> pc 1e6)
+               (format "~a m GPS points" (~r (/ pc 1e6) #:precision 1)))
+              ((> pc 1e3)
+               (format "~a k GPS points" (~r (/ pc 1e3) #:precision 1)))
+              (#t
+               (format "~a GPS points" (~r pc #:precision 1)))))
+      (send point-count-label set-label label))
 
     ))
 
@@ -278,8 +309,12 @@
 ;;............................................................ SQL query ....
 
 ;; SQL query to retrieve GPS data for an activity from the database
-(define-runtime-path sql-query-path "../../sql/queries/gpspoints.sql")
+(define-runtime-path sql-query-path "../../sql/queries/geoidpoints.sql")
 (define sql-query (define-sql-statement sql-query-path))
+
+(define (fetch-session-geoids database session-id)
+  (for/list ([g (in-query database (sql-query) session-id #:fetch 1000)])
+    (sqlite-integer->geoid g)))
 
 ;; Return a list of candidate sessions selected by PARAMS, which are retrieved
 ;; from the settings for this chart.
@@ -337,19 +372,12 @@
 
     ))
 
-;; Cache all routes retrieved from the database, so we save some time when the
-;; user plays with the settings dialog and the chart is re-created.  NOTE: we
-;; never clear this cache (unless we open a new database), this means that it
-;; always grows...
-(define route-cache (make-hash))
-
 (define heatmap-chart%
   (class trends-chart%
     (init-field database) (super-new)
 
     (define cached-data #f)
     (define generation 0)
-    (define auto-fit-to-window? #t)
     (define map-snip #f)
     (define map-control-snip #f)
 
@@ -363,10 +391,8 @@
       (set! map-snip #f))
 
     (define/override (is-invalidated-by-events? events)
-      ;; Clear the route cache when a new database is opened
-      (when (hash-ref events 'database-opened #f)
-        (set! route-cache (make-hash)))
-      (or (hash-ref events 'session-deleted #f)
+      (or (hash-ref events 'database-opened #f)
+          (hash-ref events 'session-deleted #f)
           (hash-ref events 'session-created #f)
           (hash-ref events 'session-updated-data #f)))
 
@@ -377,38 +403,36 @@
     ;; Add GPS data for each activity selected by PARAMS.  Note that this
     ;; method runs in a separate thread and has to actually add the track to
     ;; the map using `queue-callback`
-    (define/private (add-routes params saved-generation)
-      (let ([candidates (candidate-sessions database params)])
-        (define total (length candidates))
+    (define/private (add-points params saved-generation)
+      (let* ([candidates (candidate-sessions database params)]
+             [map-snip map-snip]
+             [total (length candidates)]
+             [point-count 0]
+             [last-progress 0.0])
         (when (> total 0)
-          (send map-snip set-group-pen
-                1
-                (send the-pen-list find-or-create-pen
-                      (make-object color% #xff #x14 #x23 0.8) ; Deep Pink
-                      2.5 'solid 'round 'round))
-          (for ([(c index) (in-indexed (in-list candidates))])
-            ;; Look for this route in the route cache first, and if its not
-            ;; there, look in the database.
-            (define track (hash-ref route-cache c #f))
-            (unless track
-              (set! track (query-rows database (sql-query) c))
-              (hash-set! route-cache c track))
-            (when (> (length track) 0)  ; not all activities will have GPS data
+          (send map-snip begin-edit-sequence)
+          (send map-snip auto-resize-to-fit #t)
+          (for ([c (in-list candidates)]
+                [index (in-naturals)])
+            (define geoids (fetch-session-geoids database c))
+            (send map-snip add-to-point-cloud geoids #:format 'ordered-geoids)
+            (set! point-count (+ point-count (length geoids)))
+            (define progress (/ (add1 index) total))
+            (when (> (- progress last-progress) 0.01)
+              (set! last-progress progress)
+              (send map-snip end-edit-sequence)
               (queue-callback
                (lambda ()
-                 (when (and (equal? saved-generation generation) map-snip)
-                   (send map-snip add-track track 1)
-                   (send map-control-snip set-load-progress (/ (add1 index) total))
-                   (when auto-fit-to-window?
-                     (send map-snip resize-to-fit))))))
-            ;; give a chance to other threads to run and process the new
-            ;; track...
-            (sleep 0.0))
+                 (when (and (equal? saved-generation generation) map-control-snip)
+                   (send map-control-snip set-load-progress progress)
+                   (send map-control-snip set-point-count point-count))))
+              (send map-snip begin-edit-sequence)))
+          (send map-snip end-edit-sequence)
           (queue-callback
            ;; Set the load progress to 100%, in case we had some empty
            ;; activities.
            (lambda ()
-             (when (and (equal? saved-generation generation) map-snip)
+             (when (and (equal? saved-generation generation) map-control-snip)
                (send map-control-snip set-load-progress 1.0)))))))
 
     (define/override (put-plot-snip canvas)
@@ -429,7 +453,6 @@
                                            (send map-snip zoom-level (sub1 zl)))))]
                          [on-fit-to-window (lambda ()
                                              (when map-snip
-                                               (set! auto-fit-to-window? #f)
                                                (send map-snip resize-to-fit)))]
                          [on-show-map-layer (lambda (flag)
                                               (when map-snip
@@ -438,13 +461,13 @@
           (set! map-control-snip ctl)
           (send map-control-snip set-show-map-layer #t)
           (send map-snip show-map-layer #t)
-          (set! auto-fit-to-window? #t)
           (send canvas set-snip map-snip)
           (send canvas set-floating-snip map-control-snip 0 0)
           ;; Move the control snip to the top-right corner of the map -- the
           ;; 10000 value for the x coordinate is our lazy way to let
           ;; `move-snip-to` move it to the right...
           (move-snip-to map-control-snip '(10000.0 . 10.0))
+          (send map-control-snip set-point-count 0)
           (set! generation (add1 generation))
           (let ([saved-generation generation]
                 [params (send this get-chart-settings)])
@@ -452,7 +475,7 @@
             ;; blocking
             (queue-task
              "heatmap-chart%/put-plot-snip"
-             (lambda () (add-routes params saved-generation)))))))
+             (lambda () (add-points params saved-generation)))))))
 
     (define/override (save-plot-image file-name width height)
       ;; NOTE: we ignore width and height parameters here :-(
