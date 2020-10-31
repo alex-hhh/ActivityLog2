@@ -6,6 +6,14 @@ find the changes between version 1.7.1 and 1.8.0 you can run:
 
     git log v1.7.1..v1.8.0
 
+# Release 1.10.2
+
+Bugfix release, fixing the following bugs:
+
+* Fix importing FIT files which contains 64bit data fields, see also #50
+
+* Fix importing FIT files produced by the Coros2 watch
+
 # Release 1.10.1
 
 Bugfix release, fixing the following bugs:
