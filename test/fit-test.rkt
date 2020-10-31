@@ -390,6 +390,12 @@ select count(*)
    (test-case "f0032.fit"
      (do-basic-checks
       "./test-fit/f0032.fit" 18 1473))
+   (test-case "f0040.fit"
+     (do-basic-checks
+      "./test-fit/f0040.fit" 14 11272))
+   (test-case "f0042.fit"
+     (do-basic-checks
+      "./test-fit/f0042.fit" 15 2110))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application

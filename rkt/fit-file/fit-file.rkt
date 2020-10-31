@@ -211,6 +211,10 @@
    #x8b (fit-type #x8b 'uint16z #f 2 #x00 bstr->integer integer->bstr)
    #x8c (fit-type #x8c 'uint32z #f 4 #x00 bstr->integer integer->bstr)
 
+   #x8e (fit-type #x8e 'sint64 #t 8 #x7FFFFFFFFFFFFFFF bstr->integer integer->bstr)
+   #x8f (fit-type #x8f 'uint64 #f 8 #xFFFFFFFFFFFFFFFF bstr->integer integer->bstr)
+   #x90 (fit-type #x90 'uint64z #f 8 #x00 bstr->integer integer->bstr)
+
    #x0d (fit-type #x0d 'byte #f 1 #xFF bstr->integer integer->bstr)))
 
 (define (get-fit-type id)
@@ -218,7 +222,9 @@
   ;; number or name.  Return #f if the type is not found or ID is not one of
   ;; the expected values.
   (cond ((fit-type? id) id)
-        ((number? id) (hash-ref fit-types id))
+        ((number? id) (hash-ref
+                       fit-types id
+                       (lambda () (raise-error "bad fit type: ~a" id))))
         ((symbol? id)
          (for/first ([t (in-hash-values fit-types)]
                      #:when (eq? id (fit-type-name t)))
@@ -244,7 +250,19 @@
   ;; total size of the bytes to read (SIZE / SIZEOF(type) determines the
   ;; number of values read).  Returns two values: value or vector of values
   ;; plus the new buffer position.
-  (let ((nitems (/ size (fit-type-size type))))
+  ;;
+  ;; NOTE: Coros2 has a bug which stores the size as 1 for a 32 bit (4 byte)
+  ;; integer.  We allow this here by setting the size to the size of the fit
+  ;; type (4 bytes), but it is a bug and the fix works for Coros2 only.  See
+  ;; also notes on f0040 and f0041.
+  (let* ([fts (fit-type-size type)]
+         [nitems (if (< size fts)
+                     (if (= size 1)
+                         fts
+                         (raise-error "bad size" size))
+                     (/ size fts))])
+    (unless (integer? nitems)
+      (raise-error "bad number of items" nitems))
     (if (equal? nitems 1)
         (read-one-fit-value buf pos type big-endian?)
         (let ((result (make-vector nitems #f)))
@@ -505,11 +523,13 @@
           (string->symbol (bytes->string/utf-8 name)))))
 
   (define (make-string-id id)
-    (apply string-append
-           (for/list ([i (in-vector id)])
-             (if (number? i)
-                 (~r i #:precision 0 #:base 16 #:min-width 2 #:pad-string "0")
-                 "ff"))))
+    (if (vector? id)                    ; Coros2 uses integers, see f0040
+        (apply string-append
+               (for/list ([i (in-vector id)])
+                 (if (number? i)
+                     (~r i #:precision 0 #:base 16 #:min-width 2 #:pad-string "0")
+                     "ff")))
+        (~a id)))
 
   (define (read-next-record)
     (let* ((hdr (or (send fit-stream read-next-value 'uint8) 255))
@@ -1064,7 +1084,8 @@
           (let-values ([(our-laps rest)
                         (splitf-at laps
                                    (lambda (v)
-                                     (<= (dict-ref v 'timestamp #f) timestamp)))])
+                                     (<= (dict-ref v 'timestamp 0)
+                                         timestamp)))])
             (set! laps rest)            ; will be used by the next session
             (cons (cons 'laps our-laps) session))))
 
