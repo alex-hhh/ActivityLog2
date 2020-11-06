@@ -76,9 +76,13 @@
   (define index (df-index-of df "distance" dst))
 
   (cond ((<= index 0)
-         (df-ref* df 0 "lat" "lon"))
+         (define location (df-ref* df 0 "lat" "lon"))
+         (match-define (vector lat lon) location)
+         (if (and lat lon) location #f))
         ((>= index (df-row-count df))
-         (df-ref* df (sub1 (df-row-count df)) "lat" "lon"))
+         (define location (df-ref* df (sub1 (df-row-count df)) "lat" "lon"))
+         (match-define (vector lat lon) location)
+         (if (and lat lon) location #f))
         (#t
          (let* ((pdst (df-ref df (sub1 index) "distance"))
                 (adst (df-ref df index "distance"))

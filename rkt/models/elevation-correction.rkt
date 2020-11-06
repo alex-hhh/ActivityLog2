@@ -38,6 +38,35 @@
          "../widgets/main.rkt"             ; for progress-dialog%
          map-widget/utils)
 
+
+;; Elevation correction does not produce good results when there are small
+;; amounts of data and sessions are recorded with mostly flat terrain.  While
+;; actual corrected elevation is stored in parallel to the actual elevation
+;; recorded by the device and both can be plotted, the summary values (total
+;; ascent and descent) are computed from the corrected elevation and, if this
+;; is incorrect, these values can be wildly inaccurate.
+;;
+;; Users can manually delete the corrected elevation and re-calculate it for
+;; individual activities, but we also allow disabling this feature on import
+;; for users who find their data to be completely incorrect
+;;
+;; See also discussion thread on #51
+
+(define fix-elevation-on-import-tag 'activity-log:fix-elevation-on-import)
+(define fix-elevation-on-import-val (get-pref fix-elevation-on-import-tag (lambda () #t)))
+(define (fix-elevation-on-import) fix-elevation-on-import-val)
+(define (set-fix-elevation-on-import new-val)
+  ;; Write the value back to the store
+  (put-pref fix-elevation-on-import-tag new-val)
+  (set! fix-elevation-on-import-val new-val)
+  (if new-val
+      (dbglog "fix elevation on import enabled")
+      (dbglog "fix elevation on import disabled")))
+
+(provide/contract
+ [fix-elevation-on-import (-> boolean?)]
+ [set-fix-elevation-on-import (-> boolean? any/c)])
+
 ;; On "tile-codes"
 ;;
 ;; This code works by averaging nearby codes, the application needs a way to

@@ -61,12 +61,18 @@
   ;; example...
   (show-progress "updating index for geographic locations...")
   (update-some-geoids #:db db)
-  (show-progress "updating corrected elevation...")
-  (update-elevation-for-new-sessions sessions db)
+  (if (fix-elevation-on-import)
+      (begin
+        (show-progress "updating corrected elevation...")
+        (update-elevation-for-new-sessions sessions db))
+      (show-progress "skipping corrected elevation (disabled in settings)..."))
   (show-progress "updating time in zone...")
   (update-tiz-for-new-sessions sessions db)
-  (show-progress "updating weather data...")
-  (update-weather-for-new-sessions sessions db)
+  (if (allow-weather-download)
+      (begin
+        (show-progress "updating weather data...")
+        (update-weather-for-new-sessions sessions db))
+      (show-progress "skipping weather download (disabled in settings)..."))
   (show-progress "updating timezones ...")
   (update-timezone-for-new-sessions sessions db)
   (for ([sid (in-list sessions)])
