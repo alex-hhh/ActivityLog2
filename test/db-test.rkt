@@ -99,15 +99,6 @@
        (let ((sid (db-get-last-pk "A_SESSION" db)))
          sid)))))
 
-(define (db-check-tile-code db)
-  (let ((cnt (query-value db "
-select count(*)
-  from A_TRACKPOINT
- where tile_code is null
-   and (position_lat is not null
-        or position_long is not null)")))
-    (check = 0 cnt "Missing tile codes from A_TRACKPOINT")))
-
 (define (db-check-geoids db)
   (let ((cnt (query-value db "
 select count(*)
@@ -626,7 +617,6 @@ where S.id = CPFS.session_id
               (update-some-session-metrics sid db)
               (check-time-in-zone df db file)))
            (check = 1 (activity-count db))
-           (db-check-tile-code db)
            (db-check-geoids db)))))
 
    (test-case "Subsequent imports"

@@ -29,7 +29,6 @@
          geoid
          "dbapp.rkt"
          "dbutil.rkt"
-         "models/elevation-correction.rkt" ; for lat-lon->tile-code
          "fit-file/fit-defs.rkt"
          "fit-file/fit-file.rkt"
          "utilities.rkt")
@@ -281,9 +280,8 @@
                      left-pp-start left-pp-end right-pp-start right-pp-end
                      left-ppp-start left-ppp-end right-ppp-start right-ppp-end
                      ,(lambda (tp)
-                        (let ((lat (dict-ref tp 'position-lat #f))
-                              (lon (dict-ref tp 'position-long #f)))
-                          (and lat lon (lat-lon->tile-code lat lon))))
+                        ;; Tile codes are no longer used.
+                        #f)
                      ,(lambda (tp)
                         (let ((lat (dict-ref tp 'position-lat #f))
                               (lon (dict-ref tp 'position-long #f)))

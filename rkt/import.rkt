@@ -160,7 +160,6 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
   (when progress-monitor
     (send progress-monitor
           begin-stage "Fixup elevation data for new sessions" (length sessions)))
-  (update-tile-codes db)
   (fixup-elevation-for-session db sessions #f)
   (when progress-monitor
     (send progress-monitor set-progress (- (length sessions) 1))))

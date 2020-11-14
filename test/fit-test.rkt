@@ -34,7 +34,8 @@
          "../rkt/weather.rkt"
          "../rkt/database.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/fit-file/activity-util.rkt")
+         "../rkt/fit-file/activity-util.rkt"
+         "../rkt/models/elevation-correction.rkt")
 
 (define (do-basic-checks file series-count row-count
                          #:expected-session-count (expected-session-count 1)
@@ -289,7 +290,7 @@ select count(*)
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
-      "./test-fit/f0018.fit" '(16 16 37 16 30) '(583 30 10217 10 8612)
+      "./test-fit/f0018.fit" '(15 16 37 16 30) '(583 30 10217 10 8612)
       #:extra-db-checks check-stryd-xdata
       #:expected-session-count 5))
    (test-case "f0019.fit"
@@ -416,6 +417,7 @@ select count(*)
 
 (module+ test
   (set-allow-weather-download #f)        ; don't download weather for unit tests
+  (set-fix-elevation-on-import #t)       ; enable elevation correction -- we want to test it.
 
   ;; when set to #t, dbglog output is sent to stdout, useful for debugging
   ;; purposes.
@@ -423,6 +425,6 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0029.fit"))
+             ;; #:only '(("FIT file reading" "f0018.fit"))
              fit-files-test-suite))
 
