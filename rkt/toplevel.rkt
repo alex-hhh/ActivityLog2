@@ -171,11 +171,13 @@
   (new separator-menu-item% [parent file-menu])
 
   (new menu-item%
-       [parent file-menu] [label  "Import &activity..."]
+       [parent file-menu] [label  "Import &single activity..."]
+       [shortcut #\I]
+       [shortcut-prefix '(ctl shift)]
        [callback (lambda (m e) (send toplevel on-import-activity))])
 
   (new menu-item%
-       [parent file-menu] [label  "Import from &directory..."]
+       [parent file-menu] [label  "&Import new activities..."]
        [shortcut #\I]
        [callback (lambda (m e) (send toplevel on-import-from-directory))])
 
@@ -1238,8 +1240,22 @@
           (when file (open-another-activity-log file)))))
 
     (define/public (on-import-activity)
-      (let ((file (get-file "Select activity..." tl-frame)))
+      ;; NOTE: we use a different key for the last imported directory than the
+      ;; last import dir -- this functionality can be used to import files
+      ;; downloaded using the browser, while still keeping the original import
+      ;; directory unchanged.
+      (define last-dir
+        (or (get-pref 'activity-log:last-activity-import-dir (lambda () #f))
+            (get-pref 'activity-log:last-import-dir (lambda () #f))))
+      (let ((file (get-file "Select activity..." tl-frame last-dir)))
         (when file
+          ;; Save the new directory before we attempt to load the file -- even
+          ;; if the loading fails, we still want to open the file dialog in
+          ;; the same location.
+          (define-values (base _name _must-be-dir?) (split-path file))
+          (when (path-for-some-system? base)
+            (put-pref 'activity-log:last-activity-import-dir (path->string base)))
+
           (query-exec database "delete from LAST_IMPORT")
           (let* ((iresult (db-import-activity-from-file file database))
                  (ecode (car iresult))

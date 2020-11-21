@@ -2,7 +2,7 @@
 ;; view-athlete-metrics.rkt -- athelte metrics panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -74,10 +74,10 @@
 
 (define athlete-metrics-operations-menu%
   (class object% (init-field target [menu-bar #f]) (super-new)
-    
+
     (unless (is-a? target athlete-metrics-operations<%>)
       (error "Target must implement the athlete-metrics-operations<%> interface"))
-    
+
     (define (on-demand m)
       (send target before-popup)
       (let ((have-id? (send target get-selected-id)))
@@ -284,8 +284,11 @@
     (init-field database)
     (super-new)
 
-    (define tag 'activity-log:athlete-metrics)
+    ;; NOTE: 'activity-log:athlete-metrics is already used for the list box.
+    (define tag 'activity-log:athlete-metrics-prefs)
     (define date-range '(#f . #f))
+
+    (define visual-layout (get-pref tag (lambda () (hash))))
 
     (define pane (new (class vertical-panel%
                         (init)(super-new)
@@ -300,7 +303,7 @@
       (set! date-range dr)
       (on-filter-changed))
 
-    (let ((sel-pane (new horizontal-pane% [parent pane] 
+    (let ((sel-pane (new horizontal-pane% [parent pane]
                          [spacing 20]
                          [border 0]
                          [stretchable-height #f]
@@ -311,11 +314,13 @@
       (let ((p (new horizontal-pane% [parent sel-pane]
                     [stretchable-width #f] [border 20]
                     [alignment '(left center)])))
-
         (let ((drf (new date-range-selector% [parent p]
                         [initial-selection 'last-30-days]
                         [callback (lambda (s) (on-date-range s))])))
           (send drf set-seasons (db-get-seasons database))
+          (let ([data (hash-ref visual-layout 'date #f)])
+            (when data
+              (send drf restore-from data)))
           (set! date-range (send drf get-selection))
           (set! date-range-selector drf)))
       (make-spacer sel-pane))
@@ -331,10 +336,9 @@
     (define (on-filter-changed)
       (let ((rows (get-athlete-metrics database date-range)))
         (send lb set-data rows)
-        (send (send pane get-top-level-window) 
-              set-status-text 
+        (send (send pane get-top-level-window)
+              set-status-text
               (make-athlete-metrics-summary-label rows))))
-
 
     (define first-time? #t)
     (define change-notification-source (make-log-event-source))
@@ -355,7 +359,7 @@
         (when index
           (let ((ndata (get-athlete-metrics-1 database aid)))
             (send lb update-row selected-row-index ndata)))))
-    
+
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the view is
       ;; activated the first time and has to do a full refresh anyway
@@ -386,6 +390,9 @@
       (on-filter-changed))
 
     (define/public (save-visual-layout)
+      (define layout
+        (hash 'date (send date-range-selector get-restore-data)))
+      (put-pref tag layout)
       (send lb save-visual-layout))
 
     ;; Target
@@ -423,7 +430,7 @@
 
     (define/public (on-interactive-export-sql-query)
       (let ((query (get-athlete-metrics-sql-query date-range)))
-        (send (get-sql-export-dialog) 
+        (send (get-sql-export-dialog)
               show-dialog (send pane get-top-level-window) query)))
 
     ))
