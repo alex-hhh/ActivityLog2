@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -250,18 +250,9 @@
            [callback on-time-period-selected]
            [choices (map tperiod-name the-time-periods)]))
 
-    ;; If an initial time period selection was specified, select it now.
-    (when initial-selection
-      (let ((index (get-time-period-index initial-selection)))
-        (when index
-          (send time-period-choice set-selection index))))
-
     ;; Panel that holds the custom start/end date input widgets
     (define custom-date-panel
       (new horizontal-panel% [parent pane] [stretchable-height #f] [spacing 0]))
-
-    ;; By default, the custom-date-panel is not shown...
-    (send custom-date-panel show #f)
 
     ;; Date input field for the start custom date (when 'custom-date is
     ;; selected in the time-period-choice)
@@ -269,7 +260,7 @@
       (new date-input-field%
            [valid-value-cb on-valid-custom-start-date]
            [parent custom-date-panel] [label ""]
-           [style '(single)]
+           [style '(single deleted)]
            [stretchable-width #f]
            [min-width 1]))
 
@@ -280,7 +271,7 @@
            [parent custom-date-panel]
            [label "--"]
            [valid-value-cb on-valid-custom-end-date]
-           [style '(single)]
+           [style '(single deleted)]
            [stretchable-width #f]
            [min-width 1]))
 
@@ -291,6 +282,7 @@
            [parent custom-date-panel]
            [label ""]
            [stretchable-width #t]
+           [style '(deleted)]
            [choices '()]
            [callback (lambda (c event) (on-season-selected (send c get-selection)))]))
 
@@ -407,6 +399,10 @@
           (set! end-date end))
         (send custom-range-start set-date-value start)
         (send custom-range-end set-date-value end)))
+
+    ;; If an initial time period selection was specified, select it now.
+    (when initial-selection
+      (restore-from (list initial-selection #f #f #f)))
 
     ))
 
