@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(36);
+insert into SCHEMA_VERSION(version) values(37);
 
 
 --........................................................ Enumerations ....
@@ -416,7 +416,10 @@ create table A_TRACKPOINT (
   left_ppp_end real,                    -- degrees, clockwise, 0 at the top
   right_ppp_start real,
   right_ppp_end real,
-  tile_code integer,                    -- see elevation-correction.rkt
+
+  -- no longer used, should be null for all new track points, kept only to
+  -- make the database backwards compatible.
+  tile_code integer,
 
   -- a 64 bit integer representing the geographic location of this point Note
   -- that geoids are stored using an 2^63 offset to account for SQLite storing
@@ -428,13 +431,6 @@ create table A_TRACKPOINT (
   );
 
 create index IX0_A_TRACKPOINT on A_TRACKPOINT(length_id);
-
--- This is a good covering index for both updating the TILE_CODE query and for
--- retrieving lat/lon coordinates for a TILE_CODE, TILE code queries will only
--- need to scan this index, speeding the lookup.  We pay for this by having a
--- larger index size.
-create index IX1_A_TRACKPOINT
-  on A_TRACKPOINT(tile_code, position_lat, position_long, altitude, timestamp);
 
 -- NOTE: the latitude, longitude can be recovered from geoid, so we don't need
 -- to index those to make it a covering index for elevation correction, saving
