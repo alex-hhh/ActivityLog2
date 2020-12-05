@@ -658,7 +658,7 @@
 
       (unless start-timestamp
         (set! start-timestamp current-timestamp))
-      
+
       (let ((st (dict-ref record 'start-time #f)))
         (when (and (or (not st) (equal? st *fit-epoch*)) current-timestamp)
           (set! record (cons (cons 'start-time current-timestamp) record))))
@@ -1079,15 +1079,50 @@
                                        the-session))))))
 
       (define (add-session-laps session)
-        (let ((timestamp (dict-ref session 'timestamp
-                                   (lambda () (get-current-timestamp)))))
-          (let-values ([(our-laps rest)
-                        (splitf-at laps
-                                   (lambda (v)
-                                     (<= (dict-ref v 'timestamp 0)
-                                         timestamp)))])
-            (set! laps rest)            ; will be used by the next session
-            (cons (cons 'laps our-laps) session))))
+        ;; There is no clear way in the FIT file of which laps belong to a
+        ;; session, since session records can come either at the start or the
+        ;; end of the FIT file.  We try to be clever here: we grab all laps
+        ;; which have their start time before the end time of the session.
+        ;;
+        ;; The end time of the session record might be different than its
+        ;; timestamp, which is usually the time it was written to the FIT
+        ;; file.
+        ;;
+        ;; Also, some FIT files have all these fields missing, so we need to
+        ;; be prepared to handle that as well.
+        (define start-time (dict-ref session 'start-time #f))
+
+        (define timer (dict-ref session 'total-timer-time #f))
+        (define elapsed (dict-ref session 'total-elapsed-time #f))
+
+        ;; The FIT specification mentions that timer-time EXCLUDES pauses and
+        ;; elapsed-time INCLUDES pauses, so we should have elapsed-time
+        ;; greater or equal to timer-time, however some FIT files have the two
+        ;; swapped, so we select the larger of the two as the session
+        ;; duration.
+        (define duration
+          (cond ((and timer elapsed) (max timer elapsed))
+                (timer)
+                (elapsed)
+                (#t #f)))
+
+        (define end-time
+          (or
+           ;; If we have a start time and an elapsed time, we use that
+           (and start-time duration (exact-truncate (+ start-time duration)))
+           ;; Otherwise we use the timestamp...
+           (dict-ref session 'timestamp #f)
+           ;; Or the last timestamp seen in any type of record.
+           (get-current-timestamp)))
+        (let-values ([(our-laps rest)
+                      (splitf-at laps
+                                 (lambda (v)
+                                   (define ts (or (dict-ref v 'start-time #f)
+                                                  (dict-ref v 'timestamp #f)
+                                                  0))
+                                   (< ts end-time)))])
+          (set! laps rest)            ; will be used by the next session
+          (cons (cons 'laps our-laps) session)))
 
       (when (or (> (length records) 0)
                 (> (length lengths) 0))
@@ -1107,14 +1142,28 @@
 
       (set! laps (reverse laps))        ; put them in chronological order
 
-      (let ((sessions (reverse (map add-session-laps (reverse sessions)))))
+      (let ([sessions (map add-session-laps (reverse sessions))])
         (when (> (length laps) 0)
           (dbglog "fit-file: laps outisde a session")
-          (let ((new-session (add-session-laps `((timestamp . ,(get-current-timestamp))
-                                                 ('sport . 'generic)))))
-            (set! new-session (append (compute-summary-data '() '() '() (list new-session))
-                                      new-session))
-            (set! sessions (cons new-session sessions))))
+          ;; We add the remaining laps to the last session, or create a new
+          ;; session to hold them, if there are no session records.
+          (if (null? sessions)
+              (let ((new-session (add-session-laps
+                                  `((timestamp . ,(get-current-timestamp))
+                                    ('sport . 'generic)))))
+                (set! new-session
+                      (append
+                       (compute-summary-data '() '() '() (list new-session))
+                       new-session))
+                (set! sessions (list new-session)))
+              (let* ([rsessions (reverse sessions)]
+                     [updated-last-session
+                      (dict-update
+                       (car sessions)
+                       'laps
+                       (lambda (olaps) (append olaps laps))
+                       '())])
+                (set! sessions (reverse (cons updated-last-session (cdr rsessions)))))))
 
         (unless (null? devices)
           ;; extra devices found (Garmin Swim does this, add them to the
@@ -1130,7 +1179,7 @@
          (cons 'developer-data-ids developer-data-ids)
          (cons 'field-descriptions field-descriptions)
          (cons 'training-file training-file)
-         (cons 'sessions (reverse sessions)))))
+         (cons 'sessions sessions))))
 
     ))
 

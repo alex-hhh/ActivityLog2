@@ -397,6 +397,9 @@ select count(*)
    (test-case "f0042.fit"
      (do-basic-checks
       "./test-fit/f0042.fit" 15 2110))
+   (test-case "f0043.fit"
+     (do-basic-checks
+      "./test-fit/f0043.fit" 26 2669))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -425,6 +428,6 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0018.fit"))
+             ;; #:only '(("FIT file reading" "f0043.fit"))
              fit-files-test-suite))
 

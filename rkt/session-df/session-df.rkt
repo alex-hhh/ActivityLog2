@@ -848,7 +848,10 @@
     (for ([index (in-range (df-row-count df))])
       (define val (df-ref df index series-name))
       (when (and (number? val) (zero? val))
-        (df-set! df index #f series-name)))))
+        (df-set! df index #f series-name)))
+    ;; Remove this series if it became empty after fixing invalid values.
+    (unless (df-has-non-na? df series-name)
+      (df-del-series df series-name))))
 
 ;; Replace 0 and 100 with #f in the "lrbal" series -- these are invalid values
 ;; at the two extremes
