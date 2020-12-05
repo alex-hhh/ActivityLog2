@@ -84,7 +84,7 @@ session.  To check if a data frame contains some series, use the
 
 * **lat**, **lon** are the latitude, longitude coordinates for the point
 * **alt**, **calt** are the altitude (as recorded by the device) and corrected
-  altitude
+  altitude, in meters
 * **grade** is grade (incline) at the current point, as a percentage
 * **dst** is distance traveled in meters since the start of the activity
 * **distance** is traveled since the start of the activity using the most
@@ -104,7 +104,7 @@ session.  To check if a data frame contains some series, use the
   maintained on flat ground for the same level of effort.
 * **gaspd** is the Grade Adjusted Speed (in meters/second) -- same idea as
   *gap*, but for speed.
-  
+
 Grade Adjusted Pace is calculated using the model described
 [here][strava-gap-link].
 
@@ -189,16 +189,16 @@ below:
 
 * "pace" series is filtered (smoothed) at the start (first 2 minutes) to
   compensate for erratic readings
-  
+
 * "gct", "pgct", "cad", "vosc" and "vratio" series are filtered (smoothed) at
   the start (first 30 seconds) to compensate for erratic readings
-  
+
 * "gct" and "pgct" series have their 0 values converted to #f.  It makes data
   processing easier as 0 is an invalid value.
 
 * "lrbal" series has the values 0 and 100 converted to #f.  It makes data
   processing easier as 0 and 100 are invalid values.
-  
+
 * "lpps", "lppps", "rpps", "rppps" series have the angle range converted from
   0 .. 360 to -180 .. 180 range, to avoid discontinuity at 0 (when crossing
   from 360 to 0)
