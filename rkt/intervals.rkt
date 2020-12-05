@@ -129,52 +129,46 @@
                  accum))
            #:start start-index #:stop end-index))
 
-;; Calculate the total ascent and descent in the data frame DF between
-;; START-INDEX and END-INDEX using the "alt" series.  Returns a (cons ASCENT
-;; DESCENT)
-(define (total-ascent-descent df start-index end-index)
-  (df-fold df "alt" '(0 . 0)
-           (lambda (accum prev next)
-             (if prev
-                 (match-let (((list palt) prev)
-                             ((list nalt) next))
-                   (if (and palt nalt)
-                       (let ((diff (- nalt palt)))
-                         (if (> diff 0)
-                             (cons (+ (car accum) diff) (cdr accum))
-                             (cons (car accum) (+ (cdr accum) (- diff)))))
-                       accum))
-                 accum))
-           #:start start-index #:stop end-index))
-
 ;; Calculate the total corrected ascent and descent in the data frame DF
 ;; between START-INDEX and END-INDEX using the "alt" series.  Returns a (cons
 ;; ASCENT DESCENT)
-(define (total-cascent-cdescent df start-index end-index)
-  (df-fold df "calt" '(0 . 0)
-           (lambda (accum prev next)
-             (if prev
-                 (match-let (((list palt) prev)
-                             ((list nalt) next))
-                   (if (and palt nalt)
-                       (let ((diff (- nalt palt)))
-                         (if (> diff 0)
-                             (cons (+ (car accum) diff) (cdr accum))
-                             (cons (car accum) (+ (cdr accum) (- diff)))))
-                       accum))
-                 accum))
-           #:start start-index #:stop end-index))
+(define (total-ascent-descent df series start-index end-index)
+
+  ;; NOTE: we only accumulate ascent and descent if the elevation gain or loss
+  ;; is greater than 1 meter -- this avoids accumulating lots of very small
+  ;; elevation changes, which would artificially inflate the total elevation
+  ;; gain.
+
+  (match-define
+    (list ascent descent _)
+    (df-fold df series
+             '(0 0 #f)
+             (lambda (accum val)
+               (match-define (list alt) val)
+               (if alt
+                   (match-let ([(list ascent descent current) accum])
+                     (cond ((equal? current #f)
+                            (list ascent descent alt))
+                           ((> alt (add1 current))
+                            (list (+ ascent (- alt current)) descent alt))
+                           ((< alt (sub1 current))
+                            (list ascent (+ descent (- current alt)) alt))
+                           (#t
+                            accum)))
+                   accum))
+             #:start start-index #:stop end-index))
+  (cons ascent descent))
 
 ;; Construct ascent and descent lap information from the data frame DF between
 ;; START-INDEX and END-INDEX
 (define (make-ascent-descent df start-index end-index)
   (define ad
     (if (df-contains? df "alt")
-        (total-ascent-descent df start-index end-index)
+        (total-ascent-descent df "alt" start-index end-index)
         (cons #f #f)))
   (define cad
     (if (df-contains? df "calt")
-        (total-cascent-cdescent df start-index end-index)
+        (total-ascent-descent df "calt" start-index end-index)
         (cons #f #f)))
   (list
    (cons 'total-ascent (car ad))
