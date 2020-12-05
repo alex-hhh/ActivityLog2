@@ -9,7 +9,7 @@ jobs:
       vmImage: 'Ubuntu-18.04'
 
     variables:
-      RACKET_VERSION: 7.8
+      RACKET_VERSION: 7.9
       RACKET_DIR: $(Agent.BuildDirectory)/racket
       runTests: true
 
@@ -26,7 +26,7 @@ jobs:
       vmImage: 'windows-2019'
 
     variables:
-      RACKET_VERSION: 7.8
+      RACKET_VERSION: 7.9
       RACKET_DIR: 'C:/Program Files/Racket'
 
       # The windows build (and especially the tests) take a long time.  The
