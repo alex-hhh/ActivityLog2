@@ -2,7 +2,7 @@
 ;; fthr-analysis.rkt -- FTHR analysis dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -462,7 +462,7 @@ select S.start_time,
                (values elapsed v1 #f))
               (series2
                (match-define (vector elapsed v2)
-                 (df-ref* df index "elapse" series2))
+                 (df-ref* df index "elapsed" series2))
                (values elapsed #f v2))
               (#t (values #f #f))))
       (list
