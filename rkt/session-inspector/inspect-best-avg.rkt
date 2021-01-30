@@ -3,7 +3,7 @@
 ;; supported for swimming activites.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -437,12 +437,18 @@
         (let ((rt (list (tick-grid) plot-rt)))
           (when best-rt
             (set! rt (cons best-rt rt)))
-          (let ([cp-data (df-get-property data-frame 'critical-power)]
-                (mean-max-axis (get-series-axis))
-                (aux-axis (get-aux-axis))
-                ;; get the location of the pd-model-snip here, it will be lost
-                ;; once we insert a new plot in the canvas.
-                (saved-location (get-snip-location pd-model-snip)))
+          (let* ([mean-max-axis (get-series-axis)]
+                 ;; NOTE: we assume that CP-DATA corresponds to the series if
+                 ;; the series has a CP estimate.  However, this creates
+                 ;; problems for running activities which may have both a
+                 ;; Critical Power and a Critical Velocity, see also AB#33
+                 [cp-data (and mean-max-axis
+                               (send mean-max-axis have-cp-estimate?)
+                               (df-get-property data-frame 'critical-power))]
+                 [aux-axis (get-aux-axis)]
+                 ;; get the location of the pd-model-snip here, it will be
+                 ;; lost once we insert a new plot in the canvas.
+                 [saved-location (get-snip-location pd-model-snip)])
             (let-values (((min-x max-x min-y max-y)
                           (plot-bounds (get-series-axis) zero-base? mean-max-data bests-data cp-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
