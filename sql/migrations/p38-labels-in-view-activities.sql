@@ -81,3 +81,5 @@ create view V_ACTIVITY_LIST as
     from A_SESSION S, SECTION_SUMMARY SS, ACTIVITY A
    where S.summary_id = SS.id
      and S.activity_id = A.id;
+
+update SCHEMA_VERSION set version = 38;
