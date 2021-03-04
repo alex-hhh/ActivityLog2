@@ -229,7 +229,8 @@ values (?, ?)" session-id id))
     (define/override (get-session-tags db session-id)
       (get-session-labels db session-id))
     (define/override (set-session-tags db session-id tags)
-      (set-session-labels db session-id tags))
+      (set-session-labels db session-id tags)
+      (log-event 'session-updated session-id))
 
     ))
 

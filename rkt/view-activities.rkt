@@ -311,6 +311,9 @@ select X.session_id
        (let ((fn (lambda (row) (db-row-ref row "headline" headers ""))))
          (qcolumn "Activity Name" fn fn))
 
+       (let ((fn (lambda (row) (db-row-ref row "labels" headers ""))))
+         (qcolumn "Labels" fn fn))
+
        (let ((fn (lambda (row)
                    (let ((sport (db-row-ref row "sport" headers 0))
                          (sub-sport (db-row-ref row "sub_sport" headers 0)))

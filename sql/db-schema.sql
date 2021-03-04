@@ -1,7 +1,7 @@
 -- db-schema.sql -- database schema for ActivityLog2
 --
 -- This file is part of ActivityLog2, an fitness activity tracker
--- Copyright (C) 2015, 2018 Alex Hars·nyi <AlexHarsanyi@gmail.com>
+-- Copyright (C) 2015, 2018 Alex Hars√°nyi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(37);
+insert into SCHEMA_VERSION(version) values(38);
 
 
 --........................................................ Enumerations ....
@@ -1193,6 +1193,7 @@ create view V_ACTIVITY_LIST as
   select S.id as session_id,
          A.guid as activity_guid,
          S.name as headline,
+         (select  group_concat(l.name, ' / ') from SESSION_LABEL SL, LABEL L WHERE L.id == SL.label_id AND SL.session_id = S.id ) as labels,
          S.start_time as start_time,
          (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone,
          S.sport_id as sport,

@@ -99,6 +99,17 @@
        (let ((sid (db-get-last-pk "A_SESSION" db)))
          sid)))))
 
+
+(define (db-create-demo-labels db)
+  (query-exec db "insert into LABEL (id, name, description) values ('1', 'Label1', ''), ('2', 'Label2', '')"))
+
+(define (db-add-demo-labels-to-session db sid)
+  (query-exec
+   db
+   "insert into SESSION_LABEL (label_id, session_id) values ('1', ?), ('2', ?)"
+   sid
+   sid))
+
 (define (db-check-geoids db)
   (let ((cnt (query-value db "
 select count(*)
@@ -639,6 +650,17 @@ where S.id = CPFS.session_id
               ;; We don't expect much in a session df for a manual session, but
               ;; we should at least be able to read it.
               (check-eqv? (df-row-count df) 0)))))))
+
+   (test-case "Database patch 38"
+     (with-fresh-database
+       (lambda (db)
+         (check-not-exn
+          (lambda ()
+            (printf "Checking labels in activity view")(flush-output)
+            (let* ((sid (db-import-manual-session db)))
+              (db-create-demo-labels db)
+              (db-add-demo-labels-to-session db sid)
+              (check-equal? (query-value db "select labels from V_ACTIVITY_LIST where session_id = ?" sid) "Label1 / Label2")))))))
 
    db-patch-26-tests
    cyd-tests
