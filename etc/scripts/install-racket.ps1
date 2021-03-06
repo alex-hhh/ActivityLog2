@@ -7,6 +7,18 @@ if (! $v -or $v -eq "") {
     $v = "7.2"; # default to 7.2 if a version was not specified
 }
 
+$vparts = $v.Split("-");
+$a = "-bc";                             # variant is BC by default
+
+if ($vparts.Length -gt 1) {
+    $v = $vparts[0];
+    $a = "-" + $vparts[1];
+}
+
+if ($a -eq "-bc" -and $v -match "7\..*") {
+    $a = "";                              # no BC suffix before 7.0
+}
+
 if (! $p -or $p -eq "") {
     $p = "x86_64" # default to 64 bit if a plaform was not specified
 }
@@ -19,7 +31,7 @@ if ($Env:RACKET_MINIMAL) {
 
 $base = "https://mirror.racket-lang.org/installers"
 
-$url = "$base/$v/racket-$m$v-$p-win32.exe";
+$url = "$base/$v/racket-$m$v-$p-win32$a.exe";
 
 $tdir = New-TemporaryFile;
 # NOTE: race condition here between deleting the temporary file and creating a
