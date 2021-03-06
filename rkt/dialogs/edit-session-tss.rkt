@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -241,7 +241,7 @@
 
       (set! threshold-power
             (new number-input-field% [parent tss-selection-pane]
-                 [label "Threshold Power: "] [style '(single deleted)]
+                 [label "FTP: "] [style '(single deleted)]
                  [min-width 100] [stretchable-width #f]
                  [cue-text "watts"]
                  [valid-value-cb (lambda (v) (calculate-tss))]))

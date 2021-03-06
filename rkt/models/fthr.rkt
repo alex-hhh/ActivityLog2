@@ -3,7 +3,7 @@
 ;; fthr.rkt -- Functional Threshold Analysis
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -140,6 +140,11 @@
 ;; is specified, it should be an immutable hash table to which the data is
 ;; added.  BASE can contain other keys relevant to the segment being computed.
 ;;
+;; Will report an error if SERIES and the "elapsed" series is missing from the
+;; data frame and will return #f if the data frame is shorter than DURATION.
+;; NOTE that, if SERIES is "pace", the series "spd" must also exist.  This is
+;; a hack, see #17,
+;;
 ;; The following keys will be added / be present in the returned hash table:
 ;;
 ;; 'series -- the name of the series used to compute the best value, same as
@@ -174,41 +179,45 @@
   (unless (df-contains? df actual-series "elapsed")
     (error "best-segment: missing required data series"))
 
-  (match-define (list (vector _ best position))
-    (df-mean-max df actual-series #:durations (list duration)))
-  (match-define (list start stop)
-    (df-index-of* df "elapsed" position (+ position duration)))
-  (define stats (df-statistics df series #:weight-series "elapsed" #:start start #:stop stop))
-  (define-values
-    (first-half-avg second-half-avg)
-    (let ([mid (df-index-of df "elapsed" (+ position (/ duration 2)))])
-      (define first-half (df-statistics df actual-series #:start start #:stop mid))
-      (define second-half (df-statistics df actual-series #:start mid #:stop stop))
-      (values (statistics-mean first-half) (statistics-mean second-half))))
+  ;; DF-MEAN-MAX will return an empty list if the data frame is shorter than
+  ;; DURATION.  We return #f in that case.
+  (let ([mm (df-mean-max df actual-series #:durations (list duration))])
+    (if (null? mm)
+        #f
+        (match-let ([(list (vector _ best position)) mm])
+          (match-define (list start stop)
+            (df-index-of* df "elapsed" position (+ position duration)))
+          (define stats (df-statistics df series #:weight-series "elapsed" #:start start #:stop stop))
+          (define-values
+            (first-half-avg second-half-avg)
+            (let ([mid (df-index-of df "elapsed" (+ position (/ duration 2)))])
+              (define first-half (df-statistics df actual-series #:start start #:stop mid))
+              (define second-half (df-statistics df actual-series #:start mid #:stop stop))
+              (values (statistics-mean first-half) (statistics-mean second-half))))
 
-  (define threshold-percent (hash-ref base 'threshold-percent 1.0))
+          (define threshold-percent (hash-ref base 'threshold-percent 1.0))
 
-  (hash-set*
-   base
-   'series series
-   'duration duration
-   'best (if (equal? series "pace") (convert-m/s->pace best) best)
-   'threshold (let ([threshold (* best threshold-percent)])
-                (if (equal? series "pace")
-                    (convert-m/s->pace threshold)
-                    threshold))
-   'first-half-average (if (equal? series "pace")
-                           (convert-m/s->pace first-half-avg)
-                           first-half-avg)
-   'second-half-average (if (equal? series "pace")
-                            (convert-m/s->pace second-half-avg)
-                            second-half-avg)
-   'start-index start
-   'end-index stop
-   'start-position position
-   'end-position (+ position duration)
-   'min-value (statistics-min stats)
-   'max-value (statistics-max stats)))
+          (hash-set*
+           base
+           'series series
+           'duration duration
+           'best (if (equal? series "pace") (convert-m/s->pace best) best)
+           'threshold (let ([threshold (* best threshold-percent)])
+                        (if (equal? series "pace")
+                            (convert-m/s->pace threshold)
+                            threshold))
+           'first-half-average (if (equal? series "pace")
+                                   (convert-m/s->pace first-half-avg)
+                                   first-half-avg)
+           'second-half-average (if (equal? series "pace")
+                                    (convert-m/s->pace second-half-avg)
+                                    second-half-avg)
+           'start-index start
+           'end-index stop
+           'start-position position
+           'end-position (+ position duration)
+           'min-value (statistics-min stats)
+           'max-value (statistics-max stats))))))
 
 ;; Determine the best pace segment for the data frame DF, as returned by
 ;; `best-segment` and augmented with other usefull properties for plotting and
@@ -440,7 +449,7 @@
                             (or/c #f (listof (list/c string? (or/c 'percent 'absolute) real?)))))
  (best-segment (->* (data-frame? string? (and/c real? positive?))
                     (#:extend hash?)
-                    segment/c))
+                    (or/c segment/c #f)))
 
  (best-pace-segment (-> data-frame? (or/c #f segment/c)))
  (best-heart-rate-segment (-> data-frame? (or/c #f segment/c)))

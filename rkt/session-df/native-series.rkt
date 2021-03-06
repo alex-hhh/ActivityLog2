@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -570,7 +570,9 @@
              (if sid
                  (sport-zones-for-session sid 'heart-rate)
                  (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))
-           (lambda (n) (and (real? n) (zone->zone-name sz n))))
+           (if sz
+               (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
+               (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
          )))
 (register-series-metadata axis-hr-zone)
 (provide axis-hr-zone)
@@ -899,7 +901,9 @@
              (if sid
                  (sport-zones-for-session sid 'power)
                  (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))
-           (lambda (n) (and (real? n) (zone->zone-name sz n))))
+           (if sz
+               (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
+               (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
          )))
 (register-series-metadata axis-power-zone)
 (provide axis-power-zone)

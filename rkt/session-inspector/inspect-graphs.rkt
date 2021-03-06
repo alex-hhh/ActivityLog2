@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -394,7 +394,7 @@
                 (send y plot-color-by-swim-stroke?)
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
-            sdata (df-select df "swim_stroke")))
+            sdata y-range (df-select df "swim_stroke")))
           ((and (ps-color? ps) fdata sdata2)
            (list
             (make-plot-renderer-for-splits fdata y-range (send y factor-colors))

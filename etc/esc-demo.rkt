@@ -2,7 +2,7 @@
 ;; esc-demo.rkt -- demo for the embedded snip control widgets
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -256,12 +256,14 @@
     ;; for the entire snip area, than we draw the controls by calling
     ;; `ai-draw`
     (define/override (draw dc x y . _)
+      (define old-smoothing (send dc get-smoothing))
       (send dc set-smoothing 'smoothed)
       (send dc set-brush (send the-brush-list find-or-create-brush background 'solid))
       (send dc set-pen (send the-pen-list find-or-create-pen item-color 0.5 'solid))
       (send dc draw-rectangle x y width height)
       ;; Draw all the controls
-      (ai-draw controls dc x y))
+      (ai-draw controls dc x y)
+      (send dc set-smoothing old-smoothing))
 
     ;; Handle mouse events sent to this snip.  We pass the events to the
     ;; controls using `ai-on-event` and if they are not handled we pass them
@@ -324,6 +326,7 @@
   (send f show #t)
   (define demo (new esc-control-demo-snip%))
   (send pb insert demo 10 10)
+  ;;(send pb set-selection-visible #f)
   (send canvas wheel-step #f))
 
 (printf "(1) Run (show-demo-frame) to show the demo snip in a separate frame~%")

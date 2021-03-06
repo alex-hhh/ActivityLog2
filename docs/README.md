@@ -228,7 +228,19 @@ traces in exceptions, first remove all your compiled files from the "compiled"
 folders, than run the command below.  This will take a long time to load and
 will run slow:
 
-    racket -l errortrace -t run.rkt
+```
+racket -l errortrace -t run.rkt
+```
+
+### Tracing module loads
+
+Using the `traceld` library will print out all the modules that are loaded,
+along with a timestamp. This can be used to determine where is the time spent
+when loading and instantiating modules:
+
+```
+racket -l mzlib/traceld -t run.rkt
+```
 
 ### Profiling and Tracing Functions
 

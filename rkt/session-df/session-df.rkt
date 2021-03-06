@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -83,7 +83,7 @@
                          renderer2d?))
 
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
- (make-plot-renderer/swim-stroke (-> ts-data/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
+ (make-plot-renderer/swim-stroke (-> ts-data/c y-range/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
  (get-series/ordered (-> data-frame? (listof string?)))
  (session-df (-> connection? number? data-frame?))
  (reorder-sids (-> (listof integer?) (listof integer?)))
@@ -1314,11 +1314,12 @@
             (set! start (+ 1 index))
             (set! item val))))))
 
-;; Make a plot renderer than plots DATA colorized by SWIM-STROKES.  DATA has
-;; already been processed by `add-verticals', SWIM-STROKES is the swim stroke
-;; series from the data frame.
+;; Make a plot renderer than plots DATA colorized by SWIM-STROKES.  Y-RANGE
+;; defines the low and high range of the plot, see also `valid-range?`.  DATA
+;; has already been processed by `add-verticals', SWIM-STROKES is the swim
+;; stroke series from the data frame.
 ;;
-(define (make-plot-renderer/swim-stroke data swim-strokes)
+(define (make-plot-renderer/swim-stroke data y-range swim-strokes)
   ;; NOTE: data has verticals added, swim-strokes does not.
   (for/list ([range (find-ranges swim-strokes)])
     (match-define (vector start end stroke) range)
@@ -1329,12 +1330,12 @@
                   (* 2 start)
                   (min (vector-length data) (* 2 end)))))
       (if first?
-          (make-plot-renderer items #f #:color color)
+          (make-plot-renderer items y-range #:color color)
           (list
            (make-plot-renderer
             (vector-copy data (- (* 2 start) 1) (+ (* 2 start) 1))
             #f #:color "gray" #:width 0.7)
-           (make-plot-renderer items #f #:color color))))))
+           (make-plot-renderer items y-range #:color color))))))
 
 
 ;;................................................... get-series/ordered ....

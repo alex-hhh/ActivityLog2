@@ -3,7 +3,7 @@
 ;; fthr-test.rkt -- test the FTHR dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -140,6 +140,16 @@
      (check-zones (make-sport-zones pace-best) expected-speed-zones))
 
    (test-case "best-segment"
+     ;; best-segment should return #f when the requested duration is longer
+     ;; than the available data
+     (check-false (best-segment run-data "hr" 10000))
+
+     ;; And it should throw an error when trying to compute the best segment
+     ;; of a non-existent series.
+     (check-exn
+      exn:fail?
+      (lambda () (best-segment run-data "**non-existent**" 100)))
+
      (define run-hr-best (best-segment run-data "hr" 1800.0))
      (check-equal? (hash-ref run-hr-best 'series) "hr")
      (check-= (hash-ref run-hr-best 'best -1) 183 1.0)
