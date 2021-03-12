@@ -2,7 +2,7 @@
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,13 +24,19 @@
          racket/list
          racket/match
          racket/string
+         racket/dict
+         "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt")
+         "../widgets/main.rkt"
+         "../al-widgets.rkt")
 
 (provide histogram-plot-panel%)
+
+(define *header-font*
+  (send the-font-list find-or-create-font 15 'default 'normal 'normal))
 
 ;; Filter AXIS-LIST to remove any axis definition that don't have a data
 ;; series in DF, a data-frame%
@@ -132,13 +138,46 @@
         (set! params-by-axis (hash-copy pba))
         (set! show-as-percentage? as-pct?)))
 
-    ;; Root widget of the entire scatter plot panel
-    (define panel
-      (new (class vertical-panel%
+    (define p0
+      (new (class horizontal-panel%
              (init) (super-new)
              (define/public (interactive-export-image)
                (on-interactive-export-image)))
            [parent parent] [border 5] [spacing 5]
+           [alignment '(center top)]))
+
+    (define interval-view-panel (new vertical-pane%
+                                     [parent p0]
+                                     [border 0]
+                                     [spacing 1]
+                                     [min-width 220]
+                                     [stretchable-width #f]
+                                     [alignment '(left top)]))
+
+    (define interval-choice
+      (let ((p (new horizontal-pane%
+                    [parent interval-view-panel]
+                    [spacing 10]
+                    [stretchable-height #f]
+                    [alignment '(left center)])))
+        (new message% [parent p] [label "Laps"] [font *header-font*])
+        (new interval-choice% [tag 'histogram-interval-choice] [parent p] [label ""])))
+
+    (define interval-view
+      (new mini-interval-view%
+           [parent interval-view-panel]
+           [tag 'activity-log:histogram-mini-lap-view]
+           [callback (lambda (n lap)
+                       (let ((lap-num (dict-ref lap 'lap-num #f)))
+                         (when lap-num
+                           (highlight-lap (- lap-num 1) lap))))]))
+
+    (send interval-choice set-interval-view interval-view)
+
+    ;; Root widget of the entire scatter plot panel
+    (define panel
+      (new vertical-panel%
+           [parent p0] [border 5] [spacing 5]
            [alignment '(center top)]))
 
     ;; Holds the widgets that control the look of the plot
@@ -198,13 +237,28 @@
     ;; changes.
     (define export-file-name #f)
 
+    (define lap-start-index #f)
+    (define lap-end-index #f)
+
     (define (current-sport)
       (if data-frame (df-get-property data-frame 'sport) #f))
 
     (define (lap-swimming?)
       (if data-frame (df-get-property data-frame 'is-lap-swim?) #f))
 
-    ;; get the label of the axis at INDEX.  This is compicated by the fact
+    (define/private (highlight-lap n lap)
+      (let* ((start (lap-start-time lap))
+             (elapsed (lap-elapsed-time lap))
+             ;; use floor because timestamps are at 1 second precision and
+             ;; this ensures swim laps are correctly highlighted.
+             (end (floor (+ start elapsed))))
+        (match-define (list start-index end-index)
+          (df-index-of* data-frame "timestamp" start end))
+        (set! lap-start-index start-index)
+        (set! lap-end-index end-index)
+        (refresh-plot)))
+
+    ;; get the label of the axis at INDEX.  This is complicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
     (define (axis-label index)
       (if (and (>= index 0) (< index (length axis-choices)))
@@ -349,12 +403,16 @@
                     (sname2 (if axis2 (send axis2 series-name) #f))
                     (bw (* bw (send axis1 histogram-bucket-slot)))
                     (h1 (df-histogram df sname1
+                                      #:start (or lap-start-index 0)
+                                      #:stop (or lap-end-index (df-row-count df))
                                       #:bucket-width bw #:include-zeroes? zeroes?
                                       #:as-percentage? as-pct? #:trim-outliers trim))
                     (h2 (if sname2
                             (df-histogram df sname2
-                                          #:bucket-width bw #:include-zeroes? zeroes?
-                                          #:as-percentage? as-pct? #:trim-outliers trim)
+                                      #:start (or lap-start-index 0)
+                                      #:stop (or lap-end-index (df-row-count df))
+                                      #:bucket-width bw #:include-zeroes? zeroes?
+                                      #:as-percentage? as-pct? #:trim-outliers trim)
                             #f))
                     (combined-histograms (if h2 (combine-histograms h1 h2) h1))
                     (rt (cond
@@ -473,6 +531,8 @@
       (restore-params-for-axis))
 
     (define/public (save-visual-layout)
+      (send interval-view save-visual-layout)
+      (send interval-choice save-visual-layout)
       (when (> (length axis-choices) 0)
         (save-params-for-sport)
         (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
@@ -507,6 +567,8 @@
       (set! inhibit-refresh #t)
       (save-params-for-sport)
       (set! data-frame df)
+      (set! lap-start-index #f)
+      (set! lap-end-index #f)
       (set! axis-choices
             (let ((md (append (if (lap-swimming?) swim-axis-choices default-axis-choices)
                               (get-available-xdata-metadata))))
@@ -520,6 +582,7 @@
             (maybe-enable-color-by-zone-checkbox)
             (refresh-plot))
           (begin
-            (set! inhibit-refresh #f))))
+            (set! inhibit-refresh #f)))
+      (send interval-choice set-session session df))
 
     ))
