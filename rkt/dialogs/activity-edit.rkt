@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,8 @@
  "edit-session-weather.rkt"
  "edit-lap-swim.rkt"
  "../models/elevation-correction.rkt"
- "fthr-analysis.rkt")
+ "fthr-analysis.rkt"
+ "power-spikes.rkt")
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)
@@ -120,7 +121,14 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send export-csv-menu-item enable have-sid?)
         (send export-gpx-menu-item enable have-sid?)
         ;; FTHR analysis is only available for bike and run activities
-        (send fthr-menu-item enable (and have-sid? sport (member (car sport) '(1 2))))))
+        (send fthr-menu-item enable (and have-sid? sport (member (car sport) '(1 2))))
+        ;; Power Spikes is only available for bike activities.  Only
+        ;; activities with power -- but we might need to load the session to
+        ;; know that the activity has power data or not, so we just check if
+        ;; this is a cycling activity.
+        (send power-spikes-menu-item enable (and have-sid? sport (equal? (car sport) 2)))
+
+        ))
 
     (define (on-popdown m e)
       (send target after-popdown))
@@ -294,6 +302,12 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (toplevel (send target get-top-level-window)))
         (show-fthr-analisys-dashboard toplevel db sid)))
 
+    (define (on-power-spikes m e)
+      (let ([sid (send target get-selected-sid)]
+            [db (send target get-database)]
+            [toplevel (send target get-top-level-window)])
+        (show-power-spikes-dashboard toplevel db sid)))
+
     (define (switch-to-view m e)
       (send target switch-to-view))
 
@@ -332,6 +346,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Edit weather ..." on-edit-weather))
     (define edit-lap-swim-menu-item
       (make-menu-item "Edit lap swim ..." on-edit-lap-swim))
+    (define power-spikes-menu-item
+      (make-menu-item "Clear Power Spikes ..." on-power-spikes))
     (new separator-menu-item% [parent the-menu])
     (define new-menu-item
       (make-menu-item "New activity ..." on-new #\N))

@@ -20,6 +20,7 @@
 (require data-frame
          db
          json
+         map-widget
          math/statistics
          pict
          plot
@@ -42,209 +43,7 @@
          "../utilities.rkt"
          "../weather.rkt"
          "../widgets/grid-pane.rkt"
-         map-widget)
-
-;; Return information about the session SID from the database.  This is used
-;; to retrieve things like the session headline and start time (plus weather
-;; information) to be displayed in the FTHR dialog.  Returns #f is not session
-;; is found or a hash table with the information about the session.
-(define (get-session-info sid [db (current-database)])
-  (define row
-    (query-maybe-row
-     db "
-select S.start_time,
-       S.name,
-       S.sport_id,
-       S.sub_sport_id,
-       SW.temperature,
-       SW.dew_point,
-       SW.humidity,
-       SW.wind_speed,
-       SW.wind_gusts,
-       SW.wind_direction
-  from A_SESSION S left join SESSION_WEATHER SW on SW.session_id = S.id
- where S.id = ?" sid))
-  (if row
-      (match-let ([(vector start-time headline sport sub-sport
-                           temperature dew-point humidity
-                           wind-speed wind-gusts wind-direction) row])
-        (hash
-         'start-time (if (sql-null? start-time) #f start-time)
-         'headline (if (sql-null? headline) #f headline)
-         'sport-id (if (sql-null? sport) #f sport)
-         'sub-sport-id (if (sql-null? sub-sport) #f sub-sport)
-         'temperature (if (sql-null? temperature) #f temperature)
-         'dew-point (if (sql-null? dew-point) #f dew-point)
-         'humidity (if (sql-null? humidity) #f humidity)
-         'wind-speed (if (sql-null? wind-speed) #f wind-speed)
-         'wind-gusts (if (sql-null? wind-gusts) #f wind-gusts)
-         'wind-direction (if (sql-null? wind-direction) #f wind-direction)))
-      #f))
-
-;; Pretty print the session info object SINFO, as retrieved by
-;; `get-session-info`.
-(define (pp-session-info sinfo)
-  (printf "Session:    ~a~%Start Time: ~a~%Sport:      ~a~%"
-          (hash-ref sinfo 'headline)
-          (let ([start-time (hash-ref sinfo 'start-time)])
-            (if start-time
-                (date-time->string start-time)
-                "unknown"))
-          (get-sport-name (hash-ref sinfo 'sport-id) (hash-ref sinfo 'sub-sport-id)))
-  (let ([temperature (hash-ref sinfo 'temperature)]
-        [humidity (hash-ref sinfo 'humidity)]
-        [dew-point (hash-ref sinfo 'dew-point)])
-    (cond ((and temperature humidity dew-point)
-           (printf "Weather:    ~a RH ~a; feels like ~a~%"
-                   (temperature->string temperature #t)
-                   (humidity->string humidity #t)
-                   (temperature->string (humindex temperature dew-point) #t)))
-          ((and temperature humidity)
-           (printf "Weather:   ~a RH ~a~%"
-                   (temperature->string temperature #t)
-                   (humidity->string humidity #t)))
-          (temperature
-           (printf "Weather:    ~a~%" (temperature->string temperature #t)))
-          (#t
-           (printf "Weather:    no weather data"))))
-  (let ([wind-speed (hash-ref sinfo 'wind-speed)]
-        [wind-gusts (hash-ref sinfo 'wind-gusts)]
-        [wind-direction (hash-ref sinfo 'wind-direction)])
-    (cond ((and wind-speed wind-gusts)
-           (printf "Wind:       ~a~a~%"
-                    (if (zero? wind-speed) "no wind" (wind->string wind-speed wind-direction))
-                    (if (zero? wind-gusts) ""
-                        (format "; gusts ~a" (wind->string wind-gusts wind-direction)))))
-          (wind-speed
-           (printf "Wind:       ~a~%"
-                   (if (zero? wind-speed) "no wind" (wind->string wind-speed wind-direction)))))))
-
-;; Format session information SINFO (as retrieved by `get-session-info`) into
-;; a pict to be displayed in the GUI.
-(define (pp-session-info/pict sinfo)
-  (define b-item-color (make-object color% #x2f #x4f #x4f))
-  (define b-label-color (make-object color% #x77 #x88 #x99))
-
-  (define b-item-font (send the-font-list find-or-create-font 14 'default 'normal 'normal))
-  (define b-label-font (send the-font-list find-or-create-font 12 'default 'italic 'light))
-  (define b-mini-label-font (send the-font-list find-or-create-font 8 'default 'italic 'light))
-
-  (define b-item-face (cons b-item-color b-item-font))
-  (define b-label-face (cons b-label-color b-label-font))
-  (define b-mini-label-face (cons b-label-color b-mini-label-font))
-
-  (define b-title-font (send the-font-list find-or-create-font 16 'default 'normal 'normal))
-  (define b-title-face (cons b-item-color b-title-font))
-
-  (define temperature (hash-ref sinfo 'temperature))
-  (define humidity (hash-ref sinfo 'humidity))
-  (define dew-point (hash-ref sinfo 'dew-point))
-  (define wind-speed (hash-ref sinfo 'wind-speed))
-  (define wind-gusts (hash-ref sinfo 'wind-gusts))
-  (define wind-direction (hash-ref sinfo 'wind-direction))
-  (define sport-id (hash-ref sinfo 'sport-id))
-  (define sub-sport-id (hash-ref sinfo 'sub-sport-id))
-  (define headline
-    (hbl-append
-     5
-     (text (~a (hash-ref sinfo 'headline)) b-title-face)
-     (text (let ([sport (get-sport-name sport-id sub-sport-id)]
-                 [start-time (hash-ref sinfo 'start-time)])
-             (if start-time
-                 (format "(~a on ~a)" sport (date-time->string start-time))
-                 (format "(~a)" sport)))
-           b-item-face)))
-  (define weather
-    (hbl-append
-     5
-     (text (cond ((and temperature humidity dew-point)
-                  (format "~a; ~a RH; feels like ~a~%"
-                          (temperature->string temperature #t)
-                          (humidity->string humidity #t)
-                          (temperature->string (humindex temperature dew-point) #t)))
-                 ((and temperature humidity)
-                  (format "~a RH ~a~%"
-                          (temperature->string temperature #t)
-                          (humidity->string humidity #t)))
-                 (temperature
-                  (format "~a~%" (temperature->string temperature #t)))
-                 (#t
-                  (format "no weather data")))
-           b-item-face)
-     (text (cond ((and wind-speed wind-gusts)
-                  (format "; ~a~a~%"
-                          (if (zero? wind-speed)
-                              "no wind"
-                              (string-append "wind " (wind->string wind-speed wind-direction)))
-                          (if (zero? wind-gusts)
-                              ""
-                              (format "; gusts ~a" (wind->string wind-gusts wind-direction)))))
-                 (wind-speed
-                  (format "; ~a~%"
-                          (if (zero? wind-speed)
-                              "no wind"
-                              (string-append "wind " (wind->string wind-speed wind-direction)))))
-                 (#t ""))
-           b-item-face)))
-  (define icon (get-sport-bitmap-colorized sport-id sub-sport-id))
-  (hc-append 5 (bitmap icon) (vl-append 5 headline weather)))
-
-
-
-;;......................................................... pict-canvas% ....
-
-(define pict-canvas%
-  (class object%
-    (init-field parent [alignment '(center center)]
-                [horizontal-inset 5]
-                [vertical-inset 5]
-                [stretchable-width #t]
-                [stretchable-height #t])
-    (super-new)
-
-    (define the-pict #f)
-
-    (define (on-pict-canvas-paint canvas dc)
-      (send dc clear)
-      (send dc set-smoothing 'smoothed)
-      (when the-pict
-        (let-values ([(dc-width dc-height) (send dc get-size)])
-          (match-define (list halign valign) alignment)
-          (define ox
-            (case halign
-              ((center centre) (/ (- dc-width (pict-width the-pict)) 2))
-              ((left) horizontal-inset)
-              ((right) (- dc-width horizontal-inset (pict-width the-pict)))))
-          (define oy
-            (case valign
-              ((center centre) (/ (- dc-height (pict-height the-pict)) 2))
-              ((top) vertical-inset)
-              ((bottom) (- dc-height vertical-inset (pict-height the-pict)))))
-          (draw-pict the-pict dc ox oy))))
-
-    (define the-canvas
-      (new canvas% [parent parent]
-           [stretchable-height stretchable-height]
-           [stretchable-width stretchable-width]
-           [paint-callback on-pict-canvas-paint]))
-
-    (define/public (set-pict pict)
-      (set! the-pict pict)
-      (when pict
-        (send* the-canvas
-          (min-width
-           (+ horizontal-inset horizontal-inset
-              (exact-round (pict-width pict))))
-          (min-height
-           (+ vertical-inset vertical-inset
-              (exact-round (pict-height pict))))))
-      (send parent reflow-container)
-      (send the-canvas refresh))
-
-    ))
-
-
-;;................................................................. rest ....
+         "dashboard-common.rkt")
 
 (define (make-mmax-df df series)
   ;; Hack: if we are asked for the "pace" series, calculate the best avg for
@@ -380,6 +179,23 @@ select S.start_time,
                          (make-best-rectangle segment1 identity color1)
                          (make-best-rectangle segment2 (invertible-function-g transform) color2))
                    #:x-min 0 #:y-min s1-min #:y-max s1-max)))))
+
+(define (make-single-plot df segment)
+  (define series (hash-ref segment 'series))
+  (define label (hash-ref segment 'plot-label))
+  (define color (hash-ref segment 'color))
+  (define ticks (hash-ref segment 'plot-ticks))
+
+  (let-values ([(s-min s-max) (get-low+high df series)])
+    (let* ([data (df-select* df "elapsed" series #:filter valid-only)])
+      (parameterize ([plot-x-ticks (time-ticks #:formats '("~H:~M:~f"))]
+                     [plot-y-ticks ticks]
+                     [plot-x-label "Elapsed Time"]
+                     [plot-y-label label])
+        (plot-snip (list (tick-grid)
+                         (lines data #:color color #:width 2)
+                         (make-best-rectangle segment identity color))
+                   #:x-min 0 #:y-min s-min #:y-max s-max)))))
 
 (define (make-mmax-plot mmax-df segment)
   (define series(hash-ref segment 'series))
@@ -527,10 +343,16 @@ select S.start_time,
 
   (define map-snip
     (and (df-contains? df "lat" "lon")
-         (make-map-snip df primary-segment secondary-segment)))
+         (apply make-map-snip df (filter values (list primary-segment secondary-segment)))))
 
-  ;; TODO: handle the case when only one segment is present
-  (define time-plot (make-combined-plot df primary-segment secondary-segment))
+  (define time-plot
+    (cond ((and primary-segment secondary-segment)
+           (make-combined-plot df primary-segment secondary-segment))
+          (primary-segment
+           (make-single-plot df primary-segment))
+          (secondary-segment
+           (make-single-plot df secondary-segment))
+          (#t #f)))
 
   (define primary-mmax-plot
     (if primary-segment
@@ -582,7 +404,8 @@ select S.start_time,
       (send map-snip current-location current-location))
     (send snip set-overlay-renderers renderers))
 
-  (send time-plot set-mouse-event-callback hover-callback)
+  (when time-plot
+    (send time-plot set-mouse-event-callback hover-callback))
 
   (send canvas set-snips/layout
         (apply
@@ -960,33 +783,48 @@ select S.start_time,
     (define/private (load-data db session-id)
       (set! database db)
       (set! fthr-data (load-fthr-data db session-id))
-      (send dashboard-contents begin-container-sequence)
-      (queue-task "fthr-analysis/setup-plots"
-                  (lambda () (setup-plots plot-panel fthr-data)))
       (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
-
       (when sinfo
         (send headline set-pict (and sinfo (pp-session-info/pict sinfo))))
-
-      (setup-analysis-display session-id
-                              primary
-                              pz
-                              primary-best
-                              primary-zones
-                              primary-group-box
-                              primary-description
-                              set-primary-button)
-
-      (setup-analysis-display session-id
-                              secondary
-                              sz
-                              secondary-best
-                              secondary-zones
-                              secondary-group-box
-                              secondary-description
-                              set-secondary-button)
-
-      (send dashboard-contents end-container-sequence))
+      (if (or primary secondary)
+          (begin
+            (send detail-panel enable #t)
+            (send dashboard-contents begin-container-sequence)
+            (queue-task "fthr-analysis/setup-plots"
+                        (lambda () (setup-plots plot-panel fthr-data)))
+            (setup-analysis-display session-id
+                                    primary
+                                    pz
+                                    primary-best
+                                    primary-zones
+                                    primary-group-box
+                                    primary-description
+                                    set-primary-button)
+            (setup-analysis-display session-id
+                                    secondary
+                                    sz
+                                    secondary-best
+                                    secondary-zones
+                                    secondary-group-box
+                                    secondary-description
+                                    set-secondary-button)
+            (send dashboard-contents end-container-sequence))
+          ;; else, try to provide a meaningful error message
+          (let ([sport (df-get-property df 'sport #f)])
+            (send detail-panel enable #f)
+            (switch-tabs 1)
+            (define message
+              (cond ((is-runnig? sport)
+                     (if (df-contains/any? df "hr" "pace")
+                         "Session is too short"
+                         "Session needs Heart Rate or Pace data"))
+                    ((is-cycling? sport)
+                     (if (df-contains/any? df "power" "hr")
+                         "Session is too short"
+                         "Session needs Power or Heart Rate data"))
+                    (#t
+                     "Session has unsupported sport type")))
+            (send plot-panel set-background-message message))))
 
     (define/private (on-close-dashboard)
       (set! database #f)
