@@ -4,7 +4,11 @@
 # from https://github.com/greghendershott/travis-racket, adapted by Alex
 # Harsanyi.
 
-set -e
+# http://redsymbol.net/articles/unofficial-bash-strict-mode
+set -euo pipefail
+# We rely on IFS containing a space!
+# IFS=$'\n\t'
+
 SCRIPT_NAME=${0##**/}
 
 # These variables can be set in the .travis.yml file, but we provide suitable

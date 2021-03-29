@@ -2,7 +2,7 @@
 ;; inspect-laps.rkt -- lap summary view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -45,9 +45,9 @@
     (define (is-lap-swim?)
       (and data-frame (df-get-property data-frame 'is-lap-swim?)))
 
-    (define (on-lap-selected n lap)
+    (define (on-lap-selected n lap selected?)
       (when (is-lap-swim?)
-        (send swim-lengths-view set-lap lap)))
+        (send swim-lengths-view set-lap (if selected? lap #f))))
 
     (define interval-view (new interval-view%
                           [parent panel]

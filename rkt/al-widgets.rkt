@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -716,7 +716,10 @@ values (?, ?)" session-id id))
       (new (class qresults-list% (init) (super-new)
              (define/override (on-select row-index row-data)
                (when callback
-                 (callback row-index row-data))))
+                 (callback row-index row-data #t)))
+             (define/override (on-deselect row-index row-data)
+               (when callback
+                 (callback row-index row-data #f))))
            [pref-tag tag]
            [parent parent]))
 
@@ -822,7 +825,9 @@ values (?, ?)" session-id id))
           (cons (cons 'length-num (+ n 1)) l))))
 
     (define/public (set-lap lap)
-      (send lb set-data (number-swim-lengths lap)))
+      (if lap
+          (send lb set-data (number-swim-lengths lap))
+          (send lb set-data '())))
 
     (define/public (save-visual-layout)
       (send lb save-visual-layout))

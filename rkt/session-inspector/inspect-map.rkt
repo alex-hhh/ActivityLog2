@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,6 +15,7 @@
 ;; more details.
 
 (require data-frame
+         framework
          map-widget
          map-widget/utils
          math/statistics
@@ -28,6 +29,7 @@
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
          "../session-df/session-df.rkt"
+         "../utilities.rkt"
          "inspect-graphs.rkt")
 
 (provide map-panel%)
@@ -36,6 +38,13 @@
   (send the-font-list find-or-create-font 18 'default 'normal 'normal))
 (define *warning-font*
   (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+
+(define main-track-pen
+  (send the-pen-list find-or-create-pen
+        (make-object color% 226 34 62) 3 'solid 'round 'round))
+
+(define transparent-pen
+  (send the-pen-list find-or-create-pen "black" 1 'transparent 'round 'round))
 
 (define (get-index df timestamp)
   (if timestamp
@@ -117,7 +126,7 @@
     ;; the track overlaps onto itself several times.
     (define show-selected-lap-only? #f)
 
-    (define panel (new (class horizontal-pane%
+    (define panel (new (class panel:horizontal-dragable%
                          (init)
                          (super-new)
                          (define/public (interactive-export-image)
@@ -147,10 +156,13 @@
       (new mini-interval-view%
            [parent interval-view-panel]
            [tag 'activity-log:map-mini-lap-view]
-           [callback (lambda (n lap) (highlight-lap lap))]))
+           [callback (lambda (n lap selected?)
+                       (if selected?
+                           (highlight-lap lap)
+                           (unhighlight-lap)))]))
     (send interval-coice set-interval-view interval-view)
 
-    (define map-panel (new vertical-pane%
+    (define map-panel (new panel:vertical-dragable%
                            [parent panel]
                            [border 0]
                            [spacing 1]
@@ -158,43 +170,45 @@
 
     (define zoom-slider #f)
     (define info-message #f)
+    (define map-view #f)
 
-    (let ((p (new horizontal-pane%
-                  [parent map-panel]
-                  [spacing 10]
-                  [stretchable-height #f]
-                  [alignment '(left center)])))
-      (new message% [parent p] [label "Map"] [font *header-font*])
-      (new check-box% [parent p] [label "Zoom to Lap"]
-           [value zoom-to-lap?]
-           [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
-      (new check-box% [parent p] [label "Show Only Selected Lap"]
-           [value show-selected-lap-only?]
-           [callback (lambda (b e) (show-selected-lap-only (send b get-value)))])
-      (set! zoom-slider
-            (new slider% [parent p] [label "Zoom Level "]
-                 [min-value (min-zoom-level)]
-                 [max-value (max-zoom-level)]
-                 [stretchable-width #f]
-                 [min-width 200]
-                 [style '(horizontal plain)]
-                 [callback (lambda (b e) (set-zoom-level (send b get-value)))]))
-      (new button% [parent p] [label "Fit to Window"]
-           [callback (lambda (b e) (resize-to-fit))])
-      (let ((p0 (new horizontal-pane%
-                     [parent p]
-                     [alignment '(right center)])))
-        (set! info-message (new message% [parent p0] [label ""]
-                                [font *warning-font*]
-                                [stretchable-width #f] [auto-resize #t]))
-        ;; Add a spacer here
-        (new message% [parent p0] [label ""] [stretchable-width #f] [min-width 10])))
+    (let ([p0 (new vertical-pane% [parent map-panel] [border 0] [spacing 1])])
+      (let ((p (new horizontal-pane%
+                    [parent p0]
+                    [spacing 10]
+                    [stretchable-height #f]
+                    [alignment '(left center)])))
+        (new message% [parent p] [label "Map"] [font *header-font*])
+        (new check-box% [parent p] [label "Zoom to Lap"]
+             [value zoom-to-lap?]
+             [callback (lambda (b e) (zoom-to-lap (send b get-value)))])
+        (new check-box% [parent p] [label "Show Only Selected Lap"]
+             [value show-selected-lap-only?]
+             [callback (lambda (b e) (show-selected-lap-only (send b get-value)))])
+        (set! zoom-slider
+              (new slider% [parent p] [label "Zoom Level "]
+                   [min-value (min-zoom-level)]
+                   [max-value (max-zoom-level)]
+                   [stretchable-width #f]
+                   [min-width 200]
+                   [style '(horizontal plain)]
+                   [callback (lambda (b e) (set-zoom-level (send b get-value)))]))
+        (new button% [parent p] [label "Fit to Window"]
+             [callback (lambda (b e) (resize-to-fit))])
+        (let ((p0 (new horizontal-pane%
+                       [parent p]
+                       [alignment '(right center)])))
+          (set! info-message (new message% [parent p0] [label ""]
+                                  [font *warning-font*]
+                                  [stretchable-width #f] [auto-resize #t]))
+          ;; Add a spacer here
+          (new message% [parent p0] [label ""] [stretchable-width #f] [min-width 10])))
 
-    (define map-view
-      (new (class map-widget% (init) (super-new)
-             (define/override (on-zoom-level-change zl)
-               (send zoom-slider set-value zl)))
-           [parent map-panel]))
+      (set! map-view
+            (new (class map-widget% (init) (super-new)
+                   (define/override (on-zoom-level-change zl)
+                     (send zoom-slider set-value zl)))
+                 [parent p0])))
 
     (send map-view track-current-location #t)
 
@@ -263,11 +277,7 @@
       ;; z-order (effectively un-highlights any highlighted lap).
       (send map-view delete-group 'custom)
       (send map-view set-group-pen #f
-            (send the-pen-list find-or-create-pen
-                  (make-object color% 226 34 62)
-                  3
-                  (if show-selected-lap-only? 'transparent 'solid)
-                  'round 'round))
+            (if show-selected-lap-only? transparent-pen main-track-pen))
       (send map-view set-group-zorder #f 0.5)
 
       (let ((lap-num (dict-ref lap 'lap-num #f))
@@ -304,9 +314,35 @@
       (set! selected-lap-data lap)
       (send map-view end-edit-sequence))
 
+    (define (unhighlight-lap)
+      (when the-elevation-graph
+              (send the-elevation-graph highlight-interval #f #f))
+      (send map-view begin-edit-sequence)
+      (send map-view delete-group 'custom)
+      (send map-view set-group-pen #f main-track-pen)
+      (send map-view set-group-zorder #f 0.5)
+      (send map-view end-edit-sequence)
+      (set! selected-lap-data #f))
+
+    (define initial-interval-panel-split '(1/5 4/5))
+    (define initial-map-panel-split '(1/5 4/5))
+
+    (let ((pref (get-pref the-pref-tag (lambda () #f))))
+      (when (and pref (hash? pref))
+        (set! initial-interval-panel-split (hash-ref pref 'interval-panel-split '(1/5 4/5)))
+        (set! initial-map-panel-split (hash-ref pref 'map-panel-split '(1/5 4/5)))))
+
+    (send panel set-percentages initial-interval-panel-split)
+    (send map-panel set-percentages initial-map-panel-split)
+
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
-      (send interval-view save-visual-layout))
+      (send interval-view save-visual-layout)
+      (put-pref
+       the-pref-tag
+       (hash
+        'interval-panel-split (send panel get-percentages)
+        'map-panel-split (send map-panel get-percentages))))
 
     (define data-frame #f)
     ;; The name of the file used by 'on-interactive-export-image'. This is
@@ -335,9 +371,9 @@
       (set! data-frame df)
       (set! export-file-name #f)
       (set! the-elevation-graph
-        (cond ((df-contains? df "calt") grade+calt-graph)
-              ((df-contains? df "alt") grade+alt-graph)
-              (#t #f)))
+            (cond ((df-contains? df "calt") grade+calt-graph)
+                  ((df-contains? df "alt") grade+alt-graph)
+                  (#t #f)))
       (when the-elevation-graph
         (send the-elevation-graph begin-edit-sequence)
         (send the-elevation-graph highlight-interval #f #f)
@@ -388,10 +424,7 @@
           ;; accounts for empty laps)
           (set! start-idx (max start-idx (sub1 end-idx)))))
 
-      (send map-view set-group-pen #f
-            (send the-pen-list find-or-create-pen
-                  (make-object color% 226 34 62)
-                  3 'solid 'round 'round))
+      (send map-view set-group-pen #f main-track-pen)
       (let ((nitems (df-row-count data-frame)))
         ;; Add flags for the first and last valid GPS points on the route.  We
         ;; search the first valid point from both ends, rather than just

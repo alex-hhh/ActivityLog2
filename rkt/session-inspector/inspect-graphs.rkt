@@ -16,6 +16,7 @@
 
 (require (rename-in srfi/48 (format format-48))
          data-frame
+         framework
          math/statistics
          plot-container
          plot-container/hover-util
@@ -614,10 +615,9 @@
      ;; Calculate a new highlight interval renderer tree if needed, or reuse
      ;; the one from OLD-PD
      (define hlivl
-       (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
+       (if (and (ps-ivl new-ps) (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
-                   (and (ps-ivl new-ps)
-                        (not (equal? (ps-ivl old-ps) (ps-ivl new-ps)))))
+                   (not (equal? (ps-ivl old-ps) (ps-ivl new-ps))))
                (plot-highlight-interval tmp-pd new-ps)
                (pd-hlivl old-pd))
            #f))
@@ -1569,9 +1569,14 @@
 
     (define graphs '())      ; the list of graphs we are currently  displaying
 
+    ;; The initial split of the panel:horizontal-dragable% used between the
+    ;; lap list and the charts.
+    (define initial-panel-split '(1/5 4/5))
+
     ;; Restore the preferences now.
     (let ((pref (get-pref the-pref-tag (lambda () #f))))
       (when (and pref (hash? pref))
+        (set! initial-panel-split (hash-ref pref 'panel-split '(1/5 4/5)))
         (set! show-avg? (hash-ref pref 'show-avg? #f))
         (set! zoom-to-lap? (hash-ref pref 'zoom-to-lap? #f))
         (set! color-by-zone? (hash-ref pref 'color-by-zone? #f))
@@ -1608,6 +1613,12 @@
            (lambda ()
              (send g highlight-interval start end))))))
 
+    (define (unhighlight-lap)
+      (for ([g (in-list graphs)])
+        (queue-callback
+         (lambda ()
+           (send g highlight-interval #f #f)))))
+
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
         (when the-session
@@ -1620,7 +1631,7 @@
       (for ([g (in-list graphs)])
           (queue-callback (lambda () (send g set-filter-amount a)))))
 
-    (define panel (new horizontal-pane%
+    (define panel (new panel:horizontal-dragable%
                        [parent parent]
                        [border 0]
                        [spacing 1]
@@ -1646,10 +1657,12 @@
     (define interval-view (new mini-interval-view%
                                [parent interval-view-panel]
                                [tag 'activity-log:charts-mini-lap-view]
-                               [callback (lambda (n lap)
-                                           (let ((lap-num (dict-ref lap 'lap-num #f)))
-                                             (when lap-num
-                                               (highlight-lap (- lap-num 1) lap))))]))
+                               [callback (lambda (n lap selected?)
+                                           (if selected?
+                                               (let ((lap-num (dict-ref lap 'lap-num #f)))
+                                                 (when lap-num
+                                                   (highlight-lap (- lap-num 1) lap)))
+                                               (unhighlight-lap)))]))
 
     (send interval-choice set-interval-view interval-view)
 
@@ -1721,6 +1734,9 @@
     (define swim-graphs-1 #f)
     (define xdata-graphs-1 #f)
 
+    ;; Needs to be done after the panel has all its children.
+    (send panel set-percentages initial-panel-split)
+
     (define (hover-callback y)
       (when default-graphs-1
         (for ((g (in-list default-graphs-1)))
@@ -1775,6 +1791,7 @@
       (put-pref
        the-pref-tag
        (hash
+        'panel-split (send panel get-percentages)
         'show-avg? show-avg?
         'zoom-to-lap? zoom-to-lap?
         'color-by-zone? color-by-zone?

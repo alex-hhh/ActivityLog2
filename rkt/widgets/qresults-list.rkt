@@ -2,7 +2,7 @@
 ;; qresults-list.rkt -- a sophisticated list box control, see qresults-list%
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -216,6 +216,8 @@
     (string->symbol (string-append (symbol->string tag) "--" title-md5))))
 
 
+(define double-click-interval (send (new keymap%) get-double-click-interval))
+
 ;; A sophisticated list-box%: can resize, reorder columns, sort them and has
 ;; its own dialog box for editing which columns should be shown and which
 ;; should be hidden.  Can also export its contents as CSV as well as
@@ -249,6 +251,9 @@
     ;; (called rows), as the column formatter functions receive a row and must
     ;; produce a value for that column only.
     (define the-data '())
+
+    (define previous-selection #f) ; index of previously selected item, so we can unselect it
+    (define previous-selection-timestamp (current-inexact-milliseconds))
 
     (define default-export-file-name #f)
     (define setup-fields-dlg #f)
@@ -343,9 +348,27 @@
         (cond ((eq? event-type 'list-box-column)
                (sort-by-column (send event get-column)))
               ((eq? event-type 'list-box)
+               ;; Prevent multiple selection (since we use 'multiple to handle
+               ;; deselection.
+               (let ([selection (send lb get-selections)])
+                 (when (> (length selection) 1)
+                   (send lb set-selection
+                         (if (equal? (first selection) previous-selection)
+                             (last selection)
+                             (first selection)))))
                (let ((sel (send lb get-selection)))
                  (when sel
-                   (on-select sel (send lb get-data sel)))))
+                   (if (and (equal? sel previous-selection)
+                            (> (- (current-inexact-milliseconds) previous-selection-timestamp)
+                               double-click-interval))
+                       (begin
+                         (set! previous-selection #f)
+                         (send lb select sel #f)
+                         (on-deselect sel (send lb get-data sel)))
+                       (begin
+                         (set! previous-selection sel)
+                         (set! previous-selection-timestamp (current-inexact-milliseconds))
+                         (on-select sel (send lb get-data sel)))))))
               ((eq? event-type 'list-box-dclick)
                (let ((sel (send lb get-selection)))
                  (when sel
@@ -380,7 +403,6 @@
        [choices '()]
        [callback lb-callback]
        [style '(multiple
-                single
                 variable-columns
                 clickable-headers
                 column-headers
@@ -565,6 +587,11 @@
     ;; Can be overriden if the user wants to be notified when an item is
     ;; selected
     (define/public (on-select row-index row-data)
+      #f)
+
+    ;; Can be overriden if the user wants to be notified when an item is
+    ;; deselected.
+    (define/public (on-deselect row-index row-data)
       #f)
 
     ))
