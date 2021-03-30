@@ -2,7 +2,7 @@
 ;; time-in-zone.rkt -- time spent in each sport zone for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,35 +28,8 @@
          "session-df/session-df.rkt"
          "utilities.rkt"
          "widgets/main.rkt"
-         "dbutil.rkt")
-
-(define (decoupling df s1 s2 #:start (start 0) #:stop (stop (df-row-count df)))
-  (let ((half-point (exact-truncate (/ (+ start stop) 2))))
-    (let ((stat-s1-1 (df-statistics df s1 #:start start #:stop half-point))
-          (stat-s1-2 (df-statistics df s1 #:start half-point #:stop stop))
-          (stat-s2-1 (df-statistics df s2 #:start start #:stop half-point))
-          (stat-s2-2 (df-statistics df s2 #:start half-point #:stop stop)))
-      (and stat-s1-1 stat-s1-2 stat-s2-1 stat-s2-2
-           (let ((r1 (/ (statistics-mean stat-s1-1)
-                        (statistics-mean stat-s2-1)))
-                 (r2 (/ (statistics-mean stat-s1-2)
-                        (statistics-mean stat-s2-2))))
-             (* 100.0 (/ (- r1 r2) r1)))))))
-
-(define (decoupling/laps df s1 s2)
-  (let* ((laps (df-get-property df 'laps))
-         (limit (vector-length laps)))
-    (for/list ([idx (in-range 0 (vector-length laps))])
-      (define start
-        (df-index-of df "timestamp" (vector-ref laps idx)))
-      (define stop
-        (if (< idx (sub1 limit))
-            (df-index-of df "timestamp" (vector-ref laps (+ idx 1)))
-            (df-row-count df)))
-      ;; don't compute decoupling for small intervals
-      (if (and start stop (> (- stop start) 60))
-          (decoupling df s1 s2 #:start start #:stop stop)
-          0))))
+         "dbutil.rkt"
+         "models/aerobic-decoupling.rkt")
 
 ;; Compute the time spend in each zone for SESSION (as returned by
 ;; db-fetch-session).  The zones are defined by the AXIS-DEF (can be
@@ -175,25 +148,11 @@ select P.id
     (maybe-update-session-tss sid session db)
 
     ;; Aerobic Decoupling
-    (cond
-      ((and (equal? (vector-ref sport 0) 2) ; bike
-            (df-contains? session "pwr" "hr"))
-       (let ((adec (decoupling session "pwr" "hr")))
-         (update-aerobic-decoupling-for-session db sid adec))
-       (let ((adec/laps (decoupling/laps session "pwr" "hr"))
-             (id/laps (query-list db fetch-lap-ids sid)))
-         (for ([adec adec/laps]
-               [lapid id/laps])
-           (update-aerobic-decoupling-for-lap db lapid adec))))
-      ((and (equal? (vector-ref sport 0) 1) ; run
-            (df-contains? session "spd" "hr"))
-       (let ((adec (decoupling session "spd" "hr")))
-         (update-aerobic-decoupling-for-session db sid adec))
-       (let ((adec/laps (decoupling/laps session "spd" "hr"))
-             (id/laps (query-list db fetch-lap-ids sid)))
-         (for ([adec adec/laps]
-               [lapid id/laps])
-           (update-aerobic-decoupling-for-lap db lapid adec)))))
+    (let ([adec (aerobic-decoupling session)])
+      (update-aerobic-decoupling-for-session db sid adec))
+    (for ([adec (in-list (aerobic-decoupling/laps session))]
+          [lapid (in-list (query-list db fetch-lap-ids sid))])
+      (update-aerobic-decoupling-for-lap db lapid adec))
 
     ;; Hrv
     (define hrv (make-hrv-data-frame/db db sid))

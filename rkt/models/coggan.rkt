@@ -3,7 +3,7 @@
 ;; coggan.rkt -- Coggan Metrics calculations for a session (NP, IF, TSS)
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -177,6 +177,12 @@
          #:include-partial? (include-partial? #f) ; set to #t for GC style NP calculation
          #:start (start 0)
          #:stop (stop (df-row-count df)))
+
+  ;; NOTE: the `get-athlete-ftp` call above is not protected by the contract
+  ;; below...
+  (unless (and (real? ftp) (positive? ftp))
+    (raise-argument-error 'cg-metrics "(and/c real? positive?)"
+                          1 df ftp series weight include-partial? start stop))
 
   (define np (normalized-power df
                                #:series series

@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,7 +19,10 @@
          math/statistics
          racket/dict
          racket/match
-         "session-df/session-df.rkt")
+         "session-df/session-df.rkt"
+         "sport-charms.rkt"
+         "models/aerobic-decoupling.rkt"
+         "models/coggan.rkt")
 
 (provide
  make-split-intervals
@@ -239,6 +242,15 @@
         (total-elapsed-time (dict-ref base 'total-elapsed-time #f)))
     (when (and total-distance total-elapsed-time (> total-elapsed-time 0))
       (set! base (cons (cons 'avg-speed (/ total-distance total-elapsed-time)) base))))
+
+  (let ([adec (aerobic-decoupling df #:start start-index #:stop end-index)])
+    (when adec
+      (set! base (cons (cons 'aerobic-decoupling adec) base))))
+
+  ;; Normalized power is only available if a FTP value is set.
+  (when (and (df-contains? df "pwr") (get-athlete-ftp))
+    (let ([cg (cg-metrics df #:start start-index #:stop end-index)])
+      (set! base (cons (cons 'normalized-power (cg-np cg)) base))))
 
   ;; Mark this lap as custom
   (set! base (append (list '(custom-lap . #t)) base))
