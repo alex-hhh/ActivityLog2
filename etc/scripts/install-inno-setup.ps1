@@ -18,23 +18,36 @@ $url = $gd_url;                         # download from Google Drive
 # NOTE: race condition here between deleting the temporary file and creating a
 #  directory with the same name
 
+# Change to the directory where this script lives -- we run `fetch.sh` from
+# the same directory.
+$scriptpath = $MyInvocation.MyCommand.Path
+$scriptdir = Split-Path $scriptpath
+cd $scriptdir
+
 $tdir = New-TemporaryFile;
 Remove-Item $tdir
 New-Item -ItemType Directory -Path $tdir
 $dfile = Join-Path $tdir "Inno-Installer.exe";
 Write-Output "Downloading into $dfile ..."
-Write-Output "Downloading from $url ..."
-Invoke-WebRequest -Uri $url -OutFile $dfile `
-  -SessionVariable session `
-  -Headers @{"Cache-Control"="no-cache"} -ErrorAction Stop
 
-$h = Get-FileHash -Algorithm SHA256 -Path $dfile
+# NOTE: Downloading from Google Drive is tricky, as the download needs to pass
+# through a confirmation dialog.  This is implemented once only in the
+# `fetch.sh` script, and we just call this script to download the installer
+# for us.
 
-if ($h.Hash -ne $expected_hash) {
-    Write-Output "Bad hash for $dfile, refusing install";
-    Write-Output "Actual hash: $($h.Hash)"
+$file_id = "1UQ4587WM_CPt9gAbkt-J8gJrJl4sFSdv";
+$file_hash = "510902ffe43e3ef3504e4567ece45f7cd694f5df";
+
+$dprocess = Start-Process -FilePath bash `
+  -ArgumentList "./fetch.sh -o $dfile -s $file_hash $file_id" `
+  -Wait -PassThru -WindowStyle Hidden
+
+if ($dprocess.ExitCode -ne 0) {
+    Write-Output "Failed to download the installer!"
     $exit_code = 1;
-} else {
+}
+else {
+
     # NOTE: with Inno Setup 6, installing in C:/Program Files did not seem to
     # work...
 
