@@ -216,8 +216,6 @@
     (string->symbol (string-append (symbol->string tag) "--" title-md5))))
 
 
-(define double-click-interval (send (new keymap%) get-double-click-interval))
-
 ;; A sophisticated list-box%: can resize, reorder columns, sort them and has
 ;; its own dialog box for editing which columns should be shown and which
 ;; should be hidden.  Can also export its contents as CSV as well as
@@ -251,9 +249,6 @@
     ;; (called rows), as the column formatter functions receive a row and must
     ;; produce a value for that column only.
     (define the-data '())
-
-    (define previous-selection #f) ; index of previously selected item, so we can unselect it
-    (define previous-selection-timestamp (current-inexact-milliseconds))
 
     (define default-export-file-name #f)
     (define setup-fields-dlg #f)
@@ -348,27 +343,9 @@
         (cond ((eq? event-type 'list-box-column)
                (sort-by-column (send event get-column)))
               ((eq? event-type 'list-box)
-               ;; Prevent multiple selection (since we use 'multiple to handle
-               ;; deselection.
-               (let ([selection (send lb get-selections)])
-                 (when (> (length selection) 1)
-                   (send lb set-selection
-                         (if (equal? (first selection) previous-selection)
-                             (last selection)
-                             (first selection)))))
                (let ((sel (send lb get-selection)))
                  (when sel
-                   (if (and (equal? sel previous-selection)
-                            (> (- (current-inexact-milliseconds) previous-selection-timestamp)
-                               double-click-interval))
-                       (begin
-                         (set! previous-selection #f)
-                         (send lb select sel #f)
-                         (on-deselect sel (send lb get-data sel)))
-                       (begin
-                         (set! previous-selection sel)
-                         (set! previous-selection-timestamp (current-inexact-milliseconds))
-                         (on-select sel (send lb get-data sel)))))))
+                   (on-select sel (send lb get-data sel)))))
               ((eq? event-type 'list-box-dclick)
                (let ((sel (send lb get-selection)))
                  (when sel
@@ -403,6 +380,7 @@
        [choices '()]
        [callback lb-callback]
        [style '(multiple
+                single
                 variable-columns
                 clickable-headers
                 column-headers
@@ -501,7 +479,11 @@
             (set! sort-descending? (not sort-descending?))
             ;; NOTE: sort-by-column will call refresh-contents
             (sort-by-column sort-column))
-          (refresh-contents)))
+          (refresh-contents))
+      ;; De-select any previously selected item in the list box.
+      (let ([sel (send the-list-box get-selection)])
+        (when sel
+          (send the-list-box select sel #f))))
 
     ;; Export the contents of this object as CSV to the output port OUTP.  If
     ;; FORMATTED-VALUES? is #t, the column formatters are used to format the
