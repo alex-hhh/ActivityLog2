@@ -4,7 +4,41 @@ the command `git tag -l` in a checked out source and use `git log
 tag-1..tag-2` to find the detailed changes between two tags.  For example to
 find the changes between version 1.7.1 and 1.8.0 you can run:
 
-    git log v1.7.1..v1.8.0
+```
+git log v1.7.1..v1.8.0
+```
+
+Or, if you want to see what has changed in each submodule as well:
+
+```
+git log --submodule=log --patch v1.10.2..v1.11 \
+    | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
+```
+
+# Release 1.11 (April 2021)
+
+* Heat maps in trend charts can now render a large number of data points
+  (tested with 4 million data points, or about 2500 activities, but should be
+  able to handle larger numbers)
+
+* Improvements to elevation correction algorithm, will work better for flat
+  routes and the algorithm will handle bad data points better.
+
+* Also added an preference option to avoid calculating corrected elevation on
+  import.  Corrected elevation can still be done on individual activities.
+
+* Session labels can now be selected as a column in the activities view (#62,
+  #61)
+
+* Added tool to clear spikes from power data series, the tool is available
+  from the "Activity/Clear Power Spikes..." menu option (AB#31)
+
+* Aerobic Decoupling and ISO Power are now calculated for custom lap types
+  (such as Hill Climbs) and can be viewed in the "Laps" tab of the session
+  inspector.
+
+There are various other bug fixes and small usability improvements.  For a
+detailed log, see the git log between the v1.10.2 and v.11 tags.
 
 # Release 1.10.2
 
