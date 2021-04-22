@@ -341,11 +341,7 @@ values (?, ?)" session-id id))
 
     ;; Switch the interval view to display splits by 1 mile
     (define (on-mile-splits)
-      (define mile-splits (df-get-property data-frame 'intervals-mile-splits))
-      (unless mile-splits
-        (set! mile-splits (add-time-zone (make-split-intervals data-frame "dst" 1600)))
-        (df-put-property data-frame 'intervals-mile-splits mile-splits))
-      (send interval-view set-intervals sport 'default mile-splits sid))
+      (on-xm-splits 1600 'intervals-mile-splits))
 
     ;; Switch the interval view to display the climbs in the session
     (define (on-climb-splits)
