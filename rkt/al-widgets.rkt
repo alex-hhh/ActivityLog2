@@ -323,21 +323,25 @@ values (?, ?)" session-id id))
           ;; No timezone, they are unchanged
           intervals))
 
+    ;; Switch the interval view to display splits by x meters
+    (define (on-xm-splits x property-key)
+      (define splits (df-get-property data-frame property-key))
+      (unless splits
+        (set! splits (add-time-zone (make-split-intervals data-frame "dst" x)))
+        (df-put-property data-frame property-key splits))
+      (send interval-view set-intervals sport 'default splits sid))
+
     ;; Switch the interval view to display splits by 1 km
     (define (on-km-splits)
-      (define km-splits (df-get-property data-frame 'intervals-km-splits))
-      (unless km-splits
-        (set! km-splits (add-time-zone (make-split-intervals data-frame "dst" 1000)))
-        (df-put-property data-frame 'intervals-km-splits km-splits))
-      (send interval-view set-intervals sport 'default km-splits sid))
+      (on-xm-splits 1000 'intervals-km-splits))
+
+    ;; Switch the interval view to display splits by 100 m
+    (define (on-100m-splits)
+      (on-xm-splits 100 'intervals-100m-splits))
 
     ;; Switch the interval view to display splits by 1 mile
     (define (on-mile-splits)
-      (define mile-splits (df-get-property data-frame 'intervals-mile-splits))
-      (unless mile-splits
-        (set! mile-splits (add-time-zone (make-split-intervals data-frame "dst" 1600)))
-        (df-put-property data-frame 'intervals-mile-splits mile-splits))
-      (send interval-view set-intervals sport 'default mile-splits sid))
+      (on-xm-splits 1600 'intervals-mile-splits))
 
     ;; Switch the interval view to display the climbs in the session
     (define (on-climb-splits)
@@ -380,6 +384,7 @@ values (?, ?)" session-id id))
     (define split-kinds
       (list
        (split "As Recorded" 'as-recorded on-recorded-splits)
+       (split "100m Splits" '100m-splits on-100m-splits)
        (split "Km Splits" 'km-splits on-km-splits)
        (split "Mile Splits" 'mile-splits on-mile-splits)
        (split "Hill Climbs" 'hill-climbs on-climb-splits)
