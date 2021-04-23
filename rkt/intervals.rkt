@@ -61,17 +61,19 @@
   ;; multi-sport activities, the distance series in a session starts where the
   ;; previous session left off.  For example, in a HIM race, the distance
   ;; series for the bike split starts at approx 1.8 km.
-  (let ((base (df-ref df 0 series)))
-    (define limit (df-row-count df))
-    (let loop ((split 0)
-               (positions '()))
-      (let ((pos (df-index-of df series (+ base (* split amount)))))
-        (if (< pos limit)
-            (loop (add1 split) (cons pos positions))
-            (if (or (null? positions)
-                    (equal? (car positions) (df-row-count df)))
-                (reverse positions)
-                (reverse (cons (df-row-count df) positions))))))))
+
+  (define limit (df-row-count df))
+
+  (let loop ((mark (df-ref df 0 series))
+             (positions '()))
+    (let ((pos (df-index-of df series mark)))
+      (if (< pos limit)
+          (loop (+ mark amount) (cons pos positions))
+          (if (or (null? positions)
+                  ;; Prevent creating an empty interval at the end
+                  (>= (car positions) (sub1 limit)))
+              (reverse positions)
+              (reverse (cons limit positions)))))))
 
 ;; Describe summary information that should appear in an interval summary
 ;; constructed by `make-interval-summary'.

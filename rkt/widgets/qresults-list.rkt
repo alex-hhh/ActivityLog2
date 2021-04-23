@@ -472,6 +472,11 @@
     ;; that column.  The qresults-list% object does not care what the actual
     ;; object is.
     (define/public (set-data rows)
+      ;; De-select any previously selected item in the list box.
+      (let ([sel (send the-list-box get-selection)])
+        (when sel
+          (on-deselect sel (send the-list-box get-data sel))
+          (send the-list-box select sel #f)))
       (set! the-data rows)
       (if sort-column
           (begin
@@ -479,11 +484,7 @@
             (set! sort-descending? (not sort-descending?))
             ;; NOTE: sort-by-column will call refresh-contents
             (sort-by-column sort-column))
-          (refresh-contents))
-      ;; De-select any previously selected item in the list box.
-      (let ([sel (send the-list-box get-selection)])
-        (when sel
-          (send the-list-box select sel #f))))
+          (refresh-contents)))
 
     ;; Export the contents of this object as CSV to the output port OUTP.  If
     ;; FORMATTED-VALUES? is #t, the column formatters are used to format the

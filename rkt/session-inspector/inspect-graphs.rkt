@@ -1635,15 +1635,20 @@
          (lambda () (send g show-average-line show)))))
 
     (define (highlight-lap n lap)
-      (let* ((start (lap-start-time lap))
-             (elapsed (lap-elapsed-time lap))
-             ;; use floor because timestamps are at 1 second precision and
-             ;; this ensures swim laps are correctly highlighted.
-             (end (floor (+ start elapsed))))
-        (for ([g (in-list graphs)])
-          (queue-callback
-           (lambda ()
-             (send g highlight-interval start end))))))
+      (let ((start (lap-start-time lap))
+            (elapsed (lap-elapsed-time lap)))
+        (if (and start elapsed)
+            ;; use floor because timestamps are at 1 second precision and
+            ;; this ensures swim laps are correctly highlighted.
+            (let ([end (floor (+ start elapsed))])
+              (for ([g (in-list graphs)])
+                (queue-callback
+                 (lambda ()
+                   (send g highlight-interval start end)))))
+            (for ([g (in-list graphs)])
+              (queue-callback
+               (lambda ()
+                 (send g highlight-interval #f #f)))))))
 
     (define (unhighlight-lap)
       (for ([g (in-list graphs)])
