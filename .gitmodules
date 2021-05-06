@@ -31,3 +31,12 @@
 [submodule "pkgs/geoid"]
 	path = pkgs/geoid
 	url = https://github.com/alex-hhh/geoid.git
+[submodule "pkgs/resource-pool"]
+	path = pkgs/resource-pool
+	url = https://github.com/Bogdanp/racket-resource-pool.git
+[submodule "pkgs/http-easy"]
+	path = pkgs/http-easy
+	url = https://github.com/Bogdanp/racket-http-easy.git
+[submodule "pkgs/rackcheck"]
+	path = pkgs/rackcheck
+	url = https://github.com/Bogdanp/rackcheck.git

@@ -20,19 +20,22 @@ steps:
     condition: eq(variables['Agent.OS'], 'Linux')
     displayName: Start Xvfb for DISPLAY=99.0
 
-  # On Linux, run the tests on all the depdendent packages -- we are hoping to
-  # catch any potential compatibility issues between packages in our
-  # configuration (git submodule versions).  We only do this on Linux -- since
-  # the Windows build takes so much longer, this won't affect the total time
-  # for the build.
+  # On Linux, run the tests on all the depdendent packages (the packages we
+  # just installed) -- we are hoping to catch any potential compatibility
+  # issues between packages in our configuration (git submodule versions).  We
+  # only do this on Linux -- since the Windows build takes so much longer,
+  # this won't affect the total time for the build.
 
-  # We exclude the following: `catalog`, because it is not a package,
-  # `al2-profiler` because we don't install it anf `tzdata` because it is not
-  # installed on Linux (it only contains data files anyway)
+  ## NOTE: this mechanism is broken for packages which have a separate "test"
+  ## package, which is not actually installed and won't be tested, so we
+  ## explicitely install them.  Also note that the resource-pool tests take a
+  ## long time...
 
   - bash: |
       set -e
-      PACKAGES=`ls pkgs/ | sed -e s+/++ -e /catalog/d -e /al2-profiler/d -e/tzdata/d`
+      raco pkg install --auto http-easy-test
+      raco pkg install --auto resource-pool
+      PACKAGES=`raco pkg show --user --all | awk 'NR > 1 { print gensub(/\*/, "", "g", $1);  }'`
       for p in $PACKAGES; do
          echo "*** Running tests in $p..."
          raco test --no-run-if-absent --package $p
