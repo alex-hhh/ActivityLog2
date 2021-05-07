@@ -62,8 +62,8 @@ steps:
   # suite can be run on Windows.
 
   - bash: |
-      bash ./etc/scripts/fetch.sh -d -C test "1ig99PhGTYFZsbOhJDph1za8gfG1GZCM_" # test-db(4)
-      bash ./etc/scripts/fetch.sh -d -C test "1UDQ6EjHhVhSOaMRQSY2o2ah1qMBPEugx" # test-fit(16)
+      bash ./etc/scripts/fetch.sh -d -C test "1qdh22IEe0NZXtXw6qFTLC7nVk6N3f5HJ" # test-db(5)
+      bash ./etc/scripts/fetch.sh -d -C test "1XPCtqgfL_X-PVN6lbqkWIrTv6yMugvGm" # test-fit(17)
     env:
       TESTDATAPW: $(TESTDATAPW)
     condition: eq(variables.runTests, true)
