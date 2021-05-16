@@ -3,7 +3,7 @@
 ;; trends-irisk.rkt -- Injuri Risk Trends chart for swimming, biking and running
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -88,7 +88,7 @@
               (- now (* weeks-back 7 24 3600))
               (+ now (* weeks-forward 7 24 3600))))
   ;; Mark the timestamp series as sorted, so we can do lookups on it.
-  (df-set-sorted df "timestamp" <=)
+  (df-set-sorted! df "timestamp" <=)
   df)
 
 ;; Add a series that is a smoothing of BASE-SERIES.  The smoothing is done by
@@ -98,7 +98,7 @@
 ;;
 (define (add-smoothed-series df base-series load-series factor)
   (define smoothed 0)
-  (df-add-derived
+  (df-add-derived!
    df
    load-series                          ; series name to create
    (list base-series)                   ; selected series

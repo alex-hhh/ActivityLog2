@@ -289,10 +289,15 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (unless df      ; wait for the data frame if it did not arrive yet
               (for ((_ (in-range 20)) #:unless df) (sleep/yield 0.1)))
             (if df
-                (call-with-output-file fname
-                  (lambda (port)
-                    (df-write/gpx df port #:name (get-session-headline db sid)))
-                  #:mode 'text #:exists 'truncate/replace )
+                (with-handlers
+                  ;; GPX export will fail if some data series are missing
+                  ;; (e.g. lat, lon)
+                  ((exn? (lambda (e)
+                           (message-box "GPX Export Failed" (exn-message e) toplevel '(ok stop)))))
+                  (call-with-output-file fname
+                    (lambda (port)
+                      (df-write/gpx df port #:name (get-session-headline db sid)))
+                    #:mode 'text #:exists 'truncate/replace ))
                 (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
                              toplevel '(ok stop)))))))
 

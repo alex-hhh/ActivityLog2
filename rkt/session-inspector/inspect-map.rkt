@@ -59,7 +59,7 @@
 ;; position by `lookup-position`
 (define/contract (add-map-points df)
   (-> data-frame? any/c)
-  (df-add-derived
+  (df-add-derived!
    df
    "map-point"
    '("lat" "lon")

@@ -133,19 +133,19 @@
   ;; Delete all empty series (e.g "gct" for a cycling activity)
   (for ([series (in-list (df-series-names df))])
     (unless (df-has-non-na? df series)
-      (df-del-series df series)))
+      (df-del-series! df series)))
 
   (define-values (cp-data cp-validity)
     (critical-power-for-session session-id #:database db))
-  (df-put-property df 'critical-power cp-data)
-  (df-put-property df 'critical-power-validity cp-validity)
+  (df-put-property! df 'critical-power cp-data)
+  (df-put-property! df 'critical-power-validity cp-validity)
 
-  (df-put-property df 'is-lap-swim? is-lap-swim?)
-  (df-put-property df 'sport sport)
-  (df-put-property df 'session-id session-id)
+  (df-put-property! df 'is-lap-swim? is-lap-swim?)
+  (df-put-property! df 'sport sport)
+  (df-put-property! df 'session-id session-id)
 
   (when (df-contains? df "timestamp")
-    (df-set-sorted df "timestamp" <=)
+    (df-set-sorted! df "timestamp" <=)
 
     ;; NOTE: the session might contain lap timestamps that have no track
     ;; points, don't put these laps in the data frame
@@ -154,15 +154,15 @@
           (let* ([laps (query-list db (fetch-lap-timestamps) session-id)]
                  [maxts (df-ref df (sub1 row-count) "timestamp")]
                  [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
-            (df-put-property df 'laps xlaps))
-          (df-put-property df 'laps '()))))
+            (df-put-property! df 'laps xlaps))
+          (df-put-property! df 'laps '()))))
 
   ;; If we have a "dst" series, mark it as sorted.
   (when (df-contains? df "dst")
     (with-handlers
       (((lambda (e) #t)
         (lambda (e)
-          ;; df-set-sorted will raise an exception if the dst series contains
+          ;; df-set-sorted! will raise an exception if the dst series contains
           ;; NA's or it is not fully sorted.  We fix it in that case and try
           ;; again.
           (define prev-value (df-ref df 0 "dst"))
@@ -174,8 +174,8 @@
               (if (or (df-is-na? df "dst" value) (<= value prev-value))
                   (df-set! df index prev-value "dst")
                   (set! prev-value value))))
-          (df-set-sorted df "dst" <=))))
-      (df-set-sorted df "dst" <=)))
+          (df-set-sorted! df "dst" <=))))
+      (df-set-sorted! df "dst" <=)))
 
   (add-timer-series df)
   (add-elapsed-series df)
@@ -215,9 +215,9 @@
 
   (unless is-lap-swim?
     (cond ((df-contains? df "timer")
-           (df-set-default-weight-series df "timer"))
+           (df-set-default-weight-series! df "timer"))
           ((df-contains? df "elapsed")
-           (df-set-default-weight-series df "elapsed"))))
+           (df-set-default-weight-series! df "elapsed"))))
 
   (when cp-data
     (cond ((eqv? (vector-ref sport 0) 1) ; running
@@ -238,7 +238,7 @@
     (define stop-points '())
     (define st empty-statistics)
 
-    (df-add-derived
+    (df-add-derived!
      df
      "timer"
      '("timestamp")
@@ -266,9 +266,9 @@
           (filter (lambda (p) (is-teleport? df p)) stop-points)
           '()))
 
-    (df-set-sorted df "timer" <=)
-    (df-put-property df 'stop-points stop-points)
-    (df-put-property df 'teleport-points teleport-points)))
+    (df-set-sorted! df "timer" <=)
+    (df-put-property! df 'stop-points stop-points)
+    (df-put-property! df 'teleport-points teleport-points)))
 
 (define (add-elapsed-series df)
   (when (df-contains? df "timestamp")
@@ -282,7 +282,7 @@
     (if (and (df-get-property df 'is-lap-swim?)
              (df-contains? df "duration"))
         (let ((elapsed 0))
-          (df-add-derived
+          (df-add-derived!
            df
            "elapsed"
            '("timestamp" "duration")
@@ -292,14 +292,14 @@
                (when (> nelapsed elapsed)
                  (set! elapsed nelapsed))
                elapsed))))
-        (df-add-derived
+        (df-add-derived!
          df
          "elapsed"
          '("timestamp")
          (lambda (val)
            (define timestamp (list-ref val 0))
            (- timestamp timestamp0))))
-    (df-set-sorted df "elapsed" <=)))
+    (df-set-sorted! df "elapsed" <=)))
 
 (define (add-distance-series df)
 
@@ -345,7 +345,7 @@
           (vector-set! distance idx prev-point))))
 
     (let ((series (make-series "distance" #:data distance #:cmpfn <=)))
-      (df-add-series df series))))
+      (df-add-series! df series))))
 
 (define (add-speed-series df)
 
@@ -356,7 +356,7 @@
     (match-define (list spd) val)
     (if spd (m/s->mi/h spd) #f))
   (when (df-contains? df "spd")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "speed"
      '("spd")
@@ -436,7 +436,7 @@
   (when (df-contains? df "spd" "elapsed")
 
     (if (df-get-property df 'is-lap-swim?)
-        (df-add-lazy
+        (df-add-lazy!
          df
          "pace" '("spd")
          (if (eq? (al-pref-measurement-system) 'metric)
@@ -446,7 +446,7 @@
                (pace-fn (if (eq? (al-pref-measurement-system) 'metric)
                             pace-sec/km pace-sec/mi))
                (pace-limit (pace-fn (df-lookup df "elapsed" "spd" limit))))
-          (df-add-lazy
+          (df-add-lazy!
            df
            "pace"
            '("spd" "elapsed")
@@ -458,7 +458,7 @@
   (define sid (df-get-property df 'session-id))
   (define zones (sport-zones-for-session sid 'pace))
   (when (and zones (df-contains? df "spd"))
-    (df-add-lazy
+    (df-add-lazy!
      df
      "speed-zone"
      '("spd")
@@ -648,7 +648,7 @@
 
   ;; Only add the grade series if there are actually any values in it...
   (when (for/first ([g (in-vector grade)] #:when g) #t)
-    (df-add-series df (make-series "grade" #:data grade))))
+    (df-add-series! df (make-series "grade" #:data grade))))
 
 ;; Check that the data frame DF has the required data and add the grade series
 ;; if it does.
@@ -664,7 +664,7 @@
   (define sid (df-get-property df 'session-id))
   (define zones (sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
-    (df-add-lazy
+    (df-add-lazy!
      df
      "hr-pct"
      '("hr")
@@ -676,7 +676,7 @@
   (define sid (df-get-property df 'session-id))
   (define zones (sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
-    (df-add-lazy
+    (df-add-lazy!
      df
      "hr-zone"
      '("hr")
@@ -699,7 +699,7 @@
           #f)))
 
   (when (df-contains? df "spd" "cad")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "stride"
      '("spd" "cad")
@@ -715,7 +715,7 @@
         #f))
 
   (when (df-contains? df "spd" "cad" "vosc")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "vratio"
      '("spd" "cad" "vosc")
@@ -733,7 +733,7 @@
   (define sid (df-get-property df 'session-id))
   (define zones (sport-zones-for-session sid 'power))
   (when (and zones (df-contains? df "pwr"))
-    (df-add-lazy
+    (df-add-lazy!
      df
      "pwr-zone"
      '("pwr")
@@ -743,7 +743,7 @@
 
 (define (add-lppa-series df)
   (when (df-contains? df "lpps" "lppe")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "lppa"
      '("lpps" "lppe")
@@ -759,9 +759,9 @@
 ;; -20 and 20 degrees instead of jumping between 20 and 340
 (define (fixup-pp-series df series-name)
   (when (df-contains? df series-name)
-    ;; Don't use df-add-lazy here as we enter in a recursive loop because we
+    ;; Don't use df-add-lazy! here as we enter in a recursive loop because we
     ;; ask for the same series.
-    (df-add-derived
+    (df-add-derived!
      df
      series-name
      (list series-name)
@@ -770,11 +770,11 @@
        (if a (if (> a 180.0) (- a 360) a) #f)))
     ;; Get rid if this series if it became empty
     (unless (df-has-non-na? df series-name)
-      (df-del-series df series-name))))
+      (df-del-series! df series-name))))
 
 (define (add-lpppa-series df)
   (when (df-contains? df "lppps" "lpppe")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "lpppa"
      '("lppps" "lpppe")
@@ -787,7 +787,7 @@
 
 (define (add-rppa-series df)
   (when (df-contains? df "rpps" "rppe")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "rppa"
      '("rpps" "rppe")
@@ -800,7 +800,7 @@
 
 (define (add-rpppa-series df)
   (when (df-contains? df "rppps" "rpppe")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "rpppa"
      '("rppps" "rpppe")
@@ -813,7 +813,7 @@
 
 (define (add-swolf-series df)
   (when (df-contains? df "duration" "strokes")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "swolf"
      '("duration" "strokes")
@@ -830,7 +830,7 @@
       (/ power angular-velocity)))
 
   (when (df-contains? df "pwr" "cad")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "torque"
      '("pwr" "cad")
@@ -851,7 +851,7 @@
         (df-set! df index #f series-name)))
     ;; Remove this series if it became empty after fixing invalid values.
     (unless (df-has-non-na? df series-name)
-      (df-del-series df series-name))))
+      (df-del-series! df series-name))))
 
 ;; Replace 0 and 100 with #f in the "lrbal" series -- these are invalid values
 ;; at the two extremes
@@ -863,14 +863,14 @@
         (df-set! df index #f "lrbal")))
     ;; Remove this series if it became empty after fixing invalid values.
     (unless (df-has-non-na? df "lrbal")
-      (df-del-series df "lrbal"))))
+      (df-del-series! df "lrbal"))))
 
 (define (add-gap-series df)
   (define (pace-sec/km spd)
     (if (and spd (> spd 0.6)) (m/s->sec/km spd)  #f))
 
   (when (df-contains? df "pace" "grade")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "gap"
      '("pace" "grade")
@@ -880,7 +880,7 @@
 
 (define (add-gaspd-series df)
   (when (df-contains? df "spd" "grade")
-    (df-add-lazy
+    (df-add-lazy!
      df
      "gaspd"
      '("spd" "grade")
@@ -907,7 +907,7 @@
 
     (define wbal wprime)
 
-    (df-add-lazy
+    (df-add-lazy!
      df
      "wbal"
      (list "elapsed" base-series)
@@ -938,7 +938,7 @@
   (cond
     ((and (df-contains? df "elapsed" "spd" "grade") cp wprime)
      (define wbal wprime)
-     (df-add-lazy
+     (df-add-lazy!
       df
       "wbal"
       '("elapsed" "spd" "grade")
@@ -1007,7 +1007,7 @@
     (define integral 0)
     (define wbal wprime)
 
-    (df-add-lazy
+    (df-add-lazy!
      df
      "wbali"
      (list "elapsed" base-series)
@@ -1462,12 +1462,12 @@
            (if (equal? new-cp-data old-cp-data)
                (begin
                  ;; parameters are the same, no need to change anything
-                 (df-del-property df 'dirty-wbal)
+                 (df-del-property! df 'dirty-wbal)
                  df)
                (let ((new-df (df-shallow-copy df))
                      (sport (df-get-property df 'sport)))
-                 (df-del-property new-df 'dirty-wbal)
-                 (df-put-property new-df 'critical-power new-cp-data)
+                 (df-del-property! new-df 'dirty-wbal)
+                 (df-put-property! new-df 'critical-power new-cp-data)
                  (cond ((eqv? (vector-ref sport 0) 1) ; running
                         (add-wbald-series new-df "spd"))
                        ((eqv? (vector-ref sport 0) 2) ; biking
@@ -1477,9 +1477,9 @@
           (#t
            ;; We no longer have CP params for this data frame, delete them.
            (let ((new-df (df-shallow-copy df)))
-             (df-del-property new-df 'dirty-wbal)
-             (df-del-property new-df 'critical-power)
-             (df-del-series new-df "wbal")
+             (df-del-property! new-df 'dirty-wbal)
+             (df-del-property! new-df 'critical-power)
+             (df-del-series! new-df "wbal")
              (hash-set! df-cache sid new-df)
              new-df))
           ))
@@ -1527,7 +1527,7 @@
     (define df (or (hash-ref df-cache sid #f)
                    (hash-ref df-cache2 sid #f)))
     (when df                            ; might no longer be here
-      (df-put-property df 'dirty-wbal #t))
+      (df-put-property! df 'dirty-wbal #t))
     (log-event 'session-updated-data sid)))
 
 (define log-event-source (make-log-event-source))

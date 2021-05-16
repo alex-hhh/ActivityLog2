@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -106,8 +106,8 @@
           (#t #f)))
   (when series
     (let ((stats (df-statistics df series)))
-      (df-put-property df 'min-elevation (statistics-min stats))
-      (df-put-property df 'max-elevation (statistics-max stats)))))
+      (df-put-property! df 'min-elevation (statistics-min stats))
+      (df-put-property! df 'max-elevation (statistics-max stats)))))
 
 ;; Return the min-elevation for the session (as retrieved from the data frame
 ;; DF).  SESSION is not used, and it is present just to satisfy the signature

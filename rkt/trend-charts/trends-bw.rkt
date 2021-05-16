@@ -2,7 +2,7 @@
 ;; trends-bw.rkt -- bodyweight trend chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -54,7 +54,7 @@
         ;; stuff, we silently ignore problems with calculating the fit line.
         (with-handlers
           (((lambda (e) #t) (lambda (e) (void))))
-          (df-put-property
+          (df-put-property!
            df
            'least-squares-fit
            (case trendline
@@ -74,22 +74,22 @@
         ;; Compute X and Y limits for the plot, otherwise some points
         ;; will be right on the edge of the plot.
         (let ((bwstats (df-statistics df "body_weight")))
-          (df-put-property df 'bwmin (statistics-min bwstats))
-          (df-put-property df 'bwmax (statistics-max bwstats))
-          (df-put-property df 'bwrange (- (statistics-max bwstats)
+          (df-put-property! df 'bwmin (statistics-min bwstats))
+          (df-put-property! df 'bwmax (statistics-max bwstats))
+          (df-put-property! df 'bwrange (- (statistics-max bwstats)
                                           (statistics-min bwstats))))
         (let ((tsmin (df-ref df 0 "timestamp"))
               (tsmax (df-ref df (sub1 (df-row-count df)) "timestamp")))
-          (df-put-property df 'tsmin tsmin)
-          (df-put-property df 'tsmax tsmax)
-          (df-put-property df 'tsrange (- tsmax tsmin)))
+          (df-put-property! df 'tsmin tsmin)
+          (df-put-property! df 'tsmax tsmax)
+          (df-put-property! df 'tsrange (- tsmax tsmin)))
 
-        (df-set-sorted df "timestamp" <)
+        (df-set-sorted! df "timestamp" <)
 
         ;; Add a date series to the data frame, this makes the resulting CVS
         ;; easier to use.  The series is lazy and will only be materialized if
         ;; the data is exported.
-        (df-add-lazy
+        (df-add-lazy!
          df "date" '("timestamp")
          (lambda (v)
            (match-define (list ts) v)

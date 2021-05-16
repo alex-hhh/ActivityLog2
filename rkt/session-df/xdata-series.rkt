@@ -3,7 +3,7 @@
 ;; xdata.rkt --
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -219,7 +219,7 @@
   (for ([(key value) (in-hash xdata-series)])
     (define metadata (get-or-make-xdata-series-metadata db key))
     (define series (make-series (send metadata series-name) #:data value))
-    (df-add-series df series)))
+    (df-add-series! df series)))
 
 ;; Return all the XDATA metadata objects that we have.  If DB is not #f, XDATA
 ;; field definitions are read from the database and any missing series

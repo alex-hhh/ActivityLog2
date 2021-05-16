@@ -2,7 +2,7 @@
 ;; trends-ae.rkt -- aerobic efficiency trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -73,14 +73,14 @@
      (and
       (> (df-row-count df) 0)
       (begin
-        (df-put-property df 'running? running?)
+        (df-put-property! df 'running? running?)
         ;; `df-least-squares-fit` will raise exceptions if it cannot calculate
         ;; the fit line (e.g. if there are not enough points).  Rather than
         ;; checking for things like `matrix-invertible?` and other "low level"
         ;; stuff, we silently ignore problems with calculating the fit line.
         (with-handlers
           (((lambda (e) #t) (lambda (e) (void))))
-          (df-put-property
+          (df-put-property!
            df
            'least-squares-fit
            (case trendline
@@ -100,22 +100,22 @@
         ;; Compute X and Y limits for the plot, otherwise some points
         ;; will be right on the edge of the plot.
         (let ((aestats (df-statistics df "ae")))
-          (df-put-property df 'aemin (statistics-min aestats))
-          (df-put-property df 'aemax (statistics-max aestats))
-          (df-put-property df 'aerange (- (statistics-max aestats)
+          (df-put-property! df 'aemin (statistics-min aestats))
+          (df-put-property! df 'aemax (statistics-max aestats))
+          (df-put-property! df 'aerange (- (statistics-max aestats)
                                           (statistics-min aestats))))
         (let ((tsmin (df-ref df 0 "timestamp"))
               (tsmax (df-ref df (sub1 (df-row-count df)) "timestamp")))
-          (df-put-property df 'tsmin tsmin)
-          (df-put-property df 'tsmax tsmax)
-          (df-put-property df 'tsrange (- tsmax tsmin)))
+          (df-put-property! df 'tsmin tsmin)
+          (df-put-property! df 'tsmax tsmax)
+          (df-put-property! df 'tsrange (- tsmax tsmin)))
 
-        (df-set-sorted df "timestamp" <)
+        (df-set-sorted! df "timestamp" <)
 
         ;; Add a date series to the data frame, this makes the resulting CVS
         ;; easier to use.  The series is lazy and will only be materialized if
         ;; the data is exported.
-        (df-add-lazy
+        (df-add-lazy!
          df "date" '("timestamp")
          (lambda (v)
            (match-define (list ts) v)

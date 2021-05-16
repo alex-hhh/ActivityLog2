@@ -328,7 +328,7 @@ values (?, ?)" session-id id))
       (define splits (df-get-property data-frame property-key))
       (unless splits
         (set! splits (add-time-zone (make-split-intervals data-frame "dst" x)))
-        (df-put-property data-frame property-key splits))
+        (df-put-property! data-frame property-key splits))
       (send interval-view set-intervals sport 'default splits sid))
 
     ;; Switch the interval view to display splits by 1 km
@@ -348,7 +348,7 @@ values (?, ?)" session-id id))
       (define climb-splits (df-get-property data-frame 'intervals-climb-splits))
       (unless climb-splits
         (set! climb-splits (add-time-zone (make-climb-intervals data-frame)))
-        (df-put-property data-frame 'intervals-climb-splits climb-splits))
+        (df-put-property! data-frame 'intervals-climb-splits climb-splits))
       (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
 
     ;; Switch the interval view to display the descents in the session
@@ -356,7 +356,7 @@ values (?, ?)" session-id id))
       (define descent-splits (df-get-property data-frame 'intervals-descent-splits))
       (unless descent-splits
         (set! descent-splits (add-time-zone (make-climb-intervals data-frame #:descents #t)))
-        (df-put-property data-frame 'intervals-descent-splits descent-splits))
+        (df-put-property! data-frame 'intervals-descent-splits descent-splits))
       (send interval-view set-intervals sport 'hill-descents descent-splits sid))
 
     ;; Switch the interval view to display the "bests" in the session.  For a
@@ -371,7 +371,7 @@ values (?, ?)" session-id id))
                (if (eq? (vector-ref sport 0) 2)
                    (make-best-power-intervals data-frame)
                    (make-best-pace-intervals data-frame))))
-        (df-put-property data-frame 'intervals-best-splits best-splits))
+        (df-put-property! data-frame 'intervals-best-splits best-splits))
       (send interval-view set-intervals sport 'best-splits best-splits))
 
     ;; Switch the interval view to display the splits as recorded by the

@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,6 +19,9 @@
          data-frame
          racket/class
          racket/draw
+         racket/file
+         data-frame/gpx
+         data-frame
          geoid
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
@@ -626,7 +629,20 @@ where S.id = CPFS.session_id
               ;; metric
               (fill-sport-zones db #:valid-from (- ts 100))
               (update-some-session-metrics sid db)
-              (check-time-in-zone df db file)))
+              (check-time-in-zone df db file)
+
+              ;; Ensure we can export and import GPX files.
+              (when (and (df-contains? df "timestamp" "lat" "lon" "alt")
+                         (df-get-property df 'laps))
+                (let ([path (make-temporary-file)])
+                  (check-not-exn (lambda () (df-write/gpx df path)))
+                  (define df1 (df-read/gpx path))
+                  ;; NOTE: unfortunately, we only export waypoints that have
+                  ;; latitude/longitude, etc, so the GPX export may loose
+                  ;; data...  here we only check that at least some data was
+                  ;; exported.
+                  (check-true (> (df-row-count df1) 0)) 
+                  (delete-file path)))))
            (check = 1 (activity-count db))
            (db-check-geoids db)))))
 
@@ -669,6 +685,7 @@ where S.id = CPFS.session_id
 
 (module+ test
   (run-tests #:package "db-test"
+             ;; #:only '(("Database Operations" "Importing first activity"))
              #:results-file "test-results/db-test.xml"
              db-tests))
 
