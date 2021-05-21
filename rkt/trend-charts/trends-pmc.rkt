@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
          racket/gui/base
          racket/match
          racket/stream
+         "../al-widgets.rkt"
          "../database.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
@@ -53,6 +54,11 @@
     (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define date-range-selector (new date-range-selector% [parent time-gb]))
 
+    (define sessions-gb (make-group-box-panel (send this get-client-pane)))
+    (define labels-msg
+      (new message% [parent sessions-gb] [label "Mark Sessions With These Labels"]))
+    (define labels-input (new label-input-field% [parent sessions-gb]))
+
     (define show-form-check-box #f)
     (define show-daily-tss-check-box #f)
     (define show-fitness-check-box #f)
@@ -81,15 +87,21 @@
        'name (send name-field get-value)
        'title (send title-field get-value)
        'date-range (send date-range-selector get-restore-data)
-       'timestamps (send date-range-selector get-selection)
+       'timestamps
+       (match-let ([(cons start end) (send date-range-selector get-selection)])
+         (when (and (eqv? start 0) database)
+           (set! start (get-true-min-start-date database)))
+         (cons start end))
        'show-form? (send show-form-check-box get-value)
        'show-fitness? (send show-fitness-check-box get-value)
        'show-fatigue? (send show-fatigue-check-box get-value)
-       'show-tss? (send show-daily-tss-check-box get-value)))
+       'show-tss? (send show-daily-tss-check-box get-value)
+       'marker-labels (send labels-input get-contents-as-tag-ids)))
 
     (define/public (put-chart-settings data)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (send name-field set-value (hash-ref data 'name ""))
       (send title-field set-value (hash-ref data 'title ""))
       (let ((dr (hash-ref data 'date-range #f)))
@@ -98,11 +110,16 @@
       (send show-form-check-box set-value (hash-ref data 'show-form? #t))
       (send show-fitness-check-box set-value (hash-ref data 'show-fitness? #t))
       (send show-fatigue-check-box set-value (hash-ref data 'show-fatigue? #t))
-      (send show-daily-tss-check-box set-value (hash-ref data 'show-tss? #f)))
+      (send show-daily-tss-check-box set-value (hash-ref data 'show-tss? #f))
+      (let ((labels (hash-ref data 'marker-labels '())))
+        ;; NOTE: set the contents even if they are empty, as this sets the
+        ;; available tags, allowing new ones to be added
+        (send labels-input set-contents-from-tag-ids labels)))
 
     (define/public (show-dialog parent)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (and (send this do-edit parent) (get-chart-settings)))
 
     ))
@@ -304,21 +321,37 @@
   (let ((fdata (get-fatigue-data-series data)))
     (lines fdata #:color *dark-red* #:width 1.5 #:label "Fatigue")))
 
-(define (make-renderer-tree params pmc-data)
-  (let ((rt (list (tick-grid))))
-    (when (hash-ref params 'show-form? #t)
+(define (make-renderer-tree params pmc-data session-markers)
+
+  (define show-form? (hash-ref params 'show-form? #t))
+  (define show-fitness? (hash-ref params 'show-fitness? #t))
+  (define show-fatigue? (hash-ref params 'show-fatigue? #t))
+  (define show-tss? (hash-ref params 'show-tss? #f))
+
+  (define max-y
+    (for/fold ([y 0])
+              ([item (in-list pmc-data)])
+      (match-define (vector ts ctl atl tss) item)
+      (max y (if show-fitness? ctl 0) (if show-fatigue? atl 0) (if show-tss? tss 0))))
+
+
+  (let ((rt (list (tick-grid)
+                  (make-session-marker-renderers session-markers
+                                                 #:y (+ max-y 20)
+                                                 #:color "dark orange"))))
+    (when show-form?
       (let ((form-renderer (make-form-renderer pmc-data)))
         (set! rt (cons form-renderer rt))))
 
-    (when (hash-ref params 'show-fitness? #t)
+    (when show-fitness?
       (let ((fitness-renderer (make-fitness-renderer pmc-data)))
         (set! rt (cons fitness-renderer rt))))
 
-    (when (hash-ref params 'show-fatigue? #t)
+    (when show-fatigue?
       (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
         (set! rt (cons fatigue-renderer rt))))
 
-    (when (hash-ref params 'show-tss? #f)
+    (when show-tss?
       (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
         (set! rt (cons daily-tss-renderer rt))))
 
@@ -338,7 +371,10 @@
    (lambda (renderer-tree)
      (plot-to-canvas
       renderer-tree canvas
-      #:x-min start-date #:x-label #f #:y-label #f))
+      ;; x-min is here because PMC data is retrieved further in the past to
+      ;; start the "attenuation process", but we want the plot to start at the
+      ;; date that the user specified.
+      #:x-min start-date #:x-label #f #:y-label #f #:legend-anchor 'bottom-left))
    renderer-tree))
 
 (define (save-plot-to-file file-name width height params renderer-tree)
@@ -348,7 +384,11 @@
      (plot-file
       renderer-tree
       file-name #:width width #:height height
-      #:x-min start-date #:x-label #f #:y-label #f))
+      ;; x-min is here because PMC data is retrieved further in the past to
+      ;; start the "attenuation process", but we want the plot to start at the
+      ;; date that the user specified.
+      #:x-min start-date #:x-label #f #:y-label #f
+      #:legend-anchor 'bottom-left))
    renderer-tree))
 
 (define pmc-trends-chart%
@@ -356,6 +396,7 @@
 
     (define data-valid? #f)
     (define pmc-data #f)
+    (define session-markers '())        ; see read-session-markers
     (define cached-day #f)
     (define cached-badge #f)
 
@@ -431,7 +472,7 @@
       (maybe-build-pmc-data)
       (let ((params (send this get-chart-settings)))
         (if params
-            (let ((rt (make-renderer-tree params pmc-data)))
+            (let ((rt (make-renderer-tree params pmc-data session-markers)))
               (let ((snip (insert-plot-snip canvas params rt)))
                 (set-mouse-event-callback snip plot-hover-callback)))
             #f)))
@@ -440,7 +481,7 @@
       (when data-valid?
         (let ((params (send this get-chart-settings)))
           (when params
-            (let ((rt (make-renderer-tree params pmc-data)))
+            (let ((rt (make-renderer-tree params pmc-data session-markers)))
               (save-plot-to-file file-name width height params rt))))))
 
     (define (maybe-build-pmc-data)
@@ -449,14 +490,14 @@
           (when params
             (match-define
               (cons start-date end-date)
-              (hash-ref params 'timestamps (cons 0 0)))
+              (hash-ref params 'timestamps))
             ;; NOTE: we extend the range so ATL CTL at the start of the range
             ;; is correctly computed (w/ exponential averaging, all past TSS
             ;; values have a contribution to the present)
             (let ((start (max 0 (- start-date (* 4 ctl-range 24 3600))))
                   (end end-date))
               (set! pmc-data (produce-pmc-data/method-2 start end database)))
+            (set! session-markers (read-session-markers database params))
             (set! data-valid? #t)))))
 
     ))
-

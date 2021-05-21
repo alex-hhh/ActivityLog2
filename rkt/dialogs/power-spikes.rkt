@@ -434,7 +434,7 @@
       (new
        (class dialog% (init) (super-new)
          (define/augment (on-close) (on-close-dashboard)))
-       [label "FTHR Analysis Dashboard"]
+       [label "Clear Power Spikes"]
        [min-width min-width]
        [min-height min-height]
        [parent (if parent (send parent get-top-level-window) #f)]))

@@ -3,7 +3,7 @@
 ;; trends-tiz.rkt -- "Time in Zone" chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
          racket/gui/base
          racket/list
          racket/match
+         "../al-widgets.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
          "../models/sport-zone.rkt"
@@ -58,6 +59,11 @@
       (new choice% [parent grouping-gb] [label "Zone "]
            [choices '("Heart Rate" "Power")]))
 
+    (define sessions-gb (make-group-box-panel (send this get-client-pane)))
+    (define labels-msg
+      (new message% [parent sessions-gb] [label "Mark Sessions With These Labels"]))
+    (define labels-input (new label-input-field% [parent sessions-gb]))
+
     (define/public (get-chart-settings)
       (hash
        'name (send name-field get-value)
@@ -72,11 +78,13 @@
        'zone-metric (case (send zone-metric-choice get-selection)
                       ((0) 1)
                       ((1) 3)
-                      (else 1))))
+                      (else 1))
+       'marker-labels (send labels-input get-contents-as-tag-ids)))
 
     (define/public (put-chart-settings data)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (send name-field set-value (hash-ref data 'name))
       (send title-field set-value (hash-ref data 'title))
       (send date-range-selector restore-from (hash-ref data 'date-range))
@@ -90,11 +98,16 @@
             (case (hash-ref data 'zone-metric)
               ((1) 0)
               ((3) 1)
-              (else 0))))
+              (else 0)))
+      (let ((labels (hash-ref data 'marker-labels '())))
+        ;; NOTE: set the contents even if they are empty, as this sets the
+        ;; available tags, allowing new ones to be added
+        (send labels-input set-contents-from-tag-ids labels)))
 
     (define/public (show-dialog parent)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (and (send this do-edit parent) (get-chart-settings)))
 
     ))
@@ -131,7 +144,7 @@
 (define (get-data db sql-query sport zone-metric start end)
   (query-rows db sql-query sport zone-metric start end))
 
-(define (generate-plot output-fn data sport-zones)
+(define (generate-plot output-fn data markers sport-zones)
 
   (define (min-zone . zones)
     (let loop ((zones zones)
@@ -185,33 +198,42 @@
             (set! max-y (max max-y (foldl + 0 zones)))
             (list timestamp zones))
           (list "" (list)))))
-  (set! max-y (* 1.2 max-y)) ;; make it larger to fit the legend
+  (define scale (if (null? markers) 1.2 1.3))
+  (set! max-y (* scale max-y)) ;; make it larger to fit the legend and markers
 
   (parameterize ([plot-x-ticks (date-ticks)]
                  [plot-x-label #f]
+                 [plot-x-ticks no-ticks]
+                 [plot-x-far-ticks no-ticks]
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label "Time in Zone (hours)"])
     (output-fn
      (list (y-tick-lines)
-                     (stacked-histogram
-                      pdata
-                      #:colors plot-colors
-                      #:labels plot-labels
-                      #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
-                      #:gap histogram-gap))
+
+           (make-session-marker-renderers/histogram
+            markers
+            #:y (* max-y 0.99))
+
+           (stacked-histogram
+            pdata
+            #:colors plot-colors
+            #:labels plot-labels
+            #:line-widths '(0 0 0 0 0 0 0 0 0 0 )
+            #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
-(define (insert-plot-snip canvas data zone-names)
+(define (insert-plot-snip canvas data markers zone-names)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-to-canvas
       renderer-tree canvas
       #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
    data
+   markers
    zone-names))
 
-(define (save-plot-to-file file-name width height data zone-names)
+(define (save-plot-to-file file-name width height data markers zone-names)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-file renderer-tree file-name #:width width #:height height
@@ -220,6 +242,7 @@
                 #:y-min min-y
                 #:y-max max-y))
    data
+   markers
    zone-names))
 
 (define tiz-trends-chart%
@@ -230,6 +253,7 @@
     (define data-valid? #f)
     (define sql-query #f)
     (define sql-query-result #f)
+    (define session-markers #f)
     (define chart-data #f)
     (define sport-zones #f)
 
@@ -313,7 +337,7 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (let ((snip (insert-plot-snip canvas chart-data sport-zones)))
+          (let ((snip (insert-plot-snip canvas chart-data session-markers sport-zones)))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas clear-all)
@@ -322,7 +346,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-        (save-plot-to-file file-name width height chart-data sport-zones)))
+        (save-plot-to-file file-name width height chart-data session-markers sport-zones)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -337,6 +361,8 @@
                    (timestamps (generate-timestamps start end group-by)))
               (set! sql-query (make-sql-query group-by))
               (set! sql-query-result (get-data database sql-query sport zone start end))
+              (set! session-markers
+                    (allocate-marker-slots timestamps (read-session-markers database params)))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))

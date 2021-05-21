@@ -23,6 +23,7 @@
          racket/gui/base
          racket/match
          racket/runtime-path
+         "../al-widgets.rkt"
          "../database.rkt"
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
@@ -94,6 +95,8 @@
          (lambda (v)
            (match-define (list ts) v)
            (date-time->string ts)))
+
+        (df-put-property df 'session-markers (read-session-markers db params))
 
         df)
       #f))
@@ -198,14 +201,19 @@
                       #:y-min ymin
                       #:y-max ymax))
 
-  (define fit (df-get-property df 'least-squares-fit #f))
+  (list
+   (tick-grid)
 
-  (if fit
-      (list (tick-grid)
-            (function fit #:width 4 #:style 'long-dash #:color *trendline-color*)
-            pts)
-      (list (tick-grid)
-            pts)))
+   (make-session-marker-renderers
+    (df-get-property df 'session-markers '())
+    #:y (- ymax (* 0.01 (- ymax ymin)))
+    #:color *trendline-color*)
+
+   (let ([fit (df-get-property df 'least-squares-fit #f)])
+     (if fit
+         (function fit #:width 4 #:style 'long-dash #:color *trendline-color*)
+         '()))
+   pts))
 
 (define (generate-plot output-fn renderer-tree)
   (parameterize ([plot-x-ticks (pmc-date-ticks)]
@@ -245,6 +253,11 @@
     (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define date-range-selector (new date-range-selector% [parent time-gb]))
 
+    (define sessions-gb (make-group-box-panel (send this get-client-pane)))
+    (define labels-msg
+      (new message% [parent sessions-gb] [label "Mark Sessions With These Labels"]))
+    (define labels-input (new label-input-field% [parent sessions-gb]))
+
     (define trendline
       '(("none" . none)
         ("linear" . linear)
@@ -262,11 +275,13 @@
        'title (send title-field get-value)
        'date-range (send date-range-selector get-restore-data)
        'timestamps (send date-range-selector get-selection)
-       'trendline (cdr (list-ref trendline (send trendline-choice get-selection)))))
+       'trendline (cdr (list-ref trendline (send trendline-choice get-selection)))
+       'marker-labels (send labels-input get-contents-as-tag-ids)))
 
     (define/public (put-chart-settings data)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (let ((name (hash-ref data 'name ""))
             (title (hash-ref data 'title ""))
             (dr (hash-ref data 'date-range #f))
@@ -278,11 +293,16 @@
         (define index (for/first ([(v x) (in-indexed trendline)]
                                   #:when (eq? tl (cdr v)))
                         x))
-        (send trendline-choice set-selection index)))
+        (send trendline-choice set-selection index))
+      (let ((labels (hash-ref data 'marker-labels '())))
+          ;; NOTE: set the contents even if they are empty, as this sets the
+          ;; available tags, allowing new ones to be added
+          (send labels-input set-contents-from-tag-ids labels)))
 
     (define/public (show-dialog parent)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (and (send this do-edit parent) (get-chart-settings)))
 
     ))

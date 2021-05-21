@@ -3,7 +3,7 @@
 ;; trends-trivol.rkt -- triathlon activity volume chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,7 +15,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame/private/colors
+         db/base
          plot-container/hover-util
          plot/no-gui
          racket/class
@@ -23,6 +24,7 @@
          racket/gui/base
          racket/match
          racket/math
+         "../al-widgets.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
          "../sport-charms.rkt"
@@ -57,6 +59,11 @@
       (new choice% [parent grouping-gb] [label "Metric "]
            [choices '("Time" "Distance" "Session Count" "Effort")]))
 
+    (define sessions-gb (make-group-box-panel (send this get-client-pane)))
+    (define labels-msg
+      (new message% [parent sessions-gb] [label "Mark Sessions With These Labels"]))
+    (define labels-input (new label-input-field% [parent sessions-gb]))
+
     (define/public (get-chart-settings)
       (hash
        'name (send name-field get-value)
@@ -64,20 +71,27 @@
        'date-range (send date-range-selector get-restore-data)
        'timestamps (send date-range-selector get-selection)
        'group-by (send group-by-choice get-selection)
-       'metric (send metric-choice get-selection)))
+       'metric (send metric-choice get-selection)
+       'marker-labels (send labels-input get-contents-as-tag-ids)))
 
     (define/public (put-chart-settings data)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (send name-field set-value (hash-ref data 'name ""))
       (send title-field set-value (hash-ref data 'title ""))
       (send date-range-selector restore-from (hash-ref data 'date-range))
       (send group-by-choice set-selection (hash-ref data 'group-by))
-      (send metric-choice set-selection (hash-ref data 'metric)))
+      (send metric-choice set-selection (hash-ref data 'metric))
+      (let ((labels (hash-ref data 'marker-labels '())))
+        ;; NOTE: set the contents even if they are empty, as this sets the
+        ;; available tags, allowing new ones to be added
+        (send labels-input set-contents-from-tag-ids labels)))
 
     (define/public (show-dialog parent)
       (when database
-        (send date-range-selector set-seasons (db-get-seasons database)))
+        (send date-range-selector set-seasons (db-get-seasons database))
+        (send labels-input refresh-available-tags database))
       (and (send this do-edit parent) (get-chart-settings)))
 
     ))
@@ -161,7 +175,7 @@
 (define (get-data db sql-query)
   (query-rows db sql-query))
 
-(define (generate-plot output-fn data y-label)
+(define (generate-plot output-fn data markers y-label)
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -173,14 +187,22 @@
             (list timestamp ;(if (eqv? (remainder n 12) 0) timestamp "")
                   (vector wtime stime btime rtime)))
           (list "" (vector)))))
-  (set! max-y (* 1.2 max-y)) ;; make it larger to fit the legend
+  (define scale (if (null? markers) 1.2 1.3))
+  (set! max-y (* scale max-y)) ;; make it larger to fit the legend and markers
   (parameterize ([plot-x-ticks (date-ticks)]
                  [plot-x-label #f]
+                 [plot-x-ticks no-ticks]
+                 [plot-x-far-ticks no-ticks]
                  [plot-x-tick-label-anchor 'top-right]
                  [plot-x-tick-label-angle 30]
                  [plot-y-label y-label])
     (output-fn
      (list (y-tick-lines)
+
+           (make-session-marker-renderers/histogram
+            markers
+            #:y (* max-y 0.99))
+
            (stacked-histogram
             pdata
             #:y-max max-y
@@ -194,15 +216,15 @@
             #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
-(define (insert-plot-snip canvas data y-label)
+(define (insert-plot-snip canvas data markers y-label)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-to-canvas
       renderer-tree canvas
       #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
-   data y-label))
+   data markers y-label))
 
-(define (save-plot-to-file file-name width height data y-label)
+(define (save-plot-to-file file-name width height data markers y-label)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-file renderer-tree file-name #:width width #:height height
@@ -210,7 +232,7 @@
                 #:x-max max-x
                 #:y-min min-y
                 #:y-max max-y))
-   data y-label))
+   data markers y-label))
 
 (define trivol-trends-chart%
   (class trends-chart% (init-field database) (super-new)
@@ -219,6 +241,7 @@
     (define sql-query #f)
     (define sql-query-result #f)
     (define chart-data #f)
+    (define session-markers #f)
 
     (define/override (make-settings-dialog)
       (new trivol-chart-settings%
@@ -288,7 +311,7 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (let ((snip (insert-plot-snip canvas chart-data (get-y-label))))
+          (let ((snip (insert-plot-snip canvas chart-data session-markers (get-y-label))))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas clear-all)
@@ -297,7 +320,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-          (save-plot-to-file file-name width height chart-data (get-y-label))))
+          (save-plot-to-file file-name width height chart-data session-markers (get-y-label))))
 
     (define/override (export-data-to-file file formatted?)
       (when chart-data
@@ -332,6 +355,8 @@
                       ((2) (make-sql-query/count start end group-by))
                       ((3) (make-sql-query/stress start end group-by))))
               (set! sql-query-result (get-data database sql-query))
+              (set! session-markers
+                    (allocate-marker-slots timestamps (read-session-markers database params)))
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
