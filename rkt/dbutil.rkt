@@ -3,7 +3,7 @@
 ;;               and other small helpers
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -48,8 +48,10 @@
  [db-upgrade (->* (connection? (listof path-string?))
                   (#:progress-callback (or/c #f progress-callback/c))
                   connection?)]
+ [db-insert (->* (connection? statement?)
+                 #:rest (listof any/c)
+                 (or/c exact-nonnegative-integer? #f))]
  [maybe-backup-database (->* (path-string?) (boolean?) any/c)]
- [db-get-last-pk (-> string? connection? number?)]
  [sql-column-ref (->* (vector? exact-nonnegative-integer?) (any/c) any/c)]
 
  ;; NOTE: jsexpr? performs a deep check on its argument and might be too
@@ -198,12 +200,18 @@
           (raise (db-exn-bad-version database-file expected-version actual-version)))))
     db))
 
-(define db-get-last-pk
-  (let ((stmt (virtual-statement
-                (lambda (dbsys)
-                 "select seq from SQLITE_SEQUENCE where name = ?"))))
-    (lambda (table-name db)
-      (query-value db stmt table-name))))
+;; Run an insert query and return the row id of the resulting row.  On SQLite,
+;; the rowid is the same as the primary key, if an integer primary key was
+;; defined.  See also https://www.sqlite.org/lang_createtable.html#rowid
+(define (db-insert connection statement . args)
+  (define result (apply query connection statement args))
+
+  ;; This is a problem if STATEMENT is not an insert statement
+  (unless (simple-result? result)
+    (error "db-insert: expecting simple-result for query"))
+
+  (cond ((assoc 'insert-id (simple-result-info result)) => cdr)
+        (#t #f)))
 
 
 ;;................................................. define-sql-statement ....

@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -88,23 +88,20 @@
 update WORKOUT set library_id = ?, name = ?, sport_id = ?, sub_sport_id = ?, serial = ?
 where id = ?" library-id (workout-name wk) sport-id sql-null serial id)
          (begin
-           (query-exec db "
+           (set! id (db-insert db "
 insert into WORKOUT(library_id, name, sport_id, sub_sport_id, serial)
-values(?, ?, ?, ?, ?)" library-id (workout-name wk) sport-id sql-null serial)
-           (set! id (db-get-last-pk "WORKOUT" db))))
+values(?, ?, ?, ?, ?)" library-id (workout-name wk) sport-id sql-null serial))))
 
      (query-exec db "
 delete from WORKOUT_VERSION where workout_id = ? and timestamp = ?" id timestamp)
      ;; delete all non-exported versions for the workout, they are not needed
      (query-exec db "
 delete from WORKOUT_VERSION where workout_id = ? and is_exported = 0" id)
-     (query-exec
-      db "
+     (define vid
+       (db-insert
+        db "
 insert into WORKOUT_VERSION(workout_id, timestamp, data)
-values (?, ?, ?)" id timestamp data)
-
-     (define vid (db-get-last-pk "WORKOUT_VERSION" db))
-
+values (?, ?, ?)" id timestamp data))
      (values id vid))))
 
 ;; Fetch a workout from the database.  The workout is identified by

@@ -2,7 +2,7 @@
 ;; edit-athlete-metrics.rkt -- edit or update bodyweight, sleep quality, etc
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -201,13 +201,12 @@
         (call-with-transaction
          db
          (lambda ()
-           (query-exec db "insert into ATHLETE_METRICS(
+           (db-insert db "insert into ATHLETE_METRICS(
                              timestamp, body_weight, sleep_time,
                              sleep_quality, overall_feeling,
                              description)
                            values(?, ?, ?, ?, ?, ?)"
-                       ts (or bw sql-null) (or slh sql-null) (or slq sql-null) (or ov sql-null) notes)
-           (db-get-last-pk "ATHLETE_METRICS" db)))))
+                      ts (or bw sql-null) (or slh sql-null) (or slq sql-null) (or ov sql-null) notes)))))
 
     (define (update-metrics db id)
       (let ((ts (+ (send date-field get-converted-value)

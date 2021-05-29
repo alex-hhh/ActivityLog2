@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -94,12 +94,11 @@
        (lambda ()
          (let ((start-time (dict-ref activity 'start-time #f))
                (guid (dict-ref activity 'guid #f)))
-           (query-exec db stmt start-time (or guid sql-null))
+           (define activity-id (db-insert db stmt start-time (or guid sql-null)))
            (define apps (xdata-sync-applications db activity))
            (define fields (xdata-sync-fields db activity apps))
            (parameterize ([xdata-fields fields])
-             (let ((activity-id (db-get-last-pk "ACTIVITY" db))
-                   (sessions (assq 'sessions activity)))
+             (let ((sessions (assq 'sessions activity)))
                (when sessions
                  (for-each (lambda (session)
                              (db-insert-session session activity-id db))
@@ -177,8 +176,7 @@
                                    ((void? y) sql-null)
                                    (#t sql-null))))
                          fields)))
-        (apply query-exec db stmt values))
-      (db-get-last-pk "SECTION_SUMMARY" db))))
+        (apply db-insert db stmt values)))))
 
 (define db-insert-session
   (let ((stmt (virtual-statement
@@ -209,20 +207,20 @@
         ;; head line for the session, as that saved the sub-sport correctly.
         (when (equal? sub-sport 0) (set! sub-sport sql-null))
 
-        (query-exec
-         db stmt activity-id summary-id name description
-         start-time sport-id sub-sport pool-length pool-length-unit training-effect
-         training-stress-score intensity-factor)
-        (xdata-store-summary-values db session summary-id (xdata-fields)))
-      (let ((session-id (db-get-last-pk "A_SESSION" db))
-            (laps (assq 'laps session))
-            (devices (assq 'devices session)))
-        (when laps
-              (for-each (lambda (lap) (db-insert-lap lap session-id db))
-                        (cdr laps)))
-        (when devices
-          (for ([di (make-devinfo-list (cdr devices))])
-            (put-devinfo db di session-id)))))))
+        (define session-id
+          (db-insert
+           db stmt activity-id summary-id name description
+           start-time sport-id sub-sport pool-length pool-length-unit training-effect
+           training-stress-score intensity-factor))
+        (xdata-store-summary-values db session summary-id (xdata-fields))
+        (let ((laps (assq 'laps session))
+              (devices (assq 'devices session)))
+          (when laps
+            (for-each (lambda (lap) (db-insert-lap lap session-id db))
+                      (cdr laps)))
+          (when devices
+            (for ([di (make-devinfo-list (cdr devices))])
+              (put-devinfo db di session-id))))))))
 
 (define db-insert-lap
   (let ((stmt (virtual-statement
@@ -231,13 +229,12 @@
     (lambda (lap session-id db)
       (let ((summary-id (db-insert-section-summary lap db))
             (start-time (dict-ref lap 'start-time sql-null)))
-        (query-exec db stmt session-id start-time summary-id)
-        (xdata-store-summary-values db lap summary-id (xdata-fields)))
-      (let ((lap-id (db-get-last-pk "A_LAP" db))
-            (lengths (assq 'lengths lap)))
-        (when lengths
+        (define lap-id (db-insert db stmt session-id start-time summary-id))
+        (xdata-store-summary-values db lap summary-id (xdata-fields))
+        (let ((lengths (assq 'lengths lap)))
+          (when lengths
             (for-each (lambda (length) (db-insert-length length lap-id db))
-                      (cdr lengths)))))))
+                      (cdr lengths))))))))
 
 (define db-insert-length
   (let ((stmt (virtual-statement
@@ -246,13 +243,12 @@
     (lambda (length session-id db)
       (let ((summary-id (db-insert-section-summary length db))
             (start-time (dict-ref length 'start-time sql-null)))
-        (query-exec db stmt session-id start-time summary-id)
-        (xdata-store-summary-values db length summary-id (xdata-fields)))
-      (let ((length-id (db-get-last-pk "A_LENGTH" db))
-            (track (assq 'track length)))
-        (when track
-              (for-each (lambda (trackpoint) (db-insert-trackpoint trackpoint length-id db))
-                        (cdr track)))))))
+        (define length-id (db-insert db stmt session-id start-time summary-id))
+        (xdata-store-summary-values db length summary-id (xdata-fields))
+        (let ((track (assq 'track length)))
+          (when track
+            (for-each (lambda (trackpoint) (db-insert-trackpoint trackpoint length-id db))
+                      (cdr track))))))))
 
 (define db-insert-trackpoint
   (let ((stmt (virtual-statement
@@ -300,8 +296,7 @@
                          (lambda (e)
                            (display (format "Failed to insert record: ~a, ~a~%" values e))
                            (raise e))))
-          (apply query-exec db stmt length-id values)
-          (define id (db-get-last-pk "A_TRACKPOINT" db))
+          (define id (apply db-insert db stmt length-id values))
           (xdata-store-values db trackpoint id (xdata-fields)))))))
 
 
@@ -320,8 +315,7 @@
       (when appid
         (define id (query-maybe-value db "select id from XDATA_APP where app_guid = ?" appid))
         (unless id
-          (query-exec db "insert into XDATA_APP(app_guid, dev_guid) values(?, ?)" appid devid)
-          (set! id (db-get-last-pk "XDATA_APP" db)))
+          (set! id (db-insert db "insert into XDATA_APP(app_guid, dev_guid) values(?, ?)" appid devid)))
         (hash-set! result appid id))))
   result)
 
@@ -348,9 +342,9 @@
                       db "select id from XDATA_FIELD where app_id = ? and name = ?"
                       app name))
           (unless id
-            (query-exec db "insert into XDATA_FIELD(app_id, name, unit_name, native_message, native_field) values (?, ?, ?, ?, ?)"
-                        app name units native-msg native-field)
-            (set! id (db-get-last-pk "XDATA_FIELD" db)))
+            (set! id
+                  (db-insert db "insert into XDATA_FIELD(app_id, name, unit_name, native_message, native_field) values (?, ?, ?, ?, ?)"
+                             app name units native-msg native-field)))
           (hash-set! result (or key (string->symbol name)) id)))))
   result)
 
@@ -522,8 +516,7 @@
             (product (let ((p (devinfo-product di)))
                        (cond ((number? p) p)
                              (#t sql-null)))))
-        (query-exec db stmt-put-equipment (devinfo-name di) manufacturer product (devinfo-sn di))
-        (set! id (db-get-last-pk "EQUIPMENT" db))))
+        (set! id (db-insert db stmt-put-equipment (devinfo-name di) manufacturer product (devinfo-sn di)))))
     ;; Put an entry into "EQUIPMENT_VER" if it does not exist, or its
     ;; timestamp is older than ours.
     (let ((row (query-maybe-row db "select id, timestamp from EQUIPMENT_VER where equipment_id = ?" id)))

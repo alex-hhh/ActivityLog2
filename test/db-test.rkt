@@ -76,32 +76,28 @@
     (call-with-transaction
      db
      (lambda ()
-       (query-exec
-        db
-        "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
+       (define ssid
+         (db-insert
+          db
+          "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
              values(?, ?, ?, ?)"
-        (or duration sql-null)
-        (or duration sql-null)
-        (or distance sql-null)
-        (or avg-speed sql-null))
-       (let ((ssid (db-get-last-pk "SECTION_SUMMARY" db)))
-         (query-exec db "insert into ACTIVITY(start_time) values (?)" start-time)
-         (let ((aid (db-get-last-pk "ACTIVITY" db)))
-           (query-exec
-            db
-            "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
+          (or duration sql-null)
+          (or duration sql-null)
+          (or distance sql-null)
+          (or avg-speed sql-null)))
+       (define aid (db-insert db "insert into ACTIVITY(start_time) values (?)" start-time))
+       (db-insert
+        db
+        "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
                  values(?, ?, ?, ?, ?, ?, ?, ?)"
-            (or name sql-null)
-            (or desc sql-null)
-            aid
-            start-time
-            (or (car sport) sql-null)
-            (or (cdr sport) sql-null)
-            (if (eqv? rpe-scale 0) sql-null rpe-scale)
-            ssid)))
-       (let ((sid (db-get-last-pk "A_SESSION" db)))
-         sid)))))
-
+        (or name sql-null)
+        (or desc sql-null)
+        aid
+        start-time
+        (or (car sport) sql-null)
+        (or (cdr sport) sql-null)
+        (if (eqv? rpe-scale 0) sql-null rpe-scale)
+        ssid)))))
 
 (define (db-create-demo-labels db)
   (query-exec db "insert into LABEL (id, name, description) values ('1', 'Label1', ''), ('2', 'Label2', '')"))

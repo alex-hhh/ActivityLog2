@@ -2,7 +2,7 @@
 ;; edit-lap-swim.rkt -- edit recording errors in lap swimming sessions
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -833,24 +833,24 @@ values (?, ?, ?, ?, ?, ?)")))
 (define (insert-length db pool-length ldata)
   (let ((avg-cadence (exact-truncate (* 60 (/ (ldata-stroke-count ldata) (ldata-elapsed ldata)))))
         (avg-speed (/ pool-length (ldata-elapsed ldata))))
-    (query-exec db store-ldata1-sql
-                (ldata-duration ldata)
-                (ldata-elapsed ldata)
-                (ldata-stroke-count ldata)
-                (ldata-stroke-type ldata)
-                avg-speed
-                avg-cadence)
-    (let ((summary-id (db-get-last-pk "SECTION_SUMMARY" db)))
-      (query-exec db store-ldata2-sql
-                  (ldata-lap-id ldata)
-                  (ldata-timestamp ldata)
-                  summary-id)
-      (let ((length-id (db-get-last-pk "A_LENGTH" db)))
-        (query-exec db store-ldata3-sql
-                    length-id
-                    (+ (ldata-timestamp ldata) (ldata-duration ldata))
-                    avg-speed)
-        length-id))))
+    (define summary-id
+      (db-insert db store-ldata1-sql
+                 (ldata-duration ldata)
+                 (ldata-elapsed ldata)
+                 (ldata-stroke-count ldata)
+                 (ldata-stroke-type ldata)
+                 avg-speed
+                 avg-cadence))
+    (define length-id
+      (db-insert db store-ldata2-sql
+                 (ldata-lap-id ldata)
+                 (ldata-timestamp ldata)
+                 summary-id))
+    (db-insert db store-ldata3-sql
+               length-id
+               (+ (ldata-timestamp ldata) (ldata-duration ldata))
+               avg-speed)
+    length-id))
 
 ;; Delete a length from the database, returns the LAP-ID that contained this
 ;; length.  The lap will now be outdated and will need to be updated.

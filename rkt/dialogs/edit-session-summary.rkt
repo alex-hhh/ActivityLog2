@@ -2,7 +2,7 @@
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -277,32 +277,31 @@ select S.name as title,
           (call-with-transaction
            db
            (lambda ()
-             (query-exec
-              db
-              "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
+             (define ssid
+               (db-insert
+                db
+                "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
              values(?, ?, ?, ?)"
-              (or duration sql-null)
-              (or duration sql-null)
-              (or distance sql-null)
-              (or avg-speed sql-null))
-             (let ((ssid (db-get-last-pk "SECTION_SUMMARY" db)))
-               (query-exec db "insert into ACTIVITY(start_time) values (?)" start-time)
-               (let ((aid (db-get-last-pk "ACTIVITY" db)))
-                 (query-exec
-                  db
-                  "insert into A_SESSION(name, description, activity_id, time_zone_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
+                (or duration sql-null)
+                (or duration sql-null)
+                (or distance sql-null)
+                (or avg-speed sql-null)))
+             (define aid (db-insert db "insert into ACTIVITY(start_time) values (?)" start-time))
+             (define sid
+               (db-insert
+                db
+                "insert into A_SESSION(name, description, activity_id, time_zone_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
                  values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                  (or name sql-null)
-                  (or desc sql-null)
-                  aid
-                  tzid
-                  start-time
-                  (or (car sport) sql-null)
-                  (or (cdr sport) sql-null)
-                  (if (eqv? rpe-scale 0) sql-null rpe-scale)
-                  ssid)))
-             (let* ((sid (db-get-last-pk "A_SESSION" db))
-                    (df (session-df db sid)))
+                (or name sql-null)
+                (or desc sql-null)
+                aid
+                tzid
+                start-time
+                (or (car sport) sql-null)
+                (or (cdr sport) sql-null)
+                (if (eqv? rpe-scale 0) sql-null rpe-scale)
+                ssid))
+             (let* ((df (session-df db sid)))
                (maybe-update-session-tss sid df db)
                (send labels-input update-session-tags sid)
                (send equipment-input update-session-tags sid)

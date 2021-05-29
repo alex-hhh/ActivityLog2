@@ -2,7 +2,7 @@
 ;; view-workouts.rkt -- workouts management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -134,8 +134,7 @@
              (existing (query-list db "select name from WORKOUT_LIBRARY"))
              (library-name (send library-dialog show-dialog toplevel existing)))
         (when library-name
-          (query-exec db "insert into WORKOUT_LIBRARY(name) values(?)" library-name)
-          (define id (db-get-last-pk "WORKOUT_LIBRARY" db))
+          (define id (db-insert db "insert into WORKOUT_LIBRARY(name) values(?)" library-name))
           (send target after-new-library id))))
 
     (define (on-rename-library m e)
