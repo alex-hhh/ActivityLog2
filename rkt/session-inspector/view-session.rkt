@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -88,7 +88,7 @@
 		       [stretchable-height #f]
 		       [alignment '(left top)]))
 
-    (define session-title 
+    (define session-title
       (new message% [parent panel]
            [label "Untitled"]
            [stretchable-width #t]
@@ -101,7 +101,7 @@
            [stretchable-width #t]
            [font *title-font*]))
 
-    (define start-time 
+    (define start-time
       (new message% [parent panel]
            [stretchable-width #t]
            [font *label-font*]
@@ -119,7 +119,7 @@
          [label "Activity type:"]
          [font *label-font*])
 
-    (define sport-name 
+    (define sport-name
       (new message% [parent sport-panel]
            [stretchable-width #t]
            [label "Other"]
@@ -179,6 +179,8 @@
       (switch-to-edit-mode))
 
     (define (on-save-headline)
+      (unless session-id
+        (error (format "on-save-headline called with bad session-id: ~a~%" session-id)))
       (update-session-healine session-id database)
       (switch-to-view-mode)
       (log-event 'session-updated session-id))
@@ -209,17 +211,21 @@
 
     (define (switch-to-view-mode)
       (set! is-editing? #f)
-      (send sport-icon set-label 
+      (send sport-icon set-label
             (get-sport-bitmap-colorized sport sub-sport))
       (send sport-name set-label (get-sport-name sport sub-sport))
       (send session-title set-label headline)
-      (send start-time set-label (format-date timestamp time-zone))
+      (when timestamp              ; NOTE: it is ok for the time-zone to be #f
+        (send start-time set-label (format-date timestamp time-zone)))
       (send panel change-children
             (lambda (old)
               (list session-title start-time sport-panel)))
       (send panel0 change-children
             (lambda (old)
-              (list begining-spacer sport-icon panel edit-button end-spacer))))
+              (list begining-spacer sport-icon panel edit-button end-spacer)))
+      ;; Edit button is only enabled if the session id is valid (i.e. we
+      ;; actually have a session)
+      (send edit-button enable (exact-positive-integer? session-id)))
 
     (define (update-session-healine sid db)
       (when (and db sid)
@@ -239,13 +245,23 @@ update A_SESSION set time_zone_id = (select id from E_TIME_ZONE where name = ?)
 where id = ?" time-zone sid))))))
 
     (define/public (set-session session)
-      (set! headline (dict-ref  session 'name "Untitled"))
-      (set! sport (session-sport session))
-      (set! sub-sport (session-sub-sport session))
-      (set! session-id (dict-ref session 'database-id #f))
-      (set! time-zone (session-time-zone session))
-      (set! timestamp (session-start-time session))
-      (send start-time set-label (format-date timestamp (session-time-zone session)))
+      (if session
+          (begin
+            (set! headline (dict-ref  session 'name "Untitled"))
+            (set! sport (session-sport session))
+            (set! sub-sport (session-sub-sport session))
+            (set! session-id (dict-ref session 'database-id #f))
+            (set! time-zone (session-time-zone session))
+            (set! timestamp (session-start-time session))
+            (send start-time set-label (format-date timestamp (session-time-zone session))))
+          (begin
+            (set! headline "")
+            (set! sport #f)
+            (set! sub-sport #f)
+            (set! session-id #f)
+            (set! time-zone #f)
+            (set! timestamp #f)
+            (send start-time set-label "")))
       (switch-to-view-mode))
 
     (define/public (set-database db)
@@ -281,7 +297,7 @@ where id = ?" time-zone sid))))))
 
     (define header (new session-header% [parent session-panel]))
 
-    (define detail-panel 
+    (define detail-panel
       (new tab-panel%
            [stretchable-height #t]
            [choices '("* None *")]
@@ -317,7 +333,7 @@ where id = ?" time-zone sid))))))
     (define model-params
       (make-tdata "Model Params" detail-panel
                   (lambda (panel) (new model-parameters-panel% [parent panel]))))
-    
+
     (define installed-tabs '())
 
     (define session-id #f)
@@ -338,6 +354,8 @@ where id = ?" time-zone sid))))))
         (send detail-panel end-container-sequence)))
 
     (define (set-session-df sdf)
+      (unless (data-frame? sdf)
+        (error "view-session%/set-session-df: expecting a data-frame"))
       (set! data-frame sdf)
       (define is-lap-swim? (df-get-property data-frame 'is-lap-swim?))
       (define sport (df-get-property data-frame 'sport))
@@ -372,21 +390,22 @@ where id = ?" time-zone sid))))))
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs))))
-    
+
     (define/public (set-session sid)
       (set! generation (add1 generation))
       (set! session-id sid)
-      (set! session (db-fetch-session sid the-database))
+      (set! session (and session-id the-database (db-fetch-session sid the-database)))
 
       ;; The session data frame takes a while to fetch, so we do it in a
       ;; separate thread.
       (set! data-frame #f)
-      (queue-task
-       "fetch-session-data-frame"
-       (lambda ()
-         (let ((df (session-df the-database sid)))
-           (queue-callback
-            (lambda () (set-session-df df))))))
+      (when (and session-id the-database)
+        (queue-task
+         "fetch-session-data-frame"
+         (lambda ()
+           (let ((df (session-df the-database sid)))
+             (queue-callback
+              (lambda () (set-session-df df)))))))
 
       (send header set-session session)
       (send header set-database the-database)
@@ -396,14 +415,15 @@ where id = ?" time-zone sid))))))
       (let ((tabs (list overview)))
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs)))
-      
+
       (send detail-panel set-selection 0)
       (switch-tabs 0))
 
     (define (refresh-session-summary)
-      (set! session (db-fetch-session session-id the-database))
-      (send header set-session session)
-      (send (tdata-contents overview) set-session session data-frame))
+      (when (and session-id the-database)
+        (set! session (db-fetch-session session-id the-database))
+        (send header set-session session)
+        (send (tdata-contents overview) set-session session data-frame)))
 
     (define (refresh-session-data)
       (set-session session-id))
@@ -462,7 +482,7 @@ where id = ?" time-zone sid))))))
 
     ;; Activity operations interface implementation
 
-    (define/public (get-top-level-window) 
+    (define/public (get-top-level-window)
       (send session-panel get-top-level-window))
     (define/public (get-database) the-database)
 
@@ -470,16 +490,18 @@ where id = ?" time-zone sid))))))
     (define/public (get-selected-guid)
       (if session-id
           (query-maybe-value
-           the-database 
+           the-database
            "select A.guid
-              from ACTIVITY A, A_SESSION S 
+              from ACTIVITY A, A_SESSION S
              where S.activity_id = A.id and S.id = ?"
            session-id)
           #f))
     (define/public (get-selected-sport)
-      (let ((sport (session-sport session))
-            (sub-sport (session-sub-sport session)))
-        (cons sport sub-sport)))
+      (if session
+          (let ((sport (session-sport session))
+                (sub-sport (session-sub-sport session)))
+            (cons sport sub-sport))
+          (cons #f #f)))
     (define/public (after-update sid)
       (activated))
     (define/public (after-new sid)

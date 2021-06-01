@@ -657,20 +657,21 @@ select ifnull(val, 0)
 
     (define/public (set-session session df (xdata-badges #f))
       (with-edit-sequence
-       (lambda ()
-         (remove-all-snips)
-         (for ((bdef (in-list (get-badge-definitions (session-sport session)))))
-           (let ((snip (new badge-snip% [badge-definition bdef] [session session] [data-frame df])))
-             (when (send snip good?)
-               (insert snip))))
-         (when xdata-badges
-           (let ((xdata-snip (new badge-snip%
-                                  [badge-definition xdata-badges]
-                                  [session session]
-                                  [data-frame df])))
-             (when (send xdata-snip good?)
-               (insert xdata-snip))))
-         (arrange-badges))))
+        (lambda ()
+          (remove-all-snips)
+          (when (and session df)
+            (for ((bdef (in-list (get-badge-definitions (session-sport session)))))
+              (let ((snip (new badge-snip% [badge-definition bdef] [session session] [data-frame df])))
+                (when (send snip good?)
+                  (insert snip))))
+            (when xdata-badges
+              (let ((xdata-snip (new badge-snip%
+                                     [badge-definition xdata-badges]
+                                     [session session]
+                                     [data-frame df])))
+                (when (send xdata-snip good?)
+                  (insert xdata-snip))))
+            (arrange-badges)))))
 
     (send this set-selection-visible #f)
 
@@ -761,13 +762,20 @@ select ifnull(val, 0)
       (set! the-session #f) ; prevent saving of data to the wrong session
       (send badge-pb set-session session df
             (make-xdata-badge-definition the-database))
-      (let ((session-id (dict-ref session 'database-id #f)))
-        (when session-id
-          (send labels-field setup-for-session the-database session-id)
-          (send equipment-field setup-for-session the-database session-id)
-          (let ((desc (dict-ref session 'description #f)))
-            (send description-field set-contents desc)))
-        (set! the-session session)))
+      (if session
+          (let ((session-id (dict-ref session 'database-id #f)))
+            (when session-id
+              (send labels-field setup-for-session the-database session-id)
+              (send equipment-field setup-for-session the-database session-id)
+              (let ((desc (dict-ref session 'description #f)))
+                (send description-field set-contents desc))))
+          (begin
+            (send labels-field clear-contents)
+            (send labels-field set-available-tags '())
+            (send equipment-field clear-contents)
+            (send equipment-field set-available-tags '())
+            (send description-field set-contents "")))
+      (set! the-session session))
 
     (define/public (unsaved-edits?)
       (send description-field unsaved-edits?))

@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -279,13 +279,37 @@
       (let-values (((w h x y) (send dc get-text-extent "»" font #t)))
         (set! expand-label (lbl "»" w h "white" #f #f))))
 
+    ;; Unless this is zero, the canvas will not be refreshed when `clear` or
+    ;; `append` are called.  Used with
+    ;; `begin-edit-sequence`/`end-edit-sequence` this allows modifying the
+    ;; contents of this control without intermediate canvas refreshes (and
+    ;; thus flickering).
+    (define edit-sequence-level 0)
+
+    ;; Start or increment an edit sequence.  The canvas will not be refreshed
+    ;; when the contents of the control are modified inside an edit sequence.
+    ;; Edit sequences can be nested and every call to `begin-edit-sequence`
+    ;; must be paired with a call to `end-edit-sequence`
+    (define/public (begin-edit-sequence)
+      (set! edit-sequence-level (add1 edit-sequence-level)))
+
+    ;; Complete an edit sequence started by `begin-edit-sequence`.  If
+    ;; `edit-sequence-level` drops to 0 (i.e. no more nested edit sequences),
+    ;; also request a canvas refresh.
+    (define/public (end-edit-sequence)
+      (when (> edit-sequence-level 0)
+        (set! edit-sequence-level (sub1 edit-sequence-level)))
+      (when (zero? edit-sequence-level)
+        (send canvas refresh)))
+
     ;; Clear the contents of the widget
     (define/public (clear)
       (set! labels '())
       (set! lwidth #f)
       (set! lheight #f)
       (adjust-canvas-size canvas)
-      (send canvas refresh))
+      (when (zero? edit-sequence-level)
+        (send canvas refresh)))
 
     ;; Add a new label to the widget.  The normal, mouse-over and selected
     ;; colors can be overridden for this label.
@@ -300,7 +324,8 @@
             (set! lwidth (if lwidth (max lwidth w) w))
             (set! lheight (if lheight (max lheight h) h)))))
       (adjust-canvas-size canvas)
-      (send canvas refresh))
+      (when (zero? edit-sequence-level)
+        (send canvas refresh)))
 
     ;; Return the index of the currently selected item (0 is the first actual
     ;; label, NOT the collapse button).  Returns #f if no item is selected.

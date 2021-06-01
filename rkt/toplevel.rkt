@@ -2,7 +2,7 @@
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,7 @@
 
 (require db/base
          framework/splash
+         racket/async-channel
          racket/class
          racket/gui/base
          racket/match
@@ -280,7 +281,6 @@
       (if (and w (is-qresults-object? w))
           (send w get-qresults-object)
           #f)))
-
 
   (define view-menu (new menu% [parent menu-bar] [label "&View"]))
 
@@ -905,7 +905,8 @@
 
     ;;; Construct the individual views (sections) of the application
 
-    (define the-sections '())
+    (define all-sections '())
+    (define visible-sections '())
     (define the-selected-section #f)
 
     (define section-selector
@@ -922,7 +923,7 @@
                [name name]
                [tag tag]
                [content-constructor content-constructor]))
-        (set! the-sections (cons page the-sections)))
+        (set! all-sections (cons page all-sections)))
 
       ;; NOTE: sections need to be added in the reverse order in which they
       ;; will appear in the `section-selector'
@@ -968,11 +969,29 @@
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
       )
 
+    ;; Monitor GUI changes -- in particular we look for SESSION-DELETED
+    ;; messages and hide the session view if it was showing a session which
+    ;; was just deleted.
+    (define change-notification-source (make-log-event-source))
+
+    (define change-processing-thread
+      (thread/dbglog
+       #:name "toplevel%/change-notification-thread"
+       (lambda ()
+         (let loop ((item (async-channel-get change-notification-source)))
+           (when item
+             (match-define (list tag data) item)
+             (case tag
+               ((session-deleted)
+                (queue-callback
+                 (lambda () (hide-session-view-if-showing-session data)))))
+             (loop (async-channel-get change-notification-source)))))))
+
     ;; Configure the section-selector
 
-    (send section-selector clear)
-    (for ((section the-sections))
-      (send section-selector append (send section get-name)))
+    ;; Initially, the Session inspector is not visible, since there is no
+    ;; session selected for inspection...
+    (hide-session-view)
 
     ;;; Construct the toplevel menu bar
 
@@ -982,7 +1001,7 @@
           (wop (new workout-forwarder% [toplevel-application this])))
       (make-file-menu mb this)
       (make-edit-menu mb this)
-      (make-view-menu mb this the-sections)
+      (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
       (make-athlete-menu mb amop)
       (make-activtiy-menu mb aop)
       (make-workout-menu mb wop)
@@ -1003,32 +1022,33 @@
     ;; care about them (and therefore can be discarded)
     (define (check-unsaved-edits)
       (define section (get-section-by-tag 'session-view))
-      (define unsaved-edits? (send section unsaved-edits?))
-      (if unsaved-edits?
-          (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
-                                             "Review" "Discard" #f
-                                             tl-frame
-                                             '(stop default=1)
-                                             #f)))
-            (cond ((eq? #f mresult)
-                   ;; Just cancel the close
-                   #f)
-                  ((eq? 1 mresult)
-                   (switch-to-section section)
-                   (send section-selector select (get-section-index 'session-view) #t)
-                   #f)
-                  ((eq? 2 mresult)
-                   ;; User wants the changes discarded
-                   #t)
-                  (#t #f)))
-          #t))
+      (when section                     ; only if it is visible
+        (define unsaved-edits? (send section unsaved-edits?))
+        (if unsaved-edits?
+            (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
+                                               "Review" "Discard" #f
+                                               tl-frame
+                                               '(stop default=1)
+                                               #f)))
+              (cond ((eq? #f mresult)
+                     ;; Just cancel the close
+                     #f)
+                    ((eq? 1 mresult)
+                     (switch-to-section section)
+                     (send section-selector select (get-section-index 'session-view) #t)
+                     #f)
+                    ((eq? 2 mresult)
+                     ;; User wants the changes discarded
+                     #t)
+                    (#t #f)))
+            #t)))
 
     (define (on-toplevel-close (exit-application? #f))
       ;; NOTE: we might be called twice
       (dbglog "closing toplevel% for ~a" database-path)
 
       ;; Tell all our sections to save their visual layout
-      (for-each (lambda (section) (send section save-visual-layout)) the-sections)
+      (for-each (lambda (section) (send section save-visual-layout)) visible-sections)
 
       (send section-selector save-visual-layout)
 
@@ -1055,15 +1075,58 @@
         (shutdown-map-tile-workers)
         (exit 0)))
 
+    ;; Return the section defined by the TAG symbol
     (define (get-section-by-tag tag)
-      (findf (lambda (s) (eq? tag (send s get-tag))) the-sections))
+      (findf (lambda (s) (eq? tag (send s get-tag))) all-sections))
 
+    ;; Return the position of the section identified by the TAG symbol in the
+    ;; section-list control. Returns #f if the section is not visible (e.g the
+    ;; session-view might not be visible).
     (define (get-section-index tag)
       (let loop ((index 0)
-                 (sections the-sections))
+                 (sections visible-sections))
         (cond ((null? sections) #f)
               ((eq? tag (send (car sections) get-tag)) index)
               (#t (loop (+ index 1) (cdr sections))))))
+
+    ;; Session view is not enabled unless a session is about to be inspected.
+    ;; This method will check and enable the session view, unless it is
+    ;; already enabled and visible.
+    (define/public (show-session-view)
+      (unless (for/first ([s (in-list visible-sections)]
+                          #:when (equal? (send s get-tag) 'session-view)) s)
+        (set! visible-sections all-sections)
+        (send section-selector begin-edit-sequence)
+        (send section-selector clear)
+        (for ([s (in-list visible-sections)])
+          (send section-selector append (send s get-name)))
+        (send section-selector end-edit-sequence)))
+
+    ;; Hide the "Session" tab
+    (define/public (hide-session-view)
+      (set! visible-sections
+            (for/list ([s (in-list all-sections)]
+                       #:unless (equal? (send s get-tag) 'session-view))
+              s))
+      (send section-selector begin-edit-sequence)
+      (send section-selector clear)
+      (for ([s (in-list visible-sections)])
+        (send section-selector append (send s get-name)))
+      (send section-selector end-edit-sequence))
+
+    ;; Hide the session view if it was showing SID or no session (#f).  This
+    ;; is used to hide the session view if the session it was showing was just
+    ;; deleted.
+    (define/public (hide-session-view-if-showing-session sid)
+      (define s (get-section-by-tag 'session-view))
+      (define visiting-sid (and s (send (send s get-content) get-selected-sid)))
+      ;; Note that the session view is also monitoring change events and,
+      ;; given that we don't control the order of event processing, it might
+      ;; have already set its own SID to #f, so we hide the view if the SID we
+      ;; are inspecting is #f (i.e. no session is inspected), or the same SID
+      ;; as we are asked to process...
+      (when (or (not visiting-sid) (equal? visiting-sid sid))
+        (hide-session-view)))
 
     (define (inspect-session dbid)
       (when (check-unsaved-edits)
@@ -1071,8 +1134,10 @@
           (lambda ()
             (let ((s (get-section-by-tag 'session-view)))
               (send (send s get-content) set-session dbid)
+              (show-session-view)
               (switch-to-section s)
               (send section-selector select (get-section-index 'session-view) #t))))))
+
     (set-inspect-callback inspect-session)
 
     (define (switch-to-section section)
@@ -1087,7 +1152,7 @@
         (send tl-panel reflow-container)))
 
     (define (switch-to-section-by-num n)
-      (let ((p (list-ref the-sections n)))
+      (let ((p (list-ref visible-sections n)))
         (switch-to-section (if n p #f))))
 
     (define/public (select-section tag)

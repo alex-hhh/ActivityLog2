@@ -33,22 +33,29 @@
          "fit-file/fit-file.rkt"
          "utilities.rkt")
 
-(provide db-import-activity-from-file)
-(provide db-import-activities-from-directory)
-(provide db-re-import-activity)
-(provide db-insert-activity)
-(provide db-fetch-activity)
-(provide db-fetch-session)
-(provide db-delete-session)
-(provide db-delete-activity)
-(provide db-delete-activity-hard)
-(provide db-export-raw-data)
-(provide db-get-activity-id)
-(provide db-get-seasons)
-(provide db-extract-activity-raw-data)
 
 (provide/contract
- (get-session-start-time (-> exact-nonnegative-integer? (or/c number? #f))))
+ (get-session-start-time (-> exact-nonnegative-integer? (or/c number? #f)))
+
+ ;; NOTE: some of the parameters and return types for these functions are
+ ;; complex association lists and we just use ANY/C for those for now...
+
+ (db-import-activity-from-file (-> path-string? connection? any/c))
+ (db-import-activities-from-directory (->* (path-string? connection?)
+                                           ((-> path-string? symbol? any/c any/c))
+                                           any/c))
+ (db-re-import-activity (-> exact-nonnegative-integer? connection? any/c))
+ (db-insert-activity (-> any/c connection? any/c))
+ (db-fetch-activity (-> exact-nonnegative-integer? connection? any/c))
+ (db-fetch-session (-> exact-nonnegative-integer? connection? any/c))
+ (db-delete-session (-> exact-nonnegative-integer? connection? any/c))
+ (db-delete-activity (-> exact-nonnegative-integer? connection? any/c))
+ (db-delete-activity-hard (-> exact-nonnegative-integer? connection? any/c))
+ (db-export-raw-data (-> exact-nonnegative-integer? connection? path-string? any/c))
+ (db-get-activity-id (-> string? connection? (or/c #f exact-nonnegative-integer?)))
+ (db-get-seasons (-> connection? any/c))
+ (db-extract-activity-raw-data (-> exact-nonnegative-integer? connection? (or/c bytes? #f))))
+
 
 
 ;................................................... database utilities ....
