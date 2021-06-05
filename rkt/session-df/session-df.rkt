@@ -109,6 +109,11 @@
 ;; Create a data-frame% from the session's trackpoints.  Some data series come
 ;; from the database (e.g. heart rate), some are calculated (e.g. heart rate
 ;; zone).  See also `session-df`, which is the function you want to use.
+;;
+;; NOTE: This function will return an empty data frame if a non-existent
+;; session id is supplied.  Unfortunately, some other code relies on this
+;; behavior (e.g. when a session is deleted in one thread while another thread
+;; tries to read in a list of sessions to compute summary values...)
 (define (make-session-data-frame db session-id)
 
   (define sport

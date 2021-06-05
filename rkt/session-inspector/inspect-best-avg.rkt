@@ -420,8 +420,11 @@
           (when bests-data
             (let ((closest (lookup-duration/closest bests-data x)))
               (when closest
-                (define sid (car closest))
-                (add-info #f (date-time->string (get-session-start-time sid))))))
+                ;; See #70, the session might have been deleted from the
+                ;; database
+                (define session-start-time (get-session-start-time (car closest)))
+                (when session-start-time
+                  (add-info #f (date-time->string session-start-time))))))
           (add-data-point "Best" best-fn format-value)
           (add-data-point axis-name mean-max-plot-fn format-value)
           (add-info "Duration" (duration->string x))
