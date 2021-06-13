@@ -218,14 +218,14 @@
     (define the-elevation-graph #f)
 
     (define grade+alt-graph
-      (new grade+alt-graph%
+      (new alt+shaded-grade-graph%
            [parent elevation-graph-pane]
            [min-height 150]
            [style '(deleted)]
            [hover-callback (lambda (x) (on-hover x))]))
 
     (define grade+calt-graph
-      (new grade+calt-graph%
+      (new calt+shaded-grade-graph%
            [parent elevation-graph-pane]
            [min-height 150]
            [style '(deleted)]

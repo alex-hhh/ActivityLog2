@@ -30,8 +30,8 @@
          racket/list
          racket/match
          racket/math
-         racket/format
          racket/vector
+         colormaps                      ; needed to register the color maps
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
@@ -39,19 +39,16 @@
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
          "../session-df/xdata-series.rkt"
-         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
 (provide graph-panel%)
-(provide elevation-graph% grade+calt-graph% grade+alt-graph%)
+(provide elevation-graph% grade+calt-graph% grade+alt-graph%
+         calt+shaded-grade-graph% alt+shaded-grade-graph%)
 
 (define *header-font*
   (send the-font-list find-or-create-font 15 'default 'normal 'normal))
-
-(define graph-title-font
-  (send the-font-list find-or-create-font 9 'default 'normal 'normal))
 
 
 ;;.............................................................. helpers ....
@@ -168,6 +165,178 @@
     (define color (cdr (assoc factor factor-colors)))
     (make-plot-renderer data yr #:color color #:width 3.0)))
 
+
+;; Construct a function which converts a grade value into an index for a color
+;; map.  COLOR-COUNT represents the number of colors in the color map, while
+;; INVERT? indicates that the color map is to be inverted (i.e. as the grade
+;; goes up, the color map color index goes down).  This function is intended
+;; to be used to assign colors to grade values for a diverging color map, for
+;; an example, see the colormaps package at:
+;; https://docs.racket-lang.org/colormaps/index.html
+;;
+;; The returned function will convert a grade value such that grade values
+;; between -1, 1 fall in the middle of the color map (if there are an odd
+;; number of colors, the middle color index will be the range -1, 1, if there
+;; is an even number of colors, the middle two colors are the ranges -1, 0 and
+;; 0, 1, from there colors are assigned to each side using a log2 base for the
+;; grade (i.e. next colors are grades 1 to 2%, followed by 2% to 4% etc and a
+;; similar thing happens for negative grades.
+;;
+;; For example, if there are 7 colors in a color map:
+;;
+;; color 0 will represent grades less than -4%
+;; color 1 between -4 and -2%
+;; color 2 between -2 and -1%
+;; color 3 (the middle one) between -1, to 1%
+;; color 4 between 1% and 2%
+;; color 5 between 2 and 4%
+;; color 6 grades greater than 4%
+
+(define (make-grade-color-indexer color-count invert?)
+  (define offset (exact-floor (/ color-count 2)))
+  (lambda (grade)
+    (define index0
+      (* (if invert? -1 1)
+         (sgn grade)
+         (exact-floor
+          (let ([absolute-grade (abs grade)])
+            (if (< absolute-grade 1.0) 0 (add1 (log absolute-grade 2)))))))
+    (define index1
+      (if (odd? color-count)
+          (+ offset index0)
+          (if (> grade 0)
+              (+ offset index0)
+              (+ offset -1 index0))))
+    (inexact->exact (min (sub1 color-count) (max 0 index1)))))
+
+;; Create a list of "spans" of constant color from a data set, this is used in
+;; SHADED-AREA plots to determine the span along the X axis of each constant
+;; shade (color).
+;;
+;; DATA is the input data set, as produced by `extract-data`: it is a vector
+;; of elements, each element being a (vector x y ...).  DATUM->COLOR is a
+;; function which converts the Y value into an integer, representing a color
+;; in a color map.  For an example of constructing such a function, see
+;; MAKE-GRADE-COLOR-INDEXER.
+;;
+;; Returns a list of spans, each span is a (list START END COLOR) where START
+;; and END correspond X values in the original data set (although new X data
+;; points can be created through interpolation).  The spans are continuous,
+;; i.e. then END of one span corresponds to the START of the next one.
+(define (make-shade-area-spans data datum->color)
+  ;; For distance series, which are in KM or Miles, EPSILON is about 1 meter.
+  ;; For time series, this will be 1 ms, which is probably too much...
+  (define epsilon 1e-3)
+
+  (define (find-change-point x1 y1 x2 y2 c)
+    (let loop ([x1 x1]
+               [y1 y1]
+               [x2 x2]
+               [y2 y2])
+      (if (< (- x2 x1) epsilon)
+          (values x2 y2)
+          (let* ([x-len (- x2 x1)]
+                 [y-height (- y2 y1)]
+                 [mid-x (+ x1 (/ x-len 2.0))]
+                 [mid-y (+ y1 (/ y-height 2.0))])
+            (if (equal? (datum->color mid-y) c)
+                (loop mid-x mid-y x2 y2)
+                (loop x1 y1 mid-x mid-y))))))
+
+  (define limit (vector-length data))
+  (match-define (vector xstart ystart zstart ...) (vector-ref data 0))
+  (define start-color (datum->color ystart))
+  (let loop ([index 1]
+             [result '()]
+             [current-span-start xstart]
+             [current-span-end xstart]
+             [current-span-y ystart]
+             [current-span-color (datum->color ystart)])
+    (if (>= index limit)
+        (reverse (cons (list current-span-start
+                             current-span-end
+                             current-span-color)
+                       result))
+        (let ([p (vector-ref data index)])
+          (match-define (vector x y z ...) p)
+          (define c (datum->color y))
+          (if (equal? c current-span-color)
+              ;; Same color, extend the current span
+              (loop (add1 index) result current-span-start x y current-span-color)
+              (let-values ([(x-change y-change)
+                            (find-change-point current-span-end current-span-y x y current-span-color)])
+                (loop index
+                      (cons (list current-span-start x-change current-span-color)
+                            result)
+                      x-change
+                      x-change
+                      y-change
+                      (datum->color y-change))))))))
+
+;; Create and return renderer tree from SDATA with area under the plot being
+;; colored by data from SDATA2 (See also make-shade-area-spans).  YR is the Y
+;; Range for the plot and PS is the plot state for which we are creating the
+;; plot (see PS struct).
+(define (make-plot-renderer/shade-area sdata sdata2 yr ps)
+  (match-define (list color-map datum->color) (ps-shade-area ps))
+  (match-define (cons y-min y-max) yr)
+
+  (define limit (vector-length sdata))
+
+  ;; NOTE: don't draw the line color, here, just produce the shaded area (this
+  ;; looks nicer, otherwise the lines at the top are interrupted where the
+  ;; shaded areas join).
+  (define (make-renderer color points)
+    (define end (vector-ref (car points) 0))
+    (define data (reverse points))
+    (define start (vector-ref (car data) 0))
+    (lines-interval
+     data
+     (list (vector start y-min) (vector end y-min))
+     #:y-min y-min
+     #:y-max y-max
+     #:line1-style 'transparent
+     #:line2-style 'transparent
+     #:alpha 1.0
+     #:color (->pen-color color)))
+
+  (define color-spans (make-shade-area-spans sdata2 datum->color))
+
+  (parameterize ([plot-pen-color-map color-map])
+    (let loop ([renderers '()]
+               [color-spans color-spans]
+               [index 1]
+               [points (list (vector-ref sdata 0))])
+      (cond ((null? color-spans)
+             (reverse renderers))
+            ((>= index limit)
+             (match-let ([(list start end color) (car color-spans)])
+               (reverse (cons (make-renderer color points) renderers))))
+            (#t
+             (define current-point (vector-ref sdata index))
+             (define x (vector-ref current-point 0))
+             (define end (list-ref (car color-spans) 1))
+             (cond ((< x end)
+                    ;; Current point is inside the current span
+                    (loop renderers
+                          color-spans
+                          (add1 index)
+                          (cons current-point points)))
+                   (#t
+                    (define y (vector-ref current-point 1))
+                    (define previous-point (vector-ref sdata (sub1 index)))
+                    (define x0 (vector-ref previous-point 0))
+                    (define y0 (vector-ref previous-point 1))
+                    (define alpha (/ (- end x0) (- x x0)))
+                    (define end-y (+ y0 (* alpha (- y y0))))
+                    (define split-point (vector end end-y))
+                    (define npoints (cons split-point points))
+                    (define color (list-ref (car color-spans) 2))
+                    (loop (cons (make-renderer color npoints) renderers)
+                          (cdr color-spans)
+                          index
+                          (list split-point)))))))))
+
 ;; A function that generates integer tokens (effectively a counter).  It uses
 ;; a channel and a separate thread so that tokens can be correctly generated
 ;; from multiple threads.  Tokens are used in PS and PD structures to ensure
@@ -195,6 +364,7 @@
                   filter
                   ivl
                   dual-axis?
+                  shade-area
                   struct-name)
   (-> nonnegative-integer?
       (or/c #f data-frame?)
@@ -207,8 +377,11 @@
       nonnegative-integer?
       (or/c #f (cons/c number? number?))
       boolean?
+      (or/c #f (list/c symbol? (-> any/c exact-nonnegative-integer?)))
       any/c
       any)
+  (when (and shade-area dual-axis?)
+    (error (format "~a: shade-area not compatible with dual-axis" struct-name)))
   (values
    (next-token)
    df
@@ -220,7 +393,8 @@
    color?
    filter
    ivl
-   dual-axis?))
+   dual-axis?
+   shade-area))
 
 ;; Plot state, defines data and input parameters for a plot: data frame, what
 ;; axis do we plot, etc
@@ -251,12 +425,17 @@
    ;; when #t, the secondary plot data is not in the same scale as the first
    ;; one, so it needs to be adjusted and another set of labels will need to
    ;; be plotted to the right of the plot for the secondary axis
-   dual-axis?)
+   dual-axis?
+   ;; When not #f, it contains a list of a color map and a color classifier
+   ;; function.  Plots will be shaded under the curve according to data from
+   ;; Y-AXIS2.  This is not compatible with DUAL-AXIS? (since they use the
+   ;; Y-AXIS2 for different purposes)
+   shade-area)
   #:guard ps-guard
   #:transparent)
 
 ;; The "empty" plot state, defined for convenience
-(define empty-ps (ps 0 #f #f #f #f #f #f #f 0 #f #f))
+(define empty-ps (ps 0 #f #f #f #f #f #f #f 0 #f #f #f))
 
 ;; Guard function for the PD structure.  Can be used to add contracts to its
 ;; fields (disabled for now, for performance reasons).
@@ -419,6 +598,10 @@
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
             sdata y-range (df-select df "swim_stroke")))
+          ((and sdata sdata2 (ps-shade-area ps))
+           (list
+            (make-plot-renderer/shade-area sdata sdata2 y-range ps)
+            (make-plot-renderer sdata y-range #:color (send y plot-color))))
           ((and (ps-color? ps) fdata sdata2)
            (list
             (make-plot-renderer-for-splits fdata y-range (send y factor-colors))
@@ -509,19 +692,21 @@
       (vector-set! c 1 (tr (vector-ref item 1)))
       c)))
 
+
 ;; Produce a new PD structure given an old PD and PS structure and a new PS
-;; structure.  This function determines what has changed between OLD-PS and
-;; NEW-PS and re-computes only what is needed, the remaining data is taken
-;; from OLD-PD.
+;; structure.  Returns two values: the updated PD structure and a flag
+;; indicating if the renderer tree has changed.  This function determines what
+;; has changed between OLD-PS and NEW-PS and re-computes only what is needed,
+;; the remaining data is taken from OLD-PD.
 (define/contract (update-plot-data old-pd old-ps new-ps)
-  (-> pd? ps? ps? pd?)
+  (-> pd? ps? ps? (values pd? boolean?))
   (unless (equal? (ps-token old-ps) (pd-token old-pd))
     (error (format "update-plot-data: token mismatch PS: ~a, PD: ~a"
                    (ps-token old-ps) (pd-token old-pd))))
   (cond
     ((or (eq? old-ps new-ps)
          (equal? (ps-token old-ps) (ps-token new-ps)))
-     old-pd)
+     (values old-pd #f))
     (#t
      ;; need a new sdata if the df, x-axis, y-axis or filter amount have
      ;; changed, or there is no sdata in old-pd
@@ -546,11 +731,18 @@
                           (eq? (ps-y-axis2 old-ps) (ps-y-axis2 new-ps))
                           (equal? (ps-filter old-ps) (ps-filter new-ps))
                           (equal? (ps-dual-axis? old-ps) (ps-dual-axis? new-ps)))))))
+
      ;; need new fdata if we update sdata or color? has changed or there is no
-     ;; fdata in old-pd
+     ;; fdata in old-pd.  Also check if the series actually can produce
+     ;; factored data...
      (define need-fdata?
        (and (ps-df new-ps)
-            (ps-color? new-ps)
+            (and (ps-color? new-ps) (not (ps-shade-area new-ps)))
+            (let ((df (ps-df new-ps))
+                  (y (ps-y-axis new-ps)))
+              (let* ((sport (df-get-property df 'sport))
+                     (sid (df-get-property df 'session-id)))
+                (send y factor-fn sport sid)))
             (or need-sdata?
                 (not (pd-fdata old-pd)))))
 
@@ -594,7 +786,6 @@
              (let* ((sport (df-get-property df 'sport))
                     (sid (df-get-property df 'session-id))
                     (factor-fn (send y factor-fn sport sid))
-                    (factor-colors (send y factor-colors))
                     (epsilon (expt 10 (- (send y fractional-digits)))))
                (if (and factor-fn sdata)
                    (split-by-factor sdata factor-fn
@@ -613,6 +804,8 @@
                   (yr1 (if st1 (get-plot-y-range st1 y) #f))
                   (yr2 (if st2 (get-plot-y-range st2 y2) #f)))
              (cond
+               ((and (ps-shade-area new-ps) yr1)
+                (values yr1 #f))
                ((and (ps-dual-axis? new-ps) yr1 yr2)
                 (values yr1 (make-guest-transform (car yr1) (cdr yr1) (car yr2) (cdr yr2))))
                ((and yr1 yr2)
@@ -631,25 +824,30 @@
 
      ;; Calculate a new plot renderer tree if needed, or reuse the one from
      ;; OLD-PD
-     (define plot-rt
+     (define-values (plot-rt new-tree?)
        (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
                    (not (equal? (ps-color? old-ps) (ps-color? new-ps))))
-               (plot-data-renderer-tree tmp-pd new-ps)
-               (pd-plot-rt old-pd))
-           #f))
+               (values (plot-data-renderer-tree tmp-pd new-ps) #t)
+               (values (pd-plot-rt old-pd) #f))
+           (values #f (if (pd-plot-rt old-pd) #t #f))))
+
      ;; Calculate a new highlight interval renderer tree if needed, or reuse
      ;; the one from OLD-PD
-     (define hlivl
+     (define-values (hlivl new-hlivl?)
        (if (and (ps-ivl new-ps) (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
                    (not (equal? (ps-ivl old-ps) (ps-ivl new-ps))))
-               (plot-highlight-interval tmp-pd new-ps)
-               (pd-hlivl old-pd))
-           #f))
+               (values (plot-highlight-interval tmp-pd new-ps) #t)
+               (values (pd-hlivl old-pd) #f))
+           (values #f (if (pd-hlivl old-pd) #t #f))))
 
      ;; Put the renderer tree in the structure and return the result.
-     (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl hlivl)))))
+     (values (struct-copy pd tmp-pd (plot-rt plot-rt) (hlivl hlivl))
+             (or new-tree?
+                 (not (equal? (ps-zoom? new-ps) (ps-zoom? old-ps)))
+                 (not (equal? (ps-avg? new-ps) (ps-avg? old-ps)))
+                 (and (ps-zoom? new-ps) new-hlivl?))))))
 
 (define graph-view%
   (class object%
@@ -662,6 +860,8 @@
      [hover-callback (lambda (x) (void))]
      [secondary-y-axis #f]
      [dual-axis? #f]
+     [color-map #f]
+     [color-index-fn #f]
      [style '()])
     (super-new)
 
@@ -669,10 +869,14 @@
       (get-pref 'activity-log:debug:show-stop-points? (lambda () #f)))
     (define stop-point-renderers '())
 
+    ;; NOTE: use update-state to set this value.
     (define plot-state (struct-copy ps empty-ps
                                     [y-axis primary-y-axis]
                                     [y-axis2 secondary-y-axis]
-                                    [dual-axis? dual-axis?]))
+                                    [dual-axis? dual-axis?]
+                                    [shade-area (if (and color-map color-index-fn)
+                                                    (list color-map color-index-fn)
+                                                    #f)]))
     (define previous-plot-state plot-state)
     (define plot-data (struct-copy pd empty-pd [token (ps-token plot-state)]))
 
@@ -793,7 +997,8 @@
       (set! edit-sequence-count (sub1 edit-sequence-count))
       (when (zero? edit-sequence-count)
         (send graph-canvas resume-flush)
-        (refresh)))
+        (unless (= (ps-token plot-state) (ps-token previous-plot-state))
+          (refresh-plot))))
 
     (define/public (in-edit-sequence?)
       (> edit-sequence-count 0))
@@ -832,36 +1037,48 @@
           (hover-callback #f)))
 
     (define (refresh-plot)
-      ;; will be set back below, but we don't want `draw-marker-at` to attempt
-      ;; to use an invalid series.
-      (set! the-plot-snip #f)
       (let ((pstate plot-state)
             (ppstate previous-plot-state)
-            (pdata plot-data))
+            (pdata plot-data)
+            (pplot-snip the-plot-snip))
+        ;; will be set back below, but we don't want `draw-marker-at` to
+        ;; attempt to use an invalid series.
+        (set! the-plot-snip #f)
+
         (queue-task
          "graph-view%/refresh-plot"
          (lambda ()
-           (let ((npdata (update-plot-data pdata ppstate pstate)))
-             (queue-callback
-              (lambda ()
-                (when (= (pd-token npdata) (ps-token plot-state))
-                  (if (pd-plot-rt npdata)
-                      (begin
-                        (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
-                        (set-mouse-event-callback the-plot-snip plot-hover-callback)
-                        (when (pd-hlivl npdata)
-                          (match-define (list xmin xmax color) (pd-hlivl npdata))
-                          (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color)))))
-                      (begin
-                        (set! the-plot-snip #f)
-                        (send graph-canvas clear-all)
-                        (send graph-canvas set-background-message "No data for plot...")))
-                  (set! previous-plot-state pstate)
-                  (set! plot-state pstate)
-                  (set! plot-data npdata)
-                  (set! find-y-values (make-y-values-finder plot-state))))))))))
+           (define-values (npdata new-render-tree?)
+             (update-plot-data pdata ppstate pstate))
+           (queue-callback
+            (lambda ()
+              (when (= (pd-token npdata) (ps-token plot-state))
+                (if (pd-plot-rt npdata)
+                    (if (or new-render-tree? (not pplot-snip))
+                        (begin
+                          (set! the-plot-snip (put-plot/canvas graph-canvas npdata pstate))
+                          (set-mouse-event-callback the-plot-snip plot-hover-callback))
+                        (set! the-plot-snip pplot-snip))
+                    (begin
+                      (set! the-plot-snip #f)
+                      (send graph-canvas clear-all)
+                      (send graph-canvas set-background-message "No data for plot...")))
 
-    (define (refresh)
+                (when the-plot-snip
+                  (if (pd-hlivl npdata)
+                      (match-let (((list xmin xmax color) (pd-hlivl npdata)))
+                        (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color))))
+                      (set-overlay-renderers the-plot-snip #f))
+                  (send graph-canvas refresh))
+
+                (set! previous-plot-state pstate)
+                (set! plot-state pstate)
+                (set! plot-data npdata)
+                (set! find-y-values (make-y-values-finder plot-state)))))))))
+
+    (define (update-state new-state)
+      (set! plot-state new-state)
+
       (unless (in-edit-sequence?)
 
         (when show-stop-points?
@@ -928,64 +1145,40 @@
       (set! plot-state (struct-copy ps plot-state [df df] [ivl #f]))
       (set! export-file-name #f)
       (set! stop-point-renderers '())   ; clear them, will be set in on-y-axis-selected
-      (end-edit-sequence)
       ;; When a new data frame is set, remove the old plot immediately, as it
       ;; is not relevant anymore.
       (set! the-plot-snip #f)
       (send graph-canvas clear-all)
       (send graph-canvas set-background-message "Working...")
-      (refresh))
+      (end-edit-sequence))
 
     (define/public (zoom-to-lap zoom)
-      (set! plot-state (struct-copy ps plot-state [zoom? zoom]))
-      (refresh))
+      (unless (equal? zoom (ps-zoom? plot-state))
+        (update-state (struct-copy ps plot-state [zoom? zoom]))))
 
     (define/public (color-by-zone flag)
-      ;; Set the flag
-      (set! plot-state (struct-copy ps plot-state [color? flag]))
-      ;; But only refresh, if this actually changes the colors (i.e. the Y
-      ;; axis can split by factors)
-      (define df (ps-df plot-state))
-      (when df
-        (define sport (df-get-property df 'sport))
-        (define sid (df-get-property df 'session-id))
-        (define primary-y-axis (ps-y-axis plot-state))
-        (define secondary-y-axis (ps-y-axis2 plot-state))
-        (define have-color-by-zone
-          (or (and primary-y-axis (send primary-y-axis factor-fn sport sid))
-              (and secondary-y-axis (send secondary-y-axis factor-fn sport sid))))
-        (when have-color-by-zone
-          (refresh))))
+      (unless (equal? flag (ps-color? plot-state))
+        (update-state (struct-copy ps plot-state [color? flag]))))
 
     (define/public (set-filter-amount a)
-      (set! plot-state (struct-copy ps plot-state [filter a]))
-      (refresh))
+      (unless (equal? a (ps-filter plot-state))
+        (update-state (struct-copy ps plot-state [filter a]))))
 
     (define/public (show-average-line show)
-      (set! plot-state (struct-copy ps plot-state [avg? show]))
-      (refresh))
+      (unless (equal? show (ps-avg? plot-state))
+        (update-state (struct-copy ps plot-state [avg? show]))))
 
     (define/public (set-x-axis new-x-axis)
-      (set! plot-state (struct-copy ps plot-state [x-axis new-x-axis]))
-      (refresh))
+      (unless (equal? new-x-axis (ps-x-axis plot-state))
+        (update-state (struct-copy ps plot-state [x-axis new-x-axis]))))
 
     (define/public (highlight-interval start-timestamp end-timestamp)
-      (set! plot-state (struct-copy ps plot-state
-                                    [ivl
-                                     (if (and start-timestamp end-timestamp)
-                                         (cons start-timestamp end-timestamp)
-                                         #f)]))
-      ;; need full refresh if zoom to lap is set, as the actual plotted data will change.
-      (cond ((ps-zoom? plot-state)
-             (refresh))
-            (#t ;(not (in-edit-sequence?))
-             (set! plot-data (update-plot-data plot-data previous-plot-state plot-state))
-             (set! previous-plot-state plot-state)
-             (when the-plot-snip
-              (if (pd-hlivl plot-data)
-                  (match-let (((list xmin xmax color) (pd-hlivl plot-data)))
-                    (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color))))
-                  (set-overlay-renderers the-plot-snip #f))))))
+      (define new-ivl (if (and start-timestamp end-timestamp)
+                          (cons start-timestamp end-timestamp)
+                          #f))
+      (unless (equal? new-ivl (ps-ivl plot-state))
+        (define new-state (struct-copy ps plot-state [ivl new-ivl]))
+        (update-state new-state)))
 
     (define/public (get-data-frame) (ps-df plot-state))
 
@@ -1068,6 +1261,28 @@
                [secondary-y-axis axis-elevation]
                [dual-axis? #t]
                [headline "Grade + Elevation (original)"])))
+
+(define grade-shading-color-map 'cb-rdbu-11)
+(define grade-shading-color-indexer
+  (make-grade-color-indexer (color-map-size grade-shading-color-map) #t))
+
+(define calt+shaded-grade-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-corrected-elevation]
+               [secondary-y-axis axis-grade]
+               [color-map grade-shading-color-map]
+               [color-index-fn grade-shading-color-indexer]
+               [preferences-tag 'al2-graphs:calt+shaded-grade]
+               [headline "Elevation (corrected) Color by Grade"])))
+
+(define alt+shaded-grade-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-elevation]
+               [secondary-y-axis axis-grade]
+               [color-map grade-shading-color-map]
+               [color-index-fn grade-shading-color-indexer]
+               [preferences-tag 'al2-graphs:alt+shaded-grade]
+               [headline "Elevation (original) Color by Grade"])))
 
 (define heart-rate-graph%
   (class graph-view%
@@ -1525,6 +1740,8 @@
                                 grade-graph%
                                 grade+calt-graph%
                                 grade+alt-graph%
+                                calt+shaded-grade-graph%
+                                alt+shaded-grade-graph%
                                 heart-rate-graph%
                                 heart-rate-zones-graph%
                                 heart-rate-pct-graph%
@@ -1619,20 +1836,17 @@
     (define (zoom-to-lap zoom)
       (set! zoom-to-lap? zoom)
       (for ([g (in-list graphs)])
-        (queue-callback
-         (lambda () (send g zoom-to-lap zoom)))))
+        (send g zoom-to-lap zoom)))
 
     (define (color-by-zone flag)
       (set! color-by-zone? flag)
       (for ([g (in-list graphs)])
-        (queue-callback
-         (lambda () (send g color-by-zone flag)))))
+        (send g color-by-zone flag)))
 
     (define (show-average-line show)
       (set! show-avg? show)
       (for ([g (in-list graphs)])
-        (queue-callback
-         (lambda () (send g show-average-line show)))))
+        (send g show-average-line show)))
 
     (define (highlight-lap n lap)
       (let ((start (lap-start-time lap))
@@ -1642,31 +1856,25 @@
             ;; this ensures swim laps are correctly highlighted.
             (let ([end (floor (+ start elapsed))])
               (for ([g (in-list graphs)])
-                (queue-callback
-                 (lambda ()
-                   (send g highlight-interval start end)))))
+                (send g highlight-interval start end)))
             (for ([g (in-list graphs)])
-              (queue-callback
-               (lambda ()
-                 (send g highlight-interval #f #f)))))))
+              (send g highlight-interval #f #f)))))
 
     (define (unhighlight-lap)
       (for ([g (in-list graphs)])
-        (queue-callback
-         (lambda ()
-           (send g highlight-interval #f #f)))))
+        (send g highlight-interval #f #f)))
 
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
         (when the-session
           (hash-set! x-axis-by-sport (session-sport the-session) index))
         (for ([g (in-list graphs)])
-          (queue-callback (lambda () (send g set-x-axis x-axis))))))
+          (send g set-x-axis x-axis))))
 
     (define (set-filter-amount a)
       (set! filter-amount a)
       (for ([g (in-list graphs)])
-          (queue-callback (lambda () (send g set-filter-amount a)))))
+        (send g set-filter-amount a)))
 
     (define panel (new panel:horizontal-dragable%
                        [parent parent]

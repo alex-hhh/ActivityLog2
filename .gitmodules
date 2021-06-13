@@ -40,3 +40,6 @@
 [submodule "pkgs/rackcheck"]
 	path = pkgs/rackcheck
 	url = https://github.com/Bogdanp/rackcheck.git
+[submodule "pkgs/colormaps"]
+	path = pkgs/colormaps
+	url = https://github.com/alex-hhh/colormaps.git
