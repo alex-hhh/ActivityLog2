@@ -1293,7 +1293,7 @@
 
     (define/public (on-new-database)
       (when (can-close-toplevel?)
-        (let ((file (get-file "Create database..." tl-frame
+        (let ((file (put-file "Create database..." tl-frame
                               (find-system-path 'doc-dir)
                               "ActivityLog.db")))
           (when file (open-another-activity-log file)))))
