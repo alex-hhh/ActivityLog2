@@ -12,7 +12,7 @@ Download pre-built releases from the
 [releases](https://github.com/alex-hhh/ActivityLog2/releases) page, or see
 [docs/README.md](docs/README.md) for how to build your own.
 
-See also the [CHANGES](./docs/CHANGES.md),
+See also the [CHANGES](https://github.com/alex-hhh/ActivityLog2/wiki/ChangeLog),
 [CONTRIBUTING](./docs/CONTRIBUTING.md) and
 [CODE_OF_CONDUCT](./docs/CODE_OF_CONDUCT.md) files.
 

@@ -15,7 +15,37 @@ git log --submodule=log --patch v1.10.2..v1.11 \
     | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
 ```
 
-# Release 1.11 (April 2021)
+# Release 1.12.0 (June 2021)
+
+* Added 100 meter splits as custom intervals for sessions (this is useful for
+  open water swims (#67)
+
+* GPX export will now also export heart rate, cadence, speed, power and
+  distance data when this is available.
+
+* For some trend charts, the user can choose session labels to show on the
+  chart and timestamps of the sessions containing the selected labels will be
+  marked on the plot.  Charts supporting this feature are the body weight,
+  aerobic decoupling, PMC, time in zone, training volume and triathlon
+  training volume.
+
+  This allows, for example, to mark races on the performance management chart,
+  by marking the race sesssion with th "race" label and selecting the "race"
+  label on the PMC chart.  Given that "note" activities with future dates can
+  be created and assigned labels, this feature also allows marking future
+  races or other evens on the chart.
+
+* New plot type for elevation, shading the area under the plot with colors
+  that depend on the grade (more intense colors for higher grades) (AB#37)
+
+* fix a bug which used too many network resources when made map tile were
+  loaded (#68)
+
+* fixed a bug which caused an error to be reported when the user deleted an
+  activity (#70, AB#39)
+
+
+# Release 1.11.0 (April 2021)
 
 * Heat maps in trend charts can now render a large number of data points
   (tested with 4 million data points, or about 2500 activities, but should be

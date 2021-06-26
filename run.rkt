@@ -30,6 +30,7 @@
  plot-container
  gui-widget-mixins
  map-widget
+ colormaps
  geoid)
 
 ;; Start up a splash screen, rest of the application will be lazy-required
