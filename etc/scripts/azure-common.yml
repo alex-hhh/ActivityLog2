@@ -71,9 +71,9 @@ steps:
 
   # These are the actual test runs
 
-  - script: raco test test/fit2-test.rkt
+  - script: raco test test/fit-file-test.rkt
     condition: eq(variables.runTests, true)
-    displayName: Basic FIT file decoding tests (fit2-test)
+    displayName: Basic FIT file decoding tests (fit-file-test)
 
   - script: raco test test/session-df-test.rkt
     condition: eq(variables.runTests, true)

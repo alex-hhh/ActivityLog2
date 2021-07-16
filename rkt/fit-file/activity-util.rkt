@@ -2,7 +2,7 @@
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Hars·nyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021 Alex Hars√°nyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -421,7 +421,7 @@
 (define (session-avg-stride session)
   (let ((total-distance (dict-ref session 'total-distance #f))
 	(total-cycles (dict-ref session 'total-cycles #f)))
-    (if (and total-distance total-cycles)
+    (if (and total-distance total-cycles (> total-cycles 0))
 	(/ total-distance (* 2 total-cycles))
 	#f)))
 
@@ -447,7 +447,7 @@
   (let ((avg-speed (session-avg-speed session))
 	(avg-cadence (session-avg-strokes-per-length session))
 	(pool-length (session-pool-length session)))
-    (if (and avg-speed avg-cadence pool-length)
+    (if (and avg-speed avg-cadence pool-length (> pool-length 0))
 	(let ((avg-seconds-per-length
                (/ 1 (/ avg-speed pool-length))))
           (exact-round (+ avg-seconds-per-length avg-cadence)))
