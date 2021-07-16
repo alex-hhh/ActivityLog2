@@ -49,11 +49,7 @@ jobs:
 
     - task: DownloadSecureFile@1
       inputs:
-        secureFile: al2_sign_pub.asc
-
-    - task: DownloadSecureFile@1
-      inputs:
-        secureFile: al2_sign_sec.bin
+        secureFile: al2_sign.tar.gpg
 
     - powershell: |
         .\etc\scripts\install-inno-setup.ps1
@@ -76,6 +72,8 @@ jobs:
       displayName: Creating Installer
 
     - bash: bash ./etc/scripts/sign-release.sh
+      env:
+        SIGNDATAPW: $(SIGNDATAPW)
       displayName: (Maybe) Sign Installer
 
     - task: CopyFiles@2

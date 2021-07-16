@@ -4,9 +4,19 @@
 # The keys are downloaded in the Azure Pipelines file.  This script depends on
 # several environment variables used by the Azure Pipelines build.
 
+# Enable "strict mode", see
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+set -euo pipefail
+IFS=$'\n\t'
+
 if [ -z $AGENT_TEMPDIRECTORY ]; then
     echo "AGENT_TEMPDIRECTORY environment variable not set"
     exit 1
+fi
+
+if [ -z $SIGNDATAPW ]; then
+    echo "SIGNDATAPW not set, will not sign anything"
+    exit 0
 fi
 
 ATMP=`cygpath -u "$AGENT_TEMPDIRECTORY"`
@@ -16,12 +26,15 @@ if ! [ -d $ATMP ]; then
     exit 1
 fi
 
-PUBKEY=$ATMP/al2_sign_pub.asc
-SECKEY=$ATMP/al2_sign_sec.bin
+KEYA=$ATMP/al2_sign.tar.gpg
 
-if [ -r $PUBKEY ] && [ -r $SECKEY ]; then
+if [ -r $KEYA ]; then
     export GNUPGHOME=$ATMP/$BUILD_BUILDID.gnupg
     mkdir -p $GNUPGHOME
+    gpg --decrypt --quiet --batch --yes --passphrase $SIGNDATAPW "$KEYA" |\
+        tar xv -C $GNUPGHOME
+    PUBKEY=$GNUPGHOME/al2_sign_pub.asc
+    SECKEY=$GNUPGHOME/al2_sign_sec.bin
     gpg --import $PUBKEY
     [ $? -ne 0 ] && echo "Public key import failed." && exit 1
     gpg --allow-secret-key-import --import $SECKEY
@@ -60,5 +73,5 @@ else
     fi
 fi
 
-rm -rf "$GNUPGHOME"                     # is this needed?
+rm -rf "$GNUPGHOME"
 exit $EXIT_CODE

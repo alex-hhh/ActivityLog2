@@ -19,7 +19,7 @@ RACKET_VERSION=${RACKET_VERSION:=7.1}
 RACKET_MINIMAL=${RACKET_MINIMAL:=0}
 
 # Helper variables to construct the download URL.
-BASE="https://mirror.racket-lang.org/installers"
+BASE="https://download.racket-lang.org/installers"
 HBASE="https://plt.eecs.northwestern.edu/snapshots/current/installers"
 PBASE="https://pre-release.racket-lang.org/installers"
 CBASE="https://www.cs.utah.edu/plt/snapshots/current/installers" # Racket on Chez Scheme
@@ -81,6 +81,9 @@ fi
 
 echo "$SCRIPT_NAME: downloading $URL ..."
 curl --location --output $DFILE $URL
+
+## Download failed
+[ $? != 0 ] && exit 1
 
 # Only use sudo if installing to /usr
 if [[ "$RACKET_DIR" = /usr** ]]; then

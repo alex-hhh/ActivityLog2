@@ -29,7 +29,7 @@ if ($Env:RACKET_MINIMAL) {
     $m = ""
 }
 
-$base = "https://mirror.racket-lang.org/installers"
+$base = "https://download.racket-lang.org/installers"
 
 $url = "$base/$v/racket-$m$v-$p-win32$a.exe";
 
