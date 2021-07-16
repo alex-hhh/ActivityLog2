@@ -107,7 +107,7 @@
                          0)))
              (df (make-data-frame)))
         (df-add-series! df (make-series "timestamp" #:data ts))
-        (df-set-sorted! df "timestamp" <=)
+        (df-set-sorted! df "timestamp" <)
         (df-add-series! df (make-series "bpm" #:data bpm))
         (df-add-series! df (make-series "hrv" #:data hrv))
         (df-add-series! df (make-series "delta-hrv" #:data dhrv))

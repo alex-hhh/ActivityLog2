@@ -150,7 +150,7 @@
   (df-put-property! df 'session-id session-id)
 
   (when (df-contains? df "timestamp")
-    (df-set-sorted! df "timestamp" <=)
+    (df-set-sorted! df "timestamp" <)
 
     ;; NOTE: the session might contain lap timestamps that have no track
     ;; points, don't put these laps in the data frame
@@ -179,8 +179,8 @@
               (if (or (df-is-na? df "dst" value) (<= value prev-value))
                   (df-set! df index prev-value "dst")
                   (set! prev-value value))))
-          (df-set-sorted! df "dst" <=))))
-      (df-set-sorted! df "dst" <=)))
+          (df-set-sorted! df "dst" <))))
+      (df-set-sorted! df "dst" <)))
 
   (add-timer-series df)
   (add-elapsed-series df)
@@ -271,7 +271,7 @@
           (filter (lambda (p) (is-teleport? df p)) stop-points)
           '()))
 
-    (df-set-sorted! df "timer" <=)
+    (df-set-sorted! df "timer" <)
     (df-put-property! df 'stop-points stop-points)
     (df-put-property! df 'teleport-points teleport-points)))
 
@@ -304,7 +304,7 @@
          (lambda (val)
            (define timestamp (list-ref val 0))
            (- timestamp timestamp0))))
-    (df-set-sorted! df "elapsed" <=)))
+    (df-set-sorted! df "elapsed" <)))
 
 (define (add-distance-series df)
 
@@ -601,7 +601,7 @@
   (define (find-middle start end)
     (let* ((sdist (vector-ref dst start))
            (half (/ (delta-dist start end) 2))
-           (mid (bsearch dst (+ sdist half) #:start start #:stop end)))
+           (mid (lower-bound dst (+ sdist half) #:start start #:stop end)))
       mid))
   (define (order-points p1 p2 p3 p4)
     (let ((points (list p1 p2 p3 p4)))
@@ -1095,7 +1095,7 @@
       (if stop-detection? (df-get-property data-frame 'stop-points '()) '()))
     (define stop-indices
       (for/list ([point (in-list stop-points)])
-        (bsearch data point #:key (lambda (v) (vector-ref v 2)))))
+        (lower-bound data point #:key (lambda (v) (vector-ref v 2)))))
     (define limit (vector-length data))
 
     ;; Mark stop points by setting the values around the stop point to 0. stop

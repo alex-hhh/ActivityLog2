@@ -67,7 +67,7 @@
   (df-add-series! mmax-df (make-series "duration" #:data duration-data))
   (df-add-series! mmax-df (make-series series #:data value-data))
   (df-add-series! mmax-df (make-series "position" #:data position-data))
-  (df-set-sorted! mmax-df "duration" <=)
+  (df-set-sorted! mmax-df "duration" <)
   mmax-df)
 
 (define (make-map-snip df . segments)

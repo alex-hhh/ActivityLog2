@@ -88,7 +88,7 @@
               (- now (* weeks-back 7 24 3600))
               (+ now (* weeks-forward 7 24 3600))))
   ;; Mark the timestamp series as sorted, so we can do lookups on it.
-  (df-set-sorted! df "timestamp" <=)
+  (df-set-sorted! df "timestamp" <)
   df)
 
 ;; Add a series that is a smoothing of BASE-SERIES.  The smoothing is done by

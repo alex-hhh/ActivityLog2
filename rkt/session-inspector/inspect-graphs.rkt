@@ -74,12 +74,8 @@
 ;; extra points for the vertical lines.
 (define (ivl-extents/swim data-series start end)
   (define (by-timestamp v) (vector-ref v 2))
-  ;; NOTE: we use the <= as the compare function for bsearch, because we want
-  ;; to find the earliest timestamp when there are several identical
-  ;; timestamps (like in swimming sessions).  The <= will result in more
-  ;; comparisons than <, so it is not the default.
-  (let ((start-idx (and start (bsearch data-series start #:cmp <= #:key by-timestamp)))
-        (end-idx (and end (bsearch data-series end #:cmp <= #:key by-timestamp)))
+  (let ((start-idx (and start (lower-bound data-series start #:key by-timestamp)))
+        (end-idx (and end (lower-bound data-series end #:key by-timestamp)))
         (max-idx (vector-length data-series)))
     (unless start-idx (set! start-idx 0))
     (unless (< start-idx max-idx)

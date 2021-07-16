@@ -3,7 +3,7 @@
 ;; gap.rkt -- Grade Adjusted Pace calculations
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -119,7 +119,7 @@
 ;; directly with a speed value to obtain a grade adjusted speed, *BUT NOT*
 ;; with a pace value.  For pace values, use `adjust-pace-for-grade` instead.
 (define (grade->multiplier grade)
-  (let ((index (bsearch v-grade grade)))
+  (let ((index (lower-bound v-grade grade)))
     (cond ((= index 0)
            ;; NOTE: should extrapolate the slope of the first segment!
            (vector-ref v-multiplier 0))
