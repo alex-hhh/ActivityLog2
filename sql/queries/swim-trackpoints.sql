@@ -1,7 +1,7 @@
 -- fetch-swim-trackpoints.sql -- fetch trackpoints for a swim activtiy
 --
 -- This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
--- Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (c) 2018 Alex Harsï¿½nyi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -23,6 +23,7 @@
 
 select L.start_time as timestamp,
        (select max(T.distance) from A_TRACKPOINT T where T.length_id = L.id) as dst,
+       (select round(avg(T.heart_rate)) from A_TRACKPOINT T where T.length_id = L.id) as hr,
        ifnull(SS.total_timer_time, 0) as duration,
        SS.avg_speed as spd,
        round(60.0 * SS.total_cycles / SS.total_timer_time, 1) as cad,

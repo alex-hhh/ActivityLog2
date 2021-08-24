@@ -1774,7 +1774,10 @@
   (for/list ([c% (in-list (list swim-pace-graph%
                                 swim-swolf-graph%
                                 swim-stroke-count-graph%
-                                swim-cadence-graph%))])
+                                swim-cadence-graph%
+                                heart-rate-graph%
+                                heart-rate-zones-graph%
+                                heart-rate-pct-graph%))])
     (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-xdata-graphs parent hover-callback)
