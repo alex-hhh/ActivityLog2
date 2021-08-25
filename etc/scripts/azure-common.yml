@@ -63,7 +63,7 @@ steps:
 
   - bash: |
       bash ./etc/scripts/fetch.sh -d -C test "1qdh22IEe0NZXtXw6qFTLC7nVk6N3f5HJ" # test-db(5)
-      bash ./etc/scripts/fetch.sh -d -C test "1XPCtqgfL_X-PVN6lbqkWIrTv6yMugvGm" # test-fit(17)
+      bash ./etc/scripts/fetch.sh -d -C test "1doqJlMj3XI91ael5DkxdaVZU_QuZ3zFq" # test-fit(18)
     env:
       TESTDATAPW: $(TESTDATAPW)
     condition: eq(variables.runTests, true)

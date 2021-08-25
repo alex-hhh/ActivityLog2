@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -945,6 +945,54 @@
         (set! lengths (cons data lengths)))
       #t)
 
+    ;; NOTE: in general, start-time is the time when an event occurred, while
+    ;; timestamp is the time time when the record of the event was written to
+    ;; the FIT file.  Garmin devices stick to this convention, but other
+    ;; devices do not.  Here, we prefer to sort by start time, if available,
+    ;; otherwise use timestamp
+    (define (get-start-time record)
+      (or (dict-ref record 'start-time #f)
+          (dict-ref record 'timestamp #f)))
+
+    ;; Returns the start and end times that correspond to RECORD (which can be
+    ;; a session, a lap or a length.
+    (define/private (get-start-end-times record)
+      (define start-time (get-start-time record))
+      ;; The FIT specification mentions that timer-time EXCLUDES pauses and
+      ;; elapsed-time INCLUDES pauses, so we should have elapsed-time greater
+      ;; or equal to timer-time, however some FIT files have the two swapped,
+      ;; so we select the larger of the two as the session duration.
+      (define duration
+        (let ([timer (dict-ref record 'total-timer-time #f)]
+              [elapsed (dict-ref record 'total-elapsed-time #f)])
+          (cond ((and timer elapsed) (max timer elapsed))
+                (timer)
+                (elapsed)
+                (#t #f))))
+      (define end-time
+        (or
+         ;; If we have a start time and an elapsed time, we use that
+         (and start-time duration (truncate (+ start-time duration)))
+         ;; Otherwise we use the timestamp...
+         (dict-ref record 'timestamp #f)
+         ;; Or the last timestamp seen in any type of record.
+         (get-current-timestamp)))
+      (values start-time end-time))
+
+    ;; Add the records that correspond to a LENGTH definition -- these are the
+    ;; records whose timestamp falls between the start and end time of the
+    ;; LENGTH itself.
+    (define/private (add-length-records length records)
+      (define-values (start-time end-time) (get-start-end-times length))
+      (if (and start-time end-time)
+          (let-values ([(our remaining)
+                        (splitf-at records
+                                   (lambda (r)
+                                     (let ([ts (get-start-time r)])
+                                       (<= ts end-time))))])
+            (values (cons (cons 'track our) length) remaining))
+          (values length records)))
+
     (define/override (on-lap lap)
       ;; Reconstructing the track points of the lap is a bit tricky and seems
       ;; to be device specific.  The Garmin Swim FIT file is contrary to the
@@ -978,7 +1026,6 @@
                      ;; and with the wrong timestamp.  Since there are the
                      ;; same number of lengths as records, we just pair them
                      ;; together.
-
                      (cons
                       (cons 'lengths
                             (reverse (map (lambda (len rec)
@@ -990,24 +1037,19 @@
                     (#t
                      ;; Most generic case, use the timestamp field to assign
                      ;; records to the corresponding lengths.
-                     (let ((records (sort records < #:key (lambda (e) (dict-ref e 'timestamp #f))))
-                           (lengths (sort lengths < #:key (lambda (e) (dict-ref e 'timestamp #f)))))
-
-                       (define (add-length-records length)
-                         (let ((timestamp (dict-ref length 'timestamp #f)))
-                           (let-values ([(our-records rest)
-                                         (splitf-at records
-                                                    (lambda (v)
-                                                      (<= (dict-ref v 'timestamp #f) timestamp)))])
-                             (set! records rest)         ; will be used by the next length
-                             (cons (cons 'track our-records) length))))
-
-                       (let ((data (cons
-                                    (cons 'lengths (map add-length-records lengths))
-                                    data)))
-                         (when (> (length records) 0)
-                           (dbglog "fit-file: remaining records after processing LENGTHS"))
-                         data)))))
+                     (let ((records (sort records < #:key get-start-time))
+                           (lengths (sort lengths < #:key get-start-time)))
+                       (define nlength
+                         (for/fold ([result '()]
+                                    [records records]
+                                    #:result
+                                    (begin0 (reverse result)
+                                      (when (> (length records) 0)
+                                        (dbglog "fit-file: remaining records after processing LENGTHS"))))
+                                   ([l (in-list lengths)])
+                           (define-values (len remaining) (add-length-records l records))
+                           (values (cons len result) remaining)))
+                       (cons (cons 'lengths nlength) data)))))
 
         (set! records '())
         (set! lengths '())
@@ -1065,6 +1107,7 @@
       (for ((v (in-list (reverse devices))))
         (display "*** ")(display v)(newline)))
 
+
     (define/public (collect-activity)
 
       ;; File has one session which has the same timestamp as start-time --
@@ -1079,41 +1122,11 @@
                                        the-session))))))
 
       (define (add-session-laps session)
+        (define-values (start-time end-time) (get-start-end-times session))
         ;; There is no clear way in the FIT file of which laps belong to a
         ;; session, since session records can come either at the start or the
         ;; end of the FIT file.  We try to be clever here: we grab all laps
         ;; which have their start time before the end time of the session.
-        ;;
-        ;; The end time of the session record might be different than its
-        ;; timestamp, which is usually the time it was written to the FIT
-        ;; file.
-        ;;
-        ;; Also, some FIT files have all these fields missing, so we need to
-        ;; be prepared to handle that as well.
-        (define start-time (dict-ref session 'start-time #f))
-
-        (define timer (dict-ref session 'total-timer-time #f))
-        (define elapsed (dict-ref session 'total-elapsed-time #f))
-
-        ;; The FIT specification mentions that timer-time EXCLUDES pauses and
-        ;; elapsed-time INCLUDES pauses, so we should have elapsed-time
-        ;; greater or equal to timer-time, however some FIT files have the two
-        ;; swapped, so we select the larger of the two as the session
-        ;; duration.
-        (define duration
-          (cond ((and timer elapsed) (max timer elapsed))
-                (timer)
-                (elapsed)
-                (#t #f)))
-
-        (define end-time
-          (or
-           ;; If we have a start time and an elapsed time, we use that
-           (and start-time duration (exact-truncate (+ start-time duration)))
-           ;; Otherwise we use the timestamp...
-           (dict-ref session 'timestamp #f)
-           ;; Or the last timestamp seen in any type of record.
-           (get-current-timestamp)))
         (let-values ([(our-laps rest)
                       (splitf-at laps
                                  (lambda (v)

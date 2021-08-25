@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,19 +23,40 @@
 ;; downloaded by the `.travis/download-test-data.sh` script.
 
 (require al2-test-runner
-         racket/format
-         rackunit
-         db
-         "test-util.rkt"
          data-frame
-         "../rkt/session-df/session-df.rkt"
-         "../rkt/session-df/series-metadata.rkt"
-         "../rkt/session-df/native-series.rkt"
-         "../rkt/weather.rkt"
+         db
+         racket/dict
+         rackunit
          "../rkt/database.rkt"
-         "../rkt/utilities.rkt"
          "../rkt/fit-file/activity-util.rkt"
-         "../rkt/models/elevation-correction.rkt")
+         "../rkt/fit-file/fit-file.rkt"
+         "../rkt/models/elevation-correction.rkt"
+         "../rkt/session-df/native-series.rkt"
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/utilities.rkt"
+         "../rkt/weather.rkt"
+         "test-util.rkt")
+
+;; Copied from fit-file.rkt, for testing purposes
+(define (get-start-time record)
+  (or (dict-ref record 'start-time #f)
+      (dict-ref record 'timestamp #f)))
+
+;; Copied from fit-file.rkt for testing purposes
+(define (get-start-end-times record)
+  (define start-time (get-start-time record))
+  (define duration
+    (let ([timer (dict-ref record 'total-timer-time #f)]
+          [elapsed (dict-ref record 'total-elapsed-time #f)])
+      (cond ((and timer elapsed) (max timer elapsed))
+            (timer)
+            (elapsed)
+            (#t #f))))
+  (define end-time
+    (or
+     (and start-time duration (+ start-time duration))
+     (dict-ref record 'timestamp #f)))
+  (values start-time end-time))
 
 (define (do-basic-checks file series-count row-count
                          #:expected-session-count (expected-session-count 1)
@@ -400,6 +421,21 @@ select count(*)
    (test-case "f0043.fit"
      (do-basic-checks
       "./test-fit/f0043.fit" 26 2669))
+   (test-case "f0047.fit"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define data (read-activity-from-file "./test-fit/f0047.fit"))
+     (for ([session (in-list (dict-ref data 'sessions #f))])
+       (for ([lap (in-list (session-laps session))])
+         (for ([len (in-list (lap-lengths lap))])
+           (define-values (start end) (get-start-end-times len))
+           ;; We should do better here, for now we just check we have some
+           ;; records...
+           (define track (length-track len))
+           (check-true (> (length track) 0))
+           (for ([trackpoint (in-list track)])
+             (define ts (get-start-time trackpoint))
+             (check-true (and (>= ts start) (<= ts end))))))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -428,6 +464,6 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0043.fit"))
+             ;; #:only '(("FIT file reading" "f0047.fit"))
              fit-files-test-suite))
 

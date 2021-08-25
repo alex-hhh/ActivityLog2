@@ -639,6 +639,7 @@
 (provide
  length-time
  length-start-time
+ length-track
  length-distance
  length-avg-speed
 
