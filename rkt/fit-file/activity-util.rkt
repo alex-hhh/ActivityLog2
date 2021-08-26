@@ -645,7 +645,9 @@
  length-swim-stroke
  length-total-cycles
  length-avg-cadence
- length-swolf)
+ length-swolf
+ length-avg-hr
+ length-max-hr)
 
 (define length-time lap-time)
 (define length-start-time lap-start-time)
@@ -653,6 +655,8 @@
 (define length-total-cycles lap-total-cycles)
 (define length-avg-speed lap-avg-speed)
 (define length-avg-cadence lap-avg-cadence)
+(define length-avg-hr lap-avg-hr)
+(define length-max-hr lap-max-hr)
 
 (define (length-track length)
   (cond ((assq 'track length) => cdr)

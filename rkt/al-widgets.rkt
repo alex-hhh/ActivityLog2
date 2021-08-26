@@ -622,6 +622,8 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Avg Strokes" lap-avg-strokes n->string)
    (mk-qcolumn "Cadence" lap-avg-cadence n->string)
    (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
+   (mk-qcolumn "HR" lap-avg-hr n->string)
+   (mk-qcolumn "Max HR" lap-max-hr n->string)  
    (mk-qcolumn "Calories" lap-calories n->string)))
 
 (define *swim-mini-lap-fields*
@@ -652,7 +654,9 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Duration" length-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Strokes" length-total-cycles n->string)
    (mk-qcolumn "SWOLF" length-swolf n->string)
-   (mk-qcolumn "Pace" length-avg-speed swim-pace->string)))
+   (mk-qcolumn "Pace" length-avg-speed swim-pace->string)
+   (mk-qcolumn "HR" length-avg-hr n->string)
+   (mk-qcolumn "Max HR" length-max-hr n->string)))
 
 (define *sport-lap-definitions*
   (list
