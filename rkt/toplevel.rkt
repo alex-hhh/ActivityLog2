@@ -1066,6 +1066,14 @@
           #:exists 'append
           profile-display)
 
+        ;; AB#40 SQLite documentation recommends running an optimize before
+        ;; closing the connection -- this will perform optimizations based on
+        ;; the queries that were run during the session.  Most of the time,
+        ;; this is a no-op and should run fast...
+        ;;
+        ;; https://sqlite.org/pragma.html#pragma_optimize
+        (query-exec database "pragma optimize")
+
         (disconnect database)
         (set! database #f))
 
