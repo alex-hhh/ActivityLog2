@@ -338,7 +338,8 @@
    (badge-def "Summary" 1 *color-16* *swim-summary-fields*)
    (badge-def "Timing" 2 *timing-color* *swim-timing-fields*)
    (badge-def "Strokes" 3 *cadence-color* *swim-cadence-fields*)
-   (badge-def "Weather" 4 *weather-color* *weather-fields*)))
+   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Weather" 5 *weather-color* *weather-fields*)))
 
 
 ;............................................. info fields other sports ....

@@ -100,6 +100,9 @@
    axis-swim-stroke-count
    axis-swim-stroke-length
    axis-swim-swolf
+   axis-hr-bpm
+   axis-hr-pct
+   axis-hr-zone
    axis-swim-pace))
 
 (define histogram-plot-panel%

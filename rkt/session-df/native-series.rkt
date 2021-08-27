@@ -1443,6 +1443,7 @@
          (define/override (plot-ticks) (time-ticks #:formats '("~H:~M")))
          (define/override (axis-label) "Time (hour:min)")
          (define/override (name) "Time")
+         (define/override (filter-width) 5.0) ; seconds
          (define/override (series-name) "elapsed")
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            duration->string)
