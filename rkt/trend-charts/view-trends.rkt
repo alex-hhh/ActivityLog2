@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -292,17 +292,9 @@
         (set! title-field (new message% [parent sel-pane] [font font]
                                [label ""] [stretchable-width #t])))
 
-      (set! move-left-button
-            (new button% [parent sel-pane] [label "Move left"]
-                 [callback (lambda (b e) (on-move-left))]))
-      (set! move-right-button
-            (new button% [parent sel-pane] [label "Move right"]
-                 [callback (lambda (b e) (on-move-right))]))
       (make-spacer sel-pane 30)
       (new button% [parent sel-pane] [label "New..."]
            [callback (lambda (b e) (on-new-chart))])
-      (new button% [parent sel-pane] [label "Delete..."]
-           [callback (lambda (b e) (on-delete-chart))])
       (new button% [parent sel-pane] [label "Setup..."]
            [callback (lambda (b e) (on-setup-chart))])
       (make-spacer sel-pane))
@@ -310,9 +302,16 @@
     (define trend-charts '())
 
     (define trend-charts-panel
-      (new tab-panel%
+      (new (class tab-panel%
+             (init)
+             (super-new)
+             (define/augride (on-reorder former-indices)
+               (on-reorder-charts former-indices))
+             (define/override (on-close-request index)
+               (on-delete-chart index)))
            [stretchable-height #t]
            [choices '()]
+           [style '(no-border can-close can-reorder)]
            [callback (lambda (p c)
                        (switch-tabs (send p get-selection)))]
            [parent pane]))
@@ -358,28 +357,26 @@
               (send trend-charts-panel append (send pane get-name))
               (switch-tabs (- (length trend-charts) 1)))))))
 
-    (define (on-delete-chart)
-      (let ((n (send trend-charts-panel get-selection)))
-        (when n
-          (let ((c (list-ref trend-charts n)))
-            (let ((mresult (message-box/custom
-                            "Confirm delete"
-                            (format "Really delete chart \"~a\"?" (send c get-name))
-                            #f "Delete" "Cancel"
-                            (send parent get-top-level-window)
-                            '(caution default=3))))
-              (when (equal? mresult 2)
-                (send trend-charts-panel delete n)
-                (if (eqv? n 0)
-                    (set! trend-charts (cdr trend-charts)) ; deletin first item
-                    (let-values (([head tail] (split-at trend-charts n)))
-                      (set! trend-charts (append head (cdr tail)))))
-                (cond ((> (length trend-charts) n)
-                       (switch-tabs n))
-                      ((> (length trend-charts) 0)
-                       (switch-tabs (- (length trend-charts) 1)))
-                      (#t
-                       (send trend-charts-panel change-children (lambda (old) (list)))))))))))
+    (define (on-delete-chart index)
+      (let ((c (list-ref trend-charts index)))
+        (let ((mresult (message-box/custom
+                        "Confirm delete"
+                        (format "Really delete chart \"~a\"?" (send c get-name))
+                        #f "Delete" "Cancel"
+                        (send parent get-top-level-window)
+                        '(caution default=3))))
+          (when (equal? mresult 2)
+            (send trend-charts-panel delete index)
+            (if (eqv? index 0)
+                (set! trend-charts (cdr trend-charts)) ; deletin first item
+                (let-values (([head tail] (split-at trend-charts index)))
+                  (set! trend-charts (append head (cdr tail)))))
+            (cond ((> (length trend-charts) index)
+                   (switch-tabs index))
+                  ((> (length trend-charts) 0)
+                   (switch-tabs (- (length trend-charts) 1)))
+                  (#t
+                   (send trend-charts-panel change-children (lambda (old) '()))))))))
 
     (define (on-setup-chart)
       (let ((n (send trend-charts-panel get-selection)))
@@ -392,26 +389,12 @@
                 (send trend-charts-panel set-item-label n nname)
                 (send title-field set-label ntitle)))))))
 
-    (define (on-move-left)
-      (define sel (send trend-charts-panel get-selection))
-      (when (and sel (> sel 0))
-        (let-values (((head tail) (split-at trend-charts (sub1 sel))))
-          (set! trend-charts (append head (list (car (cdr tail))) (list (car tail)) (cdr (cdr tail)))))
-        (after-move (sub1 sel))))
-
-    (define (on-move-right)
-      (define sel (send trend-charts-panel get-selection))
-      (when (and sel (< sel (sub1 (length trend-charts))))
-        (let-values (((head tail) (split-at trend-charts sel)))
-          (set! trend-charts (append head (list (car (cdr tail))) (list (car tail)) (cdr (cdr tail)))))
-        (after-move (add1 sel))))
-
-    (define (after-move new-sel)
-      (for (((chart index) (in-indexed (in-list trend-charts))))
-        (send trend-charts-panel set-item-label index (send chart get-name)))
-      (send trend-charts-panel set-selection new-sel)
-      (send move-left-button enable (not (zero? new-sel)))
-      (send move-right-button enable (< new-sel (sub1 (length trend-charts)))))
+    (define (on-reorder-charts former-indices)
+      (define n (send trend-charts-panel get-selection))
+      (set! trend-charts
+            (for/list ([index (in-list former-indices)])
+              (list-ref trend-charts index)))
+      (send trend-charts-panel set-selection (index-of former-indices n)))
 
     (define (switch-tabs n)
       (send trend-charts-panel set-selection n)
@@ -421,9 +404,7 @@
         (queue-callback  ; activate it later, so that the canvas gets its size
          (lambda () (send chart activate))
          #f)
-        (send title-field set-label (send chart get-title)))
-      (send move-left-button enable (not (zero? n)))
-      (send move-right-button enable (< n (sub1 (length trend-charts)))))
+        (send title-field set-label (send chart get-title))))
 
     (define (with-exn-handling name thunk)
       (with-handlers
