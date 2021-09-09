@@ -612,6 +612,7 @@ where S.id = CPFS.session_id
            (printf "About to import ~a~%" file)(flush-output)
            (db-import-activity-from-file/check
             file db
+            #:delete-sessions? #t
             #:extra-df-checks
             (lambda (df)
               (define sid (df-get-property df 'session-id))
@@ -649,7 +650,11 @@ where S.id = CPFS.session_id
          (for ((file (in-list (list a1 a2 a3 a4 a5 a6 a7 a8))))
            (printf "About to import ~a~%" file)(flush-output)
            (db-import-activity-from-file/check file db))
-         (check = 8 (activity-count db)))))
+         (check = 8 (activity-count db))
+         (for ([sid (in-list (query-list db "select id from A_SESSION"))])
+           (db-delete-session sid db))
+         (check-pred null? (leaked-section-summaries db)
+                     "Leaking SECTION_SUMMARY entries after deleting sessions"))))
 
    (test-case "Import manual activity"
      (with-fresh-database

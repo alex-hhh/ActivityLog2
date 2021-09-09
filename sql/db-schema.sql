@@ -511,6 +511,8 @@ create table XDATA_SUMMARY_VALUE (
   field_id integer not null,
   val real,
   foreign key (field_id) references XDATA_FIELD(id),
+  -- note: ON DELETE CASCADE is correct here.  We want this row gone when the
+  -- corresponding SECTION_SUMMARY row is gone.
   foreign key (summary_id) references SECTION_SUMMARY(id) on delete cascade
 );
 

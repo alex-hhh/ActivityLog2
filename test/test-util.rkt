@@ -163,6 +163,18 @@ where S.time_zone_id = ETZ.id
   (check-equal? db-tz df-tz "Failed to import time zone (db)")
   (check-equal? s-tz df-tz "Failed to import time zone (session read)"))
 
+;; NOTE: this query will need to be updated when new tables reference the
+;; SECTION_SUMMARY table...
+(define (leaked-section-summaries db)
+  (query-list
+   db
+"select SS.id
+  from SECTION_SUMMARY SS
+ where SS.id not in (select summary_id from A_SESSION)
+   and SS.id not in (select summary_id from A_LAP)
+   and SS.id not in (select summary_id from A_LENGTH)
+   and SS.id not in (select summary_id from XDATA_SUMMARY_VALUE)"))
+
 (define (db-import-activity-from-file/check file db
                                             #:basic-checks-only? (bc #f)
                                             #:expected-row-count (rc #f)
@@ -171,6 +183,8 @@ where S.time_zone_id = ETZ.id
                                             #:extra-db-checks (db-check #f)
                                             #:extra-df-checks (df-check #f)
                                             #:delete-sessions? (delete? #f))
+  (check-pred null? (leaked-section-summaries db)
+              "Having leaked SECTION_SUMMARY entries before import")
   (let ((result (db-import-activity-from-file file db)))
     (check-pred cons? result "Bad import result format")
     (check-eq? (car result) 'ok (format "~a" (cdr result)))
@@ -199,9 +213,12 @@ where S.time_zone_id = ETZ.id
       (when delete?
         (for ([sid (in-list sids)])
           (check-not-exn (lambda () (db-delete-session sid db)))
-          (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid)))))))
+          (check-false (query-maybe-value db "select id from A_SESSION where id = ?" sid))
+          (check-pred null? (leaked-section-summaries db)
+                      "Leaking SECTION_SUMMARY entries after deleting session"))))))
 
 (provide with-fresh-database
          with-database
          db-import-activity-from-file/check
-         check-time-in-zone)
+         check-time-in-zone
+         leaked-section-summaries)

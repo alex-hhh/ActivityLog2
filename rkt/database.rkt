@@ -1051,10 +1051,18 @@
         (del-scatter-cache
          (virtual-statement
           (lambda (dbsys) "delete from SCATTER_CACHE where session_id = ?")))
-        (del-section-summary
+        (del-section-summary-session
          (virtual-statement
           (lambda (dbsys) "delete from SECTION_SUMMARY where id in (
                              select summary_id from A_SESSION where id = ?)")))
+        (del-section-summary-lap
+         (virtual-statement
+          (lambda (dbsys) "delete from SECTION_SUMMARY where id in (
+                             select P.summary_id from A_LAP P where P.session_id = ?)")))
+        (del-section-summary-length
+         (virtual-statement
+          (lambda (dbsys) "delete from SECTION_SUMMARY where id in (
+                             select L.summary_id from A_LAP P, A_LENGTH L where L.lap_id = P.id and P.session_id = ?)")))
         (del-trackpoints
          (virtual-statement
           (lambda (dbsys) "delete from A_TRACKPOINT where length_id in (
@@ -1084,7 +1092,9 @@
             (query-exec db del-bavg-cache session-id)
             (query-exec db del-hist-cache session-id)
             (query-exec db del-scatter-cache session-id)
-            (query-exec db del-section-summary session-id)
+            (query-exec db del-section-summary-session session-id)
+            (query-exec db del-section-summary-lap session-id)
+            (query-exec db del-section-summary-length session-id)
             (query-exec db del-trackpoints session-id)
             (query-exec db del-lengths session-id)
             (query-exec db del-laps session-id)
