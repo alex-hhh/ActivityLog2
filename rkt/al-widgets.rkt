@@ -447,14 +447,15 @@ values (?, ?)" session-id id))
 ;; from the lap) and a formatter which converts the value to a string for
 ;; display.
 
-(define (mk-qcolumn name extractor formatter)
+(define (mk-qcolumn name extractor formatter #:default-visible? (default-visible? #t))
   (qcolumn
    name
    (lambda (lap)
      (let ((value (extractor lap)))
        (if value (formatter (extractor lap)) "")))
    (lambda (lap)
-     (or (extractor lap) 0))))
+     (or (extractor lap) 0))
+   #:default-visible? default-visible?))
 
 (define (lap-num l)
   (dict-ref l 'lap-num #f))
@@ -467,33 +468,34 @@ values (?, ?)" session-id id))
 
 (define *run-lap-fields*
   (list
-   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
    (qcolumn "Time of day"
             (lambda (entry)
               (let ([timestamp (lap-start-time entry)]
                     [time-zone (dict-ref entry 'time-zone #f)])
                 (time-of-day->string timestamp #:time-zone time-zone)))
-            lap-start-time)
-   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
-   (mk-qcolumn "Distance" lap-distance distance->string)
-   (mk-qcolumn "Pace" lap-avg-speed pace->string)
-   (mk-qcolumn "Best Pace" lap-max-speed pace->string)
-   (mk-qcolumn "Speed" lap-avg-speed speed->string)
-   (mk-qcolumn "Max Speed" lap-max-speed speed->string)
-   (mk-qcolumn "HR" lap-avg-hr n->string)
-   (mk-qcolumn "Max HR" lap-max-hr n->string)
-   (mk-qcolumn "Pa:HR" lap-aerobic-decoupling pct->string)
-   (mk-qcolumn "Cadence" lap-avg-cadence n->string)
-   (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
-   (mk-qcolumn "VOSC" lap-avg-vertical-oscillation vosc->string)
-   (mk-qcolumn "VRATIO" lap-avg-vratio pct->string)
-   (mk-qcolumn "GCT" lap-avg-stance-time n->string)
-   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string)
-   (mk-qcolumn "Stride" lap-avg-stride stride->string)
-   (mk-qcolumn "Calories" lap-calories n->string)
-   (mk-qcolumn "Ascent" lap-total-ascent n->string)
-   (mk-qcolumn "Descent" lap-total-descent n->string)))
+            lap-start-time
+            #:default-visible? #t)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)) #:default-visible? #t)
+   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)) #:default-visible? #f)
+   (mk-qcolumn "Distance" lap-distance distance->string #:default-visible? #t)
+   (mk-qcolumn "Pace" lap-avg-speed pace->string #:default-visible? #t)
+   (mk-qcolumn "Best Pace" lap-max-speed pace->string #:default-visible? #t)
+   (mk-qcolumn "Speed" lap-avg-speed speed->string #:default-visible? #f)
+   (mk-qcolumn "Max Speed" lap-max-speed speed->string #:default-visible? #f)
+   (mk-qcolumn "HR" lap-avg-hr n->string #:default-visible? #t)
+   (mk-qcolumn "Max HR" lap-max-hr n->string #:default-visible? #f)
+   (mk-qcolumn "Pa:HR" lap-aerobic-decoupling pct->string #:default-visible? #t)
+   (mk-qcolumn "Cadence" lap-avg-cadence n->string #:default-visible? #t)
+   (mk-qcolumn "Max Cadence" lap-max-cadence n->string #:default-visible? #t)
+   (mk-qcolumn "VOSC" lap-avg-vertical-oscillation vosc->string #:default-visible? #t)
+   (mk-qcolumn "VRATIO" lap-avg-vratio pct->string #:default-visible? #t)
+   (mk-qcolumn "GCT" lap-avg-stance-time n->string #:default-visible? #t)
+   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string #:default-visible? #t)
+   (mk-qcolumn "Stride" lap-avg-stride stride->string #:default-visible? #t)
+   (mk-qcolumn "Calories" lap-calories n->string #:default-visible? #f)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
+   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
 
 (define *run-mini-lap-fields*
   (list
@@ -518,58 +520,59 @@ values (?, ?)" session-id id))
 
 (define *bike-lap-fields*
   (list
-   (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
    (qcolumn "Time of day"
             (lambda (entry)
               (let ([timestamp (lap-start-time entry)]
                     [time-zone (dict-ref entry 'time-zone #f)])
                 (time-of-day->string timestamp #:time-zone time-zone)))
-            lap-start-time)
-   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
-   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)))
-   (mk-qcolumn "Distance" lap-distance distance->string)
-   (mk-qcolumn "Speed" lap-avg-speed speed->string)
-   (mk-qcolumn "Max Speed" lap-max-speed speed->string)
-   (mk-qcolumn "HR" lap-avg-hr n->string)
-   (mk-qcolumn "Max HR" lap-max-hr n->string)
-   (mk-qcolumn "Pw:HR" lap-aerobic-decoupling pct->string)
-   (mk-qcolumn "Cadence" lap-avg-cadence n->string)
-   (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
+            lap-start-time
+            #:default-visible? #t)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)) #:default-visible? #t)
+   (mk-qcolumn "Moving Time" lap-time (lambda (v) (duration->string v #t)) #:default-visible? #f)
+   (mk-qcolumn "Distance" lap-distance distance->string #:default-visible? #t)
+   (mk-qcolumn "Speed" lap-avg-speed speed->string #:default-visible? #t)
+   (mk-qcolumn "Max Speed" lap-max-speed speed->string #:default-visible? #t)
+   (mk-qcolumn "HR" lap-avg-hr n->string #:default-visible? #t)
+   (mk-qcolumn "Max HR" lap-max-hr n->string #:default-visible? #f)
+   (mk-qcolumn "Pw:HR" lap-aerobic-decoupling pct->string #:default-visible? #f)
+   (mk-qcolumn "Cadence" lap-avg-cadence n->string #:default-visible? #t)
+   (mk-qcolumn "Max Cadence" lap-max-cadence n->string #:default-visible? #f)
 
-   (mk-qcolumn "Power" lap-avg-power n->string)
-   (mk-qcolumn "Max Power" lap-max-power n->string)
-   (mk-qcolumn "Weighted Power" lap-normalized-power n->string)
+   (mk-qcolumn "Power" lap-avg-power n->string #:default-visible? #t)
+   (mk-qcolumn "Max Power" lap-max-power n->string #:default-visible? #t)
+   (mk-qcolumn "Weighted Power" lap-normalized-power n->string #:default-visible? #t)
 
-   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string)
-   (mk-qcolumn "Left TEff" lap-avg-left-torque-effectiveness n->string)
-   (mk-qcolumn "Right TEff" lap-avg-right-torque-effectiveness n->string)
-   (mk-qcolumn "Left PSmth" lap-avg-left-pedal-smoothness n->string)
-   (mk-qcolumn "Right PSmth" lap-avg-right-pedal-smoothness n->string)
+   (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string #:default-visible? #t)
+   (mk-qcolumn "Left TEff" lap-avg-left-torque-effectiveness n->string #:default-visible? #f)
+   (mk-qcolumn "Right TEff" lap-avg-right-torque-effectiveness n->string #:default-visible? #f)
+   (mk-qcolumn "Left PSmth" lap-avg-left-pedal-smoothness n->string #:default-visible? #f)
+   (mk-qcolumn "Right PSmth" lap-avg-right-pedal-smoothness n->string #:default-visible? #f)
 
    (mk-qcolumn "Left PCO" lap-avg-left-pco
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Right PCO" lap-avg-right-pco
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Left PP Start" lap-avg-left-pp-start
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Left PP End" lap-avg-left-pp-end
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Right PP Start" lap-avg-right-pp-start
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Right PP End" lap-avg-right-pp-end
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Left Peak PP Start" lap-avg-left-ppp-start
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Left Peak PP End" lap-avg-left-ppp-end
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Right Peak PP Start" lap-avg-right-ppp-start
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
    (mk-qcolumn "Right Peak PP End" lap-avg-right-ppp-end
-                   (lambda (val) (number->string (exact-round val))))
+                   (lambda (val) (number->string (exact-round val))) #:default-visible? #f)
 
-   (mk-qcolumn "Calories" lap-calories n->string)
-   (mk-qcolumn "Ascent" lap-total-ascent n->string)
-   (mk-qcolumn "Descent" lap-total-descent n->string)))
+   (mk-qcolumn "Calories" lap-calories n->string #:default-visible? #f)
+   (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
+   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
 
 (define *bike-mini-lap-fields*
   (list
@@ -623,7 +626,7 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Cadence" lap-avg-cadence n->string)
    (mk-qcolumn "Max Cadence" lap-max-cadence n->string)
    (mk-qcolumn "HR" lap-avg-hr n->string)
-   (mk-qcolumn "Max HR" lap-max-hr n->string)  
+   (mk-qcolumn "Max HR" lap-max-hr n->string)
    (mk-qcolumn "Calories" lap-calories n->string)))
 
 (define *swim-mini-lap-fields*

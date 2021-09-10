@@ -325,7 +325,7 @@
       (set! selected-lap-data #f))
 
     (define initial-interval-panel-split '(1/5 4/5))
-    (define initial-map-panel-split '(1/5 4/5))
+    (define initial-map-panel-split '(4/5 1/5))
 
     (let ((pref (get-pref the-pref-tag (lambda () #f))))
       (when (and pref (hash? pref))

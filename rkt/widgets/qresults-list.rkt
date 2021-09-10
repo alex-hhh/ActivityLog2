@@ -196,7 +196,7 @@
 ;;....................................................... qresults-list% ....
 
 ;; Holds information about a column of data in a qresults-list% 
-(struct qcolumn
+(struct qcol
   (name                                 ; column name
    ;; function taking a row and returning a string representing the value to
    ;; be displayed for that row in this column.
@@ -205,13 +205,22 @@
    ;; this column, this can be either a string (in which case the column is
    ;; sorted by string< and string>, or a number in that case, the column is
    ;; sorted using < and >
-   sort-key))
+   sort-key
+   ;; Flag indicating if this column should be visible by default, when no
+   ;; visible columns have been selected yet.  `qcolumn` always creates
+   ;; visible columns by default, but it can be useful to define a set of
+   ;; visible columns for setups which contain a lot of columns, like the
+   ;; activity-list.
+   default-visible?))
+
+(define (qcolumn name formatter sort-key #:default-visible? (default-visible? #t))
+  (qcol name formatter sort-key default-visible?))
 
 ;; Return a symbol that can be used to store visual preferences for a list-box
 ;; based on COLUMN-DEFINITIONS (a list of QCOLUMN objects).  The key is
 ;; composed of a TAG folowed by the md5 sum of the concatenated column titles.
 (define (make-pref-key tag column-definitions)
-  (let* ((title-str (apply string-append (map qcolumn-name column-definitions)))
+  (let* ((title-str (apply string-append (map qcol-name column-definitions)))
          (title-md5 (bytes->string/latin-1 (md5 title-str #t))))
     (string->symbol (string-append (symbol->string tag) "--" title-md5))))
 
@@ -255,8 +264,8 @@
 
     (define (get-column-formatters)
       (for/list ([cdef (in-list column-defs)]
-                 #:when (member (qcolumn-name cdef) visible-columns))
-        (qcolumn-formatter cdef)))
+                 #:when (member (qcol-name cdef) visible-columns))
+        (qcol-formatter cdef)))
 
     (define (refresh-contents)
       (with-busy-cursor
@@ -304,8 +313,8 @@
 
       ;; Sort the data
       (let* ((cname (list-ref visible-columns n))
-             (key (qcolumn-sort-key
-                   (findf (lambda (ci) (equal? (qcolumn-name ci) cname))
+             (key (qcol-sort-key
+                   (findf (lambda (ci) (equal? (qcol-name ci) cname))
                           column-defs)))
              (cmp (cond ((= (length the-data) 0) <) ; doesn't matter
                         ((string? (key (car the-data)))
@@ -414,15 +423,15 @@
       (let ((visible-fields
              (send setup-fields-dlg begin-edit
                    (send the-pane get-top-level-window)
-                   (map qcolumn-name column-defs)
+                   (map qcol-name column-defs)
                    visible-columns)))
         (when visible-fields
           ;; NOTE: visible-columns needs to be in the right order, so we scan
           ;; the column definitions.
           (set! visible-columns
                 (for/list ([cdef (in-list column-defs)]
-                           #:when (member (qcolumn-name cdef) visible-fields))
-                  (qcolumn-name cdef)))
+                           #:when (member (qcol-name cdef) visible-fields))
+                  (qcol-name cdef)))
           (lb-install-headers the-list-box visible-columns)
           (lb-set-default-visual-layout the-list-box)
           (refresh-contents))))
@@ -457,7 +466,8 @@
       (let ((visual-layout (get-pref pref-key (lambda () #f))))
         (let ((visible-fields (if visual-layout
                                   (car visual-layout)
-                                  (map qcolumn-name column-defs)))
+                                  (for/list ([c (in-list column-defs)] #:when (qcol-default-visible? c))
+                                    (qcol-name c))))
               (lb-visual-layout (if visual-layout
                                     (cdr visual-layout)
                                     #f)))
@@ -491,13 +501,13 @@
     ;; data, otherwise, the sort key is used.
     (define/public (export-data-as-csv outp formatted-values?)
       (for-each (lambda (c)
-                  (write-string (qcolumn-name c) outp)
+                  (write-string (qcol-name c) outp)
                   (write-string "," outp))
                 column-defs)
       (newline outp)
       (let ((fn-list (map (if formatted-values?
-                                 qcolumn-formatter
-                                 qcolumn-sort-key)
+                                 qcol-formatter
+                                 qcol-sort-key)
                              column-defs)))
         (for-each (lambda (d)
                     (for-each (lambda (f)
