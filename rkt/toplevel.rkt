@@ -45,7 +45,7 @@
          "view-athlete-metrics.rkt"
          "view-calendar.rkt"
          "view-equipment.rkt"
-         "view-last-import.rkt"
+         "dialogs/import-dialog.rkt"
          "view-reports.rkt"
          "weather.rkt"
          "widgets/main.rkt"
@@ -403,6 +403,13 @@
        [callback
         (lambda (m e)
           (send toplevel delete-cached-data))])
+
+  (new menu-item%
+       [parent tools-menu]
+       [label "Show last import..."]
+       [callback
+        (lambda (m e)
+          (send toplevel on-show-last-import))])
 
   )
 
@@ -931,11 +938,6 @@
       (add-section "Session" 'session-view
                    (lambda (parent) (new view-session% [parent parent] [database database])))
 
-      (add-section "Last Import" 'import
-                   (lambda (parent)
-                     (new import-view% [parent parent] [database database]
-                          [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
-
       (add-section "Equipment" 'equipment
                    (lambda (parent)
                      (new view-equipment% [parent parent] [database database])))
@@ -1404,6 +1406,9 @@
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (unless (or (sql-null? nsessions) (zero? nsessions))
           (retract-user-notification 'empty-database))))
+
+    (define/public (on-show-last-import)
+      (send (new last-import-dialog%) show-dialog tl-frame database))
 
     (define about-frame #f)
 
