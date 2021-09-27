@@ -28,7 +28,10 @@
  make-split-intervals
  make-climb-intervals
  make-best-pace-intervals
- make-best-power-intervals)
+ make-best-power-intervals
+ total-ascent-descent
+ make-interval-summary)
+
 
 ;;; AMBIGUITIES in segment distances and times
 ;;
@@ -103,7 +106,7 @@
     (avg-left-torque-effectiveness "lteff" avg)
     (avg-right-torque-effectiveness "rteff" avg)
     (avg-left-pedal-smoothness "lpsmth" avg)
-    (avg-left-pedal-smoothness "rpsmth" avg)
+    (avg-right-pedal-smoothness "rpsmth" avg)
     (avg-left-pco "lpco" avg)
     (avg-right-pco "rpco" avg)
     (avg-left-pp-start "lpps" avg)
@@ -162,24 +165,24 @@
                             accum)))
                    accum))
              #:start start-index #:stop end-index))
-  (cons ascent descent))
+  (values ascent descent))
 
 ;; Construct ascent and descent lap information from the data frame DF between
 ;; START-INDEX and END-INDEX
 (define (make-ascent-descent df start-index end-index)
-  (define ad
+  (define-values (ascent descent)
     (if (df-contains? df "alt")
         (total-ascent-descent df "alt" start-index end-index)
-        (cons #f #f)))
-  (define cad
+        (values #f #f)))
+  (define-values (cascent cdescent)
     (if (df-contains? df "calt")
         (total-ascent-descent df "calt" start-index end-index)
-        (cons #f #f)))
+        (values #f #f)))
   (list
-   (cons 'total-ascent (car ad))
-   (cons 'total-descent (cdr ad))
-   (cons 'total-corrected-ascent (car cad))
-   (cons 'total-corrected-descent (cdr cad))))
+   (cons 'total-ascent ascent)
+   (cons 'total-descent descent)
+   (cons 'total-corrected-ascent cascent)
+   (cons 'total-corrected-descent cdescent)))
 
 ;; Construct "total cycles" lap information from the data frame DF between
 ;; START-INDEX and END-INDEX.

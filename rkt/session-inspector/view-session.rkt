@@ -515,5 +515,8 @@ where id = ?" time-zone sid))))))
       (activated))
     (define/public (before-popup) #f)
     (define/public (after-popdown) #f)
+    (define/public (inspect-session sid)
+      ;; Do nothing...
+      (void))
 
     ))

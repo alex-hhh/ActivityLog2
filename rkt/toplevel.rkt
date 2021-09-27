@@ -452,6 +452,9 @@
             section
             #f)))
 
+    (define/public (inspect-session sid)
+      (send toplevel-application inspect-session sid))
+
     (define/public (get-selected-sid)
       (let ((target (get-target-section)))
         (and target (send target get-selected-sid))))
@@ -1138,7 +1141,7 @@
       (when (or (not visiting-sid) (equal? visiting-sid sid))
         (hide-session-view)))
 
-    (define (inspect-session dbid)
+    (define/public (inspect-session dbid)
       (when (check-unsaved-edits)
         (with-busy-cursor
           (lambda ()
@@ -1147,8 +1150,6 @@
               (show-session-view)
               (switch-to-section s)
               (send section-selector select (get-section-index 'session-view) #t))))))
-
-    (set-inspect-callback inspect-session)
 
     (define (switch-to-section section)
       (unless (eq? the-selected-section section)

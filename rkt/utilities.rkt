@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -14,15 +14,9 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require (for-syntax racket/base
-                     racket/file
-                     racket/format
-                     racket/runtime-path
-                     racket/string)
-         errortrace/errortrace-lib
+(require errortrace/errortrace-lib
          racket/async-channel
          racket/contract
-         racket/file
          racket/format
          racket/list
          racket/match

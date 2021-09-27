@@ -1896,7 +1896,10 @@
                   [stretchable-height #f]
                   [alignment '(left center)])))
       (new message% [parent p] [label "Laps"] [font *header-font*])
-      (set! interval-choice (new interval-choice% [tag 'interval-choice-graphs] [parent p] [label ""])))
+      (set! interval-choice (new interval-choice%
+                                 [tag 'interval-choice-graphs]
+                                 [parent p]
+                                 [label ""])))
 
     (define interval-view (new mini-interval-view%
                                [parent interval-view-panel]

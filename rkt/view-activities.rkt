@@ -460,7 +460,7 @@ select X.session_id
                   #:default-visible? #f))
 
        (let ((fn (lambda (row) (db-row-ref row "np" headers 0))))
-         (qcolumn "Weighted Power"
+         (qcolumn "Iso Power"
                   (lambda (row) (let ((v (fn row))) (power->string v #t)))
                   fn
                   #:default-visible? #t))
@@ -829,6 +829,8 @@ select X.session_id
 
     (define selected-row-index #f)
 
+    (define/public (inspect-session sid)
+      (and select-activity-callback (select-activity-callback sid)))
     (define/public (get-top-level-window)
       (send pane get-top-level-window))
     (define/public (get-database)

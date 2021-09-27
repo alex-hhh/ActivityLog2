@@ -44,7 +44,6 @@
 
 (provide activity-operations<%>)
 (provide activity-operations-menu%)
-(provide set-inspect-callback)
 
 
 ;;............................................ activity-operations-menu% ....
@@ -58,17 +57,13 @@
     get-selected-sid
     get-selected-guid
     get-selected-sport
+    inspect-session
     after-update
     can-delete?
     after-delete
     after-new
     before-popup
     after-popdown))
-
-(define the-inspect-callback #f)
-
-(define (set-inspect-callback cb)
-  (set! the-inspect-callback cb))
 
 (define (get-session-headline db sid)
   (let ((row (query-row db "
@@ -105,7 +100,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
              (have-sid? (and target (number? (send target get-selected-sid))))
              (have-guid? (and target (string? (send target get-selected-guid))))
              (is-lap-swim? (and target (equal? sport '(5 . 17)))))
-        (send inspect-menu-item enable (and have-sid? the-inspect-callback))
+        (send inspect-menu-item enable have-sid?)
         (send edit-menu-item enable have-sid?)
         (send fixup-elevation-menu-item enable have-sid?)
         (send clear-elevation-menu-item enable have-sid?)
@@ -134,7 +129,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (send target after-popdown))
 
     (define (on-inspect m e)
-      (the-inspect-callback (send target get-selected-sid)))
+      (send target inspect-session (send target get-selected-sid)))
 
     (define (on-edit m e)
       (let ((sid (send target get-selected-sid))

@@ -21,6 +21,7 @@
          racket/gui/base
          racket/match
          racket/math
+         racket/format
          tzinfo
          "dbapp.rkt"
          "fit-file/activity-util.rkt"
@@ -29,7 +30,8 @@
          "intervals.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "widgets/main.rkt")
+         "widgets/main.rkt"
+         "database.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -293,7 +295,10 @@ values (?, ?)" session-id id))
 ;; displayed in an associated interval-view% widget.
 (define interval-choice%
   (class object%
-    (init-field parent [tag 'lap-type-selector] [label "Show Split Types: "])
+    (init-field parent
+                [database (current-database)] ; !!! FIXME
+                [tag 'lap-type-selector]
+                [label "Show Split Types: "])
     (super-new)
 
     (define interval-view #f)           ; the view we are controlling

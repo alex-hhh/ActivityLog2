@@ -55,16 +55,14 @@
     ;; enabled/disabled by validate-timer if data is valid and can be saved.
     (define save-button #f)
 
-    ;; Contains the user widgets for this dialog (created later).  A derived
-    ;; class may obtain this using `get-client-pane` and populate it with
-    ;; widgets.
-    (define client-pane #f)
-
     ;; The icon displayed on the dialog (created later).  It can be changed by
     ;; calling `set-icon`.
     (define dialog-icon #f)
-
-    (define edit-pane
+    
+    ;; client-pane contains the user widgets for this dialog (created later).
+    ;; A derived class may obtain this using `get-client-pane` and populate it
+    ;; with widgets.
+    (define-values (edit-pane client-pane)
       (let ((p (new vertical-panel% [parent toplevel-window]
                     [spacing 10]
                     [border 10]
@@ -75,9 +73,9 @@
                      [stretchable-width #f] [stretchable-height #f]))
           (new message% [label title] [parent p0] [font title-font]))
 
-        (set! client-pane
-              (new vertical-panel%
-                   [parent p] [border 0] [spacing 10] [alignment '(left top)]))
+        (define client-pane
+          (new vertical-panel%
+               [parent p] [border 0] [spacing 10] [alignment '(left top)]))
 
         (let ((bp (new horizontal-pane% [parent p] [border 0] [spacing 10]
                        [stretchable-height #f] [alignment '(right center)])))
@@ -87,7 +85,7 @@
           (new button% [label "Cancel"] [parent bp]
                [callback (lambda (b e) (on-cancel))]))
 
-        p))
+        (values p client-pane)))
 
     ;; Result of running the dialog, #t if data was saved, #f if it was not,
     ;; this is what edit-equipment returns.
@@ -101,20 +99,20 @@
            [notify-callback
             (lambda () (send save-button enable (has-valid-data?)))]))
 
-    (define (finish-edit result)
+    (define/private (finish-edit result)
       (when (on-finish-edit result)
         (set! dialog-result result)
         (send validate-timer stop)
         (send toplevel-window show #f)))
 
-    (define (on-save)
+    (define/private (on-save)
       ;; Don't allow finishing the edit with invalid data.  Our validate timer
       ;; might not have caught the invalid data to disable the save button in
       ;; time...
       (when (has-valid-data?)
         (finish-edit #t)))
 
-    (define (on-cancel)
+    (define/private (on-cancel)
       (finish-edit #f))
 
     ;; Return the client pane in which controls for this dialog may be added.

@@ -242,7 +242,7 @@
             (lambda (out) (write-bytes data out))
             #:mode 'binary #:exists 'replace))))
 
-        (define the-menu
+    (define the-menu
       (if menu-bar
           (new menu% [parent menu-bar] [label "&Workout"]
                [demand-callback on-demand])

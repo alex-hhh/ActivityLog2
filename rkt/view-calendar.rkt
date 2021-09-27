@@ -2,7 +2,7 @@
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1053,6 +1053,9 @@
       (if selected-item
           (send selected-item get-session-id)
           #f))
+
+    (define/public (inspect-session sid)
+      (and select-activity-callback (select-activity-callback sid)))
 
     (define/public (get-selected-sport)
       (if selected-item

@@ -22,11 +22,10 @@
          racket/contract
          racket/dict
          racket/file
-         racket/format
          racket/list
          racket/match
-         racket/port
          geoid
+         racket/runtime-path
          "dbapp.rkt"
          "dbutil.rkt"
          "fit-file/fit-defs.rkt"
@@ -54,8 +53,8 @@
  (db-export-raw-data (-> exact-nonnegative-integer? connection? path-string? any/c))
  (db-get-activity-id (-> string? connection? (or/c #f exact-nonnegative-integer?)))
  (db-get-seasons (-> connection? any/c))
- (db-extract-activity-raw-data (-> exact-nonnegative-integer? connection? (or/c bytes? #f))))
-
+ (db-extract-activity-raw-data (-> exact-nonnegative-integer? connection? (or/c bytes? #f)))
+ (db-insert-section-summary (-> any/c connection? exact-nonnegative-integer?)))
 
 
 ;................................................... database utilities ....
@@ -153,8 +152,9 @@
                    avg_left_ppp_start,
                    avg_left_ppp_end,
                    avg_right_ppp_start,
-                   avg_right_ppp_end)
-                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                   avg_right_ppp_end,
+                   aerobic_decoupling)
+                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields `(total-timer-time total-elapsed-time
                                    total-distance total-calories avg-speed
                                    max-speed avg-heart-rate max-heart-rate
@@ -173,7 +173,8 @@
                                    avg-left-pp-start avg-left-pp-end
                                    avg-right-pp-start avg-right-pp-end
                                    avg-left-ppp-start avg-left-ppp-end
-                                   avg-right-ppp-start avg-right-ppp-end)))
+                                   avg-right-ppp-start avg-right-ppp-end
+                                   aerobic-decoupling)))
     (lambda (record db)
       (let ((values (map (lambda (x)
                            (let ((y (if (procedure? x)
