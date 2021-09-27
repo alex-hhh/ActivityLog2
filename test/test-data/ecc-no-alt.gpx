@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="Garmin Connect" version="1.1"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/11.xsd"
+  xmlns:ns3="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ns2="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
+  <metadata>
+    <name>Ellen Cove Climb</name>
+    <link href="connect.garmin.com">
+      <text>Garmin Connect</text>
+    </link>
+    <time>2021-08-26T08:39:35.000Z</time>
+  </metadata>
+  <trk>
+    <name>Ellen-Cove-Climb</name>
+    <trkseg>
+      <trkpt lat="-35.025579230859876" lon="117.9163802973926">
+        <time>2021-08-26T08:39:35.000Z</time>
+      </trkpt>
+      <trkpt lat="-35.026001846417785" lon="117.91724681854248">
+        <time>2021-08-26T08:39:35.028Z</time>
+      </trkpt>
+      <trkpt lat="-35.026001930236816" lon="117.91724681854248">
+        <time>2021-08-26T08:39:35.056Z</time>
+      </trkpt>
+      <trkpt lat="-35.02604476176202" lon="117.91739702224731">
+        <time>2021-08-26T08:39:35.088Z</time>
+      </trkpt>
+      <trkpt lat="-35.026044845581055" lon="117.91739702224731">
+        <time>2021-08-26T08:39:35.120Z</time>
+      </trkpt>
+      <trkpt lat="-35.026023304089904" lon="117.9181694984436">
+        <time>2021-08-26T08:39:35.173Z</time>
+      </trkpt>
+      <trkpt lat="-35.026023387908936" lon="117.9181694984436">
+        <time>2021-08-26T08:39:35.226Z</time>
+      </trkpt>
+      <trkpt lat="-35.02595901489258" lon="117.91859865188599">
+        <time>2021-08-26T08:39:35.291Z</time>
+      </trkpt>
+      <trkpt lat="-35.02578710205853" lon="117.91899980977178">
+        <time>2021-08-26T08:39:35.368Z</time>
+      </trkpt>
+      <trkpt lat="-35.02578718587756" lon="117.91899955831468">
+        <time>2021-08-26T08:39:35.445Z</time>
+      </trkpt>
+      <trkpt lat="-35.025765895843506" lon="117.91904926300049">
+        <time>2021-08-26T08:39:35.524Z</time>
+      </trkpt>
+      <trkpt lat="-35.02572298049927" lon="117.9192852973938">
+        <time>2021-08-26T08:39:35.610Z</time>
+      </trkpt>
+      <trkpt lat="-35.02574443817139" lon="117.91988611221313">
+        <time>2021-08-26T08:39:35.712Z</time>
+      </trkpt>
+      <trkpt lat="-35.026044845581055" lon="117.9207444190979">
+        <time>2021-08-26T08:39:35.840Z</time>
+      </trkpt>
+      <trkpt lat="-35.02617359161377" lon="117.92095899581909">
+        <time>2021-08-26T08:39:35.975Z</time>
+      </trkpt>
+      <trkpt lat="-35.02621650695801" lon="117.92123794555664">
+        <time>2021-08-26T08:39:36.118Z</time>
+      </trkpt>
+      <trkpt lat="-35.026280879974365" lon="117.92134523391724">
+        <time>2021-08-26T08:39:36.264Z</time>
+      </trkpt>
+      <trkpt lat="-35.02654792740941" lon="117.92155595496297">
+        <time>2021-08-26T08:39:36.421Z</time>
+      </trkpt>
+      <trkpt lat="-35.02654775977135" lon="117.92155587114394">
+        <time>2021-08-26T08:39:36.578Z</time>
+      </trkpt>
+      <trkpt lat="-35.02668857574463" lon="117.92166709899902">
+        <time>2021-08-26T08:39:36.740Z</time>
+      </trkpt>
+      <trkpt lat="-35.02692461013794" lon="117.92177438735962">
+        <time>2021-08-26T08:39:36.911Z</time>
+      </trkpt>
+      <trkpt lat="-35.02716064453125" lon="117.92177438735962">
+        <time>2021-08-26T08:39:37.090Z</time>
+      </trkpt>
+      <trkpt lat="-35.0273323059082" lon="117.9218602180481">
+        <time>2021-08-26T08:39:37.275Z</time>
+      </trkpt>
+      <trkpt lat="-35.02771854400635" lon="117.92222499847412">
+        <time>2021-08-26T08:39:37.476Z</time>
+      </trkpt>
+      <trkpt lat="-35.02795457839966" lon="117.92226791381836">
+        <time>2021-08-26T08:39:37.685Z</time>
+      </trkpt>
+      <trkpt lat="-35.02808324061334" lon="117.92218208312988">
+        <time>2021-08-26T08:39:37.899Z</time>
+      </trkpt>
+      <trkpt lat="-35.02808332443237" lon="117.92218208312988">
+        <time>2021-08-26T08:39:38.113Z</time>
+      </trkpt>
+      <trkpt lat="-35.02840518951416" lon="117.92188167572021">
+        <time>2021-08-26T08:39:38.340Z</time>
+      </trkpt>
+      <trkpt lat="-35.02907037734985" lon="117.92147397994995">
+        <time>2021-08-26T08:39:38.592Z</time>
+      </trkpt>
+      <trkpt lat="-35.02913265489042" lon="117.92134054005146">
+        <time>2021-08-26T08:39:38.848Z</time>
+      </trkpt>
+      <trkpt lat="-35.029132571071386" lon="117.92134062387049">
+        <time>2021-08-26T08:39:39.104Z</time>
+      </trkpt>
+      <trkpt lat="-35.029220497235656" lon="117.92115211486816">
+        <time>2021-08-26T08:39:39.366Z</time>
+      </trkpt>
+      <trkpt lat="-35.029284954071045" lon="117.92104482650757">
+        <time>2021-08-26T08:39:39.632Z</time>
+      </trkpt>
+      <trkpt lat="-35.02960681915283" lon="117.92100191116333">
+        <time>2021-08-26T08:39:39.909Z</time>
+      </trkpt>
+      <trkpt lat="-35.03018617630005" lon="117.9202938079834">
+        <time>2021-08-26T08:39:40.213Z</time>
+      </trkpt>
+      <trkpt lat="-35.03035775385797" lon="117.92022943496704">
+        <time>2021-08-26T08:39:40.523Z</time>
+      </trkpt>
+      <trkpt lat="-35.030508041381836" lon="117.9201865196228">
+        <time>2021-08-26T08:39:40.838Z</time>
+      </trkpt>
+      <trkpt lat="-35.03074407577515" lon="117.91977882385254">
+        <time>2021-08-26T08:39:41.167Z</time>
+      </trkpt>
+      <trkpt lat="-35.030848514288664" lon="117.91972970589995">
+        <time>2021-08-26T08:39:41.500Z</time>
+      </trkpt>
+      <trkpt lat="-35.03084843046963" lon="117.91972970589995">
+        <time>2021-08-26T08:39:41.833Z</time>
+      </trkpt>
+      <trkpt lat="-35.03110885620117" lon="117.91960716247559">
+        <time>2021-08-26T08:39:42.175Z</time>
+      </trkpt>
+      <trkpt lat="-35.03133097663522" lon="117.91932947002351">
+        <time>2021-08-26T08:39:42.528Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

@@ -91,6 +91,10 @@ steps:
     condition: eq(variables.runTests, true)
     displayName: Test Database Import (db-test)
 
+  - script: raco test test/gps-segment-test.rkt
+    condition: eq(variables.runTests, true)
+    displayName: GPS Segments (gps-segment-test)
+
   - script: raco test test/db-upgrade-test.rkt
     condition: eq(variables.runTests, true)
     displayName: Test Database Upgrade (db-upgrade-test)

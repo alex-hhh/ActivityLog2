@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -173,7 +173,8 @@ where S.time_zone_id = ETZ.id
  where SS.id not in (select summary_id from A_SESSION)
    and SS.id not in (select summary_id from A_LAP)
    and SS.id not in (select summary_id from A_LENGTH)
-   and SS.id not in (select summary_id from XDATA_SUMMARY_VALUE)"))
+   and SS.id not in (select summary_id from XDATA_SUMMARY_VALUE)
+   and SS.id not in (select summary_id from GPS_SEGMENT_MATCH)"))
 
 (define (db-import-activity-from-file/check file db
                                             #:basic-checks-only? (bc #f)
