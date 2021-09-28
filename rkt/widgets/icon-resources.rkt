@@ -3,7 +3,7 @@
 ;; application, avoids re-loading them in each module that needs them.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -89,6 +89,14 @@
     (set! the-pmc-icon (read-bitmap pmc-icon-file)))
   the-pmc-icon)
 (provide pmc-icon)
+
+(define-runtime-path waypoints-icon-file "../../img/waypoint_map-64.png")
+(define the-waypoints-icon #f)
+(define (waypoints-icon)
+  (unless the-waypoints-icon
+    (set! the-waypoints-icon (read-bitmap waypoints-icon-file)))
+  the-waypoints-icon)
+(provide waypoints-icon)
 
 (define (reports-icon) (pmc-icon))
 (provide reports-icon)
