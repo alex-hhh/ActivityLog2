@@ -136,6 +136,16 @@
 
          )))
 
+   (test-case "segment match on import"
+     (define segment (gps-segment-from-gpx "./test-data/ecc.gpx"))
+     (check-ecc-segment segment)
+     (with-fresh-database
+       (lambda (db)
+         (define segment-id (put-new-gps-segment db segment))
+         (db-import-activity-from-file "./test-data/310xt-run.fit" db)
+         (do-post-import-tasks db) ; this should find a match on the segment we imported
+         (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1))))
+
    ))
 
 

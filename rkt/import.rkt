@@ -2,7 +2,7 @@
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,7 +26,8 @@
          "session-df/session-df.rkt"
          "time-in-zone.rkt"
          "utilities.rkt"
-         "weather.rkt")
+         "weather.rkt"
+         "gps-segments/gps-segments.rkt")
 
 (provide import-new-activities-from-directory do-post-import-tasks)
 
@@ -75,6 +76,8 @@
       (show-progress "skipping weather download (disabled in settings)..."))
   (show-progress "updating timezones ...")
   (update-timezone-for-new-sessions sessions db)
+  (show-progress "searching for GPS segment matches...")
+  (find-new-segment-matches #:db db)
   (for ([sid (in-list sessions)])
     (log-event 'session-created sid)))
 
@@ -304,3 +307,44 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
      (for ([(id lat lon) (in-query db q #:fetch 1000)])
        (define geoid (geoid->sqlite-integer (lat-lng->geoid lat lon)))
        (query-exec db u geoid id)))))
+
+;;...................................................... segment matches ....
+
+;; Find any GPS matches for the sessions we just imported, using the existing
+;; segments from GPS_SEGMENT.
+(define (find-new-segment-matches #:db db)
+  (define segment-info
+    (query-rows db "\
+select GSW.segment_id, GSW.geoid, min(GSW.pos)
+  from GPS_SEGMENT_WAYPOINT GSW
+ group by GSW.segment_id"))
+
+  (define matches '())
+
+  (for ([row (in-list segment-info)])
+    (match-define (vector segment-id geoid* _pos) row)
+    (define geoid (sqlite-integer->geoid geoid*))
+    (define nearby (find-nearby-sessions/last-import db geoid))
+    (unless (null? nearby)
+      (define segment (gps-segment-df db segment-id))
+      (define waypoints (df-select segment "geoid"))
+      (define segment-length (df-get-property segment 'segment-length))
+      (for ([candidate (in-list nearby)])
+        (define session (session-df db candidate))
+        (define m (find-segment-matches session waypoints segment-length))
+        (unless (null? m)
+          (dbglog "found ~a GPS segment match(es) for segment id ~a in session id ~a"
+                  (length m) segment-id candidate)
+          (set! matches (cons (cons segment-id m) matches))))))
+
+  (unless (null? matches)
+    (call-with-transaction
+     db
+     (lambda ()
+       (for ([entry (in-list matches)])
+         (define segment-id (car entry))
+         (for ([segment-match (in-list (cdr entry))])
+           (match-define (list df start stop cost) segment-match)
+           (put-new-segment-match db segment-id df start stop cost))
+         (log-event 'gps-segment-updated-matches segment-id))))))
+
