@@ -2,7 +2,7 @@
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,25 +26,21 @@
 ;; It will work best if a route is traversed several times and won't do
 ;; anything useful for a route that is traversed only once.
 
-(require data-frame/private/bsearch
-         data-frame/private/rdp-simplify
-         db/base
+(require db/base
          geoid
-         map-widget/utils
-         math/statistics
          racket/class
          racket/contract
-         racket/dict
          racket/flonum
-         racket/format
          racket/list
          racket/match
          racket/math
          racket/runtime-path
          racket/vector
+         data-frame
          "../dbutil.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt")
+         "../widgets/main.rkt"
+         "../gps-segments/gps-segments.rkt")
 
 ;; Elevation correction does not produce good results when there are small
 ;; amounts of data and sessions are recorded with mostly flat terrain.  While
@@ -564,6 +560,156 @@ update SECTION_SUMMARY
                where S.id = ?)" session-id))))
 
 
+;;.......................................... fixup-elevation-for-segment ....
+
+(define-runtime-path segment-geoids-query-file "../../sql/queries/ec-segment-geoids.sql")
+(define segment-geoids-query (define-sql-statement segment-geoids-query-file))
+
+;; Return the geoids for all track points in a segment, along with the
+;; waypoint id. Returns a list of (vector waypoint-id geoid)
+(define (segment-waypoints db segment-id [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor begin-stage "Fetching GPS track for segment" 0))
+  (for/list ([(id geoid) (in-query db (segment-geoids-query) segment-id #:fetch 1000)])
+    (vector id (sqlite-integer->geoid geoid))))
+
+;; SQL statement to update the corrected altitude for a trackpoint
+(define update-waypoint-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update GPS_SEGMENT_WAYPOINT set altitude = ? where id = ?")))
+
+;; Update the GPS_SEGMENT_WAYPOINT rows in the database with altitude data
+;; from ALTITUDE-DATA which is a vector of TPOINT structures as produced by
+;; AVERAGE-ALTITUDE.
+(define (update-segment-waypoints db altitude-data
+                                  [progress-monitor #f] [progress-step 100])
+  (when progress-monitor
+    (send progress-monitor begin-stage
+          "Updating altitude for GPS segment" (vector-length altitude-data)))
+  (call-with-transaction
+   db
+   (lambda ()
+     (for ([point (in-vector altitude-data)]
+           [index (in-naturals)])
+       (when (and progress-monitor (= (remainder (add1 index) progress-step) 0))
+         (send progress-monitor set-progress (add1 index)))
+       (let ((id (tpoint-id point))
+             (calt (tpoint-calt point)))
+         (query-exec db update-waypoint-stmt (or calt sql-null) id))))))
+
+;; SQL statement to update the grade for a waypoint
+(define update-segment-grade-stmt
+  (virtual-statement
+   (lambda (dbsys)
+     "update GPS_SEGMENT_WAYPOINT set grade = ? where id = ?")))
+
+(define-runtime-path update-segment-summary-query-file "../../sql/queries/ec-update-segment.sql")
+(define update-segment-summary-query (define-sql-statement update-segment-summary-query-file))
+
+;; Update in the database the fields derived from altitude data in the segment
+;; identified by SEGMENT-ID.  The segment is assumed to already have its
+;; altitude data updated (see `update-segment-waypoints`), and ALTITUDE-DATA
+;; is used just to find the GPS_SEGMENT_WAYPOINT database IDs of each
+;; waypoint.
+(define (update-summary-altitude-for-segment db segment-id altitude-data)
+  ;; force refresh of the segment, to get new altitude data
+  (log-event 'gps-segment-updated segment-id)
+  (define segment (fetch-gps-segment db segment-id))
+  ;; remove grade series as it is now incorrect, as well as all of the
+  ;; altitude related summary properties.
+  (df-del-series! segment "grade")
+  (for ([p (in-list '(segment-height segment-grade total-ascent total-descent
+                                     max-grade min-elevation max-elevation))])
+    (df-del-property! segment p))
+  ;; Add grade series and new summary data based on fresh altitude
+  (fixup-segment-data segment)
+  (call-with-transaction
+   db
+   (lambda ()
+     ;; Put the grade values back
+     (for ([point (in-vector altitude-data)]
+           [grade (in-data-frame segment "grade")])
+       (let ((id (tpoint-id point)))
+         (query-exec db update-segment-grade-stmt (or grade sql-null) id)))
+     (query-exec
+      db
+      (update-segment-summary-query)
+      (df-get-property segment 'segment-height sql-null)
+      (df-get-property segment 'segment-grade sql-null)
+      (df-get-property segment 'total-ascent sql-null)
+      (df-get-property segment 'total-descent sql-null)
+      (df-get-property segment 'max-grade sql-null)
+      (df-get-property segment 'min-elevation sql-null)
+      (df-get-property segment 'max-elevation sql-null)
+      segment-id))))
+
+;; Same as `fixup-elevation-for-session-internal`, except for GPS segments
+;; instead of sessions
+(define (fixup-elevation-for-segment-internal db segment-id fetch-altitude-fn [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor begin-stage "Fetching GPS track for segments..." 0))
+  (define trackpoints (segment-waypoints db segment-id progress-monitor))
+  (when progress-monitor
+    (send progress-monitor begin-stage "Correcting elevation for segment..." 0))
+  (unless (null? trackpoints)           ; maybe the segment has no GPS data?
+    (define tp-elevation (average-altitude trackpoints fetch-altitude-fn progress-monitor))
+    (smooth-altitude tp-elevation)
+    (call-with-transaction
+     db
+     (lambda ()
+       (update-segment-waypoints db tp-elevation progress-monitor)
+       (when progress-monitor
+         (send progress-monitor begin-stage (format "Updating summary altitude") 0))
+       (update-summary-altitude-for-segment db segment-id tp-elevation)))))
+
+;; Same as `fixup-elevation-for-session`, except for GPS segments instead of
+;; sessions
+(define (fixup-elevation-for-segment db segment-id [progress-monitor #f])
+  (when progress-monitor
+    (send progress-monitor begin-stage "Fetching altitude data..." 0))
+  (define fetch-altitude-fn (make-geoid-fetcher db))
+  (dbglog "fixup-elevation-for-segment ~a started" segment-id)
+  (fixup-elevation-for-segment-internal db segment-id fetch-altitude-fn progress-monitor)
+  (dbglog "fixup-elevation-for-segment ~a completed" segment-id)
+  (when progress-monitor
+    (send progress-monitor finished)))
+
+;; Same as `interactive-fixup-elevation-for-session`, except for GPS segments
+;; instead of sessions
+(define (interactive-fixup-elevation-for-segment database segment-id [parent-window #f])
+
+  (define progress-dialog
+    (new progress-dialog%
+         [title "Update elevation data for segment"]
+         [icon (sql-export-icon)]))
+
+  (define progress-monitor
+    (class object% (init-field progress-dialog) (super-new)
+
+      (define num-items 100)
+
+      (define/public (begin-stage msg max-items)
+        (send progress-dialog set-message msg)
+        (send progress-dialog set-progress 0)
+        (set! num-items max-items))
+
+      (define/public (set-progress n)
+        (let ((pct (exact-round (* 100.0 (if (> num-items 0) (/ n num-items) 1.0)))))
+          (send progress-dialog set-progress pct)))
+
+      (define/public (finished)
+        (send progress-dialog set-progress 100))))
+
+  (define (task progress-dialog)
+    (let ((m (new progress-monitor [progress-dialog progress-dialog])))
+      (when segment-id
+        (fixup-elevation-for-segment database segment-id m))))
+
+  (send progress-dialog run parent-window task))
+
+
+
 ;;............................................................. provides ....
 
 (provide/contract
@@ -581,4 +727,14 @@ update SECTION_SUMMARY
                                           (listof exact-nonnegative-integer?)))
                                    (any/c) ; the parent window
                                    any/c))
- (clear-corrected-elevation-for-session (-> connection? exact-nonnegative-integer? any/c)))
+ (clear-corrected-elevation-for-session (-> connection? exact-nonnegative-integer? any/c))
+
+ (fixup-elevation-for-segment (->* (connection? exact-nonnegative-integer?)
+                                   (any/c) ; the progress monitor
+                                   any/c))
+ (interactive-fixup-elevation-for-segment (->* (connection?
+                                                (or/c #f
+                                                      exact-nonnegative-integer?
+                                                      (listof exact-nonnegative-integer?)))
+                                               (any/c) ; the parent window
+                                               any/c)))

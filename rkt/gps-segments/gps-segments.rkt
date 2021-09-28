@@ -569,4 +569,6 @@ where T.length_id = L.id and L.lap_id = P.id and ("
  (find-segment-matches (-> data-frame? (vectorof exact-nonnegative-integer?) positive?
                            (listof (list/c data-frame? integer? integer? positive?))))
 
- (gps-segment-df (-> connection? exact-nonnegative-integer? data-frame?)))
+ (gps-segment-df (-> connection? exact-nonnegative-integer? data-frame?))
+
+ (fixup-segment-data (-> data-frame? any/c)))
