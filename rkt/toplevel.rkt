@@ -16,13 +16,14 @@
 
 (require db/base
          framework/splash
+         geoid
+         map-widget
          racket/async-channel
          racket/class
          racket/gui/base
          racket/match
          racket/math
          tzgeolookup
-         geoid
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
@@ -34,9 +35,11 @@
          "dialogs/edit-seasons.rkt"
          "dialogs/edit-sz.rkt"
          "dialogs/export-fit-settings.rkt"
-         "models/elevation-correction.rkt"
+         "dialogs/import-dialog.rkt"
+         "gps-segments/view-gps-segments.rkt"
          "import.rkt"
          "metrics.rkt"
+         "models/elevation-correction.rkt"
          "session-inspector/view-session.rkt"
          "time-in-zone.rkt"
          "trend-charts/view-trends.rkt"
@@ -45,12 +48,10 @@
          "view-athlete-metrics.rkt"
          "view-calendar.rkt"
          "view-equipment.rkt"
-         "dialogs/import-dialog.rkt"
          "view-reports.rkt"
          "weather.rkt"
          "widgets/main.rkt"
-         "workout-editor/view-workouts.rkt"
-         map-widget)
+         "workout-editor/view-workouts.rkt")
 
 (provide toplevel-window%)
 
@@ -355,6 +356,14 @@
   (send activity-menu get-popup-menu))
 
 
+;;............................................... make-gps-segments-menu ....
+
+(define (make-gps-segments-menu menu-bar target)
+  (define menu
+    (new gps-segment-operations-menu% [menu-bar menu-bar] [target target]))
+  (send menu get-popup-menu))
+
+
 ;;.................................................... make-workout-menu ....
 
 (define (make-workout-menu menu-bar target)
@@ -631,6 +640,77 @@
     (define/public (after-delete-workout workout-id)
       (let ((target (get-target-section)))
         (and target (send target after-delete-workout workout-id))))
+
+    ))
+
+
+;;.............................................. gps-segments-forwarder% ....
+
+;; Forward methods from the gps-segment-operations<%> interface to the
+;; gps-segments view, if it is the selected section.  This acts as a "glue"
+;; between the GPS Segments menu and the view-gps-segments% object instance.
+(define gps-segment-forwarder%
+  (class* object% (gps-segment-operations<%>)
+    (init-field toplevel-application)
+    (super-new)
+
+    (define/public (get-top-level-window)
+      (send toplevel-application get-frame))
+
+    (define/public (get-database)
+      (send toplevel-application get-database))
+
+    ;; Return the selected section, but only if it implements the
+    ;; workout-operations<%> interface, return #f otherwise.  The workout menu
+    ;; items will be disabled if the selected section does not support workout
+    ;; operations.
+    (define (get-target-section)
+      (let ((section (send toplevel-application get-selected-section)))
+        (if (and section (is-a? section gps-segment-operations<%>))
+            section
+            #f)))
+
+    (define/public (inspect-session sid)
+      (send toplevel-application inspect-session sid))
+
+    (define/public (before-popup)
+      (let ((target (get-target-section)))
+        (and target (send target before-popup))))
+
+    (define/public (after-popdown)
+      (let ((target (get-target-section)))
+        (and target (send target after-popdown))))
+
+    (define/public (switch-to-view)
+      (send toplevel-application select-section 'gps-segments))
+
+    (define/public (after-new segment-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-new segment-id))))
+
+    (define/public (after-delete segment-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-delete segment-id))))
+
+    (define/public (after-update-summary segment-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-update-summary segment-id))))
+
+    (define/public (after-update-data segment-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-update-data segment-id))))
+
+    (define/public (get-selected-segment)
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-segment))))
+
+    (define/public (get-selected-match)
+      (let ((target (get-target-section)))
+        (and target (send target get-selected-match))))
+
+    (define/public (after-update-matches segment-id)
+      (let ((target (get-target-section)))
+        (and target (send target after-update-matches segment-id))))
 
     ))
 
@@ -949,6 +1029,13 @@
                    (lambda (parent)
                      (new view-workouts% [parent parent] [database database])))
 
+      (add-section "GPS Segments" 'gps-segments
+                   (lambda (parent)
+                     (new view-gps-segments%
+                          [parent parent]
+                          [database database]
+                          [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
+
       (add-section "Trends" 'trends
                    (lambda (parent)
                      (new view-trends% [parent parent] [database database])))
@@ -1003,12 +1090,14 @@
     (let ((mb (new menu-bar% [parent tl-frame]))
           (aop (new activity-operations-forwarder% [toplevel-application this]))
           (amop (new athlete-metrics-forwarder% [toplevel-application this]))
-          (wop (new workout-forwarder% [toplevel-application this])))
+          (wop (new workout-forwarder% [toplevel-application this]))
+          (gsop (new gps-segment-forwarder% [toplevel-application this])))
       (make-file-menu mb this)
       (make-edit-menu mb this)
       (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
       (make-athlete-menu mb amop)
       (make-activtiy-menu mb aop)
+      (make-gps-segments-menu mb gsop)
       (make-workout-menu mb wop)
       (make-tools-menu mb this)
       (make-help-menu mb this))
