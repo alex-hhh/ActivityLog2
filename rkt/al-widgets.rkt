@@ -379,6 +379,15 @@ values (?, ?)" session-id id))
         (df-put-property! data-frame 'intervals-best-splits best-splits))
       (send interval-view set-intervals sport 'best-splits best-splits))
 
+    (define (on-gps-segments)
+      (define segment-splits (df-get-property data-frame 'intervals-gps-segments))
+      (unless segment-splits
+        (define session-id (df-get-property data-frame 'session-id #f))
+        (define laps (db-extract-matches-for-session session-id database))
+        (set! segment-splits (add-time-zone laps))
+        (df-put-property! data-frame 'intervals-gps-segments segment-splits))
+      (send interval-view set-intervals sport 'gps-segments segment-splits))
+
     ;; Switch the interval view to display the splits as recorded by the
     ;; device
     (define (on-recorded-splits)
@@ -394,7 +403,8 @@ values (?, ?)" session-id id))
        (split "Mile Splits" 'mile-splits on-mile-splits)
        (split "Hill Climbs" 'hill-climbs on-climb-splits)
        (split "Hill Descents" 'hill-descents on-descent-splits)
-       (split "Best Efforts" 'best-splits on-best-splits)))
+       (split "Best Efforts" 'best-splits on-best-splits)
+       (split "GPS Segments" 'gps-segments on-gps-segments)))
 
     (define choice
       (new choice% [parent parent]
@@ -468,12 +478,14 @@ values (?, ?)" session-id id))
 (define (lap-num-fmt num)
   (format "~a" num))
 
+(define (segment-name l)
+  (dict-ref l 'segment-name "Unnamed Segment"))
+
 (define (lap-num-pretty l)
   (format "~a" (dict-ref l 'lap-num-pretty #f)))
 
-(define *run-lap-fields*
+(define *run-common-fields*
   (list
-   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
    (qcolumn "Time of day"
             (lambda (entry)
               (let ([timestamp (lap-start-time entry)]
@@ -502,6 +514,16 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
    (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
 
+(define *run-lap-fields*
+  (cons
+   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
+   *run-common-fields*))
+
+(define *run-segment-fields*
+  (cons
+   (mk-qcolumn "Segment" segment-name ~a #:default-visible? #t)
+   *run-common-fields*))
+
 (define *run-mini-lap-fields*
   (list
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
@@ -523,9 +545,15 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Distance" lap-distance distance->string)
    (mk-qcolumn "Descent" lap-total-descent n->string)))
 
-(define *bike-lap-fields*
+(define *run-mini-segment-fields*
   (list
-   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
+   (mk-qcolumn "Segment" segment-name ~a)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Pace" lap-avg-speed pace->string)))
+
+(define *bike-common-fields*
+  (list
    (qcolumn "Time of day"
             (lambda (entry)
               (let ([timestamp (lap-start-time entry)]
@@ -579,6 +607,16 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
    (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
 
+(define *bike-lap-fields*
+  (cons
+   (mk-qcolumn "Lap" lap-num lap-num-fmt #:default-visible? #t)
+   *bike-common-fields*))
+
+(define *bike-segment-fields*
+  (cons
+   (mk-qcolumn "Segment" segment-name ~a #:default-visible? #t)
+   *bike-common-fields*))
+
 (define *bike-mini-lap-fields*
   (list
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
@@ -603,6 +641,13 @@ values (?, ?)" session-id id))
 (define *bike-mini-best-fields*
   (list
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
+   (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
+   (mk-qcolumn "Distance" lap-distance distance->string)
+   (mk-qcolumn "Power" lap-avg-power n->string)))
+
+(define *bike-mini-segment-fields*
+  (list
+   (mk-qcolumn "Segment" segment-name ~a)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance distance->string)
    (mk-qcolumn "Power" lap-avg-power n->string)))
@@ -666,32 +711,32 @@ values (?, ?)" session-id id))
    (mk-qcolumn "HR" length-avg-hr n->string)
    (mk-qcolumn "Max HR" length-max-hr n->string)))
 
-(define *sport-lap-definitions*
-  (list
-   (cons 1 *run-lap-fields*)
-   (cons 2 *bike-lap-fields*)
-   (cons 5 *swim-lap-fields*)))
+(define *lap-definitions*
+  (hash
+   1 *run-lap-fields*
+   (cons 1 'gps-segments) *run-segment-fields*
+   2 *bike-lap-fields*
+   (cons 2 'gps-segments) *bike-segment-fields*
+   5 *swim-lap-fields*))
 
 (define *default-lap-fields* *bike-lap-fields*)
-
-(define *sport-mini-lap-definitions*
-  (list
-   (cons 1 *run-mini-lap-fields*)
-   (cons 2 *bike-mini-lap-fields*)
-   (cons 5 *swim-mini-lap-fields*)))
+(define *default-segment-fields* *bike-segment-fields*)
 
 (define *mini-lap-definitions*
   (hash
    (cons 1 'hill-climbs) *run-mini-ascend-fields*
    (cons 1 'hill-descents) *run-mini-descend-fields*
+   (cons 1 'gps-segments) *run-mini-segment-fields*
    1 *run-mini-lap-fields*
    (cons 2 'hill-climbs) *bike-mini-ascend-fields*
    (cons 2 'hill-descents) *bike-mini-descend-fields*
    (cons 2 'best-splits) *bike-mini-best-fields*
+   (cons 2 'gps-segments) *bike-mini-segment-fields*
    2 *bike-mini-lap-fields*
    ;; Generic sports
    (cons 0 'hill-climbs) *bike-mini-ascend-fields*
    (cons 0 'hill-descents) *bike-mini-descend-fields*
+   (cons 0 'gps-segments) *run-mini-segment-fields*
    0 *bike-mini-lap-fields*
    ;; Alpine Skiing
    (cons 13 'hill-climbs) *bike-mini-ascend-fields*
@@ -705,10 +750,18 @@ values (?, ?)" session-id id))
    5 *swim-mini-lap-fields*))
 
 (define *default-mini-lap-fields* *bike-mini-lap-fields*)
+(define *default-mini-segment-fields* *run-mini-segment-fields*)
 
-(define (get-lap-field-definitions sport)
-  (cond ((assoc (vector-ref sport 0) *sport-lap-definitions*) => cdr)
-	(#t *default-lap-fields*)))
+(define (get-lap-field-definitions sport (topic 'default))
+  (define (href key) (hash-ref *lap-definitions* key #f))
+  (or (href (cons sport topic))
+      (href sport)
+      (and (vector? sport)
+           (or (href (cons (vector-ref sport 0) topic))
+               (href (vector-ref sport 0))))
+      (if (equal? topic 'gps-segments)
+          *default-segment-fields*
+          *default-lap-fields*)))
 
 (define (get-mini-lap-field-definitions sport (topic 'default))
   (define (href key) (hash-ref *mini-lap-definitions* key #f))
@@ -717,7 +770,9 @@ values (?, ?)" session-id id))
       (and (vector? sport)
            (or (href (cons (vector-ref sport 0) topic))
                (href (vector-ref sport 0))))
-      *default-mini-lap-fields*))
+      (if (equal? topic 'gps-segments)
+          *default-mini-segment-fields*
+          *default-mini-lap-fields*)))
 
 
 ;............................................................ interval-view% ....
@@ -741,7 +796,7 @@ values (?, ?)" session-id id))
            [parent parent]))
 
     (define/public (lap-field-definitions sport topic)
-      (get-lap-field-definitions sport))
+      (get-lap-field-definitions sport topic))
 
     ;; Add lap numbers to the laps, if a lap has 0 distance, label it as
     ;; "Rest"

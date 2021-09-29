@@ -54,7 +54,8 @@
  (db-get-activity-id (-> string? connection? (or/c #f exact-nonnegative-integer?)))
  (db-get-seasons (-> connection? any/c))
  (db-extract-activity-raw-data (-> exact-nonnegative-integer? connection? (or/c bytes? #f)))
- (db-insert-section-summary (-> any/c connection? exact-nonnegative-integer?)))
+ (db-insert-section-summary (-> any/c connection? exact-nonnegative-integer?))
+ (db-extract-matches-for-session (-> exact-nonnegative-integer? connection? any/c)))
 
 
 ;................................................... database utilities ....
@@ -1032,9 +1033,64 @@
             (row (query-maybe-row db stmt session-id)))
         (if row (db-row->alist fields row) '())))))
 
+
+;;........................................... db-extract-session-matches ....
+
+(define-runtime-path session-matches-query-file "../sql/queries/db-session-matches.sql")
+(define session-matches-query (define-sql-statement session-matches-query-file))
+
+(define session-match-fields
+  '(match-id
+    segment-name
+    start-time
+    total-timer-time
+    total-elapsed-time
+    total-distance
+    total-calories
+    avg-speed
+    max-speed
+    avg-heart-rate
+    max-heart-rate
+    avg-cadence
+    max-cadence
+    total-cycles
+    avg-cycle-distance
+    total-ascent
+    total-descent
+    total-corrected-ascent
+    total-corrected-descent
+    swim-stroke
+    avg-vertical-oscillation
+    avg-stance-time
+    avg-stance-time-percent
+    avg-power
+    max-power
+    normalized-power
+    left-right-balance
+    avg-left-torque-effectiveness
+    avg-right-torque-effectiveness
+    avg-left-pedal-smoothness
+    avg-right-pedal-smoothness
+    avg-left-pco
+    avg-right-pco
+    avg-left-pp-start
+    avg-left-pp-end
+    avg-right-pp-start
+    avg-right-pp-end
+    avg-left-ppp-start
+    avg-left-ppp-end
+    avg-right-ppp-start
+    avg-right-ppp-end
+    aerobic-decoupling))
+
+(define (db-extract-matches-for-session session-id db)
+  (for/list ([row (in-list (query-rows db (session-matches-query) session-id))])
+    (cons
+     '(custom-lap . #t)
+     (db-row->alist session-match-fields row))))
 
 
-;................................................... db-delete-sesssion ....
+;;................................................... db-delete-session ....
 
 (define db-delete-session
   (let ((del-equipment-use
