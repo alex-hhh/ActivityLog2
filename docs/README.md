@@ -115,11 +115,14 @@ encounter load errors when trying to run ActivityLog2.
 
 ## Working with submodules
 
-This application uses git submodules to track dependent packages.  Git
-provides detailed documentation for working with sub-modules, and this will
-not be repeated here, but here are a few important points to consider after
-changing branches, or pulling in new commits from a remote branch, in case the
-dependent modules have changed or new modules have been added:
+This application uses git submodules to [track dependent
+packages](https://alex-hhh.github.io/2020/05/dependency-management-in-racket-applications.html)
+and git provides [detailed
+documentation](https://git-scm.com/book/en/v2/Git-Tools-Submodules) for
+working with sub-modules, and this will not be repeated here, but here are a
+few important points to consider after changing branches, or pulling in new
+commits from a remote branch, in case the dependent modules have changed or
+new modules have been added:
 
 * Run `git submodule sync` to setup any new modules
 * Run `git submodule update` to obtain the version of the submodules referenced by
@@ -148,6 +151,8 @@ experience.
 * [gui-consistency.md](./gui-consistency.md) describes how various GUI parts
   communicate changes between each other.
 * [hrv-notes.md](./hrv-notes.md) describes how to access HRV data in FIT files.
+* [segment-df.md](./segment-df.md) describes the contents of the data frame
+  object containing a GPS Segment.
 
 ## Versioning Scheme
 

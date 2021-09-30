@@ -46,6 +46,12 @@ logged:
   updated.  The data part is a list: the first ID is the ID of the athlete
   metrics entry, the remaining IDs are session ids which might be affected by
   this change.)
+* `gps-segment-created`, `gps-segment-updated`, `gps-segment-updated-data`,
+  `gps-segment-deleted` SID -- logged when a GPS segment is created, its
+  summary values updated (e.g. name) or its full data updated (e.g. elevation
+  correction) or deleted.  SID is the database ID of the segment.
+* `gps-segment-updated-matches` -- logged when new matches are added to a GPS
+  segment, e.g. when importing new activities.
 
 A GUI element (such as a trends chart) can subscribe to notifications by
 creating a change notification source using `make-log-event-source` (defined

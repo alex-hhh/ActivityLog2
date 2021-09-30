@@ -1,4 +1,4 @@
-# Session data-frame% objects
+# Session data-frame objects
 
 Session data is loaded into a data-frame object (defined in
 "rkt/data-frame/df.rkt") by `session-df`.  Data frames contain the track data
@@ -37,8 +37,8 @@ while other parts of the application can attach additional properties:
 For more information about the critical-power, wprime and tau properties, see
 the implementation notes on [Critical Power](./critical-power.md)
 
-Properties can be accessed using the `get-property` method.  For example, this
-will return the session id for the session data:
+Properties can be accessed using the `df-get-property` function.  For example,
+this will return the session id for the session data:
 
     (df-get-property df 'session-id)
 
