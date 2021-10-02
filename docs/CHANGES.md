@@ -15,6 +15,34 @@ git log --submodule=log --patch v1.10.2..v1.11 \
     | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
 ```
 
+# Release 2021.10 (October 2021)
+
+* Changed release versioning scheme to use YEAR.MONTH -- this is more meaning
+  full to the end user and should be more obvious if they use an old version.
+
+* Fixed issue #73 where an activity would fail to import when the user stopped
+  running while keeping the watch recording.
+
+
+* Fixed issue #74 where heard rate samples would be associated with the wrong
+  pool length in lap swimming activities.
+
+* Heart Rate data is now shown for lap swimming activities -- currently this
+  only works for activities recorded with a device that measures heart rate at
+  the wrist.   See issue #4
+
+* Updated the tab bar in the Trends view to allow reordering tabs by dragging
+  them.
+
+* The default set of columns visible in various views has been restricted to a
+  smaller subset to make the activities and lap views easier to follow.  This
+  only affects new users of the application and the visible columns can be
+  edited using the "View/Setup Columns..." menu item.
+
+* Added support for GPS segments -- these allow defining sections of a route
+  (e.g. a hill climb) and inspecting all activities that traverse that
+  section, allowing comparing time, power, speed, etc. on the given segment.
+
 # Release 1.12.0 (June 2021)
 
 * Added 100 meter splits as custom intervals for sessions (this is useful for

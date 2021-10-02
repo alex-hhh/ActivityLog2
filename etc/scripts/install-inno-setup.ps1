@@ -1,19 +1,4 @@
-﻿# This is the site from which Inno Setup can be downloaded, unfortunately,
-#  this fails occasionally (maybe it is hosted on a small server?).  This
-# script actually downloads it from my Google Drive account
-$original_url = "http://www.jrsoftware.org/download.php/is-unicode.exe";
-
-# The site for Inno Setup has no HTTPS so, we ensure that only the expected
-#  version is actually downloaded and installed.
-
-$expected_hash = "5856471BA4DF94772FE415687F70CC87ADD8BC228EFB289DDADAE55BF0F2759B";
-
-# Google Drive file location
-$gd_file_id = "1UQ4587WM_CPt9gAbkt-J8gJrJl4sFSdv";
-$gd_url = "https://drive.google.com/uc?export=download&id=$gd_file_id"
-
-$exit_code = 0;
-$url = $gd_url;                         # download from Google Drive
+﻿$exit_code = 0;
 
 # NOTE: race condition here between deleting the temporary file and creating a
 #  directory with the same name
@@ -35,8 +20,8 @@ Write-Output "Downloading into $dfile ..."
 # `fetch.sh` script, and we just call this script to download the installer
 # for us.
 
-$file_id = "1UQ4587WM_CPt9gAbkt-J8gJrJl4sFSdv";
-$file_hash = "510902ffe43e3ef3504e4567ece45f7cd694f5df";
+$file_id = "1n40We1JLV7mM4CKdmLzaIKoGLAeK1oy9";
+$file_hash = "c3bd3170cf95c8712561220392a074d9991995b6";
 
 $dprocess = Start-Process -FilePath bash `
   -ArgumentList "./fetch.sh -o $dfile -s $file_hash $file_id" `

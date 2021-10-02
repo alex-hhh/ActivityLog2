@@ -64,10 +64,11 @@ jobs:
 
     - script: |
         set /p APP_VERSION=<version.txt
-        set V=%APP_VERSION%.%BUILD_BUILDID%
-        set D=ActivityLog2 - Analyze Swim Bike and Run Data
+        set V=%APP_VERSION%
+        set PV=%APP_VERSION%.%BUILD_BUILDID%
+        set D=ActivityLog2 - Analyze Swim, Bike and Run Data
         set P=ActivityLog2
-        etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %V%
+        etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %PV%
         iscc /DMyAppVersion=%V% etc\scripts\install.iss
       displayName: Creating Installer
 

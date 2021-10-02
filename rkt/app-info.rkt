@@ -3,7 +3,7 @@
 ;; app-info.rkt -- application version and related stuff
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -47,7 +47,7 @@
                           ;; silly environment variable values...
                           (build-id (getenv "BUILD_BUILDID")))
                       (if (and build-id (string->number build-id))
-                          (string-append version "." build-id)
+                          (string-append version " build #" build-id)
                           version))))]))
 
 (define-syntax (embedded-build-number stx)
