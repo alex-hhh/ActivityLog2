@@ -98,6 +98,7 @@
    axis-left-peak-power-phase-angle
    axis-right-power-phase-angle
    axis-right-peak-power-phase-angle
+   axis-temperature
    ))
 
 ;; Axis choices for lap swimming

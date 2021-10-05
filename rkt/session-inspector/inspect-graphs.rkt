@@ -1292,6 +1292,10 @@
   (class graph-view%
     (super-new [primary-y-axis axis-hr-pct])))
 
+(define temperature-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-temperature])))
+
 (define cadence-graph%
   (class graph-view%
     (super-new [primary-y-axis axis-cadence])))
@@ -1741,6 +1745,7 @@
                                 heart-rate-graph%
                                 heart-rate-zones-graph%
                                 heart-rate-pct-graph%
+                                temperature-graph%
                                 cadence-graph%
                                 stride-graph%
                                 vertical-oscillation-graph%

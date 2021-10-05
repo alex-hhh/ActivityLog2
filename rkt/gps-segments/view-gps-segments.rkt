@@ -420,7 +420,9 @@
                        (lambda (row) (or (fn1 row) -1000))
                        #:default-visible? #f))
 
-            (make-mcolumn "A Decl" "adecl" #f pct->string #:default-visible? #t)))
+            (make-mcolumn "A Decl" "adecl" #f pct->string #:default-visible? #t)
+            (make-mcolumn "Avg Tempe" "avg_temperature" #f pct->string #:default-visible? #f)
+            (make-mcolumn "Max Tempe" "max_temperature" #f pct->string #:default-visible? #f)))
 
     ;; Called when a new segment is created -- updates the segment list view
     ;; and selects the segment.

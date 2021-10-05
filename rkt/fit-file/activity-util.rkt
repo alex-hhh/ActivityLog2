@@ -294,6 +294,8 @@
  session-max-hr
  session-aerobic-decoupling
  session-hrv
+ session-avg-temperature
+ session-max-temperature
 
  session-avg-cadence
  session-avg-vertical-oscillation
@@ -381,6 +383,12 @@
 
 (define (session-max-hr session)
   (dict-ref session 'max-heart-rate #f))
+
+(define (session-avg-temperature session)
+  (dict-ref session 'avg-temperature #f))
+
+(define (session-max-temperature session)
+  (dict-ref session 'max-temperature #f))
 
 (define (session-aerobic-decoupling session)
   (dict-ref session 'aerobic-decoupling #f))
@@ -536,6 +544,8 @@
  lap-avg-hr
  lap-max-hr
  lap-aerobic-decoupling
+ lap-avg-temperature
+ lap-max-temperature
 
  lap-avg-cadence
  lap-max-cadence
@@ -580,6 +590,9 @@
 (define lap-avg-hr session-avg-hr)
 (define lap-max-hr session-max-hr)
 (define lap-aerobic-decoupling session-aerobic-decoupling)
+
+(define lap-avg-temperature session-avg-temperature)
+(define lap-max-temperature session-max-temperature)
 
 (define lap-avg-cadence session-avg-cadence)
 (define lap-max-cadence session-max-cadence)

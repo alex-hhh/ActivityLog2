@@ -578,6 +578,27 @@
 (provide axis-hr-zone)
 
 
+;;..................................................... axis-temperature ....
+
+(define axis-temperature
+  (new (class series-metadata% (init) (super-new)
+         (define/override (axis-label)
+           (if (eq? (al-pref-measurement-system) 'metric)
+               "Temperature (℃)" "Temperature (℉)"))
+         ;; Don't filter temperature -- at it varies very slowly and the
+         ;; precision is 1 ℃ anyway
+         (define/override (should-filter?) #f)
+         (define/override (histogram-bucket-slot) 1.0)
+         (define/override (series-name) "temperature")
+         (define/override (name) "Temperature")
+         (define/override (fractional-digits) 1)
+
+         )))
+
+(register-series-metadata axis-temperature)
+(provide axis-temperature)
+
+
 ;;......................................................... axis-cadence ....
 
 (define axis-cadence

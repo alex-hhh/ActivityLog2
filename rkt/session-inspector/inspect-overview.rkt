@@ -65,20 +65,29 @@
    (badge-field-def "Wind gusts: " session-wind-gusts (lambda (v) (speed->string v #t)))
    (badge-field-def "Wind direction: " session-wind-direction degrees->wind-rose)
    (badge-field-def "Pressure: " session-barometric-pressure (lambda (v) (pressure->string v #t)))
-   (badge-field-def "Source: " session-weather-source values)))
+   (badge-field-def "Source: " session-weather-source values)
+
+   (badge-field-def "Avg Recorded: "
+                    session-avg-temperature
+                    (lambda (v) (temperature->string v #t)))
+   (badge-field-def "Max Recorded: "
+                    session-max-temperature
+                    (lambda (v) (temperature->string v #t)))
+
+   ))
 
 (define *hr-fields*
   (list
-   (badge-field-def "Avg HR: " 
-                    (lambda (s) 
+   (badge-field-def "Avg HR: "
+                    (lambda (s)
                       (let ((sid (dict-ref s 'database-id #f))
                             (avg-hr (session-avg-hr s)))
                         (if avg-hr (list sid avg-hr) #f)))
                     (lambda (v)
                       (let ((zones (sport-zones-for-session (first v) 'heart-rate)))
                         (heart-rate->string/full (second v) zones))))
-   (badge-field-def "Max HR: " 
-                    (lambda (s) 
+   (badge-field-def "Max HR: "
+                    (lambda (s)
                       (let ((sid (dict-ref s 'database-id #f))
                             (max-hr (session-max-hr s)))
                         (if max-hr (list sid max-hr) #f)))
@@ -147,10 +156,10 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Effort: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
    (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
-   (badge-field-def "RPE: " session-rpe number->string) 
+   (badge-field-def "RPE: " session-rpe number->string)
    ))
 
 (define *run-timing-fields*
@@ -208,7 +217,7 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Effort: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
    (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
@@ -235,7 +244,7 @@
                       (let ((dev (- v 50.0)))
                         (format-48 "~1,1F% (~1,1F% ~a)" v
                                    dev (if (< dev 0) "Left" "Right")))))
-   (badge-field-def "Torque Effectiveness: " 
+   (badge-field-def "Torque Effectiveness: "
                     (lambda (session)
                       (let ((left (session-avg-left-torque-effectiveness session))
                             (right (session-avg-right-torque-effectiveness session)))
@@ -244,7 +253,7 @@
                             #f)))
                     (lambda (v)
                       (format-48 "~1,1F% L, ~1,1F% R" (car v) (cdr v))))
-   (badge-field-def "Pedal Smoothness: " 
+   (badge-field-def "Pedal Smoothness: "
                     (lambda (session)
                       (let ((left (session-avg-left-pedal-smoothness session))
                             (right (session-avg-right-pedal-smoothness session)))
@@ -314,7 +323,7 @@
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Avg SWOLF: " session-avg-swolf number->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Effort: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
    (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
@@ -352,7 +361,7 @@
    (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
    (badge-field-def "Calories: " session-calories calories->string)
    (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Effort: " session-training-stress-score 
+   (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
    (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
    (badge-field-def "RPE: " session-rpe number->string)))
@@ -621,7 +630,7 @@ select ifnull(val, 0)
         (foldl (lambda (a b)
                  (max (send a get-actual-width) b))
                0 badges))
-      
+
       (define (get-total-height badges spacing)
         (foldl (lambda (a b)
                  (+ (send a get-actual-height) b spacing))
@@ -648,7 +657,7 @@ select ifnull(val, 0)
                       (begin
                         (move-to (car b) (+ spacing (* c (+ spacing target-width))) y)
                         (loop (cdr b) next-y c))))))
-            (send (get-canvas) min-width 
+            (send (get-canvas) min-width
                   (exact-ceiling (+ (* num-columns target-width) (* spacing (+ 1 num-columns)))))
             )))
       (set! move-allowed? #f))
@@ -732,7 +741,7 @@ select ifnull(val, 0)
     (define description-field
       (new notes-input-field% [parent desc-panel]
            [on-save-callback (lambda (text) (update-session-description text))]))
-      
+
     (define (update-session-labels)
       (when the-session
         (let ((sid (dict-ref the-session 'database-id #f)))

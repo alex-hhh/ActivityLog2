@@ -2,7 +2,7 @@
 ;; fmt-util.rkt -- formatting utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -79,7 +79,8 @@
  m->mi
  m->yd
  m->ft
- mm->inch)
+ mm->inch
+ celsius->temperature)
 
 ;; (: m/s->km/h (-> Real Real))
 (define (m/s->km/h speed) (/ (* speed 3600.0) 1000.0))

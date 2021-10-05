@@ -46,7 +46,8 @@ select T.timestamp as timestamp,
        T.left_ppp_start as lppps,
        T.left_ppp_end as lpppe,
        T.right_ppp_start as rppps,
-       T.right_ppp_end as rpppe
+       T.right_ppp_end as rpppe,
+       T.temperature as tempe
   from A_TRACKPOINT T, A_LENGTH L, A_LAP P
  where T.length_id = L.id
    and L.lap_id = P.id

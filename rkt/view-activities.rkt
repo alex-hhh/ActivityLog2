@@ -651,6 +651,20 @@ select X.session_id
                   fn
                   #:default-visible? #f))
 
+       (let ((fn (lambda (row) (db-row-ref row "avg_temperature" headers #f))))
+         (qcolumn "Avg Tempe"
+                  (lambda (row)
+                    (let ([val (fn row)])
+                      (if val (temperature->string val #t) "")))
+                  fn
+                  #:default-visible? #f))
+       (let ((fn (lambda (row) (db-row-ref row "max_temperature" headers #f))))
+         (qcolumn "Max Tempe"
+                  (lambda (row)
+                    (let ([val (fn row)])
+                      (if val (temperature->string val #t) "")))
+                  fn
+                  #:default-visible? #f))
        ))
 
     (define (get-text-filtered-data data text)

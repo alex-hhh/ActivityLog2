@@ -3,7 +3,7 @@
 ;; series-metadata.rkt --meta data about data series in session data frames
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -181,7 +181,7 @@
   (define metadata (hash-ref registry series-name #f))
   (if metadata
       metadata
-      (raise-argument-error 'series-name
+      (raise-argument-error 'find-series-metadata
                             (format "valid series name~a"
                                     (if is-lap-swimming? " for swimming" ""))
                             series-name)))

@@ -185,6 +185,7 @@
   (add-timer-series df)
   (add-elapsed-series df)
   (add-distance-series df)
+  (add-temperature-series df)
   (fixup-invalid-zero-values df "gct")
   (fixup-invalid-zero-values df "pgct")
   (smooth-start-of-series df "gct")
@@ -367,6 +368,16 @@
      '("spd")
      (if (eq? (al-pref-measurement-system) 'metric)
          speed-km/h speed-mi/h))))
+
+(define (add-temperature-series df)
+  (when (df-contains? df "tempe")
+    (df-add-lazy!
+     df
+     "temperature"
+     '("tempe")
+     (lambda (v)
+       (define v0 (car v))
+       (and v0 (celsius->temperature v0))))))
 
 ;; Smooth the first LIMIT (in seconds) worth of samples from SERIES-NAME.
 ;; This is used for series that have huge unrealistic values at the start (e.g

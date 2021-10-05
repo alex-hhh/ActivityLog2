@@ -95,6 +95,8 @@
     (avg-stance-time "gct" avg)
     (avg-stance-time-percent "pgct" avg)
     (left-right-balance "lrbal" avg)
+    (avg-temperature "tempe" avg)
+    (max-temperature "tempe" max)
 
     ;; 'total-corrected-ascent
     ;; 'total-ascent

@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(39);
+insert into SCHEMA_VERSION(version) values(40);
 
 
 --........................................................ Enumerations ....
@@ -259,6 +259,9 @@ create table SECTION_SUMMARY (
   max_heart_rate integer,
   aerobic_decoupling real,
 
+  avg_temperature real,
+  max_temperature real,
+
   -- For bike, this is cadence, for running we store here steps and stride
   -- length, for swimming we store strokes and stroke length
   avg_cadence integer,                  -- cycles / min
@@ -388,6 +391,7 @@ create table A_TRACKPOINT (
   heart_rate real,
   power real,
   accumulated_power real,
+  temperature real,
 
   -- Running dynamics fields
 
@@ -1180,6 +1184,8 @@ create view V_GPS_SEGMENT_MATCH_LIST as
          SS.max_speed as max_speed,
          SS.avg_heart_rate as hr,
          SS.max_heart_rate as max_hr,
+         SS.avg_temperature as avg_temperature,
+         SS.max_temperature as max_temperature,
          SS.avg_cadence as cadence,
          SS.max_cadence as max_cadence,
          SS.total_distance / (2 * SS.total_cycles) as stride,
@@ -1343,6 +1349,8 @@ create view V_ACTIVITY_LIST as
          SS.max_speed as max_speed,
          SS.avg_heart_rate as hr,
          SS.max_heart_rate as max_hr,
+         SS.avg_temperature as avg_temperature,
+         SS.max_temperature as max_temperature,
          SS.avg_cadence as cadence,
          SS.max_cadence as max_cadence,
          SS.total_distance / (2 * SS.total_cycles) as stride,

@@ -154,8 +154,10 @@
                    avg_left_ppp_end,
                    avg_right_ppp_start,
                    avg_right_ppp_end,
-                   aerobic_decoupling)
-                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                   aerobic_decoupling,
+                   avg_temperature,
+                   max_temperature)
+                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields `(total-timer-time total-elapsed-time
                                    total-distance total-calories avg-speed
                                    max-speed avg-heart-rate max-heart-rate
@@ -175,7 +177,7 @@
                                    avg-right-pp-start avg-right-pp-end
                                    avg-left-ppp-start avg-left-ppp-end
                                    avg-right-ppp-start avg-right-ppp-end
-                                   aerobic-decoupling)))
+                                   aerobic-decoupling avg-temperature max-temperature)))
     (lambda (record db)
       (let ((values (map (lambda (x)
                            (let ((y (if (procedure? x)
@@ -272,8 +274,8 @@
                    left_torque_effectiveness, right_torque_effectiveness,
                    left_pedal_smoothness, right_pedal_smoothness,
                    left_pco, right_pco, left_pp_start, left_pp_end, right_pp_start, right_pp_end,
-                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, tile_code, geoid)
-                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                   left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, temperature, tile_code, geoid)
+                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields
          `(timestamp position-lat position-long altitude distance cadence
                      speed heart-rate vertical-oscillation
@@ -284,6 +286,7 @@
                      left-pco right-pco
                      left-pp-start left-pp-end right-pp-start right-pp-end
                      left-ppp-start left-ppp-end right-ppp-start right-ppp-end
+                     temperature
                      ,(lambda (tp)
                         ;; Tile codes are no longer used.
                         #f)
@@ -730,7 +733,13 @@
                          SS.avg_left_ppp_end,
                          SS.avg_right_ppp_start,
                          SS.avg_right_ppp_end,
-                         SS.aerobic_decoupling
+                         SS.aerobic_decoupling,
+                         SS.avg_temperature,
+                         SS.max_temperature,
+                         (select SH.sdnn
+                            from SESSION_HRV SH
+                           where SH.session_id = S.id) as hrv,
+                         (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone
                     from A_SESSION S, SECTION_SUMMARY SS
                    where S.summary_id = SS.id
                      and S.activity_id = ?
@@ -793,6 +802,8 @@
             SS.avg_right_ppp_start,
             SS.avg_right_ppp_end,
             SS.aerobic_decoupling,
+            SS.avg_temperature,
+            SS.max_temperature,
             (select SH.sdnn
                from SESSION_HRV SH
                where SH.session_id = S.id) as hrv,
@@ -819,7 +830,8 @@
                   training-stress-score intensity-factor rpe-scale
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling hrv time-zone)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
+                  aerobic-decoupling  avg-temperature max-temperature hrv time-zone)))
     (let ((session-data (db-row->alist fields session-row)))
       (cons (cons 'weather (db-extract-weater-for-session (vector-ref session-row 0) db))
             (cons (cons 'laps (db-extract-laps-for-session (vector-ref session-row 0) db))
@@ -868,7 +880,9 @@
                          SS.avg_left_ppp_end,
                          SS.avg_right_ppp_start,
                          SS.avg_right_ppp_end,
-                         SS.aerobic_decoupling
+                         SS.aerobic_decoupling,
+                         SS.avg_temperature,
+                         SS.max_temperature
                     from A_LAP L, SECTION_SUMMARY SS
                    where L.summary_id = SS.id
                      and L.session_id = ?
@@ -890,7 +904,8 @@
                   avg-left-pedal-smoothness avg-right-pedal-smoothness
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end aerobic-decoupling)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
+                  aerobic-decoupling avg-temperature max-temperature)))
 
     (let ((lap-data (db-row->alist fields lap-row)))
       (cons (cons 'lengths (db-extract-lengths-for-lap (vector-ref lap-row 0) db))
@@ -938,7 +953,9 @@
                          SS.avg_left_ppp_start,
                          SS.avg_left_ppp_end,
                          SS.avg_right_ppp_start,
-                         SS.avg_right_ppp_end
+                         SS.avg_right_ppp_end,
+                         SS.avg_temperature,
+                         SS.max_temperature
                     from A_LENGTH L, SECTION_SUMMARY SS
                    where L.summary_id = SS.id
                      and L.lap_id = ?
@@ -959,7 +976,8 @@
                   avg-left-pedal-smoothness avg-right-pedal-smoothness
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
-                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end)))
+                  avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
+                  avg-temperature max-temperature)))
 
     (let ((length-data (db-row->alist fields length-row)))
       (cons (cons 'track ;(db-extract-trackpoints-for-length (vector-ref length-row 0) db)
@@ -999,7 +1017,8 @@
                          T.left_ppp_start,
                          T.left_ppp_end,
                          T.right_ppp_start,
-                         T.right_ppp_end
+                         T.right_ppp_end,
+                         T.temperature
                     from A_TRACKPOINT T
                    where T.length_id = ?
                    order by T.timestamp"))))
@@ -1017,7 +1036,8 @@
                               left-pedal-smoothness right-pedal-smoothness
                               left-pco right-pco
                               left-pp-start left-pp-end right-pp-start right-pp-end
-                              left-ppp-start left-ppp-end right-ppp-start right-ppp-end)))
+                              left-ppp-start left-ppp-end right-ppp-start right-ppp-end
+                              temperature)))
     (db-row->alist fields trackpoint-row)))
 
 (define db-extract-weater-for-session

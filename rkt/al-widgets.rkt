@@ -512,7 +512,9 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Stride" lap-avg-stride stride->string #:default-visible? #t)
    (mk-qcolumn "Calories" lap-calories n->string #:default-visible? #f)
    (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
-   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
+   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)
+   (mk-qcolumn "Avg Temperature" lap-avg-temperature temperature->string #:default-visible? #f)
+   (mk-qcolumn "Max Temperature" lap-max-temperature temperature->string #:default-visible? #f)))
 
 (define *run-lap-fields*
   (cons
@@ -605,7 +607,10 @@ values (?, ?)" session-id id))
 
    (mk-qcolumn "Calories" lap-calories n->string #:default-visible? #f)
    (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
-   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)))
+   (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)
+   (mk-qcolumn "Avg Temperature" lap-avg-temperature temperature->string #:default-visible? #f)
+   (mk-qcolumn "Max Temperature" lap-max-temperature temperature->string #:default-visible? #f)
+   ))
 
 (define *bike-lap-fields*
   (cons

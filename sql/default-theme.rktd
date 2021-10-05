@@ -61,7 +61,8 @@
   (swolf 38 127 0)
   (strokes 127 0 0)
   (stride 127 0 0)
-  (swim-cad 127 0 0))
+  (swim-cad 127 0 0)
+  (temperature 102 51 51))
  (sport-colors
   ;; Sport Id, Sub-Sport ID, R, G, B
   (0  #f   238 238 238) ; 'Generic'  -1

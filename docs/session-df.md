@@ -121,6 +121,12 @@ Grade Adjusted Pace is calculated using the model described
   cycling)
 * **stride** is the length of the step
 
+### Temperature series
+
+* **tempe** is the temperature, always in degrees Celsius
+* **temperature** is the temperature, in the users measurement system.  This
+  is Celsius for metric, or Fahrenheit for imperial
+
 ### Running Dynamics Series
 
 * **vosc** is the vertical oscillation in millimeters
