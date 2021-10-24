@@ -900,7 +900,7 @@ select SS.swim_stroke_id
 (define (join-lengths db pool-length l1 l2)
   (let ((ldata1 (fetch-length-data db l1))
         (ldata2 (fetch-length-data db l2)))
-    (unless (= (ldata-stroke-type ldata1) (ldata-stroke-type ldata2))
+    (unless (equal? (ldata-stroke-type ldata1) (ldata-stroke-type ldata2))
       (error "stroke mismatch"))
     (unless (= (ldata-lap-id ldata1) (ldata-lap-id ldata2))
       (error "lap mismatch"))
