@@ -4,22 +4,26 @@ jobs:
 
 # ......................................................... LINUX BUILD ....
 
-  - job: Linux
-    pool:
-      vmImage: 'Ubuntu-18.04'
+# NOTE: as of 30/10/2020 Linux builds on Azure hang and I wasn't able to
+# determine the cause -- even rebuilding older versions, which successfully
+# built in the past, no longer works.  Disabling Linux builds for now...
 
-    variables:
-      RACKET_VERSION: 8.2-bc
-      RACKET_DIR: $(Agent.BuildDirectory)/racket
-      runTests: true
+  # - job: Linux
+  #   pool:
+  #     vmImage: 'ubuntu-20.04'
 
-    steps:
-    - script: |
-        bash ./etc/scripts/install-racket.sh
-        echo "##vso[task.setvariable variable=path]$(PATH):$(RACKET_DIR)/bin"
-      displayName: Install Racket $(RACKET_VERSION)
+  #   variables:
+  #     RACKET_VERSION: 8.2-bc
+  #     RACKET_DIR: $(Agent.BuildDirectory)/racket
+  #     runTests: true
 
-    - template: azure-common.yml
+  #   steps:
+  #   - script: |
+  #       bash ./etc/scripts/install-racket.sh
+  #       echo "##vso[task.setvariable variable=path]$(PATH):$(RACKET_DIR)/bin"
+  #     displayName: Install Racket $(RACKET_VERSION)
+
+  #   - template: azure-common.yml
 
   - job: Windows
     pool:
@@ -33,7 +37,7 @@ jobs:
       # tests run on Linux already and they are not platform specific, so we
       # disable them on windows for now.
 
-      runTests: false
+      runTests: true
 
     steps:
     - powershell: |
