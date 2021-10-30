@@ -78,7 +78,8 @@
   (define lap-swim? (df-get-property df 'is-lap-swim?))
   (for ([s (in-list sn)]
         #:unless (member s (if lap-swim?
-                               '("timestamp" "timer" "duration" "swim_stroke" "speed" "spd" "dst" "tempe")
+                               '("timestamp" "timer" "duration" "swim_stroke" "speed"
+                                             "spd" "dst" "tempe" "active")
                                '("timestamp" "lat" "lon" "dst" "spd" "gaspd" "tempe"))))
     (define metadata (find-series-metadata s lap-swim?))
     (check-true (is-a? metadata series-metadata%) (format "missing metadata for ~a" sn)))

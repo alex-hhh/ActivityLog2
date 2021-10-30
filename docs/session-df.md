@@ -170,9 +170,19 @@ For more information about the "wbal" series, see the implementation notes on
 
 ### Swim Specific Series
 
+**NOTE** lap swimming activities have one track point for each length of the
+pool, rather than the usual one every few seconds recording.  The data in each
+row is recorded at the end of the corresponding length.  Also, some lengths
+correspond to rest periods between active laps -- the "active" series
+determines if a row in the data frame corresponds to an active length or a
+resting one.
+
 * **swim_stroke** is the swim stroke for the recorded length
 * **strokes** is the number of strokes in the length
 * **swolf** is the SWOLF metric (duration + strokes)
+* **active** indicates that a specific row is active, when 1, or "resting"
+  when 0.  "active" rows are the rows where a length of the pool was traversed
+  and the time and distance is at the end of such a traversal...
 
 ### XDATA Series
 

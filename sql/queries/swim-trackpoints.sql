@@ -22,15 +22,16 @@
 -- nicer on the various graphs.
 
 select L.start_time as timestamp,
-       (select max(T.distance) from A_TRACKPOINT T where T.length_id = L.id) as dst,
+       (SSP.total_distance > 0) as active,
        (select avg(T.heart_rate) from A_TRACKPOINT T where T.length_id = L.id) as hr,
        ifnull(SS.total_timer_time, 0) as duration,
        SS.avg_speed as spd,
        round(60.0 * SS.total_cycles / SS.total_timer_time, 1) as cad,
        SS.swim_stroke_id as swim_stroke,
        SS.total_cycles as strokes
-  from A_LENGTH L, A_LAP P, SECTION_SUMMARY SS
+  from A_LENGTH L, A_LAP P, SECTION_SUMMARY SS, SECTION_SUMMARY SSP
  where L.lap_id = P.id
    and L.summary_id = SS.id
+   and P.summary_id = SSP.id
    and P.session_id = ?
  order by L.start_time;

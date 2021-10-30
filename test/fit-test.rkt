@@ -212,7 +212,7 @@ select count(*)
    (test-case "f0002.fit"
      (do-basic-checks "./test-fit/f0002.fit" 19 500))
    (test-case "f0003.fit"
-     (do-basic-checks "./test-fit/f0003.fit" 14 47))
+     (do-basic-checks "./test-fit/f0003.fit" 15 47))
    (test-case "f0004.fit"
      (do-basic-checks "./test-fit/f0004.fit" 20 138294))
    (test-case "f0005.fit"
@@ -244,7 +244,7 @@ select count(*)
                         (define data2 (extract-data df axis-timer-time axis-speed 0 #f))
                         (check = (vector-length data2) (df-row-count df)))))
    (test-case "f0012.fit"
-     (do-basic-checks "./test-fit/f0012.fit" 6 47))
+     (do-basic-checks "./test-fit/f0012.fit" 5 47))
    (test-case "f0013.fit"
      (do-basic-checks "./test-fit/f0013.fit" 20 8253))
    (test-case "f0014.fit"

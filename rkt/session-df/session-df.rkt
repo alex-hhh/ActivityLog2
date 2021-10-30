@@ -135,7 +135,34 @@
      (if is-lap-swim? (fetch-trackpoins/swim) (fetch-trackpoins))
      session-id))
 
-  ;; Delete all empty series (e.g "gct" for a cycling activity)
+  (when is-lap-swim?
+    ;; Lap swims don't record the distance in the A_TRACKPOINT table, at least
+    ;; not reliably.  We reconstruct the "dst" series here from the lengths
+    ;; and the "pool_length".  Note that we use the "active" series as a
+    ;; helper, which tracks whether a length is active (i.e. traversing the
+    ;; pool) or passive (i.e. resting at the end of the pool)
+    (match-define (vector span unit)
+      (query-row db "select pool_length, pool_length_unit
+                       from A_SESSION where id = ?" session-id))
+    (unless (sql-null? span)
+      ;; NOTE: unfortunately we store the pool length in its original unit,
+      ;; which is a mistake.  The DB should store metric values and those
+      ;; should be converted for display only...
+      (define pool-length (if (or (sql-null? unit) (equal? unit 0))
+                              span
+                              (* span 0.9144)))
+      (define dst 0)
+      ;; NOTE: distance is at the end of the length!
+      (df-add-derived!
+       df
+       "dst"
+       '("active")
+       (lambda (v)
+         (define active (list-ref v 0))
+         (set! dst (+ dst (* active pool-length)))
+         dst))))
+
+  ;; delete all empty series (e.g "gct" for a cycling activity)
   (for ([series (in-list (df-series-names df))])
     (unless (df-has-non-na? df series)
       (df-del-series! df series)))
@@ -1082,7 +1109,10 @@
         (vector-set! d 1 missing-value)))
 
     ;; Filter the data in place, if required.
-    (when (and should-filter? (> filter-width 0) (> (vector-length data) 0))
+    (when (and should-filter?
+               (> filter-width 0)
+               (> (vector-length data) 0)
+               (rational? base-filter-width))
       (let ((fw (* base-filter-width filter-width))
             (sp (or (df-get-property data-frame 'stop-points) '()))
             (px (vector-ref (vector-ref data 0) 0))
