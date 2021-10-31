@@ -660,7 +660,7 @@ select LE.start_time as timestamp,
       (send msg-distance set-label
             (short-distance->string (* pool-length (send swl-model get-num-lengths))))
       (send swl-view refresh))
-      
+
     (define (on-split b e)
       (let ((item (send swl-view get-selected-item)))
         (when item
@@ -686,7 +686,7 @@ select LE.start_time as timestamp,
         (when item
           (send swl-model delete-at (swl-timestamp item))
           (after-edit))))
-    
+
     (define (on-change-stroke c e)
       (let ((selection (send c get-selection))
             (item (send swl-view get-selected-item)))
@@ -823,11 +823,6 @@ values (?, ?, ?, ?, ?, ?)")))
    (lambda (dbsys)
      "insert into A_LENGTH(lap_id, start_time, summary_id) values (?, ?, ?)")))
 
-(define store-ldata3-sql
-  (virtual-statement
-   (lambda (dbsys)
-     "insert into A_TRACKPOINT(length_id, timestamp, speed) values (?, ?, ?)")))
-
 ;; Insert a new length in the database based on LDATA, and return the length
 ;; ID. The lap will now be outdated, and will need to be updated.
 (define (insert-length db pool-length ldata)
@@ -846,10 +841,6 @@ values (?, ?, ?, ?, ?, ?)")))
                  (ldata-lap-id ldata)
                  (ldata-timestamp ldata)
                  summary-id))
-    (db-insert db store-ldata3-sql
-               length-id
-               (+ (ldata-timestamp ldata) (ldata-duration ldata))
-               avg-speed)
     length-id))
 
 ;; Delete a length from the database, returns the LAP-ID that contained this
@@ -894,6 +885,98 @@ select SS.swim_stroke_id
   ;; lap summary does not need update
   #f)
 
+;; Transfer all trackpoints from one length to another -- this is used when
+;; lengths are joined together to ensure all trackpoints containing HR data
+;; are migrated.
+(define (transfer-trackpoints db from-length to-length)
+  (query-exec db
+              "update A_TRACKPOINT
+                  set length_id = ?
+                where length_id = ?" to-length from-length))
+
+;; Transfer trackpoints from one length to another but only those whose
+;; timestamp is between "from-timestamp" and "to-timestamp"
+(define (transfer-some-trackpoints db from-length to-length from-timestamp to-timestamp)
+  (query-exec db
+              "update A_TRACKPOINT
+                  set length_id = ?
+                where length_id = ?
+                  and timestamp between ? and ?"
+              to-length from-length from-timestamp to-timestamp))
+
+;; Update Heart Rate summary (average and maximum) for a length record based
+;; on the trackpoints it contains.  Note that the calculation is not
+;; technically correct, as we just average the points and if they are recorded
+;; at variable intervals, it will not produce correct results -- hopefully the
+;; error is small enough...
+(define (update-summary-hr-for-length db length-id)
+  (match-define (vector max-hr avg-hr)
+    (query-row db "\
+select max(T.heart_rate), avg(T.heart_rate)
+from A_TRACKPOINT T
+where T.length_id = ?" length-id))
+  (define summary-id (query-value db "\
+select summary_id from A_LENGTH where id = ?" length-id))
+  (query-exec db "\
+update SECTION_SUMMARY
+set max_heart_rate = ?, avg_heart_rate = ?
+where id = ?" max-hr avg-hr summary-id))
+
+;; Same as UPDATE-SUMMARY-HR-FOR-LENGTH, but for a LAP, same limitations apply
+(define (update-summary-hr-for-lap db lap-id)
+  (match-define (vector max-hr avg-hr)
+    (query-row db "\
+select max(T.heart_rate), avg(T.heart_rate)
+from A_TRACKPOINT T, A_LENGTH E
+where T.length_id = E.id
+  and E.lap_id = ?" lap-id))
+  (define summary-id (query-value db "\
+select summary_id from A_LAP where id = ?" lap-id))
+  (query-exec db "\
+update SECTION_SUMMARY
+   set max_heart_rate = ?, avg_heart_rate = ?
+where id = ?" max-hr avg-hr summary-id))
+
+;; Same as UPDATE-SUMMARY-HR-FOR-LENGTH, but for a SESSION, same limitations
+;; apply
+(define (update-summary-hr-for-session db session-id)
+  (match-define (vector max-hr avg-hr)
+    (query-row db "\
+select max(T.heart_rate), avg(T.heart_rate)
+from A_TRACKPOINT T, A_LENGTH E, A_LAP P
+where T.length_id = E.id
+  and E.lap_id = P.id
+  and P.session_id = ?" session-id))
+  (define summary-id (query-value db "\
+select summary_id from A_SESSION where id = ?" session-id))
+  (query-exec db "\
+update SECTION_SUMMARY
+set max_heart_rate = ?, avg_heart_rate = ?
+where id = ?" max-hr avg-hr summary-id))
+
+;; Clear all distance, speed and cadence data for all trackpoints within a
+;; session.  Older Garmin watches recorded distance in trackpoints, but newer
+;; ones don't.  AL2 does not use this information and it just become outdated
+;; if we joined and merged lengths, so we just delete it.  The alternative is
+;; to insert a single trackpoint at the end of the length (of one is not
+;; already present), with the information, but this is too much work...
+(define (clear-distance-for-trackpoints db session-id)
+  (query-exec
+   db
+   "update A_TRACKPOINT
+       set distance = null, cadence = null, speed = null
+     where id in (select T.id
+                    from A_TRACKPOINT T, A_LENGTH E, A_LAP P
+                   where T.length_id = E.id and E.lap_id = P.id and P.session_id = ?)"
+   session-id))
+
+;; Clear any cache data, as this session has been updated and this is now
+;; outdated.
+(define (clear-cache-data db session-id)
+  (query-exec db "delete from BAVG_CACHE where session_id = ?" session-id)
+  (query-exec db "delete from HIST_CACHE where session_id = ?" session-id)
+  (query-exec db "delete from SCATTER_CACHE where session_id = ?" session-id))
+
 ;; Join two lengths L1, L2 (A_LENGTH.ID).  The resulting length is inserted
 ;; into the database, and the previous ones are removed.  The lap will now be
 ;; outdated, and will need to be updated.
@@ -904,19 +987,26 @@ select SS.swim_stroke_id
       (error "stroke mismatch"))
     (unless (= (ldata-lap-id ldata1) (ldata-lap-id ldata2))
       (error "lap mismatch"))
-    (delete-length db l1)
-    (delete-length db l2)
     (let ((timestamp (min (ldata-timestamp ldata1) (ldata-timestamp ldata2)))
           (duration (+ (ldata-duration ldata1) (ldata-duration ldata2)))
           (elapsed (+ (ldata-elapsed ldata1) (ldata-elapsed ldata2)))
           (stroke-count (+ (ldata-stroke-count ldata1) (ldata-stroke-count ldata2))))
       ;; NOTE: insert first, as delete-length might delete the actual lap if
       ;; we remove all its lengths!
-      (insert-length db pool-length (ldata (ldata-lap-id ldata1)
-                                           #f ; no length-id
-                                           timestamp
-                                           duration
-                                           elapsed stroke-count (ldata-stroke-type ldata1)))
+      (define new-length-id
+        (insert-length db pool-length
+                       (ldata (ldata-lap-id ldata1)
+                              #f ; no length-id
+                              timestamp
+                              duration
+                              elapsed stroke-count (ldata-stroke-type ldata1))))
+      ;; NOTE: how do we handle the single TRACKPOINT case where it contains
+      ;; only distance and speed...
+      (transfer-trackpoints db l1 new-length-id)
+      (transfer-trackpoints db l2 new-length-id)
+      (update-summary-hr-for-length db new-length-id)
+      (delete-length db l1)
+      (delete-length db l2)
       (ldata-lap-id ldata1))))
 
 ;; Split a length L (A_LENGTH.ID) into two equal lengths.  The length will be
@@ -927,22 +1017,34 @@ select SS.swim_stroke_id
          (duration (/ (ldata-duration data) 2.0))
          (elapsed (/ (ldata-elapsed data) 2.0))
          (stroke-count (/ (ldata-stroke-count data) 2.0)))
-    (insert-length db pool-length
-                   (ldata (ldata-lap-id data)
-                          #f ; no length-id
-                          (ldata-timestamp data)
-                          duration
-                          elapsed
-                          stroke-count (ldata-stroke-type data)))
-    (insert-length db pool-length
-                   (ldata (ldata-lap-id data)
-                          #f ; no length-id
-                          (exact-round (+ (ldata-timestamp data) duration))
-                          duration
-                          elapsed
-                          stroke-count (ldata-stroke-type data)))
+    (define timestamp1 (ldata-timestamp data))
+    (define timestamp2 (exact-round (+ timestamp1 duration)))
+    (define timestamp3 (exact-round (+ timestamp1 (ldata-duration data))))
+    (define l1
+      (insert-length db pool-length
+                     (ldata (ldata-lap-id data)
+                            #f ; no length-id
+                            (ldata-timestamp data)
+                            duration
+                            elapsed
+                            stroke-count (ldata-stroke-type data))))
+    (transfer-some-trackpoints db l l1 timestamp1 timestamp2)
+    (update-summary-hr-for-length db l1)
+
+    (define l2
+      (insert-length db pool-length
+                     (ldata (ldata-lap-id data)
+                            #f ; no length-id
+                            (exact-round (+ (ldata-timestamp data) duration))
+                            duration
+                            elapsed
+                            stroke-count (ldata-stroke-type data))))
+    (transfer-some-trackpoints db l l2 timestamp2 timestamp3)
+    (update-summary-hr-for-length db l2)
+
     (delete-length db l)
     (ldata-lap-id data)))
+
 
 ;; Add a new length to LAP-ID and re-split the lap totals among the number of
 ;; lengts.  This is used for drill laps where only the total lap time is
@@ -951,24 +1053,31 @@ select SS.swim_stroke_id
 ;; a chance to correct it here).
 (define (split-length/rebalance db pool-length lap-id)
   (let ((lengths (query-list db "select id from A_LENGTH where lap_id = ?" lap-id))
-        (row (query-row db "select P.start_time, SS.total_timer_time,
+        (row (query-row db "\
+select P.start_time, SS.total_timer_time,
        SS.total_elapsed_time, SS.total_cycles, SS.swim_stroke_id
 from SECTION_SUMMARY SS, A_LAP P
 where P.summary_id = SS.id and P.id = ?" lap-id)))
     (match-define (vector timestamp duration elapsed stroke-count stroke-type) row)
-    (for ([l lengths]) (delete-length db l))
     (let* ((nlengths (add1 (length lengths)))
            (lduration (/ duration nlengths))
            (lelapsed (/ elapsed nlengths))
            (lstroke-count (/ stroke-count nlengths)))
       (for ([idx (in-range nlengths)])
-        (insert-length db pool-length
+        (define start-timestamp (exact-round (+ timestamp (* idx lduration))))
+        (define end-timestamp (+ start-timestamp lduration))
+        (define nl
+          (insert-length db pool-length
                        (ldata lap-id #f
-                              (exact-round (+ timestamp (* idx lduration)))
+                              start-timestamp
                               lduration
                               lelapsed
                               lstroke-count
-                              stroke-type)))))
+                              stroke-type)))
+        (for ([l (in-list lengths)])
+          (transfer-some-trackpoints l nl start-timestamp end-timestamp)
+          (update-summary-hr-for-length db l))))
+    (for ([l lengths]) (delete-length db l)))
   lap-id)
 
 ;; Remove a length from LAP-ID and re-split the lap totals among the number of
@@ -981,70 +1090,58 @@ where P.summary_id = SS.id and P.id = ?" lap-id)))
 ;; should be refactored.
 (define (join-lengths/rebalance db pool-length lap-id)
   (let ((lengths (query-list db "select id from A_LENGTH where lap_id = ?" lap-id))
-        (row (query-row db "select P.start_time, SS.total_timer_time,
+        (row (query-row db "\
+select P.start_time, SS.total_timer_time,
        SS.total_elapsed_time, SS.total_cycles, SS.swim_stroke_id
 from SECTION_SUMMARY SS, A_LAP P
 where P.summary_id = SS.id and P.id = ?" lap-id)))
     (match-define (vector timestamp duration elapsed stroke-count stroke-type) row)
-    (for ([l lengths]) (delete-length db l))
     (let* ((nlengths (sub1 (length lengths)))
            (lduration (/ duration nlengths))
            (lelapsed (/ elapsed nlengths))
            (lstroke-count (/ stroke-count nlengths)))
       (for ([idx (in-range nlengths)])
-        (insert-length db pool-length
-                       (ldata lap-id #f
-                              (exact-round (+ timestamp (* idx lduration)))
-                              lduration
-                              lelapsed
-                              lstroke-count
-                              stroke-type)))))
+        (define start-timestamp (exact-round (+ timestamp (* idx lduration))))
+        (define end-timestamp (+ start-timestamp lduration))
+        (define nl
+          (insert-length db pool-length
+                         (ldata lap-id #f
+                                start-timestamp
+                                lduration
+                                lelapsed
+                                lstroke-count
+                                stroke-type)))
+        (for ([l (in-list lengths)])
+          (transfer-some-trackpoints l nl start-timestamp end-timestamp)
+          (update-summary-hr-for-length db l))))
+    (for ([l lengths]) (delete-length db l)))
   lap-id)
-
-;; After the lengths of a session have been modified, the trackpoints will
-;; contain the wrong distance.  We fix the distance by updating each
-;; trackpoint in order, to increase the distance by POOL-LENGTH for each
-;; point.
-(define (rebuild-trackpoint-distance session-id pool-length db)
-  (let ((trackpoints (query-list db "
-select T.id as tid
-from A_LAP L, A_LENGTH E, A_TRACKPOINT T
-where L.session_id = ?
-  and E.lap_id = L.id
-  and T.length_id = E.id
-order by T.timestamp" session-id)))
-    (let loop ((tpoints trackpoints)
-               (distance pool-length))
-      (unless (null? tpoints)
-        (query-exec
-         db
-         "update A_TRACKPOINT set distance = ? where id = ?"
-         distance (car tpoints))
-        (loop (cdr tpoints) (+ distance pool-length))))))
 
 ;; Update the lap summary after the lap's lengths have been changed.  We only
 ;; update relevant data.
 (define (update-lap-summary db pool-length lap-id)
-  (let ((row (query-row
-              db
-              "select count(L.id), total(SS.total_elapsed_time),
-                      total(SS.total_cycles), max(SS.avg_speed), max(SS.avg_cadence)
-                 from A_LENGTH L, SECTION_SUMMARY SS
-                where L.lap_id = ? and L.summary_id = SS.id"
-              lap-id)))
-    (match-define (vector nlaps elapsed total-strokes max-speed max-cadence) row)
-    (cond ((= nlaps 0)
-           ;; all lengths were removed, remove the lap itself
-           (query-exec db "\
+  (match-define (vector nlengths elapsed total-strokes max-speed max-cadence)
+    (query-row
+     db
+     "select count(L.id),
+             total(SS.total_elapsed_time),
+             total(SS.total_cycles),
+             max(SS.avg_speed), max(SS.avg_cadence)
+        from A_LENGTH L, SECTION_SUMMARY SS
+       where L.lap_id = ? and L.summary_id = SS.id" lap-id))
+
+  (cond ((= nlengths 0)
+         ;; all lengths were removed, remove the lap itself
+         (query-exec db "\
 delete from SECTION_SUMMARY
  where id in (select P.summary_id from A_LAP P where P.id = ?)" lap-id)
-           (query-exec db "delete from A_LAP where id = ?" lap-id))
-          (#t
-           (let* ((total-distance (* pool-length nlaps))
-                  (avg-speed (/ total-distance elapsed))
-                  (avg-cadence (exact-round (* 60 (/ total-strokes elapsed))))
-                  (avg-stroke-distance (/ total-distance total-strokes)))
-             (query-exec db "update SECTION_SUMMARY
+         (query-exec db "delete from A_LAP where id = ?" lap-id))
+        (#t
+         (let* ((total-distance (* pool-length nlengths))
+                (avg-speed (/ total-distance elapsed))
+                (avg-cadence (exact-round (* 60 (/ total-strokes elapsed))))
+                (avg-stroke-distance (/ total-distance total-strokes)))
+           (query-exec db "update SECTION_SUMMARY
                             set total_distance = ?,
                                 avg_speed = ?,
                                 max_speed = ?,
@@ -1052,36 +1149,40 @@ delete from SECTION_SUMMARY
                                 max_cadence = ?,
                                 avg_cycle_distance = ?
                           where id = (select L.summary_id from A_LAP L where L.id = ?)"
-                         total-distance avg-speed max-speed avg-cadence max-cadence
-                         avg-stroke-distance lap-id))))))
+                       total-distance avg-speed max-speed avg-cadence max-cadence
+                       avg-stroke-distance lap-id))
+         (update-summary-hr-for-lap db lap-id))))
 
 ;; Update the summary data for the session after its laps have been updated.
 (define (update-session-summary db pool-length session-id)
-  (let ((row (query-row
-              db
-              "select total(SS.total_distance), total(SS.total_elapsed_time),
-                      total(SS.total_cycles), max(SS.avg_speed), max(SS.avg_cadence)
-                 from A_LAP L, SECTION_SUMMARY SS
-                where L.session_id = ? and L.summary_id = SS.id"
-              session-id)))
-    (match-define (vector total-distance elapsed stroke-count max-speed max-cadence) row)
-    (when (> total-distance 0)
-      (let* (;; Avg speed for swim activities only counts active laps
-             (avg-speed (query-value db
-                                     "select total(SS.total_distance) / total(SS.total_elapsed_time)
+  (match-define (vector total-distance elapsed stroke-count max-speed max-cadence)
+    (query-row
+     db
+     "select total(SS.total_distance),
+             total(SS.total_elapsed_time),
+             total(SS.total_cycles),
+             max(SS.avg_speed),
+             max(SS.avg_cadence)
+       from A_LAP L, SECTION_SUMMARY SS
+      where L.session_id = ?
+        and L.summary_id = SS.id" session-id))
+  (when (> total-distance 0)
+    (let* (;; Avg speed for swim activities only counts active laps
+           (avg-speed (query-value db
+                                   "select total(SS.total_distance) / total(SS.total_elapsed_time)
                                            from A_LAP L, SECTION_SUMMARY SS
                                           where L.session_id = ? and L.summary_id = SS.id
                                             and SS.total_distance > 0" session-id))
-             ;; NOTE: we need to ignore DRILL and REST laps when computing the
-             ;; average cadence.
-             (avg-cadence (exact-round
-                           (query-value db
-                                        "select 60 * total(SS.total_cycles) / total(SS.total_elapsed_time)
+           ;; NOTE: we need to ignore DRILL and REST laps when computing the
+           ;; average cadence.
+           (avg-cadence (exact-round
+                         (query-value db
+                                      "select 60 * total(SS.total_cycles) / total(SS.total_elapsed_time)
                                            from A_LAP L, SECTION_SUMMARY SS
                                           where L.session_id = ? and L.summary_id = SS.id
                                             and SS.total_cycles > 0" session-id)))
-             (avg-stroke-distance (/ total-distance stroke-count)))
-        (query-exec db "update SECTION_SUMMARY
+           (avg-stroke-distance (/ total-distance stroke-count)))
+      (query-exec db "update SECTION_SUMMARY
                             set total_distance = ?,
                                 avg_speed = ?,
                                 max_speed = ?,
@@ -1089,8 +1190,11 @@ delete from SECTION_SUMMARY
                                 max_cadence = ?,
                                 avg_cycle_distance = ?
                           where id = (select S.summary_id from A_SESSION S where S.id = ?)"
-                    total-distance avg-speed max-speed avg-cadence max-cadence
-                    avg-stroke-distance session-id)))))
+                  total-distance avg-speed max-speed avg-cadence max-cadence
+                  avg-stroke-distance session-id)))
+  (update-summary-hr-for-session db session-id)
+  (clear-distance-for-trackpoints db session-id)
+  (clear-cache-data db session-id))
 
 ;; fixup a swim session by executing the PLAN, as produced by swl-model%.
 (define (fixup-swim-session db session-id plan)
