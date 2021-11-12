@@ -57,9 +57,10 @@
 (define-runtime-path p38-file "../sql/migrations/p38-labels-in-view-activities.sql")
 (define-runtime-path p39-file "../sql/migrations/p39-segments.sql")
 (define-runtime-path p40-file "../sql/migrations/p40-temperature.sql")
+(define-runtime-path p41-file "../sql/migrations/p41-pool-length.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 40)
+(define (schema-version) 41)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -85,7 +86,8 @@
    36 p37-file
    37 p38-file
    38 p39-file
-   39 p40-file))
+   39 p40-file
+   40 p41-file))
 
 (define the-current-database #f)
 
