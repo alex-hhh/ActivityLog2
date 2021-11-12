@@ -135,6 +135,8 @@
         (max-cadence 0)
 
         (total-heart-rate-beats 0)      ; for computing avg heart rate
+        (total-heart-rate-count 0.0)    ; for computing avg heart rate whithout total-timer-time
+        (sum-of-heart-rates 0)          ; for computing avg heart rate whithout total-timer-time
         (max-heart-rate 0)
 
         (total-work 0)                  ; for computing avg power
@@ -159,6 +161,8 @@
            ;; compute max-speed from the GPS data.
 
            (when heart-rate
+             (set! total-heart-rate-count (add1 total-heart-rate-count))
+             (set! sum-of-heart-rates (+ sum-of-heart-rates heart-rate))
              (set! max-heart-rate (max heart-rate max-heart-rate)))
            (when cadence
              (set! max-cadence (max cadence max-cadence)))
@@ -229,7 +233,10 @@
           (cons 'total-ascent total-ascent)
           (cons 'total-descent total-descent)
           (cons 'max-heart-rate max-heart-rate)
-          (cons 'avg-heart-rate (* (if (> total-timer-time 0) (/ total-heart-rate-beats total-timer-time) 0) 60.0))
+          (cons 'avg-heart-rate (if (> total-timer-time 0)
+                                    (* (/ total-heart-rate-beats total-timer-time) 60.0)
+                                    (when (and sum-of-heart-rates total-heart-rate-count)
+                                      (/ sum-of-heart-rates total-heart-rate-count))))
           (cons 'max-cadence max-cadence)
           (cons 'avg-cadence (* (if (> total-timer-time 0) (/ total-cycles total-timer-time) 0) 60.0))
           (cons 'max-power max-power)

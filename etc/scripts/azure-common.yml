@@ -111,6 +111,10 @@ steps:
     condition: eq(variables.runTests, true)
     displayName: Test File Import (fit-test)
 
+  - script: raco test test/activity-util-test.rkt
+    condition: eq(variables.runTests, true)
+    displayName: Test Activity Util (activity-util-test)
+
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: 'test/test-results/*.xml'
