@@ -359,7 +359,7 @@ select X.session_id
                      (if (equal? pool-length 0)
                          "" 
                          (short-distance->string pool-length #t))))))
-         (qcolumn "Pool Length" fn fn #:default-visible? #t))
+         (qcolumn "Pool Length" fn fn #:default-visible? #f))
        
        (let ((fn (lambda (row) (db-row-ref row "speed" headers 0))))
          (qcolumn "Speed"
