@@ -350,6 +350,17 @@ select X.session_id
                   fn
                   #:default-visible? #t))
 
+       (let ((fn (lambda (row)
+                   (let* ((length (db-row-ref row "pl" headers 0))
+                          (unit (db-row-ref row "plu" headers 0))
+                          (pool-length (if (equal? unit 0)
+                                           length
+                                           (*  length 0.9144))))
+                     (if (equal? pool-length 0)
+                         "" 
+                         (short-distance->string pool-length #t))))))
+         (qcolumn "Pool Length" fn fn #:default-visible? #f))
+       
        (let ((fn (lambda (row) (db-row-ref row "speed" headers 0))))
          (qcolumn "Speed"
                   (lambda (row)

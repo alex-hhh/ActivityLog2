@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(40);
+insert into SCHEMA_VERSION(version) values(41);
 
 
 --........................................................ Enumerations ....
@@ -1341,6 +1341,8 @@ create view V_ACTIVITY_LIST as
          S.rpe_scale as rpe,
          S.training_effect as te,
          S.training_stress_score as tss,
+         S.pool_length as pl,
+         S.pool_length_unit as plu,
          S.intensity_factor as ifact,
          SS.total_timer_time as duration,
          SS.total_distance as distance,
