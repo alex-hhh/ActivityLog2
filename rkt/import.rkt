@@ -17,6 +17,7 @@
 (require data-frame
          db/base
          racket/class
+         racket/dict
          racket/match
          racket/math
          tzgeolookup
@@ -27,7 +28,8 @@
          "time-in-zone.rkt"
          "utilities.rkt"
          "weather.rkt"
-         "gps-segments/gps-segments.rkt")
+         "gps-segments/gps-segments.rkt"
+         "fit-file/activity-util.rkt")
 
 (provide import-new-activities-from-directory do-post-import-tasks)
 
@@ -51,6 +53,8 @@
   (define sessions (get-new-sessions db))
   (show-progress "updating swim drills...")
   (update-swim-drills-for-new-sessions sessions db)
+  (show-progress "updating hr data...")
+  (fix-hr-data-on-import sessions db)
   (show-progress "updating old style equipment serial numbers...")
   (update-old-style-equipment-serial db)
   (show-progress "updating equipment use...")
@@ -278,6 +282,58 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
     (fixup-swim-drills db sid)
     (when progress-monitor
       (send progress-monitor set-progress (+ idx 1)))))
+
+
+;;................................................. update hr in lengths ....
+
+(define lengths-without-hr-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "select distinct len.id  
+      from A_LENGTH len, SECTION_SUMMARY s, A_LAP l, A_TRACKPOINT t 
+      where len.summary_id == s.id and len.lap_id == l.id and len.id == t.length_id
+        and (ifnull(max_heart_rate, 0) == 0 or ifnull(avg_heart_rate, 0) == 0)
+        and l.session_id == ?")))
+(define (load-length-ids-without-hr db sid) (query-list db lengths-without-hr-sql sid))
+
+(define (db-trackpoint->fit-hr-tracpoint trackpoint-row)
+  (let ((fields '(timestamp heart-rate)))
+    (db-row->alist fields trackpoint-row)))
+
+(define load-hr-trackpoints
+  (let ((stmt (virtual-statement
+               (lambda (dbsys)
+                 "select T.timestamp,
+                         T.heart_rate
+                    from A_TRACKPOINT T
+                   where T.length_id = ?
+                   order by T.timestamp"))))
+    (lambda (length-id db)
+      (for/list ((trackpoint (in-list (query-rows db stmt length-id))))
+        (db-trackpoint->fit-hr-tracpoint trackpoint)))))
+
+(define update-length-hr-summary-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "update SECTION_SUMMARY set max_heart_rate = ?, avg_heart_rate = ?
+      where id = (select summary_id from A_LENGTH where id = ?)")))
+
+(define (update-hr-in-length-summary db length-id max-heart-rate avg-heart-rate)
+  (query-exec db update-length-hr-summary-sql
+              (or max-heart-rate sql-null)
+              (or avg-heart-rate sql-null)
+              length-id))
+
+
+(define (fix-hr-data-on-import sessions db)
+  (for/list ([sid (in-list sessions)])
+    (for/list ([ length-id (in-list (load-length-ids-without-hr db sid))])
+      (let ((summary-data  (compute-summary-data (load-hr-trackpoints length-id db) '() '() '())))
+        (update-hr-in-length-summary
+         db
+         length-id
+         (dict-ref summary-data 'max-heart-rate)
+         (dict-ref summary-data 'avg-heart-rate))))))
 
 
 ;;........................................................ update geoids ....
