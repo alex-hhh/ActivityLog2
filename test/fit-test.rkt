@@ -421,7 +421,7 @@ select count(*)
    (test-case "f0043.fit"
      (do-basic-checks
       "./test-fit/f0043.fit" 28 2669))
-   (test-case "f0047.fit"
+   (test-case "f0047.fit (a)"
      ;; This test is different than the others as this checks that the FIT
      ;; file reader itself behaves correctly.
      (define data (read-activity-from-file "./test-fit/f0047.fit"))
@@ -436,6 +436,19 @@ select count(*)
            (for ([trackpoint (in-list track)])
              (define ts (get-start-time trackpoint))
              (check-true (and (>= ts start) (<= ts end))))))))
+   (test-case "f0047.fit (b)"
+     (do-basic-checks "./test-fit/f0047.fit" 15 63
+                      #:extra-db-checks
+                      (lambda (db)
+                        ;; Expected HR data for all length records to be
+                        ;; filled in, see #80
+                        (define c
+                          (query-value db "select count(*)
+                                             from A_LENGTH L, SECTION_SUMMARY SS
+                                            where L.summary_id = SS.id
+                                              and (SS.max_heart_rate is null
+                                                   or SS.avg_heart_rate is null)"))
+                        (check = c 0))))
    (test-case "f0048.fit"
      (do-basic-checks
       "./test-fit/f0048.fit" 25 2191
@@ -471,6 +484,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0048.fit"))
+             ;; #:only '(("FIT file reading" "f0047.fit (b)"))
              fit-files-test-suite))
-

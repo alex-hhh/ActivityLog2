@@ -535,6 +535,7 @@
 
          )))
 (register-series-metadata axis-hr-bpm)
+(register-series-metadata axis-hr-bpm #t) ; for lap swimming as well
 (provide axis-hr-bpm)
 
 
@@ -549,6 +550,7 @@
          (define/override (fractional-digits) 1)
          )))
 (register-series-metadata axis-hr-pct)
+(register-series-metadata axis-hr-bpm #t) ; for lap swimming as well
 (provide axis-hr-pct)
 
 
@@ -575,6 +577,7 @@
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
          )))
 (register-series-metadata axis-hr-zone)
+(register-series-metadata axis-hr-bpm #t) ; for lap swimming as well
 (provide axis-hr-zone)
 
 

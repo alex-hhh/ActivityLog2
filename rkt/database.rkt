@@ -60,6 +60,8 @@
 
 ;................................................... database utilities ....
 
+(provide db-row->alist)
+
 (define (rassq1 tag alist)
   (if tag
       (let ((v (findf (lambda (x) (eq? (cdr x) tag)) alist)))

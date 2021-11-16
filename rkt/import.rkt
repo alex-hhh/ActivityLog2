@@ -17,6 +17,7 @@
 (require data-frame
          db/base
          racket/class
+         racket/dict
          racket/match
          racket/math
          tzgeolookup
@@ -27,7 +28,8 @@
          "time-in-zone.rkt"
          "utilities.rkt"
          "weather.rkt"
-         "gps-segments/gps-segments.rkt")
+         "gps-segments/gps-segments.rkt"
+         "fit-file/activity-util.rkt")
 
 (provide import-new-activities-from-directory do-post-import-tasks)
 
@@ -74,8 +76,13 @@
         (show-progress "updating weather data...")
         (update-weather-for-new-sessions sessions db))
       (show-progress "skipping weather download (disabled in settings)..."))
+  ;; NOTE: these fixes load sessions, and should be after the elevation
+  ;; correction (which adds the "calt" series).  Otherwise, the corrected
+  ;; elevation will not show up right after import...
   (show-progress "updating timezones ...")
   (update-timezone-for-new-sessions sessions db)
+  (show-progress "add summary heart rate to lap swim lengths...")
+  (add-summary-hr-to-swim-lengths sessions db)
   (show-progress "searching for GPS segment matches...")
   (find-new-segment-matches #:db db)
   (for ([sid (in-list sessions)])
@@ -280,6 +287,68 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
       (send progress-monitor set-progress (+ idx 1)))))
 
 
+;;................................................. update hr in lengths ....
+
+(define lengths-without-hr-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "select distinct L.id
+      from A_LENGTH L, SECTION_SUMMARY S, A_LAP P, A_TRACKPOINT T
+      where L.summary_id = S.id
+        and L.lap_id = P.id
+        and T.id = T.length_id
+        and (max_heart_rate is null or avg_heart_rate is null)
+        and P.session_id = ?")))
+
+(define (load-length-ids-without-hr db sid)
+  (query-list db lengths-without-hr-sql sid))
+
+(define (db-trackpoint->fit-hr-tracpoint trackpoint-row)
+  (let ((fields '(timestamp heart-rate)))
+    (db-row->alist fields trackpoint-row)))
+
+(define load-hr-trackpoints
+  (let ((stmt (virtual-statement
+               (lambda (dbsys)
+                 "select T.timestamp,
+                         T.heart_rate
+                    from A_TRACKPOINT T
+                   where T.length_id = ?
+                   order by T.timestamp"))))
+    (lambda (length-id db)
+      (for/list ((trackpoint (in-list (query-rows db stmt length-id))))
+        (db-trackpoint->fit-hr-tracpoint trackpoint)))))
+
+(define update-length-hr-summary-sql
+  (virtual-statement
+   (lambda (dbsys)
+     "update SECTION_SUMMARY set max_heart_rate = ?, avg_heart_rate = ?
+      where id = (select summary_id from A_LENGTH where id = ?)")))
+
+(define (update-hr-in-length-summary db length-id max-heart-rate avg-heart-rate)
+  (query-exec db update-length-hr-summary-sql
+              (or max-heart-rate sql-null)
+              (or avg-heart-rate sql-null)
+              length-id))
+
+;; Devices that record HR data inline don't record average and max HR for each
+;; length -- we updated the database here to add these missing summary values,
+;; see also #80.
+
+(define (add-summary-hr-to-swim-lengths sessions db)
+  (for/list ([sid (in-list sessions)])
+    (define df (session-df db sid))
+    ;; Only update it for lap swim activities that have HR data...
+    (when (and (df-get-property df 'is-lap-swim?) (df-contains? df "hr"))
+      (for/list ([length-id (in-list (load-length-ids-without-hr db sid))])
+        (let ((summary-data  (compute-summary-data (load-hr-trackpoints length-id db) '() '() '())))
+          (update-hr-in-length-summary
+           db
+           length-id
+           (dict-ref summary-data 'max-heart-rate)
+           (dict-ref summary-data 'avg-heart-rate)))))))
+
+
 ;;........................................................ update geoids ....
 
 ;; Update geoids for A_TRACKPOINT entries which have latitude / longitude
@@ -347,4 +416,3 @@ select GSW.segment_id, GSW.geoid, min(GSW.pos)
            (match-define (list df start stop cost) segment-match)
            (put-new-segment-match db segment-id df start stop cost))
          (log-event 'gps-segment-updated-matches segment-id))))))
-
