@@ -237,6 +237,8 @@ select LE.start_time as timestamp,
              (let ((l1 (hash-ref swim-data timestamp #f))
                    (l2 (hash-ref swim-data other #f)))
                (and l1 l2
+                    (swl-length-id l1)
+                    (swl-length-id l2)
                     (equal? (swl-lap-id l1) (swl-lap-id l2))
                     (equal? (swl-stroke-type l1) (swl-stroke-type l2)))))))
 
@@ -639,13 +641,9 @@ select LE.start_time as timestamp,
           (send choice-stroke enable #f))
       (send btn-split enable (and swl (swl-length-id swl) #t))
       (send btn-join-next enable
-            (and swl
-                 (swl-length-id swl)
-                 (send swl-model can-join? (swl-timestamp swl) 'next)))
+            (and swl (send swl-model can-join? (swl-timestamp swl) 'next)))
       (send btn-join-prev enable
-            (and swl
-                 (swl-length-id swl)
-                 (send swl-model can-join? (swl-timestamp swl) 'prev)))
+            (and swl (send swl-model can-join? (swl-timestamp swl) 'prev)))
       (send btn-delete enable (and swl (swl-length-id swl) #t)))
 
     ;; Things to do when the mouse comes over a new swim length.  Update the
