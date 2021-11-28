@@ -296,7 +296,7 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
       from A_LENGTH L, SECTION_SUMMARY S, A_LAP P, A_TRACKPOINT T
       where L.summary_id = S.id
         and L.lap_id = P.id
-        and T.id = T.length_id
+        and L.id = T.length_id
         and (max_heart_rate is null or avg_heart_rate is null)
         and P.session_id = ?")))
 
