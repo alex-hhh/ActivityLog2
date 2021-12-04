@@ -212,7 +212,7 @@ select count(*)
    (test-case "f0002.fit"
      (do-basic-checks "./test-fit/f0002.fit" 19 500))
    (test-case "f0003.fit"
-     (do-basic-checks "./test-fit/f0003.fit" 15 47))
+     (do-basic-checks "./test-fit/f0003.fit" 15 48))
    (test-case "f0004.fit"
      (do-basic-checks "./test-fit/f0004.fit" 20 138294))
    (test-case "f0005.fit"
@@ -244,7 +244,7 @@ select count(*)
                         (define data2 (extract-data df axis-timer-time axis-speed 0 #f))
                         (check = (vector-length data2) (df-row-count df)))))
    (test-case "f0012.fit"
-     (do-basic-checks "./test-fit/f0012.fit" 5 47))
+     (do-basic-checks "./test-fit/f0012.fit" 5 48))
    (test-case "f0013.fit"
      (do-basic-checks "./test-fit/f0013.fit" 20 8253))
    (test-case "f0014.fit"
@@ -311,7 +311,7 @@ select count(*)
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
-      "./test-fit/f0018.fit" '(17 18 39 18 32) '(583 30 10217 10 8612)
+      "./test-fit/f0018.fit" '(17 18 39 18 32) '(583 29 10218 10 8612)
       #:extra-db-checks check-stryd-xdata
       #:expected-session-count 5))
    (test-case "f0019.fit"
@@ -424,7 +424,10 @@ select count(*)
    (test-case "f0047.fit (a)"
      ;; This test is different than the others as this checks that the FIT
      ;; file reader itself behaves correctly.
-     (define data (read-activity-from-file "./test-fit/f0047.fit"))
+     (define the-fit-file "./test-fit/f0047.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     (define data (read-activity-from-file the-fit-file))
      (for ([session (in-list (dict-ref data 'sessions #f))])
        (for ([lap (in-list (session-laps session))])
          (for ([len (in-list (lap-lengths lap))])
@@ -437,7 +440,7 @@ select count(*)
              (define ts (get-start-time trackpoint))
              (check-true (and (>= ts start) (<= ts end))))))))
    (test-case "f0047.fit (b)"
-     (do-basic-checks "./test-fit/f0047.fit" 15 63
+     (do-basic-checks "./test-fit/f0047.fit" 15 64
                       #:extra-db-checks
                       (lambda (db)
                         ;; Expected HR data for all length records to be
@@ -456,6 +459,36 @@ select count(*)
                           (void)
                           (check-true (df-contains? df "tempe"))
                           (check-true (df-contains? df "temperature")))))
+   (test-case "f0049.fit"
+     (define the-fit-file "./test-fit/f0049.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define expected-track-lengths
+       '(25 20 41 23 22 30 14 14 23 24 13 19 16 29 22 56 28 63 31 216 30 296
+            27 23 147 9 95 27 22 28 52 24 65 21 79 17 35 12 28 21 22 8 63 21
+            32 22 41 16 35 44 24 18 43 31 47 30 22 23 52 25 21 16 24 20 360
+            23 18 10 41 12 48 22 40 19 19 8 32 22 23 24 38 29 26 28 29 25 30
+            14 20 40 38 1))
+     (define data (read-activity-from-file the-fit-file))
+     (for ([session (in-list (dict-ref data 'sessions #f))])
+       (for ([lap (in-list (session-laps session))])
+         (for ([len (in-list (lap-lengths lap))])
+           (check-false (null? expected-track-lengths) "expected-track-lengths too short")
+           (define clen (car expected-track-lengths))
+           (set! expected-track-lengths (cdr expected-track-lengths))
+           ;; We should do better here, for now we just check we have some
+           ;; records...
+           (define-values (start end) (get-start-end-times len))
+           (define track (length-track len))
+           (check-equal? (length track) clen "track length mismatch")
+           (for ([trackpoint (in-list track)])
+             (define ts (get-start-time trackpoint))
+             (check-true (and (>= ts start) (<= ts end))
+                         (format "timestamp ~a outside time range [~a .. ~a]"
+                                 ts start end))))))
+     (check-true (null? expected-track-lengths) "expected-track-lengths too long"))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -484,5 +517,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0047.fit (b)"))
+             ;; #:only '(("FIT file reading" "f0049.fit"))
              fit-files-test-suite))

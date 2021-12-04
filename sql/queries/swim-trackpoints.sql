@@ -22,7 +22,7 @@
 -- nicer on the various graphs.
 
 select L.start_time as timestamp,
-       (SSP.total_distance > 0) as active,
+       ifnull((SSP.total_distance > 0), 0) as active,
        (select avg(T.heart_rate) from A_TRACKPOINT T where T.length_id = L.id) as hr,
        ifnull(SS.total_timer_time, 0) as duration,
        SS.avg_speed as spd,

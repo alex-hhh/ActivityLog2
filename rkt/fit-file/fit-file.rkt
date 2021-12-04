@@ -951,8 +951,14 @@
     ;; devices do not.  Here, we prefer to sort by start time, if available,
     ;; otherwise use timestamp
     (define (get-start-time record)
-      (or (dict-ref record 'start-time #f)
-          (dict-ref record 'timestamp #f)))
+      ;; NOTE: the Coros2 watch writes the timestamp in the start-time field
+      ;; and start-time in the timestamp field.  This causes lots of problems,
+      ;; as a hack, we select the earliest timestamp as the start time.
+      (define st (dict-ref record 'start-time #f))
+      (define ts (dict-ref record 'timestamp #f))
+      (if (and st ts)
+          (min st ts)
+          (or st ts)))
 
     ;; Returns the start and end times that correspond to RECORD (which can be
     ;; a session, a lap or a length.
@@ -971,7 +977,8 @@
                 (#t #f))))
       (define end-time
         (or
-         ;; If we have a start time and an elapsed time, we use that
+         ;; If we have a start time and an elapsed time, we use that.
+         ;; NOTE: the truncate is essential here!!
          (and start-time duration (truncate (+ start-time duration)))
          ;; Otherwise we use the timestamp...
          (dict-ref record 'timestamp #f)
@@ -982,16 +989,46 @@
     ;; Add the records that correspond to a LENGTH definition -- these are the
     ;; records whose timestamp falls between the start and end time of the
     ;; LENGTH itself.
-    (define/private (add-length-records length records)
-      (define-values (start-time end-time) (get-start-end-times length))
+    (define/private (add-records-to-length l records)
+      (define-values (start-time end-time) (get-start-end-times l))
       (if (and start-time end-time)
-          (let-values ([(our remaining)
-                        (splitf-at records
-                                   (lambda (r)
-                                     (let ([ts (get-start-time r)])
-                                       (<= ts end-time))))])
-            (values (cons (cons 'track our) length) remaining))
-          (values length records)))
+          (let loop ([pre-records '()]
+                     [our-records '()]
+                     [records records])
+            (if (null? records)
+                ;; pre-records are records whose timestamp is before our start
+                ;; time, this can happen when a device does not store a
+                ;; "start-time" in a length record and writes the length
+                ;; record a few seconds after then length has completed, so it
+                ;; has a later timestamp...
+                (begin
+                  (when (> (length pre-records) 0)
+                    (dbglog "fit-file: recovered ~a orphan records (A)" (length pre-records)))
+                  (values (cons (cons 'track (append
+                                              (reverse pre-records)
+                                              (reverse our-records)))
+                                l) records))
+                (let ()
+                  (define current (car records))
+                  (define ts (get-start-time current))
+                  (cond ((< ts start-time)
+                         (loop (cons current pre-records)
+                               our-records
+                               (cdr records)))
+                        ((> ts end-time)
+                         (begin
+                           (when (> (length pre-records) 0)
+                             (dbglog "fit-file: recovered ~a orphan records (B)" (length pre-records)))
+                           (values (cons (cons 'track (append
+                                                       (reverse pre-records)
+                                                       (reverse our-records)))
+                                         l) records)))
+                        (#t
+                         (loop pre-records
+                               (cons current our-records)
+                               (cdr records)))))))
+          (begin
+            (values l records))))
 
     (define/override (on-lap lap)
       ;; Reconstructing the track points of the lap is a bit tricky and seems
@@ -1002,58 +1039,45 @@
       ;; lengths can be grouped separately from the records.  Neither the
       ;; 310XT nor the Garmin Swim do that, so assume that the `lengths' and
       ;; `records' are already present when we see the lap message.
-      (let ((data (process-fields lap)))
-        (set! data
-              (cond ((and (null? lengths) (null? records))
-                     ;; Easy case (we hope), just a lap with no aditional
-                     ;; data.
-                     data)
-                    ((null? lengths)
-                     ;; Easy case, there were no lengths.  Construct a dummy
-                     ;; length and assign all records to it.  The length will
-                     ;; have the same data fields (total-timer-time, etc) as
-                     ;; the lap.
-                     (let ((records (reverse records)))
-                       (cons
-                        (cons 'lengths
-                              (list
-                               (cons (cons 'track records) data)))
-                        data)))
-                    ((= (length lengths) (length records))
-                     ;; The Garmin Swim generates a LENGTH record for each
-                     ;; pool length and a RECORD to go with it.
-                     ;; Unfortunately, it writes the record after the length
-                     ;; and with the wrong timestamp.  Since there are the
-                     ;; same number of lengths as records, we just pair them
-                     ;; together.
-                     (cons
-                      (cons 'lengths
-                            (reverse (map (lambda (len rec)
-                                            (cons (cons 'track (list rec)) len))
-                                          lengths
-                                          records)))
-                      data))
 
-                    (#t
-                     ;; Most generic case, use the timestamp field to assign
-                     ;; records to the corresponding lengths.
-                     (let ((records (sort records < #:key get-start-time))
-                           (lengths (sort lengths < #:key get-start-time)))
-                       (define nlength
-                         (for/fold ([result '()]
-                                    [records records]
-                                    #:result
-                                    (begin0 (reverse result)
-                                      (when (> (length records) 0)
-                                        (dbglog "fit-file: remaining records after processing LENGTHS"))))
-                                   ([l (in-list lengths)])
-                           (define-values (len remaining) (add-length-records l records))
-                           (values (cons len result) remaining)))
-                       (cons (cons 'lengths nlength) data)))))
+      (define p (process-fields lap))
 
-        (set! records '())
-        (set! lengths '())
-        (set! laps (cons data laps)))
+      (define-values (lap-with-records remaining-lengths remaining-records)
+        (cond ((and (null? lengths) (null? records))
+               ;; Easy case (we hope), just a lap with no additional data and
+               ;; no remaining lengths or records.
+               (values p null null))
+              ((null? lengths)
+               ;; Easy case, there were no lengths.  Construct a synthetic
+               ;; length and assign records to it.  The length will have the
+               ;; same data fields (total-timer-time, etc) as the lap.
+               (define-values (synthetic-length remaining-records)
+                 (add-records-to-length
+                  `((timestamp . ,(dict-ref p 'timestamp #f))
+                    (start-time . ,(dict-ref p 'start-time #f))
+                    (total-timer-time . ,(dict-ref p 'total-timer-time #f))
+                    (total-elapsed-time . ,(dict-ref p 'total-elapsed-time #f)))
+                  (reverse records)))
+               (values
+                (cons (cons 'lengths (list synthetic-length)) p)
+                null
+                remaining-records))
+              (#t
+               (define-values (lengths-with-records remaining-records)
+                 (for/fold ([updated-legths '()]
+                            [remaining-records (reverse records)]
+                            #:result (values (reverse updated-legths) remaining-records))
+                           ([current (in-list (reverse lengths))])
+                   (define-values (updated-legth remaining)
+                     (add-records-to-length current remaining-records))
+                   (values (cons updated-legth updated-legths) remaining)))
+               (values (cons (cons 'lengths lengths-with-records) p)
+                       null
+                       remaining-records))))
+
+      (set! records (reverse remaining-records))
+      (set! lengths (reverse remaining-lengths))
+      (set! laps (cons lap-with-records laps))
       #t)
 
     (define/override (on-device-info device-info)
@@ -1109,7 +1133,6 @@
 
 
     (define/public (collect-activity)
-
       ;; File has one session which has the same timestamp as start-time --
       ;; this means that no records/laps will be collected in it (timestamp is
       ;; supposed to mark the end of the session).  We patch the session in
@@ -1137,27 +1160,45 @@
           (set! laps rest)            ; will be used by the next session
           (cons (cons 'laps our-laps) session)))
 
-      (when (or (> (length records) 0)
-                (> (length lengths) 0))
-        (dbglog "fit-file: ~a records and ~a lengths without enclosing lap"
-                (length records) (length lengths))
-        (define timestamp
-          (or
-           (and (> (length records) 0)
-                (dict-ref (car records) 'timestamp (get-current-timestamp)))
-           (get-current-timestamp)))
-        (on-lap `((timestamp . ,timestamp)))
-        ;; Compute the summary data for the newly added lap
-        (let ((new-lap (car laps)))
-          (set! new-lap (append (compute-summary-data '() '() (list new-lap) '())
-                                new-lap))
+      (define remaining (length records))
+
+      (when (> remaining 0)
+        ;; Discard remaining lengths, just in case, otherwise we might have
+        ;; other stray records after the `on-lap` call below, since on-lap
+        ;; will just associate records with existing lengths...
+        (set! lengths '())
+
+        ;; Discard any records that are recorded after the timer stopped
+        (define remaining-records
+          (if timer-stopped
+              (filter (lambda (r) (<= (get-start-time r) timer-stop-timestamp)) records)
+              records))
+
+        (when (> remaining (length remaining-records))
+          (dbglog "fit-file: discarding ~a records after stop"
+                  (- remaining (length remaining-records))))
+
+        (unless (null? remaining-records)
+          (dbglog "fit-file: recovered ~a orphan records (C)" (length remaining-records))
+          ;; the records are in reverse order, so most recent is first
+          (set! records remaining-records)   ; so on-lap picks them up
+          (define end-time (get-start-time (first remaining-records)))
+          (define start-time (get-start-time (last remaining-records)))
+          (define duration (- end-time start-time))
+          (on-lap `((timestamp . ,(dict-ref (first remaining-records) 'timestamp #f))
+                    (start-time . ,start-time)
+                    (total-timer-time . ,duration)
+                    (total-elapsed-time . ,duration)))
+          ;; Compute the summary data for the newly added lap
+          (define new-lap
+            (append (compute-summary-data '() '() (list (car laps)) '()) (car laps)))
           (set! laps (cons new-lap (cdr laps)))))
 
       (set! laps (reverse laps))        ; put them in chronological order
 
       (let ([sessions (map add-session-laps (reverse sessions))])
         (when (> (length laps) 0)
-          (dbglog "fit-file: laps outisde a session")
+          (dbglog "fit-file: recovered ~a laps outside a session" (length laps))
           ;; We add the remaining laps to the last session, or create a new
           ;; session to hold them, if there are no session records.
           (if (null? sessions)
@@ -1172,16 +1213,16 @@
               (let* ([rsessions (reverse sessions)]
                      [updated-last-session
                       (dict-update
-                       (car sessions)
+                       (car rsessions)
                        'laps
                        (lambda (olaps) (append olaps laps))
                        '())])
                 (set! sessions (reverse (cons updated-last-session (cdr rsessions)))))))
 
         (unless (null? devices)
-          ;; extra devices found (Garmin Swim does this, add them to the
-          ;; last session.  NOTE: this is a hack, we don't check if there
-          ;; are other devices attached to the last session.
+          ;; extra devices found (Garmin Swim does this), add them to the last
+          ;; session.  NOTE: this is a hack, we don't check if there are other
+          ;; devices attached to the last session.
           (let ((last-session (car sessions)))
             (set! sessions (cons (cons (cons 'devices devices) last-session)
                                  (cdr sessions)))))

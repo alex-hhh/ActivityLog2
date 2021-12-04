@@ -341,12 +341,12 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
     ;; Only update it for lap swim activities that have HR data...
     (when (and (df-get-property df 'is-lap-swim?) (df-contains? df "hr"))
       (for/list ([length-id (in-list (load-length-ids-without-hr db sid))])
-        (let ((summary-data  (compute-summary-data (load-hr-trackpoints length-id db) '() '() '())))
-          (update-hr-in-length-summary
-           db
-           length-id
-           (dict-ref summary-data 'max-heart-rate)
-           (dict-ref summary-data 'avg-heart-rate)))))))
+        (let* ((summary-data  (compute-summary-data (load-hr-trackpoints length-id db) '() '() '()))
+               (max-hr (dict-ref summary-data 'max-heart-rate #f))
+               (avg-hr (dict-ref summary-data 'avg-heart-rate #f)))
+          (when (or max-hr avg-hr)
+            (update-hr-in-length-summary db length-id max-hr avg-hr)))))))
+
 
 
 ;;........................................................ update geoids ....
