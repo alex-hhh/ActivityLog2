@@ -776,19 +776,24 @@
      ;; OLD-PD.  Note that we keep the old FDATA around even if color? is now
      ;; #f.
      (define fdata
-       (if need-fdata?
-           (let ((df (ps-df new-ps))
-                 (y (ps-y-axis new-ps)))
-             (let* ((sport (df-get-property df 'sport))
-                    (sid (df-get-property df 'session-id))
-                    (factor-fn (send y factor-fn sport sid))
-                    (epsilon (expt 10 (- (send y fractional-digits)))))
-               (if (and factor-fn sdata)
-                   (split-by-factor sdata factor-fn
-                                    #:key (lambda (v) (vector-ref v 1))
-                                    #:epsilon epsilon)
-                   #f)))
-           (pd-fdata old-pd)))
+       (cond (need-fdata?
+              (let ((df (ps-df new-ps))
+                    (y (ps-y-axis new-ps)))
+                (let* ((sport (df-get-property df 'sport))
+                       (sid (df-get-property df 'session-id))
+                       (factor-fn (send y factor-fn sport sid))
+                       (epsilon (expt 10 (- (send y fractional-digits)))))
+                  (if (and factor-fn sdata)
+                      (split-by-factor sdata factor-fn
+                                       #:key (lambda (v) (vector-ref v 1))
+                                       #:epsilon epsilon)
+                      #f))))
+             ;; Only inherit previous FDATA if the data frame has not
+             ;; changed...
+             ((eq? (ps-df new-ps) (ps-df old-ps))
+              (pd-fdata old-pd))
+             (else
+              #f)))
 
      ;; Calculate new Y-RANGE, if needed, or reuse the one from OLD-PD.
      (define-values (y-range guest-transform)
