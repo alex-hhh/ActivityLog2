@@ -8,22 +8,22 @@ jobs:
 # determine the cause -- even rebuilding older versions, which successfully
 # built in the past, no longer works.  Disabling Linux builds for now...
 
-  # - job: Linux
-  #   pool:
-  #     vmImage: 'ubuntu-20.04'
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-20.04'
 
-  #   variables:
-  #     RACKET_VERSION: 8.2-bc
-  #     RACKET_DIR: $(Agent.BuildDirectory)/racket
-  #     runTests: true
+    variables:
+      RACKET_VERSION: 8.2-bc
+      RACKET_DIR: $(Agent.BuildDirectory)/racket
+      runTests: true
 
-  #   steps:
-  #   - script: |
-  #       bash ./etc/scripts/install-racket.sh
-  #       echo "##vso[task.setvariable variable=path]$(PATH):$(RACKET_DIR)/bin"
-  #     displayName: Install Racket $(RACKET_VERSION)
+    steps:
+    - script: |
+        bash ./etc/scripts/install-racket.sh
+        echo "##vso[task.setvariable variable=path]$(PATH):$(RACKET_DIR)/bin"
+      displayName: Install Racket $(RACKET_VERSION)
 
-  #   - template: azure-common.yml
+    - template: azure-common.yml
 
   - job: Windows
     pool:
@@ -37,7 +37,7 @@ jobs:
       # tests run on Linux already and they are not platform specific, so we
       # disable them on windows for now.
 
-      runTests: true
+      runTests: false
 
     steps:
     - powershell: |
