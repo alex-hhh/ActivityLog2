@@ -276,7 +276,8 @@
                               (sub-sport (column-ref-by-name row "sub_sport" 0)))
                           (get-sport-name sport sub-sport)))))
               (qcolumn "Sport" fn fn #:default-visible? #t))
-            (make-mcolumn "Duration" "duration" 0 duration->string #:default-visible? #t)
+            (make-mcolumn "Moving Time" "duration" 0 duration->string #:default-visible? #t)
+            (make-mcolumn "Elapsed Time" "elapsed" 0 duration->string #:default-visible? #f)
             (make-mcolumn "Distance" "distance" 0 distance->string #:default-visible? #f)
             (let ((fn (lambda (row) (column-ref-by-name row "speed" 0))))
               (qcolumn "Speed"

@@ -65,24 +65,35 @@
     (for ([(dst alt color) (in-data-frame df "dst" "alt" "grade-color")]
           #:when (and dst alt color))
       ;; always add the current point!
-      (set! current-span (cons (vector dst alt) current-span))
-      (unless (equal? color current-color)
-        (when current-color
-          (let* ([data (reverse current-span)]
-                 [start (vector-ref (first data) 0)]
-                 [end (vector-ref (last data) 0)]
-                 [r (lines-interval
-                     data
-                     (list (vector start 0) (vector end 0))
-                     #:line1-color "darkgreen"
-                     #:line1-width 2
-                     #:line2-style 'transparent
-                     #:alpha 1.0
-                     #:color current-color)])
-            (set! renderers (cons r renderers))))
-        (set! current-span (list (vector dst alt)))
-        (set! current-color color)))
-    (when current-color
+      (cond ((not current-color)
+             (set! current-span (cons (vector dst alt) current-span))
+             (set! current-color color))
+            ((not color)
+             (set! current-span (cons (vector dst alt) current-span)))
+            ((equal? color current-color)
+             (set! current-span (cons (vector dst alt) current-span)))
+            (#t
+             (when (and current-color
+                        (not (null? current-span))
+                        (not (null? (cdr current-span))))
+               (let* ([data (reverse current-span)]
+                   [start (vector-ref (first data) 0)]
+                   [end (vector-ref (last data) 0)]
+                   [r (lines-interval
+                       data
+                       (list (vector start 0) (vector end 0))
+                       #:line1-color "darkgreen"
+                       #:line1-width 2
+                       #:line2-style 'transparent
+                       #:alpha 1.0
+                       #:color current-color)])
+              (set! renderers (cons r renderers))))
+             (set! current-span (cons (vector dst alt)
+                                      (if (null? current-span) '() (list (car current-span)))))
+             (set! current-color color))))
+    (when (and current-color
+                        (not (null? current-span))
+                        (not (null? (cdr current-span))))
       (let* ([data (reverse current-span)]
              [start (vector-ref (first data) 0)]
              [end (vector-ref (last data) 0)]

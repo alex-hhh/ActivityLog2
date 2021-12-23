@@ -86,7 +86,9 @@
     (define max-grade
       (df-fold df "grade" 0
                (lambda (accumulator v)
-                 (max accumulator (car v)))))
+                 (if (car v)
+                     (max accumulator (car v))
+                     accumulator))))
 
     (define-values (total-ascent total-descent)
       (total-ascent-descent df "alt" 0 (df-row-count df)))
@@ -185,7 +187,9 @@
                 (in-data-frame segment "lat" "lon" "geoid" "dst" "alt" "grade")]
                [pos (in-naturals)])
            (db-insert database (gs-insert-waypoint) segment-id pos lat lon dst
-                      (geoid->sqlite-integer geoid) alt grade))
+                      (geoid->sqlite-integer geoid)
+                      (or alt sql-null)
+                      (or grade sql-null)))
          (for ([(lat lon geoid dst)
                 (in-data-frame segment "lat" "lon" "geoid" "dst")]
                [pos (in-naturals)])

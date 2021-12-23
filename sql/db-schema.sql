@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(41);
+insert into SCHEMA_VERSION(version) values(42);
 
 
 --........................................................ Enumerations ....
@@ -1178,7 +1178,8 @@ create view V_GPS_SEGMENT_MATCH_LIST as
          S.sub_sport_id as sub_sport,
          -- NOTE: elapsed time is used as "Duration" for laps in the rest of
          -- the application
-         SS.total_elapsed_time as duration,
+         SS.total_timer_time as duration, -- moving time
+         SS.total_elapsed_time as elapsed,
          SS.total_distance as distance,
          SS.avg_speed as speed,
          SS.max_speed as max_speed,
