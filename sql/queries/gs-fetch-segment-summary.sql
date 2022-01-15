@@ -25,6 +25,7 @@ select name,
        total_descent,
        max_grade,
        min_elevation,
-       max_elevation
+       max_elevation,
+       fiets_score
   from GPS_SEGMENT
  where id = ?;

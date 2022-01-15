@@ -3,7 +3,7 @@
 ;; gps-segment-test.rkt -- tests for the GPS Segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -46,7 +46,8 @@
   (check-pred number? (df-get-property segment 'total-descent #f))
   (check-pred number? (df-get-property segment 'max-grade #f))
   (check-pred number? (df-get-property segment 'min-elevation #f))
-  (check-pred number? (df-get-property segment 'max-elevation #f)))
+  (check-pred number? (df-get-property segment 'max-elevation #f))
+  (check-pred number? (df-get-property segment 'fiets-score #f)))
 
 ;; Verify the sanity of the ecc-no-alt.gpx segment
 (define (check-ecc-no-alt-segment segment)
@@ -60,7 +61,8 @@
   (check-false (df-get-property segment 'total-descent #f))
   (check-false (df-get-property segment 'max-grade #f))
   (check-false (df-get-property segment 'min-elevation #f))
-  (check-false (df-get-property segment 'max-elevation #f)))
+  (check-false (df-get-property segment 'max-elevation #f))
+  (check-false (df-get-property segment 'fiets-score #f)))
 
 (define gps-segments-test-suite
   (test-suite

@@ -4,7 +4,7 @@
 ;; view-gps-segments.rkt -- the GPS segments view on the side panel
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -40,6 +40,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../models/elevation-correction.rkt"
+         "../models/fiets-score.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../widgets/icon-resources.rkt"
@@ -59,7 +60,7 @@
 (define (get-all-segments db)
   (query-rows
    db
-   "select GS.id, GS.name, GS.segment_length, GS.segment_height, GS.segment_grade, GS.total_ascent, GS.total_descent, GS.max_grade, GS.min_elevation, GS.max_elevation from GPS_SEGMENT GS"))
+   "select GS.id, GS.name, GS.segment_length, GS.segment_height, GS.segment_grade, GS.total_ascent, GS.total_descent, GS.max_grade, GS.min_elevation, GS.max_elevation, GS.fiets_score from GPS_SEGMENT GS"))
 
 ;; Fetch information about the GPS segment identified by SEGMENT-ID from the
 ;; database DB.  The returned rows have to match the `get-all-segments` query,
@@ -67,7 +68,7 @@
 (define (get-one-segment db segment-id)
   (query-row
    db
-   "select GS.id, GS.name, GS.segment_length, GS.segment_height, GS.segment_grade, GS.total_ascent, GS.total_descent, GS.max_grade, GS.min_elevation, GS.max_elevation from GPS_SEGMENT GS where GS.id = ?" segment-id))
+   "select GS.id, GS.name, GS.segment_length, GS.segment_height, GS.segment_grade, GS.total_ascent, GS.total_descent, GS.max_grade, GS.min_elevation, GS.max_elevation, GS.fiets_score from GPS_SEGMENT GS where GS.id = ?" segment-id))
 
 ;; Convenience function to fetch the segment name from the database.
 (define (get-segment-headline db segment-id)
@@ -90,7 +91,13 @@
 (define *gps-segment-display-columns*
   (let ([d->s (lambda (v) (distance->string v #t))]
         [vd->s (lambda (v) (vertical-distance->string v #t))]
-        [pct->s (lambda (v) (string-append (~r v #:precision 1) " %"))])
+        [pct->s (lambda (v) (string-append (~r v #:precision 1) " %"))]
+        [f->s (lambda (v)
+                (let ([cat (fiets-score->climb-category v)]
+                      [f (~r v #:precision 2)])
+                  (if (equal? cat "")
+                      f
+                      (string-append f " (" cat ")"))))])
     (list
      (make-qcolumn "Name" 1 #f ~a)
      (make-qcolumn "Length" 2 #f d->s)
@@ -100,7 +107,8 @@
      (make-qcolumn "Descent" 6 #f vd->s)
      (make-qcolumn "Max Grade" 7 #f pct->s)
      (make-qcolumn "Min Elevation" 8 #f vd->s #:default-visible? #f)
-     (make-qcolumn "Max Elevation" 9 #f vd->s #:default-visible? #f))))
+     (make-qcolumn "Max Elevation" 9 #f vd->s #:default-visible? #f)
+     (make-qcolumn "FIETS Score" 10 #f f->s #:default-visible? #f))))
 
 ;; Return all match information for the segment SEGMENT-ID from the database.
 ;; qresults-list% columns for the match view are constructed using named

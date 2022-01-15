@@ -24,5 +24,6 @@ update GPS_SEGMENT
        total_descent = ?,
        max_grade = ?,
        min_elevation = ?,
-       max_elevation = ?
+       max_elevation = ?,
+       fiets_score = ?
  where id = ?;

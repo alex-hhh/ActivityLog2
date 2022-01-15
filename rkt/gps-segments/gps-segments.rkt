@@ -32,6 +32,7 @@
          "../dbutil.rkt"
          "../database.rkt"              ; for db-insert-section-summary
          "../models/grade-series.rkt"
+         "../models/fiets-score.rkt"
          "../intervals.rkt")            ; for total-ascent-descent, make-interval-summary
 
 ;; Add all necessary data series and properties to a segment -- the segment
@@ -116,7 +117,11 @@
            (* (/ segment-height segment-length) 100.0)))
 
     (df-put-property! df 'segment-height segment-height)
-    (df-put-property! df 'segment-grade segment-grade)))
+    (df-put-property! df 'segment-grade segment-grade))
+
+  (let ([score (fiets-score df)])
+    (when score
+      (df-put-property! df 'fiets-score score))))
 
 ;; Create a segment from a GPX file -- this uses `df-read/gpx` than
 ;; `fixup-segment-data` to add any series and properties which are missing.
@@ -180,7 +185,8 @@
         (df-get-property segment 'total-descent sql-null)
         (df-get-property segment 'max-grade sql-null)
         (df-get-property segment 'min-elevation sql-null)
-        (df-get-property segment 'max-elevation sql-null)))
+        (df-get-property segment 'max-elevation sql-null)
+        (df-get-property segment 'fiets-score sql-null)))
 
      (if (df-contains? segment "alt" "grade")
          (for ([(lat lon geoid dst alt grade)
@@ -217,7 +223,7 @@
   (df-set-sorted! df "dst" <)
   (match-define
     (vector name segment-length segment-height segment-grade
-            total-ascent total-descent max-grade min-elevation max-elevation)
+            total-ascent total-descent max-grade min-elevation max-elevation fiets-score)
     (query-row database (gs-fetch-segment-summary) segment-id))
 
   (unless (sql-null? name)
@@ -238,6 +244,8 @@
     (df-put-property! df 'min-elevation min-elevation))
   (unless (sql-null? max-elevation)
     (df-put-property! df 'max-elevation max-elevation))
+  (unless (sql-null? fiets-score)
+    (df-put-property! df 'fiets-score fiets-score))
 
   ;; Store this so we know where this segment came from
   (df-put-property! df 'segment-id segment-id)

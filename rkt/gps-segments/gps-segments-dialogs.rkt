@@ -5,7 +5,7 @@
 ;; gps-segments-dialogs -- various GUI dialogs for GPS segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,11 +27,12 @@
          racket/gui/base
          racket/match
          racket/math
-         "../../rkt/fmt-util.rkt"
-         "../../rkt/session-df/session-df.rkt"
-         "../../rkt/widgets/edit-dialog-base.rkt"
-         "../../rkt/widgets/grid-pane.rkt"
-         "../../rkt/widgets/icon-resources.rkt"
+         "../fmt-util.rkt"
+         "../session-df/session-df.rkt"
+         "../widgets/edit-dialog-base.rkt"
+         "../widgets/grid-pane.rkt"
+         "../widgets/icon-resources.rkt"
+         "../models/fiets-score.rkt"
          "gps-segments.rkt"
          "map-and-elevation-widget.rkt")
 
@@ -222,18 +223,24 @@
       (let ([d->s (lambda (v) (distance->string v #t))]
             [e->s (lambda (v) (vertical-distance->string v #t))]
             [g->s (lambda (v)
-                    (string-append (~r v #:precision 1) " %"))])
+                    (string-append (~r v #:precision 1) " %"))]
+            [f->s (lambda (v)
+                    (let ([cat (fiets-score->climb-category v)]
+                          [f (~r v #:precision 2)])
+                      (if (equal? cat "")
+                          f
+                          (string-append f " (" cat ")"))))])
         (for/hash ([name (in-list '("Length" "Height" "Grade (avg)" "Grade (max)"
                                              "Min Elevation" "Max Elevation"
-                                             "Total Ascent" "Total Descent"))]
+                                             "Total Ascent" "Total Descent" "FIETS Score"))]
                    [key (in-list '(segment-length segment-height segment-grade max-grade
                                                   min-elevation max-elevation
-                                                  total-ascent total-descent))]
-                   [formatter (in-list (list d->s e->s g->s g->s e->s e->s e->s e->s))])
+                                                  total-ascent total-descent fiets-score))]
+                   [formatter (in-list (list d->s e->s g->s g->s e->s e->s e->s e->s f->s))])
           (new message%
                [parent segment-data-panel]
                [label name]
-               [stretchable-width #t])
+               [stretchable-width #f])
           (values
            key
            (list

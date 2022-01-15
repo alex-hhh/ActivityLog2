@@ -26,5 +26,6 @@ insert into GPS_SEGMENT(
   total_descent,
   max_grade,
   min_elevation,
-  max_elevation)
-values(?, ?, ?, ?, ?, ?, ?, ?, ?);
+  max_elevation,
+  fiets_score)
+values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

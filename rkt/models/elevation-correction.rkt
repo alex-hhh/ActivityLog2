@@ -2,7 +2,7 @@
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -642,6 +642,7 @@ update SECTION_SUMMARY
       (df-get-property segment 'max-grade sql-null)
       (df-get-property segment 'min-elevation sql-null)
       (df-get-property segment 'max-elevation sql-null)
+      (df-get-property segment 'fiets-score sql-null)
       segment-id))))
 
 ;; Same as `fixup-elevation-for-session-internal`, except for GPS segments
