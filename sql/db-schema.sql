@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(42);
+insert into SCHEMA_VERSION(version) values(43);
 
 
 --........................................................ Enumerations ....
@@ -1115,7 +1115,8 @@ create table GPS_SEGMENT (
   total_descent real,
   max_grade real,
   min_elevation real,
-  max_elevation real
+  max_elevation real,
+  fiets_score real                      -- see docs/climbs.md
 );
 
 -- The way-points that define a segment.  Within a segment, way-points are
