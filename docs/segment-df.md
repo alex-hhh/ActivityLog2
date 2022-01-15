@@ -44,6 +44,8 @@ while other parts of the application can attach additional properties:
   is present.
 * **max-grade** -- maximum grade in the **grade** series, if that series is
   present.
+* **fiets-score** -- FIETS score, used for climb segments, see
+  [climbs.md](./climbs.md) for what this is and how it is calculated.
 
 Properties can be accessed using the `df-get-property` function.  For example,
 this will return the segment height, or `#f` if the property is not present:
