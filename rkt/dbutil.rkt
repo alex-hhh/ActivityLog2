@@ -186,7 +186,7 @@
                  #:allow-higher-version [allow-higher-version #f]
                  #:expected-version [expected-version #f]
                  #:progress-callback [progress-callback #f])
-  (let ((db (sqlite3-connect #:database database-file #:mode 'create #:use-place #f)))
+  (let ((db (sqlite3-connect #:database database-file #:mode 'create #:use-place #t)))
     (when schema-file
       (maybe-create-schema database-file schema-file db progress-callback))
     (query-exec db "pragma foreign_keys = on")

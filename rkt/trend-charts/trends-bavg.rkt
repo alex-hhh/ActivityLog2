@@ -3,7 +3,7 @@
 ;; trends-bavg.rkt -- aggregate best-average chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -659,7 +659,9 @@
                  (queue-callback
                   (lambda ()
                     (when (= saved-generation (get-generation))
-                      (send canvas set-background-message message)))))
+                      (send canvas set-background-message message))))
+                 ;; Let the GUI thread run...
+                 (sleep 0))
                (define data (or previous-data (fetch-data database params report-progress)))
                (define-values (rt min-x max-x min-y max-y) (make-renderer-tree data))
                (queue-callback
