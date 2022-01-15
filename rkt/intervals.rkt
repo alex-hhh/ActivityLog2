@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -246,9 +246,9 @@
   ;; Calculate the average speed from total time and distance, averaging the
   ;; "spd" series does not produce nice results.
   (let ((total-distance (dict-ref base 'total-distance #f))
-        (total-elapsed-time (dict-ref base 'total-elapsed-time #f)))
-    (when (and total-distance total-elapsed-time (> total-elapsed-time 0))
-      (set! base (cons (cons 'avg-speed (/ total-distance total-elapsed-time)) base))))
+        (total-timer-time (dict-ref base 'total-timer-time #f)))
+    (when (and total-distance total-timer-time (> total-timer-time 0))
+      (set! base (cons (cons 'avg-speed (/ total-distance total-timer-time)) base))))
 
   (let ([adec (aerobic-decoupling df #:start start-index #:stop end-index)])
     (when adec
