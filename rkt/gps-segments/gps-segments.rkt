@@ -3,7 +3,7 @@
 ;; gps-segment.rkt -- GPS Segments implementation
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -31,7 +31,7 @@
          "../utilities.rkt"
          "../dbutil.rkt"
          "../database.rkt"              ; for db-insert-section-summary
-         "../session-df/session-df.rkt" ; for add-grade-series
+         "../models/grade-series.rkt"
          "../intervals.rkt")            ; for total-ascent-descent, make-interval-summary
 
 ;; Add all necessary data series and properties to a segment -- the segment
@@ -82,7 +82,7 @@
   (df-put-property! df 'segment-length segment-length)
 
   (when (df-contains? df "alt")
-    (add-grade-series df)
+    (add-grade-series! df)
     (define max-grade
       (df-fold df "grade" 0
                (lambda (accumulator v)
