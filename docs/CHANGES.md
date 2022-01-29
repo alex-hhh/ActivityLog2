@@ -15,6 +15,25 @@ git log --submodule=log --patch v1.10.2..v1.11 \
     | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
 ```
 
+# Release 2022.01 (January 2022)
+
+* Temperature data is now read from FIT files and shows up in summary data as
+  well as graphs for a session.
+
+* Various fixes to the Lap Swim Editor, to work with Lap Swims which have HR
+  data.
+
+* Varius fixes to importing Lap Swim activities from recent Garmin Watches,
+  including recording Heart Rate data from wrist based sensors.
+
+* Various fixes to GPS segments: show both elapsed and moving time for a
+  segment match, make the code more resilient to GPX files form different
+  sources, fixes a bug where the grade was incorretly colored for a segment
+  and added FIETS score to the data about a segment.
+
+* The Chez Scheme based Racket implementation is now used for the build
+  (currently Racket 8.3 CS)
+
 # Release 2021.10 (October 2021)
 
 * Changed release versioning scheme to use YEAR.MONTH -- this is more meaning
