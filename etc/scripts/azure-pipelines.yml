@@ -55,10 +55,10 @@ jobs:
       inputs:
         secureFile: al2_sign.tar.gpg
 
-    - powershell: |
-        .\etc\scripts\install-inno-setup.ps1
-        Write-Host "##vso[task.setvariable variable=path]$Env:PATH;$Env:LOCALAPPDATA\Inno Setup 6"
-      displayName: Install InnoSetup
+    # - powershell: |
+    #     .\etc\scripts\install-inno-setup.ps1
+    #     Write-Host "##vso[task.setvariable variable=path]$Env:PATH;$Env:LOCALAPPDATA\Inno Setup 6"
+    #   displayName: Install InnoSetup
 
     # Update the version, product name and description in the resulting
     # executable using verpatch.exe, than create an installer using Inno

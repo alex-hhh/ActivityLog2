@@ -62,12 +62,20 @@ steps:
   # suite can be run on Windows.
 
   - bash: |
-      bash ./etc/scripts/fetch.sh -d -C test "1qdh22IEe0NZXtXw6qFTLC7nVk6N3f5HJ" # test-db(5)
-      bash ./etc/scripts/fetch.sh -d -C test "1yXDHjURFzdho0DZrzFUxv3J6HQcgQ_-y" # test-fit(20)
+      bash ./etc/scripts/fetch-az-blob.sh -d -C test
     env:
       TESTDATAPW: $(TESTDATAPW)
+      DATA_FILE: $(TEST_DATA_FIT)
     condition: eq(variables.runTests, true)
-    displayName: (Maybe) Download Test Data
+    displayName: (Maybe) Download Test Data -- fit
+
+  - bash: |
+      bash ./etc/scripts/fetch-az-blob.sh -d -C test
+    env:
+      TESTDATAPW: $(TESTDATAPW)
+      DATA_FILE: $(TEST_DATA_DB)
+    condition: eq(variables.runTests, true)
+    displayName: (Maybe) Download Test Data -- db
 
   # These are the actual test runs
 

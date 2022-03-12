@@ -20,7 +20,8 @@ building an installer on Windows.  The scripts are:
   Setup](http://www.jrsoftware.org/isinfo.php), it can currently install only
   a specific version in the default location.  Given that the Inno setup site
   does not support high amounts of traffic, the installer was placed on Google
-  Drive and this script will download it from there.
+  Drive and this script will download it from there.  **NOTE** this is not
+  used anymore, since Inno Setup is already installed on the build image.
 
 * `setup-catalog.sh` -- this script will setup the directory at
   $PROJECT_ROOT/pkgs to be a Racket package catalog which is consulted by
@@ -44,7 +45,17 @@ building an installer on Windows.  The scripts are:
   windows has all the commands needed by this script).  The script itself can
   download and decrypt a file specified on the command line (using the Google
   Drive file ID) and reads the password from the TESTDATAPW environment
-  variable.
+  variable.  **NOTE** this script is not used anymore, as Google Drive is not
+  designed for automatic downloading of files and the script needs to be
+  constantly updated to work around Google Drive changes.  It is here as a
+  reference only.
+
+* `fetch-az-blob.sh` -- this script will download and decrypt test data from
+  Azure Blob Storage, data is used by the unit tests.  It can be used for both
+  Linux and Windows builds (git on windows has all the commands needed by this
+  script).  The script itself can download and decrypt a file specified in the
+  DATA_FILE environment variable and reads the password from the TESTDATAPW
+  environment variable.
 
 * `sign-release.sh` is a script which will sign an installer using GPG.  The
   windows installer is signed with keys stored in Azure DevOps.  **NOTE:**
