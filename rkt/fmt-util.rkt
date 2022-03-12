@@ -2,7 +2,7 @@
 ;; fmt-util.rkt -- formatting utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -348,9 +348,11 @@
 
 ;; (: vertical-distance->string (->* (Real) (Boolean) String))
 (define (vertical-distance->string distance/m [unit-label #f])
-  (string-append
-   (format-48 "~F" (inexact->exact (truncate (m->vertical-distance distance/m))))
-   (if unit-label (string-append " " vertical-distance-label)  "")))
+  (if (rational? distance/m)
+      (string-append
+       (format-48 "~F" (inexact->exact (truncate (m->vertical-distance distance/m))))
+       (if unit-label (string-append " " vertical-distance-label)  ""))
+      (~a distance/m)))
 
 ;; (: duration->string (->* (Real) (Boolean) String))
 (define (duration->string seconds [high-precision? #f])
