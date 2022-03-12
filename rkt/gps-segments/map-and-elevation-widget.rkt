@@ -6,7 +6,7 @@
 ;; an elevation plot for a data frame
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,7 @@
 (require racket/math
          racket/gui/base
          data-frame
+         math/statistics
          racket/list
          racket/class
          racket/match
@@ -276,13 +277,19 @@
     (define/private (construct-the-plot)
       (define-values (w h) (send the-plot-container cell-dimensions 1))
       (define colormap (df-get-property segment-df 'color-map *color-map*))
+      (define-values (plot-min plot-max)
+        (let* ([stats (df-statistics segment-df "alt")]
+               [room (* (statistics-range stats) 0.1)])
+          (values (- (statistics-min stats) room)
+                  (+ (statistics-max stats) room))))
       (define the-plot
         (parameterize ([plot-decorations? #f]
                        [plot-x-label #f #;"Distance (km)"]
                        [plot-y-label #f #;"Elevation (meters)"]
                        [plot-pen-color-map colormap]
                        [plot-brush-color-map colormap])
-          (plot-snip (make-grade-color-renderers segment-df) #:width w #:height h)))
+          (plot-snip (make-grade-color-renderers segment-df) #:width w #:height h
+                     #:y-min plot-min #:y-max plot-max)))
       (send the-plot set-mouse-event-callback (make-plot-callback segment-df the-map))
       (send the-plot set-overlay-renderers #f)
       (send the-plot-container set-snips the-plot))
