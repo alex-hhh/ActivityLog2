@@ -39,7 +39,7 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../models/elevation-correction.rkt"
+         "../models/ec-util.rkt"
          "../models/fiets-score.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"

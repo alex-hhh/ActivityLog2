@@ -2,7 +2,7 @@
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,7 +23,7 @@
          tzgeolookup
          geoid
          "database.rkt"
-         "models/elevation-correction.rkt"
+         "models/ec-util.rkt"
          "session-df/session-df.rkt"
          "time-in-zone.rkt"
          "utilities.rkt"
