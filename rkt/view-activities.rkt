@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,7 @@
          "fmt-util.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "weather.rkt"
+         "models/humidex.rkt"
          "widgets/main.rkt")
 
 (provide view-activities%)
@@ -647,8 +647,8 @@ select X.session_id
        (let ((fn (lambda (row)
                    (let ((temp (db-row-ref row "temperature" headers #f))
                          (dewp (db-row-ref row "dew_point" headers #f)))
-                     (if (and temp dewp) (humindex temp dewp) -1000)))))
-         (qcolumn "Humindex"
+                     (if (and temp dewp) (humidex temp dewp) -1000)))))
+         (qcolumn "Humidex"
                   (lambda (row) (temperature->string (fn row) #t))
                   fn
                   #:default-visible? #t))

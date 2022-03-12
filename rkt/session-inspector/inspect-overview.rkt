@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,7 @@
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
-         "../weather.rkt"
+         "../models/humidex.rkt"
          "../widgets/main.rkt"
          "../models/sport-zone.rkt")
 
@@ -58,7 +58,7 @@
                             (dp (session-dew-point session)))
                         (and t dp (cons t dp))))
                     (lambda (v)
-                      (temperature->string (humindex (car v) (cdr v)) #t)))
+                      (temperature->string (humidex (car v) (cdr v)) #t)))
    (badge-field-def "Dew point: " session-dew-point (lambda (v) (temperature->string v #t)))
    (badge-field-def "Humidity: " session-humidity (lambda (v) (humidity->string v #t)))
    (badge-field-def "Wind speed: " session-wind-speed (lambda (v) (speed->string v #t)))

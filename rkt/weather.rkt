@@ -53,17 +53,6 @@
 
 
 
-;; Compute a "Feels like" temperature based on TEMPERATURE and DEW-POINT, this
-;; is done using the formula from
-;; http://climate.weather.gc.ca/climate_normals/normals_documentation_e.html
-
-(define (humindex temperature dew-point)
-  (let* ((dewpk (+ dew-point 273.16))
-         (e (* 6.11 (exp (* 5417.7530 (- (/ 1 273.16) (/ 1 dewpk))))))
-         (h (* 0.5555 (- e 10.0))))
-    (+ temperature h)))
-
-
 
 ;;............................................ DS Json Response Parsing ....
 
@@ -310,7 +299,6 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
  (update-session-weather-auto (-> connection? positive-integer? any/c))
  (update-session-weather (-> connection? positive-integer? string? wobs? any/c))
  (ds-api-key (-> (or/c string? #f)))
- (humindex (-> real? real? real?))
  (allow-weather-download (-> (or/c #t #f)))
  (set-allow-weather-download (-> (or/c #t #f) any/c))
  (get-daily-observations-for-session (-> connection? positive-integer? (or/c #f (listof wobs?))))

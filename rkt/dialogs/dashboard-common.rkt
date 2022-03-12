@@ -3,7 +3,7 @@
 ;; dashboard-common.rkt -- common utilities for various dashboard dialogs
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -36,7 +36,7 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../sport-charms.rkt"
-         "../weather.rkt")
+         "../models/humidex.rkt")
 
 ;; Fetch session information about a session id SID from the database DB and
 ;; return it as a hash.  Session information include the session name, start
@@ -92,7 +92,7 @@ select S.start_time,
            (printf "Weather:    ~a RH ~a; feels like ~a~%"
                    (temperature->string temperature #t)
                    (humidity->string humidity #t)
-                   (temperature->string (humindex temperature dew-point) #t)))
+                   (temperature->string (humidex temperature dew-point) #t)))
           ((and temperature humidity)
            (printf "Weather:   ~a RH ~a~%"
                    (temperature->string temperature #t)
@@ -155,7 +155,7 @@ select S.start_time,
                   (format "~a; ~a RH; feels like ~a~%"
                           (temperature->string temperature #t)
                           (humidity->string humidity #t)
-                          (temperature->string (humindex temperature dew-point) #t)))
+                          (temperature->string (humidex temperature dew-point) #t)))
                  ((and temperature humidity)
                   (format "~a RH ~a~%"
                           (temperature->string temperature #t)
