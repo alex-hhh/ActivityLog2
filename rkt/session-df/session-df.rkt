@@ -20,7 +20,7 @@
          data-frame/private/bsearch
          data-frame/private/rdp-simplify
          db/base
-         map-widget/utils
+         geoid/geodesy
          math/statistics
          plot/no-gui
          plot/utils
@@ -1256,7 +1256,7 @@
           (if (and t1 t2 lat1 lat2 lon1 lon2)
               (values
                (- t2 t1)
-               (map-distance/degrees lat1 lon1 lat2 lon2))
+               (distance-between lat1 lon1 lat2 lon2))
               (values -1 -1)))
         ;; We landed on the last index in the series...
         (values -1 -1))))

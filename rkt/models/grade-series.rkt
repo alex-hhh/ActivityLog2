@@ -25,7 +25,7 @@
          racket/contract
          racket/math
          racket/list
-         (only-in map-widget/utils map-distance/degrees))
+         geoid/geodesy)
 
 ;; Add a grade (slope) series to the data frame DF.  We assume that an
 ;; altidute and lat/lot series exist (use ADD-GRADE-SERIES, which performs the
@@ -89,7 +89,7 @@
            (match-define (list plat plon) prev)
            (match-define (list lat lon) val)
            (when (and plat plon lat lon)
-             (set! adst (+ adst (map-distance/degrees plat plon lat lon)))))
+             (set! adst (+ adst (distance-between plat plon lat lon)))))
          adst))))
 
   ;; When entering a longer tunnel and loosing the GPS signal, the Garmin

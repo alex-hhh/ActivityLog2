@@ -23,6 +23,7 @@
          db/base
          geoid
          geoid/waypoint-alignment
+         geoid/geodesy
          math/statistics
          racket/contract
          racket/match
@@ -71,7 +72,7 @@
          '("geoid")
          (lambda (prev next)
            (when (and prev next (car prev) (car next))
-             (let ([delta (distance-between-geoids (car prev) (car next))])
+             (let ([delta (distance-between (car prev) (car next))])
                (set! current-distance (+ current-distance delta))))
            current-distance))))
   (df-set-sorted! df "dst" <)
