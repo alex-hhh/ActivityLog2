@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -191,6 +191,39 @@
                          fields)))
         (apply db-insert db stmt values)))))
 
+(define db-insert-weather-conditions
+  (let ([stmt (virtual-statement
+               (lambda (dbsys)
+                 "insert into SESSION_WEATHER(
+                    session_id, wstation, weather_status_id, timestamp,
+                    temperature, feels_like, dew_point, humidity,
+                    precipitation_probability, wind_speed, wind_gusts, 
+                    wind_direction, pressure, position_lat, position_long)
+                  values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))])
+    (lambda (weather-conditions session-id db)
+      ;; Only store current (as opposed to forecast) records in the database
+      (when (equal? (dict-ref weather-conditions 'weather-report #f) 'current)
+        (let ([wstation
+               (let ([v (dict-ref weather-conditions 'location sql-null)])
+                 ;; FIT file has this as an ascii string...
+                 (if (bytes? v) (bytes->string/utf-8 v) v))]
+              [weather-status-id (rassq1 (dict-ref weather-conditions 'condition #f) *weather-status*)]
+              [timestamp (dict-ref weather-conditions 'observed-timestamp sql-null)]
+              [temperature (dict-ref weather-conditions 'temperature sql-null)]
+              [feels-like (dict-ref weather-conditions 'feels-like-temperature sql-null)]
+              [dew-point sql-null]        ; not in FIT record
+              [humidity (dict-ref weather-conditions 'relative-humidity sql-null)]
+              [precipitation-probability (dict-ref weather-conditions 'precipitation-probability sql-null)]
+              [wind-speed (dict-ref weather-conditions 'wind-speed sql-null)]
+              [wind-gusts sql-null]       ; not in FIT record
+              [wind-direction (dict-ref weather-conditions 'wind-direction sql-null)]
+              [pressure sql-null]         ; not in FIT record
+              [position-lat (dict-ref weather-conditions 'observed-location-lat sql-null)]
+              [position-long (dict-ref weather-conditions 'observed-location-lon sql-null)])
+          (db-insert db stmt session-id wstation weather-status-id timestamp temperature
+                     feels-like dew-point humidity precipitation-probability wind-speed
+                     wind-gusts wind-direction pressure position-lat position-long))))))
+
 (define db-insert-session
   (let ((stmt (virtual-statement
                (lambda (dbsys)
@@ -226,14 +259,12 @@
            start-time sport-id sub-sport pool-length pool-length-unit training-effect
            training-stress-score intensity-factor))
         (xdata-store-summary-values db session summary-id (xdata-fields))
-        (let ((laps (assq 'laps session))
-              (devices (assq 'devices session)))
-          (when laps
-            (for-each (lambda (lap) (db-insert-lap lap session-id db))
-                      (cdr laps)))
-          (when devices
-            (for ([di (make-devinfo-list (cdr devices))])
-              (put-devinfo db di session-id))))))))
+        (for ([lap (in-list (dict-ref session 'laps '()))])
+          (db-insert-lap lap session-id db))
+        (for ([di (make-devinfo-list (dict-ref session 'devices '()))])
+          (put-devinfo db di session-id))
+        (for ([w (in-list (dict-ref session 'weather-conditions '()))])
+          (db-insert-weather-conditions w session-id db))))))
 
 (define db-insert-lap
   (let ((stmt (virtual-statement
@@ -835,7 +866,7 @@
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
                   aerobic-decoupling  avg-temperature max-temperature hrv time-zone)))
     (let ((session-data (db-row->alist fields session-row)))
-      (cons (cons 'weather (db-extract-weater-for-session (vector-ref session-row 0) db))
+      (cons (cons 'weather-conditions (db-extract-weater-for-session (vector-ref session-row 0) db))
             (cons (cons 'laps (db-extract-laps-for-session (vector-ref session-row 0) db))
                   session-data)))))
 
@@ -1046,14 +1077,19 @@
   (let ((stmt (virtual-statement
                (lambda (dbsys)
                  "select id, wstation, temperature, dew_point, humidity,
-                         wind_speed, wind_gusts, wind_direction, pressure
-                  from SESSION_WEATHER
-                  where session_id = ?"))))
+                         wind_speed, wind_gusts, wind_direction, pressure,
+                         feels_like, precipitation_probability,
+                         (select EWS.name from E_WEATHER_STATUS EWS where EWS.id = SW.weather_status_id)
+                            as weather_status
+                  from SESSION_WEATHER SW
+                  where session_id = ?
+                  order by timestamp"))))
     (lambda (session-id db)
       (let ((fields '(database-id source temperature dew-point humidity
-                                  wind-speed wind-gusts wind-direction pressure))
-            (row (query-maybe-row db stmt session-id)))
-        (if row (db-row->alist fields row) '())))))
+                                  wind-speed wind-gusts wind-direction pressure
+                                  feels-like precipitation-probability weather-status))
+            (rows (query-rows db stmt session-id)))
+        (map (lambda (v) (db-row->alist fields v)) rows)))))
 
 
 ;;........................................... db-extract-session-matches ....

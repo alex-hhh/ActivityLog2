@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -699,6 +699,8 @@
     (define/public (on-developer-data-id data) #f)
     (define/public (on-field-description data) #f)
     (define/public (on-training-file data) #f)
+    (define/public (on-weather-conditions data) #f)
+    (define/public (on-weather-report data) #f)
 
     ;; NOTE: on-activity and on-session are also events, so the user could
     ;; call on-event for those as well if needed.  this could be important if
@@ -731,6 +733,8 @@
               ((eq? message-type 'developer-data-id) (on-developer-data-id record))
               ((eq? message-type 'field-description) (on-field-description record))
               ((eq? message-type 'training-file) (on-training-file record))
+              ((eq? message-type 'weather-conditions) (on-weather-conditions record))
+              ((eq? message-type 'weather-report) (on-weather-report record))
               (#t (on-other message-type record)))))
 
     ))
@@ -758,6 +762,8 @@
     (define devices '())
     (define sport '())
     (define training-file '())
+    (define weather-conditions '())
+    (define weather-reports '())
 
     ;; FIT 2.0 allows "developer" fields, these hold the definitions, for
     ;; referencing the dev fields in trackpoint data.
@@ -1091,6 +1097,12 @@
     (define/override (on-training-file tf)
       (set! training-file (cons tf training-file)))
 
+    (define/override (on-weather-conditions w)
+      (set! weather-conditions (cons w weather-conditions)))
+
+    (define/override (on-weather-report r)
+      (set! weather-reports (cons r weather-reports)))
+
     (define/override (on-sport data)
       (set! sport data))
 
@@ -1160,6 +1172,24 @@
           (set! laps rest)            ; will be used by the next session
           (cons (cons 'laps our-laps) session)))
 
+      (define (add-session-weather-records session)
+        (define-values (start-time end-time) (get-start-end-times session))
+        (define-values (our-weather-records other)
+          (for/fold ([our '()]
+                     [other '()])
+                    ([w (in-list weather-conditions)])
+            (define ts (dict-ref w 'timestamp 0))
+            (if (and (>= ts start-time) (<= ts end-time))
+                (values (cons w our) other)
+                (values our (cons w other)))))
+        (set! weather-conditions other)
+        (define sorted
+          (sort our-weather-records
+                (lambda (a b)
+                  (< (dict-ref a 'timestamp 0)
+                     (dict-ref b 'timestamp 0)))))
+        (cons (cons 'weather-conditions sorted) session))
+
       (define remaining (length records))
 
       (when (> remaining 0)
@@ -1196,7 +1226,8 @@
 
       (set! laps (reverse laps))        ; put them in chronological order
 
-      (let ([sessions (map add-session-laps (reverse sessions))])
+      (let* ([sw (map add-session-weather-records (reverse sessions))]
+             [sessions (map add-session-laps sw)])
         (when (> (length laps) 0)
           (dbglog "fit-file: recovered ~a laps outside a session" (length laps))
           ;; We add the remaining laps to the last session, or create a new
@@ -1233,6 +1264,12 @@
          (cons 'developer-data-ids developer-data-ids)
          (cons 'field-descriptions field-descriptions)
          (cons 'training-file training-file)
+         ;; NOTE: Garmin devices will write another weather conditions record
+         ;; a few seconds after the end of the activity -- currently we attach
+         ;; it to the activity itself, and it is likely to be skipped from
+         ;; import and therefore lost...
+         (cons 'weather-conditions weather-conditions) ; unclaimed ones only
+         (cons 'weather-reports weather-reports)       ; all of them
          (cons 'sessions sessions))))
 
     ))

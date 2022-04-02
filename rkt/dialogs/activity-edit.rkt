@@ -175,9 +175,20 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (when (send (get-weather-editor) begin-edit toplevel db sid)
-          ;; NOTE: weather-data-changed event is raised by the weather editor!
-          (send target after-update sid))))
+        (define c (query-value db "select count(*) from SESSION_WEATHER where session_id = ?" sid))
+        (if (> c 1)
+            ;; NOTE: this is a limitation of the application: FIT files can
+            ;; have multiple weather records, all of them imported in the DB,
+            ;; but the weather editor was designed to handle a single record
+            ;; when fetching weather data from an online service.
+            (message-box/custom
+             "Cannot edit weather"
+             (format "Cowardly refusing to edit weather for ~a: multiple weather records are present"
+                     (get-session-headline db sid))
+             #f #f "OK" toplevel '(stop default=3))
+            (when (send (get-weather-editor) begin-edit toplevel db sid)
+              ;; NOTE: weather-data-changed event is raised by the weather editor!
+              (send target after-update sid)))))
 
     (define (on-edit-lap-swim m e)
       (let ((sid (send target get-selected-sid))

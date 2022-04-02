@@ -60,9 +60,10 @@
 (define-runtime-path p41-file "../sql/migrations/p41-pool-length.sql")
 (define-runtime-path p42-file "../sql/migrations/p42-fix-gps-match-view.sql")
 (define-runtime-path p43-file "../sql/migrations/p43-fiets-score.sql")
+(define-runtime-path p44-file "../sql/migrations/p44-weather.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 43)
+(define (schema-version) 44)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -91,7 +92,8 @@
    39 p40-file
    40 p41-file
    41 p42-file
-   42 p43-file))
+   42 p43-file
+   43 p44-file))
 
 (define the-current-database #f)
 
@@ -101,6 +103,8 @@
   (set! the-current-database db)
   ;; NOTE: send this message even when DB is #f
   (log-event 'database-opened db))
+
+
 
 ;; The current database connection, if any.  NOTE: needs to be explicitly
 ;; set. `open-activity-log' will not set it!
@@ -119,7 +123,9 @@
                (patches (for/list ((v (in-range actual expected)))
                           ;; NOTE: we re-raise exception if we don't have the
                           ;; required patches.
-                          (hash-ref upgrade-patches v (lambda () (raise e)))))
+                          (hash-ref upgrade-patches v
+                                    (lambda ()
+                                      (raise-missing-migration database-file expected actual v)))))
                (db (db-open database-file)))
           (maybe-backup-database database-file #t)
           (dbglog "upgrading database from version ~a to ~a" actual expected)

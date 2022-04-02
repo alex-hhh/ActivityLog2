@@ -225,8 +225,25 @@ select count(*)
      (do-basic-checks "./test-fit/f0008.fit" 13 2331))
    (test-case "f0009.fit"
      (do-basic-checks "./test-fit/f0009.fit" 8 57))
-   (test-case "f0010.fit"
-     (do-basic-checks "./test-fit/f0010.fit" 21 8078))
+   (test-case "f0010.fit (a)"
+     (do-basic-checks "./test-fit/f0010.fit" 21 8078
+                      #:extra-db-checks
+                      (lambda (db)
+                        (define n (query-value db "select count(*) from SESSION_WEATHER"))
+                        (check = n 9 "Expecting Some Weather Records"))))
+   (test-case "f0010.fit (b)"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define the-fit-file "./test-fit/f0010.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     (define data (read-activity-from-file the-fit-file))
+     ;; There should be 4 weather records in the file
+     (define session (car (dict-ref data 'sessions '())))
+     ;; 1 Orphan record
+     (check = (length (dict-ref data 'weather-conditions '())) 1)
+     ;; 9 Attached to the session
+     (check = (length (dict-ref session 'weather-conditions '())) 9))
    (test-case "f0011.fit"
      (do-basic-checks "./test-fit/f0011.fit" 12 39
                       #:extra-df-checks
@@ -517,5 +534,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0049.fit"))
+             ;; #:only '(("FIT file reading" "f0010.fit (a)"))
              fit-files-test-suite))

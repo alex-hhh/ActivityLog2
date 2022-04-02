@@ -4,7 +4,7 @@
 ;; the SDK from https://www.thisisant.com/resources/fit/
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -60,17 +60,17 @@
 (define *global-message-number*
   ;; mesg_num (from Profile.xls of the FIT data format documentation) we only
   ;; have the enums we know (and care) about.
-  '((0 . file-id)
+  '((20 . record)
+    (19 . lap)
+    (101 . length)
+    (0 . file-id)
     (49 . file-creator)
     (18 . session)
-    (19 . lap)
-    (20 . record)
     (21 . event)
     (23 . device-info)
     (26 . workout)
     (27 . workout-step)
     (34 . activity)
-    (101 . length)
     (29 . location)
     (12 . sport)
     (8 . hr-zone)
@@ -81,7 +81,9 @@
     (78 . hrv)
     (206 . field-description)
     (207 . developer-data-id)
-    (72 . training-file)))
+    (72 . training-file)
+    (128 . weather-conditions)
+    (129 . weather-alert)))
 
 (provide *global-message-number*)
 
@@ -553,6 +555,32 @@
     (14 . native-msg-num)
     (15 . native-field-num)))
 
+(define *weather-conditions-fields*
+  '((253 . timestamp)                   ; date_time
+    (0 . weather-report)                ; weather_report enum
+    (1 . temperature)
+    (2 . condition)                     ; weather_status enum
+    (3 . wind-direction)
+    (4 . wind-speed)                    ; m/s (/ 1000)
+    (5 . precipitation-probability)
+    (6 . feels-like-temperature)
+    (7 . relative-humidity)
+    (8 . location)
+    (9 . observed-timestamp)            ; date_time
+    (10 . observed-location-lat)        ; semicircles->degrees
+    (11 . observed-location-lon)        ; semicircles->degrees
+    (12 . day-of-week)                  ; day_of_week?
+    (13 . high-temperature)
+    (14 . low-temperature)))
+
+(define *weather-alert-fields*
+  '((253 . timestamp)                   ; date_time
+    (0 . report-id)
+    (1 . issue-time)                    ; date_time
+    (2 . expire-time)                   ; date_time
+    (3 . severity)                      ; weather_severity
+    (4 . type)))                        ; weather_severe_type
+
 (define *field-db*
   ;; map a global message ID to its available fields
   `((file-id . ,*file-id-fields*)
@@ -575,7 +603,9 @@
     (training-file . ,*training-file-fields*)
     (user-profile . ,*user-profile-fields*)
     (developer-data-id . ,*developer-id-fields*)
-    (field-description . ,*field-description-fields*)))
+    (field-description . ,*field-description-fields*)
+    (weather-conditions . ,*weather-conditions-fields*)
+    (weather-alert . ,*weather-alert-fields*)))
 
 (provide *field-db*)
 
@@ -852,6 +882,130 @@
   '((0 . watts)
     (1 . percent-of-ftp)))
 
+(define *weather-report*
+  '((0 . current)
+    (1 . hourly-forecast)
+    (2 . daily-forecast)))
+
+(define *weather-status*
+  '((0 . clear)
+    (1 . partly-cloudy)
+    (2 . mostly-cloudy)
+    (3 . rain)
+    (4 . snow)
+    (5 . windy)
+    (6 . thunderstorms)
+    (7 . wintry-mix)
+    (8 . fog)
+    (11 . hazy)
+    (12 . hail)
+    (13 . scattered-showers)
+    (14 . scattered-thunderstorms)
+    (15 . unknown-precipitation)
+    (16	. light-rain)
+    (17 . heavy-rain)
+    (18 . light-snow)
+    (19 . heavy-snow)
+    (20	. light-rain-snow)
+    (21	. heavy-rain-snow)
+    (22	. cloudy)))
+
+(provide *weather-status*)
+
+(define *weather-severity*
+  '((0 . unknown)
+    (1 . warning)
+    (2 . watch)
+    (3 . advisory)
+    (4 . statement)))
+
+(define *weather-severe-type*
+  '((0 . unspecified)
+    (1 . tornado)
+    (2 . tsunami)
+    (3 . hurricane)
+    (4 . extreme-wind)
+    (5 . typhoon)
+    (6 . inland-hurricane)
+    (7 . hurricane-force-wind)
+    (8 . waterspout)
+    (9 . severe-thunderstorm)
+    (10 . wreckhouse-winds)
+    (11	. les-suetes-wind)
+    (12 . avalanche)
+    (13 . flash-flood)
+    (14 . tropical-storm)
+    (15	. inland-tropical-storm)
+    (16	. blizzard)
+    (17 . ice-storm)
+    (18 . freezing-rain)
+    (19	. debris-flow)
+    (20	. flash-freeze)
+    (21 . dust-storm)
+    (22 . high-wind)
+    (23 . winter-storm)
+    (24 . heavy-freezing-spray)
+    (25 . extreme-cold)
+    (26 . wind-chill)
+    (27 . cold-wave)
+    (28 . heavy-snow-alert)
+    (29 . lake-effect-blowing-snow)
+    (30 . snow-squall)
+    (31 . lake-effect-snow)
+    (32 . winter-weather)
+    (33 . sleet)
+    (34 . snowfall)
+    (35 . snow-and-blowing-snow)
+    (36 . blowing-snow)
+    (37 . snow-alert)
+    (38 . arctic-outflow)
+    (39 . freezing-drizzle)
+    (40 . storm)
+    (41 . storm-surge)
+    (42 . rainfall)
+    (43 . areal-flood)
+    (44 . coastal-flood)
+    (45 . lakeshore-flood)
+    (46 . excessive-heat)
+    (47 . heat)
+    (48 . weather)
+    (49 . high-heat-and-humidity)
+    (50 . humidex-and-health)
+    (51 . humidex)
+    (52 . gale)
+    (53 . freezing-spray)
+    (54 . special-marine)
+    (55 . squall)
+    (56 . strong-wind)
+    (57 . lake-wind)
+    (58 . marine-weather)
+    (59 . wind)
+    (60 . small-craft-hazardous-seas)
+    (61 . hazardous-seas)
+    (62 . small-craft)
+    (63 . small-craft-winds)
+    (64 . small-craft-rough-bar)
+    (65 . high-water-level)
+    (66 . ashfall)
+    (67 . freezing-fog)
+    (68 . dense-fog)
+    (69 . dense-smoke)
+    (70 . blowing-dust)
+    (71 . hard-freeze)
+    (72 . freeze)
+    (73 . frost)
+    (74 . fire-weather)
+    (75 . flood)
+    (76 . rip-tide)
+    (77 . high-surf)
+    (78 . smog)
+    (79 . air-quality)
+    (80 . brisk-wind)
+    (81 . air-stagnation)
+    (82 . low-water)
+    (83 . hydrological)
+    (84 . special-weather)))
+
 
 ;.................................................... conversion tables ....
 
@@ -1058,6 +1212,22 @@
     (temperature-setting . ,(make-enum-lookup *display-measure*))
     (height-setting . ,(make-enum-lookup *display-measure*))))
 
+(define *weather-conditions-conversions*
+  `((timestamp . ,fit-time->unix-time)
+    (weather-report . ,(make-enum-lookup *weather-report*))
+    (condition . ,(make-enum-lookup *weather-status*))
+    (wind-speed . ,div-by-1000)
+    (observed-timestamp . ,fit-time->unix-time)
+    (observed-location-lat . ,semicircles->degrees)
+    (observed-location-lon . ,semicircles->degrees)))
+
+(define *weather-report-conversions*
+  `((timestamp . ,fit-time->unix-time)
+    (issue-time . ,fit-time->unix-time)
+    (expire-time . ,fit-time->unix-time)
+    (severity . ,(make-enum-lookup *weather-severity*))
+    (type . ,(make-enum-lookup *weather-severe-type*))))
+
 (define *field-conversion-db*
   `((file-id      . ,*file-id-conversions*)
     (session      . ,*session-conversions*)
@@ -1073,6 +1243,8 @@
     (sport        . ,*sport-conversions*)
     (zones-target . ,*zones-target-conversions*)
     (training-file . ,*training-file-conversions*)
-    (user-profile . ,*user-profile-conversions*)))
+    (user-profile . ,*user-profile-conversions*)
+    (weather-conditions . ,*weather-conditions-conversions*)
+    (weather-report . ,*weather-report-conversions*)))
 
 (provide *field-conversion-db*)

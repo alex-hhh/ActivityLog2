@@ -3,7 +3,7 @@
 ;;               and other small helpers
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -31,6 +31,8 @@
   (-> string? exact-positive-integer? exact-positive-integer? any/c))
 
 (provide (struct-out db-exn-bad-version)
+         (struct-out db-exn-missing-migration)
+         raise-missing-migration
          ;; define-sql-statement need runtime-path to be present, so provide
          ;; it for all our clients.
          (all-from-out racket/runtime-path)
@@ -174,12 +176,36 @@
 
 ;; An exception used to indicate that the database was a incorrect schema
 ;; version
-(struct db-exn-bad-version (file expected actual) #:transparent)
+(struct db-exn-bad-version exn:fail (file expected actual) #:transparent)
+
+(define (raise-bad-version file expected actual)
+  (raise
+   (db-exn-bad-version
+    (format "bad version in ~a, expected ~a, actual ~a" file expected actual)
+    (current-continuation-marks)
+    file
+    expected
+    actual)))
+
 (define (db-exn-bad-version-message e)
   (format
    "bad schema version: expected ~a, actual ~a"
    (db-exn-bad-version-expected e)
    (db-exn-bad-version-actual e)))
+
+(struct db-exn-missing-migration exn:fail
+  (file expected actual migration) #:transparent)
+
+(define (raise-missing-migration file expected actual migration)
+  (raise
+   (db-exn-missing-migration
+    (format "missing migration ~a, while updating ~a from ~a to ~a"
+            migration file actual expected)
+    (current-continuation-marks)
+    file
+    expected
+    actual
+    migration)))
 
 (define (db-open database-file
                  #:schema-file [schema-file #f]
@@ -197,7 +223,7 @@
                      (or (and allow-higher-version (>= actual-version expected-version))
                          (= actual-version expected-version)))
           (disconnect db)
-          (raise (db-exn-bad-version database-file expected-version actual-version)))))
+          (raise-bad-version database-file expected-version actual-version))))
     db))
 
 ;; Run an insert query and return the row id of the resulting row.  On SQLite,

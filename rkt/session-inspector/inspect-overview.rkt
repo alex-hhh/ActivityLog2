@@ -51,16 +51,19 @@
 
 (define *weather-fields*
   (list
+   (badge-field-def "Conditions: " session-weather-status values)
    (badge-field-def "Temperature: " session-temperature (lambda (v) (temperature->string v #t)))
-   (badge-field-def "Feels like: "
+   (badge-field-def "Humidex: "
                     (lambda (session)
                       (let ((t (session-temperature session))
                             (dp (session-dew-point session)))
                         (and t dp (cons t dp))))
                     (lambda (v)
                       (temperature->string (humidex (car v) (cdr v)) #t)))
+   (badge-field-def "Feels Like: " session-feels-like (lambda (v) (temperature->string v #t)))
    (badge-field-def "Dew point: " session-dew-point (lambda (v) (temperature->string v #t)))
    (badge-field-def "Humidity: " session-humidity (lambda (v) (humidity->string v #t)))
+   (badge-field-def "Chance of Rain: " session-precipitation-probability pct->string)
    (badge-field-def "Wind speed: " session-wind-speed (lambda (v) (speed->string v #t)))
    (badge-field-def "Wind gusts: " session-wind-gusts (lambda (v) (speed->string v #t)))
    (badge-field-def "Wind direction: " session-wind-direction degrees->wind-rose)

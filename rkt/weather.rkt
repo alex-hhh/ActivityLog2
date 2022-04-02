@@ -2,7 +2,7 @@
 ;; weather.rkt -- fetch weather data from wunderground
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -284,11 +284,15 @@ values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
       (or (wobs-pressure wo) sql-null)))))
 
 (define (update-session-weather-auto db sid)
-  (with-handlers
-    (((lambda (e) #t) (lambda (e) #f)))
-    (let ((wobs (get-session-weather db sid)))
-      (when wobs
-        (update-session-weather db sid "#dark-sky" wobs)))))
+  ;; Skip this session if it already has weather records (e.g. from FIT files)
+  (define c (query-value db "select count(*) from SESSION_WEATHER where session_id = ?" sid))
+  (if (> c 0)
+      (dbglog "update-session-weather-auto: session ~a already has ~a weather records" sid c)
+      (with-handlers
+        (((lambda (e) #t) (lambda (e) #f)))
+        (let ((wobs (get-session-weather db sid)))
+          (when wobs
+            (update-session-weather db sid "#dark-sky" wobs))))))
 
 
 ;;............................................................. provides ....

@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(43);
+insert into SCHEMA_VERSION(version) values(44);
 
 
 --........................................................ Enumerations ....
@@ -211,6 +211,32 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('Pacific/Port_Moresby'), ('Pacific/Rarotonga'), ('Pacific/Saipan'), ('Pacific/Tahiti'),
        ('Pacific/Tarawa'), ('Pacific/Tongatapu'), ('Pacific/Wake'), ('Pacific/Wallis');
 
+create table E_WEATHER_STATUS(
+  id integer not null primary key autoincrement,
+  name text unique not null);
+
+insert into E_WEATHER_STATUS(id, name)
+values (0, 'Clear'),
+       (1, 'Partly Cloudy'),
+       (2, 'Mostly Cloudy'),
+       (3, 'Rain'),
+       (4, 'Snow'),
+       (5, 'Windy'),
+       (6, 'Thunderstorms'),
+       (7, 'Wintry Mix'),
+       (8, 'Fog'),
+       (11, 'Hazy'),
+       (12, 'Hail'),
+       (13, 'Scattered Showers'),
+       (14, 'Scattered Thunderstorms'),
+       (15, 'Unknown Precipitation'),
+       (16, 'Light Rain'),
+       (17, 'Heavy Rain'),
+       (18, 'Light Snow'),
+       (19, 'Heavy Snow'),
+       (20, 'Light Rain Snow'),
+       (21, 'Heavy Rain Snow'),
+       (22, 'Cloudy');
 
 
 --.......................................................... Activities ....
@@ -793,15 +819,21 @@ create table SESSION_WEATHER (
   id integer not null primary key autoincrement,
   session_id not null,
   wstation text not null,           -- weather station identification
+  weather_status_id integer,
   timestamp not null,               -- when the observation was taken
   temperature real,                 -- celsius
+  feels_like real,                  -- celsius, heat index or wind chill
   dew_point real,                   -- celsius
   humidity real,                    -- percentage: 0 .. 100
+  precipitation_probability real,
   wind_speed real,                  -- m/s
   wind_gusts real,                  -- m/s
   wind_direction real,              -- degrees 0 - N, 90 - E, 180 - S, 270 - W
   pressure real,
-  foreign key (session_id) references A_SESSION(id) on delete cascade
+  position_lat real,                    -- location of the weather station
+  position_long real,
+  foreign key (session_id) references A_SESSION(id) on delete cascade,
+  foreign key (weather_status_id) references E_WEATHER_STATUS(id)
   );
 
 create index IX0_SESSION_WEATHER on SESSION_WEATHER(session_id);
@@ -1335,7 +1367,9 @@ create view V_ACTIVITY_LIST as
   select S.id as session_id,
          A.guid as activity_guid,
          S.name as headline,
-         (select  group_concat(l.name, ' / ') from SESSION_LABEL SL, LABEL L WHERE L.id == SL.label_id AND SL.session_id = S.id ) as labels,
+         (select  group_concat(l.name, ' / ')
+            from SESSION_LABEL SL, LABEL L
+           where L.id == SL.label_id and SL.session_id = S.id ) as labels,
          S.start_time as start_time,
          (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone,
          S.sport_id as sport,
@@ -1391,12 +1425,22 @@ create view V_ACTIVITY_LIST as
          (select SH.sdnn
             from SESSION_HRV SH
            where SH.session_id = S.id) as hrv,
-         (select temperature from SESSION_WEATHER SW1 where SW1.session_id = S.id) as temperature,
-         (select humidity from SESSION_WEATHER SW2 where SW2.session_id = S.id) as humidity,
-         (select wind_speed from SESSION_WEATHER SW3 where SW3.session_id = S.id) as wind_speed,
-         (select wind_direction from SESSION_WEATHER SW4 where SW4.session_id = S.id) as wind_direction,
-         (select dew_point from SESSION_WEATHER SW1 where SW1.session_id = S.id) as dew_point
-    from A_SESSION S, SECTION_SUMMARY SS, ACTIVITY A
+         SW.temperature as temperature,
+         SW.humidity as humidity,
+         SW.wind_speed as wind_speed,
+         SW.wind_direction as wind_direction,
+         SW.dew_point as dew_point,
+         SW.precipitation_probability as precipitation_probability,
+         SW.feels_like as feels_like,
+         (select name from E_WEATHER_STATUS EWS where EWS.id = SW.weather_status_id) as weather_status
+    from A_SESSION S
+         left join SESSION_WEATHER SW
+             on (SW.session_id = S.id
+                 and SW.timestamp = (select min(timestamp)
+                                       from SESSION_WEATHER
+                                      where session_id = S.id)),
+         SECTION_SUMMARY SS,
+         ACTIVITY A
    where S.summary_id = SS.id
      and S.activity_id = A.id;
 

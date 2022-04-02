@@ -2,7 +2,7 @@
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -446,7 +446,7 @@
     (if (and stride vosc (> stride 0)) (* 100.0 (/ vosc (* stride 1000))) #f)))
 
 (define (session-total-ascent session)
-  (or 
+  (or
    (dict-ref session 'total-corrected-ascent #f)
    (dict-ref session 'total-ascent #f)))
 
@@ -707,39 +707,63 @@
  session-wind-gusts
  session-wind-direction
  session-barometric-pressure
- session-weather-source)
- 
+ session-weather-source
+ session-feels-like
+ session-precipitation-probability
+ session-weather-status)
+
+;; NOTE: the first weather record is the earliest, as this is how we retrieve
+;; it from the database -- this may not be the case for records read using
+;; `read-activity-from-file`, but this is not a problem for now...
+(define (session-weather-record session)
+  (let ([r (dict-ref session 'weather-conditions #f)])
+    (and r (not (null? r)) (car r))))
+
 (define (session-temperature session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'temperature #f) #f)))
 
+(define (session-feels-like session)
+  (let ((w (session-weather-record session)))
+    (if w (dict-ref w 'feels-like #f) #f)))
+
+(define (session-precipitation-probability session)
+  (let ((w (session-weather-record session)))
+    (if w (dict-ref w 'precipitation-probability #f) #f)))
+
+(define (session-weather-status session)
+  (let ((w (session-weather-record session)))
+    (if w (dict-ref w 'weather-status #f) #f)))
+
 (define (session-dew-point session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'dew-point #f) #f)))
-        
+
 (define (session-humidity session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'humidity #f) #f)))
 
 (define (session-wind-speed session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'wind-speed #f) #f)))
 
 (define (session-wind-gusts session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'wind-gusts #f) #f)))
 
 (define (session-wind-direction session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'wind-direction #f) #f)))
 
 (define (session-barometric-pressure session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'pressure #f) #f)))
 
 (define (session-weather-source session)
-  (let ((w (dict-ref session 'weather #f)))
+  (let ((w (session-weather-record session)))
     (if w (dict-ref w 'source #f) #f)))
+
+
 
 
 ;;........................................... cycling dynamics accessors ....
@@ -827,4 +851,3 @@
 
 (define (lap-avg-right-ppp-end lap)
   (dict-ref lap 'avg-right-ppp-end #f))
-
