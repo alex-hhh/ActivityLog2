@@ -3,7 +3,7 @@
 ;; trends-heatmap.rkt -- route heat maps displayed on a map
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -25,7 +25,6 @@
          racket/hash
          racket/match
          racket/math
-         racket/vector
          "../dbutil.rkt"
          "../metrics.rkt"
          "../utilities.rkt"
@@ -296,9 +295,9 @@
     (define/public (set-point-count pc)
       (define label
         (cond ((> pc 1e6)
-               (format "~a m GPS points" (~r (/ pc 1e6) #:precision 1)))
+               (format "~a m GPS points" (~r (/ pc 1e6) #:precision 2)))
               ((> pc 1e3)
-               (format "~a k GPS points" (~r (/ pc 1e3) #:precision 1)))
+               (format "~a k GPS points" (~r (/ pc 1e3) #:precision 2)))
               (#t
                (format "~a GPS points" (~r pc #:precision 1)))))
       (send point-count-label set-label label))
@@ -407,7 +406,7 @@
       (let* ([candidates (candidate-sessions database params)]
              [map-snip map-snip]
              [total (length candidates)]
-             [point-count 0]
+             [total-points 0]
              [last-progress 0.0])
         (when (> total 0)
           (send map-snip begin-edit-sequence)
@@ -416,19 +415,34 @@
                 [index (in-naturals)])
             (define geoids (fetch-session-geoids database c))
             (send map-snip add-to-point-cloud geoids #:format 'ordered-geoids)
-            (set! point-count (+ point-count (length geoids)))
             (define progress (/ (add1 index) total))
-            (when (> (- progress last-progress) 0.01)
+            (set! total-points (+ total-points (length geoids)))
+            (when (> (- progress last-progress) 0.02)
               (set! last-progress progress)
               (send map-snip end-edit-sequence)
               (queue-callback
                (lambda ()
                  (when (and (equal? saved-generation generation) map-control-snip)
-                   (send map-control-snip set-load-progress progress)
-                   (send map-control-snip set-point-count point-count))))
-              (sleep 0)        ; let other threads (mainly the GUI thread) run
+                   (define-values (c t) (send map-snip get-point-count))
+                   (send map-control-snip set-load-progress
+                         (if (> total-points 0) (/ c total-points) 0))
+                   (send map-control-snip set-point-count c))))
+              (sleep 0.1)      ; let other threads (mainly the GUI thread) run
               (send map-snip begin-edit-sequence)))
           (send map-snip end-edit-sequence)
+          ;; Wait for all points to be processed, while updating the progress bar
+          (let loop ([last-c 0])
+            (define-values (c t) (send map-snip get-point-count))
+            (unless (or (>= c t) (> generation saved-generation))
+              ;; only queue callback if the processed point count changed
+              (when (> c last-c)
+                (queue-callback
+                 (lambda ()
+                   (when map-control-snip
+                     (send map-control-snip set-load-progress (/ c total-points))
+                     (send map-control-snip set-point-count c)))))
+              (sleep 0.5)
+              (loop c)))
           (queue-callback
            ;; Set the load progress to 100%, in case we had some empty
            ;; activities.
