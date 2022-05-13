@@ -15,6 +15,23 @@ git log --submodule=log --patch v1.10.2..v1.11 \
     | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
 ```
 
+# Release 2022.05 (May 2022)
+
+* improvements to the "smoothing" step of the elevation correction algorithm
+  -- the result is much smoother elevation plots, without loosing the peaks
+  and valleys.
+
+* limit the range of the elevation plot in the GPS segments view, plots look
+  better when the segment does not start at or near zero elevation.
+
+* weather data records can now be read from activity files -- this is some
+  work towards addressing #46, however, except for a few sample files, I could
+  not get my Garmin to record this data...
+
+* improve responsiveness for the heat map trend chart, while the chart is
+  loading.  Also improved the color range, so more frequent routes are better
+  highlighted.
+
 # Release 2022.01 (January 2022)
 
 * Temperature data is now read from FIT files and shows up in summary data as
