@@ -2,7 +2,7 @@
 ;; qresults-list.rkt -- a sophisticated list box control, see qresults-list%
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,6 +20,7 @@
          racket/list
          racket/match
          racket/math
+         racket/format
          "../utilities.rkt"
          "edit-dialog-base.rkt"
          "icon-resources.rkt"
@@ -500,21 +501,28 @@
     ;; FORMATTED-VALUES? is #t, the column formatters are used to format the
     ;; data, otherwise, the sort key is used.
     (define/public (export-data-as-csv outp formatted-values?)
-      (for-each (lambda (c)
-                  (write-string (qcol-name c) outp)
-                  (write-string "," outp))
-                column-defs)
+      (for/fold ([first-column? #t])
+                ([c (in-list column-defs)])
+        (unless first-column?
+          (write-char #\, outp))
+        (write-char #\" outp)
+        (write-string (qcol-name c) outp)
+        (write-char #\" outp)
+        #f)
       (newline outp)
-      (let ((fn-list (map (if formatted-values?
-                                 qcol-formatter
-                                 qcol-sort-key)
-                             column-defs)))
-        (for-each (lambda (d)
-                    (for-each (lambda (f)
-                                (write-string (format "\"~a\"," (f d)) outp))
-                              fn-list)
-                    (newline outp))
-                  the-data)))
+      (let ((key-list (map (if formatted-values? qcol-formatter qcol-sort-key) column-defs)))
+        (for ([row (in-list the-data)])
+          (for/fold ([first-column? #t])
+                    ([key (in-list key-list)])
+            (unless first-column?
+              (write-char #\, outp))
+            (define v (key row))
+            (define o (cond ((equal? v #f) "")
+                            ((number? v) (~a v))
+                            (#t (format "\"~a\"" v))))
+            (write-string o outp)
+            #f)
+          (newline outp))))
 
     ;; Return the index of the first selected row, or #f is no row is
     ;; selected.

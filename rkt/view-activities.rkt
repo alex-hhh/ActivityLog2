@@ -357,10 +357,10 @@ select X.session_id
                                            length
                                            (*  length 0.9144))))
                      (if (equal? pool-length 0)
-                         "" 
+                         ""
                          (short-distance->string pool-length #t))))))
          (qcolumn "Pool Length" fn fn #:default-visible? #f))
-       
+
        (let ((fn (lambda (row) (db-row-ref row "speed" headers 0))))
          (qcolumn "Speed"
                   (lambda (row)
@@ -521,8 +521,7 @@ select X.session_id
                   (lambda (row)
                     (let ((v (fn row)))
                       (if v (pco->string v #t) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn row) -1000))
+                  fn
                   #:default-visible? #f))
 
        (let ((fn (lambda (row) (db-row-ref row "rpco" headers #f))))
@@ -530,8 +529,7 @@ select X.session_id
                   (lambda (row)
                     (let ((v (fn row)))
                       (if v (pco->string v #t) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn row) -1000))
+                  fn
                   #:default-visible? #f))
 
        (let ((fn1 (lambda (row) (db-row-ref row "lppstart" headers #f)))
@@ -541,8 +539,7 @@ select X.session_id
                     (let ((start (fn1 row))
                           (end (fn2 row)))
                       (if (and start end) (power-phase->string start end) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn1 row) -1000))
+                  fn1
                   #:default-visible? #f))
 
        (let ((fn1 (lambda (row) (db-row-ref row "rppstart" headers #f)))
@@ -552,8 +549,7 @@ select X.session_id
                     (let ((start (fn1 row))
                           (end (fn2 row)))
                       (if (and start end) (power-phase->string start end) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn1 row) -1000))
+                  fn1
                   #:default-visible? #f))
 
        (let ((fn1 (lambda (row) (db-row-ref row "lpppstart" headers #f)))
@@ -563,8 +559,7 @@ select X.session_id
                     (let ((start (fn1 row))
                           (end (fn2 row)))
                       (if (and start end) (power-phase->string start end) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn1 row) -1000))
+                  fn1
                   #:default-visible? #f))
 
        (let ((fn1 (lambda (row) (db-row-ref row "rpppstart" headers #f)))
@@ -574,8 +569,7 @@ select X.session_id
                     (let ((start (fn1 row))
                           (end (fn2 row)))
                       (if (and start end) (power-phase->string start end) "")))
-                  ;; NOTE: sorting on #f is not nice :-)
-                  (lambda (row) (or (fn1 row) -1000))
+                  fn1
                   #:default-visible? #f))
 
        (let ((fn (lambda (row) (db-row-ref row "calories" headers 0))))
@@ -619,37 +613,50 @@ select X.session_id
                   fn
                   #:default-visible? #t))
 
-       (let ((fn (lambda (row) (db-row-ref row "temperature" headers -1000))))
+       (let ((fn (lambda (row) (db-row-ref row "temperature" headers #f))))
          (qcolumn "Temperature"
-                  (lambda (row) (temperature->string (fn row) #t))
+                  (lambda (row)
+                    (let ([v (fn row)])
+                      (if v (temperature->string v #t) "")))
                   fn
                   #:default-visible? #f))
 
-       (let ((fn (lambda (row) (db-row-ref row "dew_point" headers -1000))))
+       (let ((fn (lambda (row) (db-row-ref row "dew_point" headers #f))))
          (qcolumn "Dew Point"
-                  (lambda (row) (temperature->string (fn row) #t))
+                  (lambda (row)
+                    (let ([v (fn row)])
+                      (if v (temperature->string v #t) "")))
                   fn
                   #:default-visible? #f))
 
-       (let ((fn (lambda (row) (db-row-ref row "humidity" headers 0))))
+       (let ((fn (lambda (row) (db-row-ref row "humidity" headers #f))))
          (qcolumn "Humidity"
-                  (lambda (row) (humidity->string (fn row) #t))
+                  (lambda (row)
+                    (let ([v (fn row)])
+                      (if v (humidity->string v #t) "")))
                   fn
                   #:default-visible? #f))
 
-       (let ((fn1 (lambda (row) (db-row-ref row "wind_speed" headers 0)))
-             (fn2 (lambda (row) (db-row-ref row "wind_direction" headers 0))))
+       (let ((fn1 (lambda (row) (db-row-ref row "wind_speed" headers #f)))
+             (fn2 (lambda (row) (db-row-ref row "wind_direction" headers #f))))
          (qcolumn "Wind"
-                  (lambda (row) (wind->string (fn1 row) (fn2 row)))
+                  (lambda (row)
+                    (let ([speed (fn1 row)]
+                          [direction (fn2 row)])
+                      (if (and speed direction)
+                          (wind->string speed direction)
+                          "")))
                   fn1
                   #:default-visible? #f))
 
        (let ((fn (lambda (row)
                    (let ((temp (db-row-ref row "temperature" headers #f))
                          (dewp (db-row-ref row "dew_point" headers #f)))
-                     (if (and temp dewp) (humidex temp dewp) -1000)))))
+                     (if (and temp dewp) (humidex temp dewp) #f)))))
          (qcolumn "Humidex"
-                  (lambda (row) (temperature->string (fn row) #t))
+                  (lambda (row)
+                    (let ([v (fn row)])
+                      (if v (temperature->string v #t) "")))
                   fn
                   #:default-visible? #t))
 

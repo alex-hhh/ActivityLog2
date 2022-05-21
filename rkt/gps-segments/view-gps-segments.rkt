@@ -317,53 +317,58 @@
             (make-mcolumn "Ascent" "ascent" #f vertical-distance->string #:default-visible? #t)
             (make-mcolumn "Descent" "descent" #f vertical-distance->string #:default-visible? #f)
             (make-mcolumn "VOSC" "vosc" #f vosc->string #:default-visible? #f)
-            (let ((fn1 (lambda (row) (column-ref-by-name row "gct" 0)))
-                  (fn2 (lambda (row) (column-ref-by-name row "gct_pct" 0))))
+            (let ((fn1 (lambda (row) (column-ref-by-name row "gct" #f)))
+                  (fn2 (lambda (row) (column-ref-by-name row "gct_pct" #f))))
               (qcolumn "GCT"
-                       (lambda (row) (stance->string (fn1 row) (fn2 row)))
+                       (lambda (row)
+                         (let ([gct (fn1 row)]
+                               [pgct (fn2 row)])
+                           (if (and gct pgct)
+                               (stance->string gct pgct)
+                               "")))
                        fn1
                        #:default-visible? #f))
             (make-mcolumn "Power" "power" #f power->string #:default-visible? #t)
             (make-mcolumn "Max Power" "max_power" #f power->string #:default-visible? #f)
             (make-mcolumn "Iso Power" "np" #f power->string #:default-visible? #t)
 
-            (let ((fn (lambda (row) (column-ref-by-name row "lrbal" 0))))
+            (let ((fn (lambda (row) (column-ref-by-name row "lrbal" #f))))
               (qcolumn "L-R Bal"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (~r v #:precision 1) "")))
+                      (if v (~r v #:precision 1) "")))
                   fn
                   #:default-visible? #f))
 
-            (let ((fn (lambda (row) (column-ref-by-name row "ltorqeff" 0))))
+            (let ((fn (lambda (row) (column-ref-by-name row "ltorqeff" #f))))
               (qcolumn "Left TEff"
                        (lambda (row)
                          (let ((v (fn row)))
-                           (if (> v 0) (~r v #:precision 1) "")))
+                           (if v (~r v #:precision 1) "")))
                        fn
                        #:default-visible? #f))
 
-            (let ((fn (lambda (row) (column-ref-by-name row "rtorqeff" 0))))
+            (let ((fn (lambda (row) (column-ref-by-name row "rtorqeff" #f))))
               (qcolumn "Right TEff"
                        (lambda (row)
                          (let ((v (fn row)))
-                           (if (> v 0) (~r v #:precision 1) "")))
+                           (if v (~r v #:precision 1) "")))
                        fn
                        #:default-visible? #f))
 
-            (let ((fn (lambda (row) (column-ref-by-name row "lpdlsmth" 0))))
+            (let ((fn (lambda (row) (column-ref-by-name row "lpdlsmth" #f))))
               (qcolumn "Left PSmth"
                        (lambda (row)
                          (let ((v (fn row)))
-                           (if (> v 0) (~r v #:precision 1) "")))
+                           (if v (~r v #:precision 1) "")))
                        fn
                        #:default-visible? #f))
 
-            (let ((fn (lambda (row) (column-ref-by-name row "rpdlsmth" 0))))
+            (let ((fn (lambda (row) (column-ref-by-name row "rpdlsmth" #f))))
               (qcolumn "Right PSmth"
                        (lambda (row)
                          (let ((v (fn row)))
-                           (if (> v 0) (~r v #:precision 1) "")))
+                           (if v (~r v #:precision 1) "")))
                        fn
                        #:default-visible? #f))
 
@@ -372,8 +377,7 @@
                        (lambda (row)
                          (let ((v (fn row)))
                            (if v (pco->string v #t) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn row) -1000))
+                       fn
                        #:default-visible? #f))
 
             (let ((fn (lambda (row) (column-ref-by-name row "rpco" #f))))
@@ -381,8 +385,7 @@
                        (lambda (row)
                          (let ((v (fn row)))
                            (if v (pco->string v #t) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn row) -1000))
+                       fn
                        #:default-visible? #f))
 
             (let ((fn1 (lambda (row) (column-ref-by-name row "lppstart" #f)))
@@ -392,8 +395,7 @@
                          (let ((start (fn1 row))
                                (end (fn2 row)))
                            (if (and start end) (power-phase->string start end) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn1 row) -1000))
+                       fn1
                        #:default-visible? #f))
 
             (let ((fn1 (lambda (row) (column-ref-by-name row "rppstart" #f)))
@@ -403,8 +405,7 @@
                          (let ((start (fn1 row))
                                (end (fn2 row)))
                            (if (and start end) (power-phase->string start end) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn1 row) -1000))
+                       fn1
                        #:default-visible? #f))
 
             (let ((fn1 (lambda (row) (column-ref-by-name row "lpppstart" #f)))
@@ -414,8 +415,7 @@
                          (let ((start (fn1 row))
                                (end (fn2 row)))
                            (if (and start end) (power-phase->string start end) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn1 row) -1000))
+                       fn1
                        #:default-visible? #f))
 
             (let ((fn1 (lambda (row) (column-ref-by-name row "rpppstart" #f)))
@@ -425,8 +425,7 @@
                          (let ((start (fn1 row))
                                (end (fn2 row)))
                            (if (and start end) (power-phase->string start end) "")))
-                       ;; NOTE: sorting on #f is not nice :-)
-                       (lambda (row) (or (fn1 row) -1000))
+                       fn1
                        #:default-visible? #f))
 
             (make-mcolumn "A Decl" "adecl" #f pct->string #:default-visible? #t)

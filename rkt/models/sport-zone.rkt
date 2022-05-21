@@ -1,7 +1,7 @@
 ;; sport-zone.rkt -- utilities for working with sport zones
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -107,7 +107,14 @@ select id, max(valid_from) from SPORT_ZONE
  where sport_id = ? and sub_sport_id is null and zone_metric_id = ?")
   (define result
     (if sub-sport
-        (query-maybe-row db q1 sport sub-sport (metric->id metric))
+        ;; If a SUB-SPORT is specified, try to find a sport zone for the exact
+        ;; SPORT/SUB-SPORT combination, but failing that, try to find a sport
+        ;; zone for the SPORT only (as of 17/may/2022 we don't have sub-sport
+        ;; sport zones)
+        (let ([result (query-maybe-row db q1 sport sub-sport (metric->id metric))])
+          (if (and result (not (sql-null? (vector-ref result 0))))
+              result
+              (query-maybe-row db q2 sport (metric->id metric))))
         (query-maybe-row db q2 sport (metric->id metric))))
   (and result
        (let ([id (vector-ref result 0)])
