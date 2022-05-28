@@ -62,13 +62,6 @@
     (init-field database)
     (super-new)
 
-    ;; WARNING: all the hashes below are immutable.  Geoids hash poorly with
-    ;; mutable hash tables and there is a huge performance penalty when they
-    ;; are used as keys in mutable hash tables.
-    ;;
-    ;; NOTE: the poor hashing problem was fixed around Racket 8.2, we should
-    ;; revisit this to see if mutable hashes provide better performance...
-
     ;; Fetch the list of original altitudes (A_TRACKPOINT.alt) for all geoids
     ;; in the database DB, which are inside GEOID (this is assumed to NOT be a
     ;; leaf geoid).  Returns a list of numbers representing the altitudes.
@@ -81,7 +74,7 @@
 
     ;; Map the altitude samples for a GEOID, this stores results previously
     ;; retrieved by `fetch-altitude-samples`
-    (define altitude-sample-cache (hash))
+    (define altitude-sample-cache (make-hash))
 
     ;; Return the list of altitudes for all geoids in the database which are
     ;; inside GEOID (which is assumed to NOT be a leaf geoid).  This method
@@ -93,7 +86,7 @@
       (define data (hash-ref altitude-sample-cache key #f))
       (unless data
         (set! data (fetch-altitude-samples geoid))
-        (set! altitude-sample-cache (hash-set altitude-sample-cache key data)))
+        (hash-set! altitude-sample-cache key data))
       data)
 
     ;; Determine the altitude limits which would be considered outliers based
@@ -141,7 +134,7 @@
 
     ;; Map the outlier limits for altitude data for a GEOID.  The key is the
     ;; geoid, the value is a cons cell of the low and high values.
-    (define outlier-limit-cache (hash))
+    (define outlier-limit-cache (make-hash))
 
     ;; Return the outlier limits for GEOID -- this calls
     ;; `determine-outlier-limits`, but stores the retrieved values in
@@ -152,7 +145,7 @@
       (define limits (hash-ref outlier-limit-cache key #f))
       (unless limits
         (set! limits (determine-outlier-limits geoid))
-        (set! outlier-limit-cache (hash-set outlier-limit-cache key limits)))
+        (hash-set! outlier-limit-cache key limits))
       limits)
 
     ;; Determine the altitude for GEOID by averaging the altitude values for
@@ -174,7 +167,7 @@
         (values (+ sum p) (add1 cnt))))
 
     ;; Map the calculated average altitude for each geoid
-    (define average-altitude-cache (hash))
+    (define average-altitude-cache (make-hash))
 
     ;; Return the average altitude for GEOID, based on all the altitudes for
     ;; the geoids in the database which are inside it.  This uses
@@ -185,7 +178,7 @@
       (define altitude (hash-ref average-altitude-cache key #f))
       (unless altitude
         (set! altitude (determine-average-altitude geoid))
-        (set! average-altitude-cache (hash-set average-altitude-cache key altitude)))
+        (hash-set! average-altitude-cache key altitude))
       altitude)
 
     ;; Return the (weighted) average altitude at GEOID (presumably a leaf
