@@ -2,7 +2,7 @@
 ;; trends-test.rkt -- test the trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -272,7 +272,7 @@
 
 ;; This is downloaded by download-test-db.sh, needs to be a runtime path,
 ;; since we use a separate `place` to open the database
-(define-runtime-path test-database "./test-db/al2-v29.db")
+(define-runtime-path test-database "./test-db/al2-v44.db")
 
 (define (do-tc-check db chart-class settings snip-canvas-class)
   (when (file-exists? test-image-file)

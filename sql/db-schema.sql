@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(44);
+insert into SCHEMA_VERSION(version) values(45);
 
 
 --........................................................ Enumerations ....
@@ -133,7 +133,7 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('America/Creston'), ('America/Cuiaba'), ('America/Curacao'), ('America/Danmarkshavn'), ('America/Dawson'),
        ('America/Dawson_Creek'), ('America/Denver'), ('America/Detroit'), ('America/Dominica'), ('America/Edmonton'),
        ('America/Eirunepe'), ('America/El_Salvador'), ('America/Fort_Nelson'), ('America/Fortaleza'),
-       ('America/Glace_Bay'), ('America/Godthab'), ('America/Goose_Bay'), ('America/Grand_Turk'),
+       ('America/Glace_Bay'), ('America/Nuuk'), ('America/Goose_Bay'), ('America/Grand_Turk'),
        ('America/Grenada'), ('America/Guadeloupe'), ('America/Guatemala'), ('America/Guayaquil'), ('America/Guyana'),
        ('America/Halifax'), ('America/Havana'), ('America/Hermosillo'), ('America/Indiana/Indianapolis'),
        ('America/Indiana/Knox'), ('America/Indiana/Marengo'), ('America/Indiana/Petersburg'),
@@ -178,7 +178,7 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('Asia/Yekaterinburg'), ('Asia/Yerevan'), ('Atlantic/Azores'), ('Atlantic/Bermuda'),
        ('Atlantic/Canary'), ('Atlantic/Cape_Verde'), ('Atlantic/Faroe'), ('Atlantic/Madeira'),
        ('Atlantic/Reykjavik'), ('Atlantic/South_Georgia'), ('Atlantic/St_Helena'), ('Atlantic/Stanley'),
-       ('Australia/Adelaide'), ('Australia/Brisbane'), ('Australia/Broken_Hill'), ('Australia/Currie'),
+       ('Australia/Adelaide'), ('Australia/Brisbane'), ('Australia/Broken_Hill'),
        ('Australia/Darwin'), ('Australia/Eucla'), ('Australia/Hobart'), ('Australia/Lindeman'),
        ('Australia/Lord_Howe'), ('Australia/Melbourne'), ('Australia/Perth'), ('Australia/Sydney'),
        ('Etc/GMT'), ('Etc/GMT+1'), ('Etc/GMT+10'), ('Etc/GMT+11'), ('Etc/GMT+12'), ('Etc/GMT+2'),
@@ -202,7 +202,7 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('Indian/Chagos'), ('Indian/Christmas'), ('Indian/Cocos'), ('Indian/Comoro'), ('Indian/Kerguelen'),
        ('Indian/Mahe'), ('Indian/Maldives'), ('Indian/Mauritius'), ('Indian/Mayotte'), ('Indian/Reunion'),
        ('Pacific/Apia'), ('Pacific/Auckland'), ('Pacific/Bougainville'), ('Pacific/Chatham'),
-       ('Pacific/Chuuk'), ('Pacific/Easter'), ('Pacific/Efate'), ('Pacific/Enderbury'), ('Pacific/Fakaofo'),
+       ('Pacific/Chuuk'), ('Pacific/Easter'), ('Pacific/Efate'), ('Pacific/Kanton'), ('Pacific/Fakaofo'),
        ('Pacific/Fiji'), ('Pacific/Funafuti'), ('Pacific/Galapagos'), ('Pacific/Gambier'),
        ('Pacific/Guadalcanal'), ('Pacific/Guam'), ('Pacific/Honolulu'), ('Pacific/Kiritimati'),
        ('Pacific/Kosrae'), ('Pacific/Kwajalein'), ('Pacific/Majuro'), ('Pacific/Marquesas'),

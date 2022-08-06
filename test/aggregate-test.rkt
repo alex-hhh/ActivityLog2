@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -83,7 +83,7 @@
 
 ;; This is downloaded by download-test-db.sh, this needs to be a runtime path
 ;; because we use a `place` to open the sqlite database.
-(define-runtime-path test-database "./test-db/al2-v29.db")
+(define-runtime-path test-database "./test-db/al2-v44.db")
 
 (define test-axis-run
   (list

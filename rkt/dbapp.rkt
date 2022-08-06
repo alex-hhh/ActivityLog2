@@ -61,9 +61,10 @@
 (define-runtime-path p42-file "../sql/migrations/p42-fix-gps-match-view.sql")
 (define-runtime-path p43-file "../sql/migrations/p43-fiets-score.sql")
 (define-runtime-path p44-file "../sql/migrations/p44-weather.sql")
+(define-runtime-path p45-file "../sql/migrations/p45-time-zone.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 44)
+(define (schema-version) 45)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -93,7 +94,8 @@
    40 p41-file
    41 p42-file
    42 p43-file
-   43 p44-file))
+   43 p44-file
+   44 p45-file))
 
 (define the-current-database #f)
 
