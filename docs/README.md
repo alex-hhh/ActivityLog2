@@ -92,6 +92,24 @@ this application will run even on machines that don't have Racket installed.
 If you have Inno setup installed and are on Windows, the above command will
 also create an installer executable.
 
+## Listing Detailed Changes Between Releases
+
+Each ActivityLog2 release is tagged, you can check the tag names using the
+command `git tag -l` in a checked out source and use `git log tag-1..tag-2` to
+find the detailed changes between two tags.  For example to find the changes
+between version 1.7.1 and 1.8.0 you can run:
+
+```
+git log v1.7.1..v1.8.0
+```
+
+Or, if you want to see what has changed in each submodule as well:
+
+```
+git log --submodule=log --patch v1.10.2..v1.11 \
+    | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
+```
+
 # Developer Notes
 
 ## More details on building

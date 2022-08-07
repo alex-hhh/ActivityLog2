@@ -16,13 +16,6 @@ building an installer on Windows.  The scripts are:
   RACKET_DIR seems to be ignored by the racket installer itself when running
   on Azure Pipelines
 
-* `install-inno-setup.ps1` -- this script will install [Inno
-  Setup](http://www.jrsoftware.org/isinfo.php), it can currently install only
-  a specific version in the default location.  Given that the Inno setup site
-  does not support high amounts of traffic, the installer was placed on Google
-  Drive and this script will download it from there.  **NOTE** this is not
-  used anymore, since Inno Setup is already installed on the build image.
-
 * `setup-catalog.sh` -- this script will setup the directory at
   $PROJECT_ROOT/pkgs to be a Racket package catalog which is consulted by
   `raco pkg install` when looking for packages -- it is used to install
@@ -40,22 +33,16 @@ building an installer on Windows.  The scripts are:
   update the version number and description in the ActivityLog2 executable.
   The source for this utility is here: https://github.com/alex-hhh/ddverpatch
 
-* `fetch.sh` -- this script will download and decrypt test data used by the
-  unit tests.  It can be used for both Linux and Windows builds (git on
-  windows has all the commands needed by this script).  The script itself can
-  download and decrypt a file specified on the command line (using the Google
-  Drive file ID) and reads the password from the TESTDATAPW environment
-  variable.  **NOTE** this script is not used anymore, as Google Drive is not
-  designed for automatic downloading of files and the script needs to be
-  constantly updated to work around Google Drive changes.  It is here as a
-  reference only.
-
 * `fetch-az-blob.sh` -- this script will download and decrypt test data from
   Azure Blob Storage, data is used by the unit tests.  It can be used for both
   Linux and Windows builds (git on windows has all the commands needed by this
   script).  The script itself can download and decrypt a file specified in the
   DATA_FILE environment variable and reads the password from the TESTDATAPW
   environment variable.
+
+* `make-checksums.rkt` calculates SHA256 checksums for files in a directory.
+  Used to create the manifest-sha256.txt file.  The resulting file can be
+  verified using the `sha256sum -c` command.
 
 * `sign-release.sh` is a script which will sign an installer using GPG.  The
   windows installer is signed with keys stored in Azure DevOps.  **NOTE:**

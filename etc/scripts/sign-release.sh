@@ -73,5 +73,34 @@ else
     fi
 fi
 
+MANIFEST=./dist/manifest-sha256.txt
+
+if [ -z $MANIFEST ]; then
+    echo "Could not manifest to sign, skipping."
+    EXIT_CODE=0
+else
+    echo "Will sign $MANIFEST"
+    # Note SIG name is based on package name, we run late in the process, and
+    # cannot patch the installer.
+    SIG=`echo $PKG | sed 's/\\.exe/-manifest.sig/'`
+    echo "Signature file will be $SIG"
+
+    if [ -e $SIG ]; then
+        echo "Removing previous signature file..."
+        rm "$SIG"
+    fi
+
+    gpg --detach-sign --armor --output $SIG $MANIFEST
+
+    if [ $? -ne 0 ]; then
+        # Even though we skip signing if we don't find the manifest, once we
+        # find it, we fail if we fail to sign it.
+        echo "Failed to create signature"
+        EXIT_CODE=1
+    else
+        echo "Created signature."
+    fi
+fi
+
 rm -rf "$GNUPGHOME"
 exit $EXIT_CODE

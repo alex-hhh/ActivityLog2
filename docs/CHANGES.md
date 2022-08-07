@@ -1,19 +1,13 @@
+# ActivityLog2 - analyze data from swim, bike and run activities
+
+    https://github.com/alex-hhh/ActivityLog2
+
+Import swim, bike and run and other activities from .FIT files.  Display
+plots, scatter plots, histograms, maps and other views for activities.  Show
+reports and trends from activity data and track equipment usage.
+
 This file contains a high level summary of changes in each released version of
-the application.  Each release is tagged, you can check the tag names using
-the command `git tag -l` in a checked out source and use `git log
-tag-1..tag-2` to find the detailed changes between two tags.  For example to
-find the changes between version 1.7.1 and 1.8.0 you can run:
-
-```
-git log v1.7.1..v1.8.0
-```
-
-Or, if you want to see what has changed in each submodule as well:
-
-```
-git log --submodule=log --patch v1.10.2..v1.11 \
-    | awk '/^commit/,/^diff/ { if ($1 != "diff") { print; } }'`
-```
+the application.
 
 # Release 2022.05 (May 2022)
 

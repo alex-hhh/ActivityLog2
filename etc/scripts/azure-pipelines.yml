@@ -73,6 +73,7 @@ jobs:
         set D=ActivityLog2 - Analyze Swim, Bike and Run Data
         set P=ActivityLog2
         etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %PV%
+        racket etc\scripts\make-checksums.rkt dist ./dist/manifest-sha256.txt
         iscc /DMyAppVersion=%V% etc\scripts\install.iss
       displayName: Creating Installer
 

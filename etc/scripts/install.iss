@@ -59,7 +59,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\..\LICENSE"; DestDir: "{app}"
+Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
+Source: "..\..\docs\CHANGES.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
+Source: "..\..\dist\manifest-sha256.txt"; DestDir: "{app}"
 
 ;; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
