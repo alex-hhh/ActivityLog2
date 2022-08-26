@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,11 +18,9 @@
          db/base
          racket/async-channel
          racket/class
-         racket/date
          racket/dict
          racket/gui/base
          racket/match
-         tzinfo
          "../al-widgets.rkt"
          "../database.rkt"
          "../dialogs/activity-edit.rkt"
@@ -421,12 +419,18 @@ where id = ?" time-zone sid))))))
 
     (define (refresh-session-summary)
       (when (and session-id the-database)
-        (set! session (db-fetch-session session-id the-database))
-        (send header set-session session)
-        (send (tdata-contents overview) set-session session data-frame)))
+        (if (db-session-exists? session-id the-database)
+            (begin
+              (set! session (db-fetch-session session-id the-database))
+              (send header set-session session)
+              (send (tdata-contents overview) set-session session data-frame))
+            (set-session #f))))
 
     (define (refresh-session-data)
-      (set-session session-id))
+      (when (and session-id the-database)
+        (if (db-session-exists? session-id the-database)
+            (set-session session-id)
+            (set-session #f))))
 
     (define change-notification-source (make-log-event-source))
 

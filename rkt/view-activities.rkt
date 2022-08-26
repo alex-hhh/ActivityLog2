@@ -129,7 +129,7 @@ select X.session_id
    (get-activity-list-query sport date-range distance duration labels equipment)))
 
 (define (get-activity-list-1 db session-id)
-  (query-row
+  (query-maybe-row
    db
    "select * from V_ACTIVITY_LIST VAL where VAL.session_id = ?" session-id))
 
@@ -748,17 +748,17 @@ select X.session_id
           (send lb delete-row index))))
 
     (define (maybe-update sid)
-      (define row-data #f)
       (when (member sid data (lambda (sid item)
                                (= sid (db-row-ref item "session_id" headers 0))))
-        (set! row-data (get-activity-list-1 database sid))
-        (set! data
-              (for/list ((item data))
-                (if (= sid (db-row-ref item "session_id" headers 0))
-                    row-data
-                    item)))
-        (let ((index (row-index-for-sid sid)))
-          (send lb update-row index row-data #f))))
+        (define row (get-activity-list-1 database sid))
+        (when row                       ; maybe it was already deleted, see AB#44
+          (set! data
+                (for/list ([item (in-list data)])
+                  (if (= sid (db-row-ref item "session_id" headers 0))
+                      row
+                      item)))
+          (let ((index (row-index-for-sid sid)))
+            (send lb update-row index row #f)))))
 
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the view is

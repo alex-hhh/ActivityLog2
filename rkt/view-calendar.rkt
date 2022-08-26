@@ -2,7 +2,7 @@
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -59,7 +59,7 @@
 ;; Return basic information about SESSION-ID.  Column order must match what
 ;; `get-sessions-between-dates' returns.
 (define (get-session-by-id session-id db)
-  (query-row
+  (query-maybe-row
    db
    "select s.id,
            a.guid,
@@ -453,7 +453,7 @@
       (thunk)
       (end-edit-sequence))
 
-    (define aop-menu 
+    (define aop-menu
       (new activity-operations-menu% [target activity-operations]))
 
     (define/public (get-calendar-operations-menu citem)
@@ -690,7 +690,7 @@
 
     ;; Update totals-draw-functions with a new draw function for ROW
     (define (rebuild-totals row)
-      
+
       (define (make-pict row)
         (let ((distance 0)
               (duration 0))
@@ -702,7 +702,7 @@
           (make-totals-pict
            distance duration
            (cell-width 8 #t) (cell-height (+ 1 row) #t))))
-      
+
       (let* ((index (- row 1))
              (pict (make-pict index)))
         (vector-set! totals-draw-functions index (make-pict-drawer pict))))
@@ -802,7 +802,7 @@
 
           ;; Finally, re-arange the snips inside each cell
           (arrange-snips-in-all-cells))))
-      
+
     (define/public (set-calendar-range start end)
       (set! suspend-cell-layout? #t)
       (send (get-canvas) suspend-flush)
@@ -817,9 +817,9 @@
       (set! calendar-range (cons start end))
       (set! calendar-num-weeks (exact-ceiling (/ (/ (- end start) (* 24 60 60)) 7)))
       (set! totals-draw-functions (make-vector calendar-num-weeks (lambda (dc x y) #f)))
-      
+
       (on-display-size)         ; to re-compute the cell sizes and other stuff
-      
+
       (send (get-canvas) resume-flush)
       (send (get-canvas) refresh))
 
@@ -853,7 +853,7 @@
     (define pane (new vertical-pane% [parent parent] [alignment '(left center)]))
 
     (define the-month-message #f)
-    
+
     (define next-button #f)
     (define prev-button #f)
     (define year-choice #f)
@@ -874,7 +874,7 @@
                     [alignment '(left center)]
                     [border 10]))
             (f (send the-font-list find-or-create-font 16 'default 'normal 'normal)))
-        
+
         (set! month-choice (new choice% [parent p] [label ""] [font f]
                                 [choices '("January" "February" "March" "April" "May" "June"
                                            "July" "August" "September" "October" "November" "December")]
@@ -988,10 +988,15 @@
                 (loop (send snip next)))
             #f)))
 
-    (define (maybe-update sid) 
+    (define (maybe-update sid)
       (let ((snip (find-snip-by-sid sid)))
         (when snip
-          (send snip refresh (get-session-by-id sid database))
+          ;; NOTE: maybe the session was updated, than deleted, we cannot rely
+          ;; on it still being available.  See AB#44
+          (let ([row (get-session-by-id sid database)])
+            (if row
+                (send snip refresh row)
+                (send the-calendar please-delete snip)))
           ;; The refresh below forces the re-display of the totals column
           (send (send the-calendar get-canvas) refresh))))
 
@@ -1003,13 +1008,14 @@
           (send (send the-calendar get-canvas) refresh))))
 
     (define (maybe-add sid)
-      (let* ((row (get-session-by-id sid database))
-             (snip (new calendar-item-snip% [db-row row])))
-        ;; Will silently fail if the new sid is outside the date range of the
-        ;; calendar
-        (send the-calendar insert snip)
-        ;; The refresh below forces the re-display of the totals column
-        (send (send the-calendar get-canvas) refresh)))
+      (let ([row (get-session-by-id sid database)])
+        (when row                    ; maybe it was already deleted, see AB#44
+          (let ([snip (new calendar-item-snip% [db-row row])])
+            ;; Will silently fail if the new sid is outside the date range of
+            ;; the calendar
+            (send the-calendar insert snip)
+            ;; The refresh below forces the re-display of the totals column
+            (send (send the-calendar get-canvas) refresh)))))
 
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the calendar

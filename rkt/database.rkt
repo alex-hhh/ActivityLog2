@@ -55,7 +55,8 @@
  (db-get-seasons (-> connection? any/c))
  (db-extract-activity-raw-data (-> exact-nonnegative-integer? connection? (or/c bytes? #f)))
  (db-insert-section-summary (-> any/c connection? exact-nonnegative-integer?))
- (db-extract-matches-for-session (-> exact-nonnegative-integer? connection? any/c)))
+ (db-extract-matches-for-session (-> exact-nonnegative-integer? connection? any/c))
+ (db-session-exists? (-> exact-nonnegative-integer? connection? boolean?)))
 
 
 ;................................................... database utilities ....
@@ -780,6 +781,13 @@
     (lambda (activity-id db)
       (for/list ((session (in-list (query-rows db stmt activity-id))))
                 (db-extract-session session db)))))
+
+;; Return #t if a session with SECTION-ID exists in the database, this is used
+;; by notification sources which receive various add/update/delete messages to
+;; check that a "session update" they process is not for a session which was
+;; later deleted.
+(define (db-session-exists? session-id db)
+  (and (query-maybe-value db "select id from A_SESSION where id = ?" session-id) #t))
 
 (define fetch-session-stmt
   (virtual-statement
