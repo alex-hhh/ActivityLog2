@@ -3,7 +3,7 @@
 ;; session-df and related files
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,7 @@
      ;; gap
      (define s (update-statistics empty-statistics 60))
      (match-define (cons low high) (get-plot-y-range s axis-hr-bpm))
-     (check-pred > (- high low) 0))
+     (check > (- high low) 0))
 
    (test-case "get-plot-y-range / include outliers"
      (define s (update-statistics* empty-statistics (list 10 80)))
@@ -48,8 +48,8 @@
      ;; but our data has values outside this -- ensure we return a range that
      ;; includes these oob values.
      (match-define (cons low high) (get-plot-y-range s axis-left-right-balance))
-     (check-pred < low 10)
-     (check-pred > low 80))
+     (check < low 10)
+     (check > high 80))
 
    (test-case "get-plot-y-range / extend range"
      (define s (update-statistics* empty-statistics (list 49 50 51)))
@@ -57,8 +57,8 @@
      ;; but our data is narrowly inside this range -- ensure we return a range
      ;; that is the full range (45, 55)
      (match-define (cons low high) (get-plot-y-range s axis-left-right-balance))
-     (check-pred < low 45)
-     (check-pred > high 55))
+     (check < low 45)
+     (check > high 55))
 
    ))
 

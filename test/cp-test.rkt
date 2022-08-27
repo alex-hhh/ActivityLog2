@@ -3,7 +3,7 @@
 ;; cp-test.rkt -- test the critical power functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -126,7 +126,7 @@
      (check-true (> (length progress) 0))
      (for ([one (in-list progress)]
            [two (in-list (cdr progress))])
-       (check-pred > one two)))
+       (check >= one two)))
    (test-case "CP2 exhaustive search"
      (define-values (cp2 cp2-results)
        (cp2-fit mmax-fn an-start an-end ae-start ae-end))
