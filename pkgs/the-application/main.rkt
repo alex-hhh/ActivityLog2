@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -64,4 +64,10 @@
 ;; Retrieve the value for NAME from the preferences file, or return the value
 ;; of FAIL-THUNK if it does not exist.
 (define (get-pref name fail-thunk)
-  (get-preference name fail-thunk 'timestamp (preferences-file)))
+  (get-preference
+   name
+   (if (procedure? fail-thunk)
+       fail-thunk
+       (lambda () fail-thunk))
+   'timestamp
+   (preferences-file)))

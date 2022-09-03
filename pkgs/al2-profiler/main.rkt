@@ -39,7 +39,7 @@
          racket/class
          racket/format
          racket/math
-         racket/string)
+         racket/match)
 
 (provide define/profile
          define/private/profile
@@ -47,23 +47,75 @@
          define/augment/profile
 
          profile-enable
-         profile-reset
          profile-enable-all
          profile-reset-all
-         profile-display
+         profile-display)
 
-         define/trace
-         define/public/trace
-         define/augment/trace
 
-         trace-output)
+;; Profile event information is collected in buffers which contain entries
+;; next to each other.  The entries are PD-STRIDE elements apart and each of
+;; the constants below define the offset from the start of the record for that
+;; entry
+(define pd-name 0)                 ; name of the function generating the event
+(define pd-event 1)                ; profile event (currently 'start-event or 'end-event)
+(define pd-rtime 2)                ; real time at the time of the event
+(define pd-ptime 3)                ; process time at the time of the event
+(define pd-gctime 4)               ; gc time at the time of the event
+(define pd-memory 5)               ; total memory allocated at the time of the event
+(define pd-stride 6)
 
-;; Holds timing information about a profiled function.
-(struct profile-data (name
-                      (enabled #:mutable)
-                      (ncalls #:mutable)
-                      (stats #:mutable))
-  #:transparent)
+;; Number of entries in a single buffer -- the actual size of the buffer is
+;; BUFFER-SLOTS * PD-STRIDE
+(define buffer-slots 100000)
+
+;; Current buffer where recording is done
+(define current-buffer (make-vector (* buffer-slots pd-stride)))
+;; Position to where current buffer is filled (next entry will be recorded at
+;; this position
+(define current-index 0)
+;; List of previous buffers -- once current buffer is full, it will be added
+;; to PREVIOUS-BUFFERS and a new one allocated.
+(define previous-buffers '())
+
+;; Total memory, real time and process time used by the profiler -- these are
+;; used to try to avoid assigning to function calls the time taken by the
+;; profiler itself (it is not perfect).
+(define profiler-memory-use 0)
+(define profiler-real-time-use 0)
+(define profiler-process-time-use 0)
+
+;; Record a profile event -- ID is the function being profiled, EVENT is the
+;; profile event itself.  A new entry is allocated in the CURRENT-BUFFER
+;; recording the times and memory use at the time of the event.
+;;
+;; NOTE: this is not thread safe.
+(define (put-event id event)
+  (define rtime (current-inexact-monotonic-milliseconds))
+  (define ptime (current-process-milliseconds (current-thread)))
+  (define gctime (current-gc-milliseconds))
+  (define memory (current-memory-use 'cumulative))
+  (when (>= current-index (vector-length current-buffer))
+    ;; (printf "new buffer~%")
+    (set! previous-buffers (cons current-buffer previous-buffers))
+    (set! current-buffer (make-vector (* buffer-slots pd-stride)))
+    (set! current-index 0))
+  (vector-set! current-buffer (+ current-index pd-name) id)
+  (vector-set! current-buffer (+ current-index pd-event) event)
+  (vector-set! current-buffer (+ current-index pd-rtime) (- rtime profiler-real-time-use))
+  (vector-set! current-buffer (+ current-index pd-ptime) (- ptime profiler-process-time-use))
+  (vector-set! current-buffer (+ current-index pd-gctime) gctime)
+  (vector-set! current-buffer (+ current-index pd-memory) (- memory profiler-memory-use))
+  (set! current-index (+ current-index pd-stride))
+
+  ;; NOTE: we leak some of the profiler time and memory use into the
+  ;; application use, but hopefully it is just a small amount.
+  (set! profiler-memory-use (+ profiler-memory-use (- (current-memory-use 'cumulative) memory)))
+  (set! profiler-real-time-use (+ profiler-real-time-use (- rtime (current-inexact-monotonic-milliseconds))))
+  (set! profiler-process-time-use (+ profiler-process-time-use (- ptime (current-process-milliseconds (current-thread))))))
+
+;; Information about a profiled function -- name of the function and whether
+;; profiling is enabled for it or not.
+(struct profile-data (name (enabled #:mutable)) #:transparent)
 
 ;; Hold information about all profiled functions.  Maps a name to a
 ;; `profile-data` instance.
@@ -77,13 +129,13 @@
 ;; To help out, we print a warning indicating that profile data will be
 ;; merged.
 (define (make-profile-data name)
-  (when (hash-ref profile-db name #f)
-    (eprintf "*** warning: redefining ~a, will merge profile data~%" name))
-  (let ((data
-         (hash-ref profile-db name
-                   (lambda () (profile-data name #t 0 empty-statistics)))))
-    (hash-set! profile-db name data)
-    data))
+  (let ([data (hash-ref profile-db name #f)])
+    (if data
+        (begin0 data
+          (eprintf "*** warning: redefining ~a, will merge profile data~%" name))
+        (let ([ndata (profile-data name #t)])
+          (hash-set! profile-db name ndata)
+          ndata))))
 
 ;; Enable/Disable data collection for function NAME.  This must be a function
 ;; that has been defined with `define/profile'
@@ -92,14 +144,6 @@
     (when data
       (set-profile-data-enabled! data flag))))
 
-;; Reset collected data for function NAME.  This must be a function that has
-;; been defined with `define/profile'
-(define (profile-reset name)
-  (let ((data (hash-ref profile-db name #f)))
-    (when data
-      (set-profile-data-ncalls! data 0)
-      (set-profile-data-stats! data empty-statistics))))
-
 ;; Enable/Disable data collection for all instrumented functions.
 (define (profile-enable-all flag)
   (for ([item (in-hash-values profile-db)])
@@ -107,38 +151,317 @@
 
 ;; Reset collected data for all instrumented functions.
 (define (profile-reset-all)
-  (for ([item (in-hash-values profile-db)])
-    (set-profile-data-ncalls! item 0)
-    (set-profile-data-stats! item empty-statistics)))
+  ;; Don't delete the current buffer if present, setting the index to 0 has
+  ;; the same effect, and avoids extra memory allocations
+  (set! previous-buffers '())
+  (set! profiler-memory-use 0)
+  (set! profiler-real-time-use 0)
+  (set! profiler-process-time-use 0)
+  (set! current-index 0))
 
-;; Display collected statistics.
+
+;;...................................................... collecting data ....
+
+;; A profile event, as a struct -- while collecting data in buffers is faster,
+;; it is more convenient to work with structures when we analyze the data.
+(struct pevent (id event rtime ptime gctime memory) #:transparent)
+
+;; Create a PEVENT instance from the profile data in BUFFER at INDEX.
+(define (extract-pevent buffer index)
+  (pevent
+   (vector-ref buffer (+ index pd-name))
+   (vector-ref buffer (+ index pd-event))
+   (vector-ref buffer (+ index pd-rtime))
+   (vector-ref buffer (+ index pd-ptime))
+   (vector-ref buffer (+ index pd-gctime))
+   (vector-ref buffer (+ index pd-memory))))
+
+;; Calculate the difference in times and memory use between two profile events.
+(define (pevent-deltas pevent1 pevent2)
+  (match-define (pevent id1 event1 rtime1 ptime1 gctime1 memory1) pevent1)
+  (match-define (pevent id2 event2 rtime2 ptime2 gctime2 memory2) pevent2)
+  (values
+   (- rtime2 rtime1)
+   (- ptime2 ptime1)
+   (- gctime2 gctime1)
+   (- memory2 memory1)))
+
+;; Hold information about the execution time of a function identified by ID.
+;; Note that all the time and memory slots are statistics objects, allowing to
+;; calculate means and standard deviations of these values.
+(struct presult (id
+                 ncalls                 ; number of calls
+                 own-real-time
+                 cumulative-real-time
+                 own-duration
+                 cumulative-duration
+                 own-gc-time
+                 cumulative-gc-time
+                 own-memory
+                 cumulative-memory) #:transparent)
+
+(define (make-presult id)
+  (presult
+   id
+   0
+   empty-statistics
+   empty-statistics
+   empty-statistics
+   empty-statistics
+   empty-statistics
+   empty-statistics
+   empty-statistics
+   empty-statistics))
+
+
+;; Update the profile data for a function call.  START-EVENT and END-EVENT are
+;; the start and end events of this function call, while
+;; OWN-{RTIME,PTIME,GCTIME,MEM} are the time and memory use of the function
+;; itself (and other non-profiled functions) -- these times do not include the
+;; execution time of other profiled functions called from this one.
+;;
+;; RESUTS is a hash map of PEVENT structures and the PRESULT of this function
+;; is updated with timings from this call.
+;;
+(define (update-presult results start-event end-event
+                        own-rtime own-ptime own-gctime own-mem)
+  (define-values (total-rtime total-ptime total-gctime total-memory)
+    (pevent-deltas start-event end-event))
+  ;; (printf "*** update-presult~%    start: ~a~%    end: ~a~%" start-event end-event)
+
+  (match-define (presult id ncalls
+                         own-real-time cumulative-real-time
+                         own-duration cumulative-duration
+                         own-gc-time cumulative-gc-time
+                         own-memory cumulative-memory)
+    (or (hash-ref results (pevent-id start-event) #f)
+        (make-presult (pevent-id start-event))))
+  (define updated-result
+    (presult id
+             (add1 ncalls)
+             (update-statistics own-real-time own-rtime)
+             (update-statistics cumulative-real-time total-rtime)
+             (update-statistics own-duration own-ptime)
+             (update-statistics cumulative-duration total-ptime)
+             (update-statistics own-gc-time own-gctime)
+             (update-statistics cumulative-gc-time total-gctime)
+             (update-statistics own-memory own-mem)
+             (update-statistics cumulative-memory total-memory)))
+  (hash-set! results id updated-result))
+
+;; Structure to hold data while parsing the results buffer -- holds the start
+;; event of a function call and the own timings and memory uses for the
+;; function.
+(struct centry (start-event own-rtime own-ptime own-gctime own-memory) #:transparent)
+
+;; Collect the profile results from the all the profile buffers (current and
+;; previous).  Returns a hash map of PRESULT structures with timings for each
+;; function call.
+(define (collect-results)
+  (define results (make-hash))
+  (define call-stack '())
+  (define last-event #f)
+
+  (define (process buffer index)
+    (define current (extract-pevent buffer index))
+    #;(printf "*** current: ~a~%" current)
+    (define-values (drt dpt dgct dm)
+      (if last-event
+          (pevent-deltas last-event current)
+          (values 0 0 0 0)))
+    #;(printf "+++ drt ~a, dpt ~a, dgct ~a, dm ~a~%" drt dpt dgct dm)
+    (unless (null? call-stack)
+      (match-define (centry start-event own-rtime own-ptime own-gctime own-memory)
+        (car call-stack))
+      (if (and (equal? (pevent-id start-event) (pevent-id current))
+               (equal? (pevent-event current) 'end-event))
+          (begin
+            (update-presult results start-event current
+                            (+ own-rtime drt)
+                            (+ own-ptime dpt)
+                            (+ own-gctime dgct)
+                            (+ own-memory dm))
+            (set! call-stack (cdr call-stack)))
+          (let ([new-top (centry start-event
+                                 (+ own-rtime drt)
+                                 (+ own-ptime dpt)
+                                 (+ own-gctime dgct)
+                                 (+ own-memory dm))])
+            (set! call-stack (cons new-top (cdr call-stack))))))
+    (when (equal? (pevent-event current) 'start-event)
+      (set! call-stack (cons (centry current 0 0 0 0) call-stack)))
+    (set! last-event current))
+
+  (for ([buffer (reverse previous-buffers)])
+    (for ([index (in-range 0 (vector-length buffer) pd-stride)])
+      (process buffer index)))
+  (for ([index (in-range 0 current-index pd-stride)])
+    (process current-buffer index))
+
+  results)
+
+;; Display the current profile information to PORT -- defaults to the current
+;; output port, usually the terminal.  The data is intended to be human
+;; readable.
 (define (profile-display (port (current-output-port)))
 
-  (define (pval val)
-    (if (or (nan? val) (infinite? val))
-        (~a #:min-width 11)
-        (~r val #:min-width 11 #:precision 2)))
+  (define names
+    (sort
+     (for/list ([k (in-hash-keys profile-db)])
+       (symbol->string k))
+     string<?))
 
-  (let ([names (sort
-                (for/list ([k (in-hash-keys profile-db)])
-                  (symbol->string k))
-                string<?)]
-        [maxw 0])
-    (for ([n names]) (set! maxw (max (string-length n) maxw)))
-    (fprintf port "~a  calls       total         min         max        mean       stdev~%"
-             (~a " " #:min-width maxw))
-    (for ([n names])
-      (let* ((data (hash-ref profile-db (string->symbol n) #f))
-             (stats (profile-data-stats data)))
-        (fprintf port "~a: ~a ~a ~a ~a ~a ~a~%"
-                 (~a n #:min-width maxw)
-                 (~r (profile-data-ncalls data) #:min-width 5)
-                 (pval (* (profile-data-ncalls data)
-                          (statistics-mean stats)))
-                 (pval (statistics-min stats))
-                 (pval (statistics-max stats))
-                 (pval (statistics-mean stats))
-                 (pval (statistics-stddev stats)))))))
+  (define results (collect-results))
+
+  (define (pval val)
+    (if (or (string? val) (symbol? val) (nan? val) (infinite? val))
+        (~a val)
+        (~r val #:precision '(= 2))))
+
+  (define rdata
+    (for/list ([name (in-list names)])
+      (match-define (presult
+                     _id
+                     ncalls
+                     own-real-time
+                     cumulative-real-time
+                     own-duration
+                     cumulative-duration
+                     own-gc-time
+                     cumulative-gc-time
+                     own-memory
+                     cumulative-memory)
+        (hash-ref results (string->symbol name) (lambda () (make-presult name))))
+      (list
+       name
+       ncalls
+
+       (* ncalls (statistics-mean own-real-time))
+       (statistics-min own-real-time)
+       (statistics-max own-real-time)
+       (statistics-mean own-real-time)
+       (statistics-stddev own-real-time)
+
+       (* ncalls (statistics-mean cumulative-real-time))
+       (statistics-min cumulative-real-time)
+       (statistics-max cumulative-real-time)
+       (statistics-mean cumulative-real-time)
+       (statistics-stddev cumulative-real-time)
+
+       (* ncalls (statistics-mean own-duration))
+       (statistics-min own-duration)
+       (statistics-max own-duration)
+       (statistics-mean own-duration)
+       (statistics-stddev own-duration)
+
+       (* ncalls (statistics-mean cumulative-duration))
+       (statistics-min cumulative-duration)
+       (statistics-max cumulative-duration)
+       (statistics-mean cumulative-duration)
+       (statistics-stddev cumulative-duration)
+
+       (* ncalls (statistics-mean own-gc-time))
+       (statistics-min own-gc-time)
+       (statistics-max own-gc-time)
+       (statistics-mean own-gc-time)
+       (statistics-stddev own-gc-time)
+
+       (* ncalls (statistics-mean cumulative-gc-time))
+       (statistics-min cumulative-gc-time)
+       (statistics-max cumulative-gc-time)
+       (statistics-mean cumulative-gc-time)
+       (statistics-stddev cumulative-gc-time)
+
+       (* ncalls (statistics-mean own-memory))
+       (statistics-min own-memory)
+       (statistics-max own-memory)
+       (statistics-mean own-memory)
+       (statistics-stddev own-memory)
+
+       (* ncalls (statistics-mean cumulative-memory))
+       (statistics-min cumulative-memory)
+       (statistics-max cumulative-memory)
+       (statistics-mean cumulative-memory)
+       (statistics-stddev cumulative-memory)
+
+       )))
+
+  (define sdata
+    (for/list ([entry (in-list rdata)])
+      (map pval entry)))
+
+  (define max-width
+    (for/fold ([max-width 0])
+              ([entry (in-list sdata)])
+      (max max-width
+           (for/fold ([max-width 0])
+                     ([item (in-list entry)])
+             (max max-width (string-length item))))))
+
+  (define (~p v) (~a v #:min-width max-width))
+
+  (for ([entry (in-list sdata)])
+    (match-define
+      (list name ncalls
+            total-own-real-time min-own-real-time max-own-real-time avg-own-real-time stdev-own-real-time
+            total-cumulative-real-time min-cumulative-real-time max-cumulative-real-time avg-cumulative-real-time stdev-cumulative-real-time
+            total-own-duration min-own-duration max-own-duration avg-own-duration stdev-own-duration
+            total-cumulative-duration min-cumulative-duration max-cumulative-duration avg-cumulative-duration stdev-cumulative-duration
+            total-own-gc-time min-own-gc-time max-own-gc-time avg-own-gc-time stdev-own-gc-time
+            total-cumulative-gc-time min-cumulative-gc-time max-cumulative-gc-time avg-cumulative-gc-time stdev-cumulative-gc-time
+            total-own-memory min-own-memory max-own-memory avg-own-memory stdev-own-memory
+            total-cumulative-memory min-cumulative-memory max-cumulative-memory avg-cumulative-memory stdev-cumulative-memory)
+      entry)
+    (fprintf port "*** Function ~a: ~a calls~%" name ncalls)
+    (fprintf port "                      ~a ~a ~a ~a ~a~%" (~p "Total") (~p "Min") (~p "Max") (~p "Avg") (~p "Stdev"))
+    (fprintf port "Own Real Time:        ~a ~a ~a ~a ~a~%"
+             (~p total-own-real-time)
+             (~p min-own-real-time)
+             (~p max-own-real-time)
+             (~p avg-own-real-time)
+             (~p stdev-own-real-time))
+    (fprintf port "Cumulative Real Time: ~a ~a ~a ~a ~a~%"
+             (~p total-cumulative-real-time)
+             (~p min-cumulative-real-time)
+             (~p max-cumulative-real-time)
+             (~p avg-cumulative-real-time)
+             (~p stdev-cumulative-real-time))
+    (fprintf port "Own Duration:         ~a ~a ~a ~a ~a~%"
+             (~p total-own-duration)
+             (~p min-own-duration)
+             (~p max-own-duration)
+             (~p avg-own-duration)
+             (~p stdev-own-duration))
+    (fprintf port "Cumulative Duration:  ~a ~a ~a ~a ~a~%"
+             (~p total-cumulative-duration)
+             (~p min-cumulative-duration)
+             (~p max-cumulative-duration)
+             (~p avg-cumulative-duration)
+             (~p stdev-cumulative-duration))
+    (fprintf port "Own GC Time:          ~a ~a ~a ~a ~a~%"
+             (~p total-own-gc-time)
+             (~p min-own-gc-time)
+             (~p max-own-gc-time)
+             (~p avg-own-gc-time)
+             (~p stdev-own-gc-time))
+    (fprintf port "Cumulative GC Time:   ~a ~a ~a ~a ~a~%"
+             (~p total-cumulative-gc-time)
+             (~p min-cumulative-gc-time)
+             (~p max-cumulative-gc-time)
+             (~p avg-cumulative-gc-time)
+             (~p stdev-cumulative-gc-time))
+    (fprintf port "Own Memory:           ~a ~a ~a ~a ~a~%"
+             (~p total-own-memory)
+             (~p min-own-memory)
+             (~p max-own-memory)
+             (~p avg-own-memory)
+             (~p stdev-own-memory))
+    (fprintf port "Cumulative Memory:    ~a ~a ~a ~a ~a~%"
+             (~p total-cumulative-memory)
+             (~p min-cumulative-memory)
+             (~p max-cumulative-memory)
+             (~p avg-cumulative-memory)
+             (~p stdev-cumulative-memory))))
 
 ;; Define an instrumented function.  The body of the function will be wrapped
 ;; around code that collects timing information about the function: when the
@@ -148,19 +471,17 @@
   (syntax-rules ()
     [(_ (name . args) body ...)
      (define name
-       (let ((pdata (make-profile-data (quote name))))
+       (let* ([pdata (make-profile-data (quote name))])
          (lambda args
-           (define start (current-inexact-milliseconds))
-           (begin0
-               (let () body ...)
-             (let ((end (current-inexact-milliseconds)))
-               (when (profile-data-enabled pdata)
-                 (set-profile-data-ncalls!
-                  pdata
-                  (add1 (profile-data-ncalls pdata)))
-                 (set-profile-data-stats!
-                  pdata
-                  (update-statistics (profile-data-stats pdata) (- end start)))))))))]))
+           (define enabled? (profile-data-enabled pdata))
+           (dynamic-wind
+             (lambda ()
+               (when enabled?
+                 (put-event (quote name) 'start-event)))
+             (lambda () body ...)
+             (lambda ()
+               (when enabled?
+                 (put-event (quote name) 'end-event)))))))]))
 
 ;; Same as define/profile, but for public methods of a class.
 ;;
@@ -205,62 +526,3 @@
            (augment name)
            (define name+args fname+args)))]))
 
-
-;;.............................................................. tracing ....
-
-;; Current indent level for tracing
-(define indent-level (make-parameter 0))
-
-;; Number of spaces by which we increase the indent for each nested function
-;; call.
-(define indent-amount 2)
-
-;; A pre-prepared padding string for the indent
-(define indent-padding (make-parameter ""))
-
-;; Port where tracing output is sent (if #f, it is sent to current-output-port
-(define trace-output (make-parameter #f))
-
-;; Define a traced function.  When the function is invoked, its name and the
-;; value of its parameters are printed to TRACE-OUTPUT
-;;
-;; Limitations: rest and keyword arguments are not supported.
-(define-syntax (define/trace stx)
-  (syntax-case stx ()
-    [(_ (name . args) body ...)
-     (with-syntax
-       ([arg-vals (datum->syntax
-                   stx
-                   `(list
-                     (~s (quote ,(syntax->datum #'name)))
-                     ,@(for/list ((item (syntax-e #'args))) `(~s ,item))))])
-       #`(define (name . args)
-           (let ((out (or (trace-output) (current-output-port)))
-                 (text (string-append
-                        "T" (~a #:width 3 (indent-level) #:align 'right #:pad-string "0") ":"
-                        (indent-padding)
-                        (string-join arg-vals #:before-first "(" #:after-last ")")
-                        )))
-             (display text out)
-             (newline out))
-           (parameterize* ((indent-level (+ (indent-level) indent-amount))
-                           (indent-padding (make-string (indent-level) #\ )))
-             body ...)))]))
-
-;; Same as define/trace, but for public methods of a class
-(define-syntax (define/public/trace stx)
-  (syntax-case stx ()
-    [(_ (name . args) body ...)
-     (with-syntax ([name+args (datum->syntax stx (list* #'name #'args))])
-       #'(begin
-           (public name)
-           (define/trace name+args body ...)))]))
-
-;; Same as define/trace, but for augmented methods of a class
-(define-syntax (define/augment/trace stx)
-  (syntax-case stx ()
-    [(_ (name . args) body ...)
-     (with-syntax ([name+args (datum->syntax stx (list* #'name #'args))])
-       #'(begin
-           (augment name)
-           (define/trace name+args body ...)))]))

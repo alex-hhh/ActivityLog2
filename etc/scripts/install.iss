@@ -21,6 +21,10 @@
 #define MyAppURL "https://github.com/alex-hhh/ActivityLog2"
 #define MyAppExeName "ActivityLog2.exe"
 
+#define MyAppNameCA "AL2 Climb Analysis"
+#define MyAppExeNameCA "AL2-Climb-Analysis.exe"
+
+
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
 ; Do not use the same AppId value in installers for other applications.
@@ -58,6 +62,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\AL2-Climb-Analysis.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
 Source: "..\..\docs\CHANGES.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
@@ -67,6 +72,7 @@ Source: "..\..\dist\manifest-sha256.txt"; DestDir: "{app}"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppNameCA}"; Filename: "{app}\{#MyAppExeNameCA}"
 Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}"; Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 

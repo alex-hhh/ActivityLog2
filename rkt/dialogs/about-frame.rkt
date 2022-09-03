@@ -2,7 +2,7 @@
 ;; about-frame.rkt -- show the about dialog for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,10 +18,21 @@
          racket/class
          racket/gui/base
          racket/runtime-path
+         racket/math
          "../dbapp.rkt"
          "../app-info.rkt")
 
+(require db/private/sqlite3/ffi)        ; SQLite Version Number
+
 (define-runtime-path logo-file "../../img/logo/ActivityLog2.png")
+
+(define (sqlite-version-as-string)
+  ;; https://sqlite.org/c3ref/c_source_id.html
+  (define v (sqlite3_libversion_number))
+  (define x (exact-floor (/ v 1000000.0)))
+  (define y (exact-floor (/ (- v (* 1000000.0 x)) 1000.0)))
+  (define z (exact-floor (- v (* 1000000.0 x) (* 1000.0 y))))
+  (format "~a.~a.~a" x y z))
 
 (define hyperlink-style
   (let ([delta (new style-delta%)])
@@ -85,7 +96,7 @@
 
   (insert-newline editor)
   (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
-  (insert-text editor "Copyright (C) 2015 - 2020, Alex Harsányi")
+  (insert-text editor "Copyright (C) 2015 - 2022, Alex Harsányi")
   (insert-newline editor)
   (insert-newline editor)
   (insert-text editor "Project source: ")
@@ -105,6 +116,8 @@
   (insert-text editor (format "Requires database version: ~a" (schema-version)))
   (insert-newline editor)
   (insert-text editor (format "Racket version: ~a" (version)))
+  (insert-newline editor)
+  (insert-text editor (format "SQLite version: ~a" (sqlite-version-as-string)))
   (insert-newline editor)
   (insert-newline editor)
   (insert-heading editor "Licence")
