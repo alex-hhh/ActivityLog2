@@ -9,6 +9,31 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2022.09 (September 2022)
+
+* Added a new application icon.
+
+* Added AL2-Climb-Analysis tool to the installer, this was a separate project
+  at https://github.com/alex-hhh/AL2-Climb-Analysis
+
+* Timezone database updated to latest version.
+
+* Fixed a bug where "Cycling" sport zones were not used for sub-activities
+  such as "Road Cycling" or "Indoor Cycling"
+
+* Fixed a bug that caused an error to be reported when trying to sort views on
+  columns containing some empty fields.
+
+* Fixed the CSV exporter to correctly quote values instead of creating
+  potentially broken CSV files.
+
+* Fixed a bug that could cause an error to be reported when deleting
+  activities.
+
+* Fixed a bug that caused caused an error to be reported when switching to
+  Trends view when no trends charts are available (this was fixed by updating
+  to Racket version 8.6)
+
 # Release 2022.05 (May 2022)
 
 * improvements to the "smoothing" step of the elevation correction algorithm
