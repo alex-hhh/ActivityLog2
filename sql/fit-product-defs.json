@@ -196,6 +196,10 @@
                 "name" : "Garmin Fenix 3 HR"
             },
             {
+                "product_id" : 2417,
+                "name" : "Garmin Virb Ultra 30"
+            },
+            {
                 "product_id" : 2431,
                 "name" : "Garmin FR235"
             },
@@ -292,12 +296,48 @@
                 "name" : "Garmin HRM Dual"
             },
             {
+                "product_id" : 3300,
+                "name" : "Garmin HRM Pro"
+            },
+            {
                 "product_id" : [ 3405, 3639 ],
                 "name" : "Garmin Swim 2"
             },
             {
                 "product_id" : 3592,
                 "name" : "Garmin Varia RTL515"
+            },
+            {
+                "product_id" : [3905, 3908],
+                "name" : "Garmin Fenix 7s"
+            },
+            {
+                "product_id" : [3906, 3909],
+                "name" : "Garmin Fenix 7"
+            },
+            {
+                "product_id" : [3907, 3910],
+                "name" : "Garmin Fenix 7x"
+            },
+            {
+                "product_id" : 3466,
+                "name" : "Garmin Instinct Solar"
+            },
+            {
+                "product_id" : 3888,
+                "name" : "Garmin Instinct 2"
+            },
+            {
+                "product_id" : 3889,
+                "name" : "Garmin Instinct 2S"
+            },
+            {
+                "product_id" : 3990,
+                "name" : "Garmin FR255"
+            },
+            {
+                "product_id" : 4024,
+                "name" : "Garmin FR955"
             },
             {
                 "product_id" : 20119,
@@ -541,6 +581,20 @@
         "manufacturer_id" : 267,
         "name" : "Bryton",
         "products" : []
+    },
+    {
+        "manufacturer_id" : 268,
+        "name" : "SRAM",
+        "products" : [
+            {
+                "product_id" : 1037,
+                "name" : "SRAM Rival eTap AXS"
+            },
+            {
+                "product_id" : 1052,
+                "name" : "SRAM Rival AXS"
+            }
+        ]
     },
     {
         "manufacturer_id" : 282,

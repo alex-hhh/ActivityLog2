@@ -435,7 +435,9 @@
 (define (make-devinfo alist)
   (let ((name (fit-get-device-name alist))
         (ts (assq 'timestamp alist))
-        (sn (or (assq 'serial-number alist) (assq 'ant-device-number alist)))
+        (sn (or (assq 'serial-number alist)
+                (assq 'serial-number-alt alist)
+                (assq 'ant-device-number alist)))
         (manufacturer (assq 'manufacturer alist))
         (product (assq 'product alist))
         (swver (assq 'software-version alist))
@@ -463,7 +465,17 @@
         (devinfo-sn d1)
         (or (devinfo-manufacturer d1) (devinfo-manufacturer d2))
         (or (devinfo-product d1) (devinfo-product d2))
-        (or (devinfo-name d1) (devinfo-name d2))
+        ;; The "name" is really a device role, we can have the same device
+        ;; listed multiple times with different roles.  For example HRM Pro
+        ;; shows up once as a footpod and a second time as a heart rate
+        ;; monitor.
+        (let ([n1 (devinfo-name d1)]
+              [n2 (devinfo-name d2)])
+          (cond ((equal? n1 n2) n1)
+                ((and n1 n2) (format "~a; ~a" n1 n2))
+                (n1 n1)
+                (n2 n2)
+                (#t #f)))
         (or (devinfo-swver d1) (devinfo-swver d2))
         (or (devinfo-hwver d1) (devinfo-hwver d2))
         (or (devinfo-bv d1) (devinfo-bv d2))

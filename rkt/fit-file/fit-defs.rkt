@@ -442,6 +442,17 @@
     (20 . ant-transmission-type)
     (21 . ant-device-number)
     (22 . ant-network)
+    ;; Value 24 is undocumented, but my FR945 puts the serial number in this
+    ;; field for some "legacy devices".  The bottom 16 bit are that the same
+    ;; value previous FR920 stored for legacy devices, as for the top 16 bit,
+    ;; I am not sure about.  Note that the FIT file will record multiple
+    ;; device info entries for a device with multiple purposes (e.g. the HRM
+    ;; Pro is recorded as 2 devices, a footpod and a heart rate monitor), and
+    ;; the top 16 bits of this field are different for the two devices.
+    ;;
+    ;; For now the "conversion" table will discard the top 16 bits of this
+    ;; value.
+    (24 . serial-number-alt)
     (25 . source-type)))
 
 (define *location-fields*
@@ -799,8 +810,13 @@
     (20 . light-electric-vehicle)
     (25 . env-sensor)
     (26 . racquet)
-    (35 . ligts-network)
+    (30 . running-dynamics)
+    (31 . muscle-oxygen)
+    (34 . shifting)
+    (35 . lights-network)
+    (36 . lights-network)
     (40 . bike-radar)
+    (46 . bike-aero)
     (119 . weight-scale)
     (120 . heart-rate)
     (121 . bike-speed-cadence)
@@ -1166,6 +1182,9 @@
     (ant-device-type     . ,(make-enum-lookup *antplus-device-type*))
     (battery-status      . ,(make-enum-lookup *battery-status*))
     (battery-voltage     . ,(lambda (v) (and v (/ v 256.0))))
+    ;; Keep only the lower 16 bit of the value, not sure what the top bits
+    ;; are.  See note on `serial-number-alt` on device info definition.
+    (serial-number-alt   . ,(lambda (v) (bitwise-and v #xffff)))
     (source-type         . ,(make-enum-lookup *source-type*))))
 
 (define *location-conversions*
