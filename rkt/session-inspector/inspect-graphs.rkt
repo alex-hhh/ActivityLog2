@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -53,7 +53,7 @@
 
 ;;.............................................................. helpers ....
 
-(define (is-lap-swimming? data-frame)
+(define (is-lap-swimming/df? data-frame)
   (df-get-property data-frame 'is-lap-swim?))
 
 
@@ -589,7 +589,7 @@
         (sdata2 (pd-sdata2 pd))
         (fdata (pd-fdata pd))
         (y-range (pd-y-range pd)))
-    (cond ((and df (is-lap-swimming? df)
+    (cond ((and df (is-lap-swimming/df? df)
                 (send y plot-color-by-swim-stroke?)
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
@@ -639,7 +639,7 @@
     (if (and (cons? ivl) df y)
         (let ((c (send y plot-color)))
           (append
-           (if (is-lap-swimming? df)
+           (if (is-lap-swimming/df? df)
                (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
                (ivl-extents df series (car ivl) (cdr ivl)))
            (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
@@ -750,7 +750,7 @@
                   (x (ps-x-axis new-ps))
                   (y (ps-y-axis new-ps))
                   (filter (ps-filter new-ps))
-                  (lap-swimming? (is-lap-swimming? df)))
+                  (lap-swimming? (is-lap-swimming/df? df)))
              (if (df-contains? df (send x series-name) (send y series-name))
                  (let ([ds (extract-data df x y filter (not lap-swimming?))])
                    (if lap-swimming? (add-verticals ds) ds))
@@ -764,7 +764,7 @@
                   (x (ps-x-axis new-ps))
                   (y (ps-y-axis2 new-ps))
                   (filter (ps-filter new-ps))
-                  (lap-swimming? (is-lap-swimming? df)))
+                  (lap-swimming? (is-lap-swimming/df? df)))
              (if (df-contains? df (send x series-name) (send y series-name))
                  (let ([ds (extract-data df x y filter (not lap-swimming?))])
                    (if lap-swimming? (add-verticals ds) ds))
@@ -937,7 +937,7 @@
               (series (send x-axis series-name)))
           (if (and (cons? ivl) (ps-zoom? ps))
               (match-let ([(list start end)
-                           (if (is-lap-swimming? df)
+                           (if (is-lap-swimming/df? df)
                                (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
                                (ivl-extents df series (car ivl) (cdr ivl)))])
                 (stretch-transform start end 30))
@@ -949,7 +949,7 @@
               (series (send x-axis series-name)))
           (if (and (cons? ivl) (ps-zoom? ps))
               (ticks-add ticks
-                         (if (is-lap-swimming? df)
+                         (if (is-lap-swimming/df? df)
                              (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
                              (ivl-extents df series (car ivl) (cdr ivl))))
               ticks)))
@@ -2029,7 +2029,7 @@
         (let ((toplevel (send panel get-top-level-window))
               (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
               (all-graphs (append
-                           (if (is-lap-swimming? data-frame)
+                           (if (is-lap-swimming/df? data-frame)
                                (swim-graphs) (default-graphs))
                            (xdata-graphs))))
           (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
@@ -2067,7 +2067,7 @@
                ;; If we already have a list of graphs that are visible, select
                ;; them.
                (define c
-                 (for/list ([g (if (is-lap-swimming? data-frame)
+                 (for/list ([g (if (is-lap-swimming/df? data-frame)
                                    (swim-graphs)
                                    (append (default-graphs) (xdata-graphs)))]
                             #:when (member (send g get-preferences-tag) visible))
@@ -2088,12 +2088,12 @@
                     (list pace-graph% heart-rate-graph% cadence-graph%))
                    ((is-cycling? sport)
                     (list power-graph% heart-rate-graph% speed-graph% cadence-graph%))
-                   ((is-swimming? sport)
+                   ((is-lap-swimming? sport)
                     (list swim-pace-graph% swim-cadence-graph% swim-swolf-graph%))
                    (#t
                     (list speed-graph% power-graph% heart-rate-graph% cadence-graph%))))
                (define candidates
-                 (if (is-lap-swimming? data-frame)
+                 (if (is-lap-swimming/df? data-frame)
                      (swim-graphs)
                      (append (default-graphs) (xdata-graphs))))
                (for/list ([c (in-list chart-classes)])
@@ -2104,7 +2104,7 @@
       ;; lists, set them here, so they show up correctly when the user opens
       ;; the "Select data series" dialog.
       (unless visible
-        (define tags (for/list ([g (in-list candidates)])
+        (define tags (for/list ([g (in-list candidates)] #:when g)
                        (send g get-preferences-tag)))
         (hash-set! graphs-by-sport sport tags))
 
@@ -2145,7 +2145,7 @@
       (set! the-session session)
       (set! data-frame df)
 
-      (let ((lap-swimming? (is-lap-swimming? data-frame)))
+      (let ((lap-swimming? (is-lap-swimming/df? data-frame)))
 
         ;; note: some activities might not contain a distance series.
         (set! x-axis-choices
