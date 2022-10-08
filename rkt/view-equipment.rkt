@@ -16,7 +16,7 @@
 
 (require db/base
          racket/class
-         (rename-in srfi/48 (format format-48))
+         racket/format
          racket/gui/base
          racket/match
          racket/string
@@ -656,7 +656,7 @@ where EQ.id = ?" eqid))
      (qcolumn "Battery Voltage"
               (lambda (row)
                 (let ((v (fn row)))
-                  (if v (format-48 "~1,2F" v) "")))
+                  (if v (~r v #:precision 2) "")))
               (lambda (row) (or (fn row) 0))))
    (let ((fn (lambda (row) (sql-column-ref row 14))))
      (qcolumn "Battery Status"
@@ -787,7 +787,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
                   (if (and t c (> t 0)) (/ c t) 0)))))
      (qcolumn "Percent Complete"
               (lambda (row)
-                (format-48 "~1,1F%" (* (fn row) 100)))
+                (string-append (~r (* (fn row) 100) #:precision 1) "%"))
               fn))
    ))
 
@@ -971,6 +971,6 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
             (notify-user 'info "~a: ~a" equipment description))))
       (for ([item (get-low-battery-devices the-database)])
         (match-define (vector name status voltage status-name) item)
-        (define msg (format-48 "~a: battery status is ~a (~1,2F V)" name status-name voltage))
+        (define msg (format "~a: battery status is ~a (~a V)" name status-name (~r voltage #:precision 2)))
         (notify-user (if (> status 4) 'error 'warning) msg)))
     ))

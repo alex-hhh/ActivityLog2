@@ -22,8 +22,8 @@
 
 (require db/base
          racket/class
-         (rename-in srfi/48 (format format-48))
          racket/date
+         racket/format
          racket/gui/base
          racket/list
          racket/math
@@ -515,13 +515,13 @@
      (qcolumn "Run Pct"
               (lambda (row)
                 (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+                  (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
               extract-pct))
    (let ((index 16))
      (qcolumn "Run Effort"
               (lambda (row)
                 (let ((v (exact-round (vector-ref row index))))
-                  (if (> v 0) (format "~a" v) "")))
+                  (if (> v 0) (~a v) "")))
               (lambda (row) (vector-ref row index))))
 
    (let ((index 4))
@@ -549,13 +549,13 @@
      (qcolumn "Bike Pct"
               (lambda (row)
                 (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+                  (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
               extract-pct))
    (let ((index 17))
      (qcolumn "Bike Effort"
               (lambda (row)
                 (let ((v (exact-round (vector-ref row index))))
-                  (if (> v 0) (format "~a" v) "")))
+                  (if (> v 0) (~a v) "")))
               (lambda (row) (vector-ref row index))))
 
    (let ((index 7))
@@ -583,13 +583,13 @@
      (qcolumn "Swim Pct"
               (lambda (row)
                 (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+                  (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
               extract-pct))
    (let ((index 18))
      (qcolumn "Swim Effort"
               (lambda (row)
                 (let ((v (exact-round (vector-ref row index))))
-                  (if (> v 0) (format "~a" v) "")))
+                  (if (> v 0) (~a v) "")))
               (lambda (row) (vector-ref row index))))
 
    (let ((index 10))
@@ -611,13 +611,13 @@
      (qcolumn "Strength Pct"
               (lambda (row)
                 (let ((v (/ (round (* (extract-pct row) 10000)) 100)))
-                  (if (> v 0) (format-48 "~2,2F %" v) "")))
+                  (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
               extract-pct))
    (let ((index 19))
      (qcolumn "Strength Effort"
               (lambda (row)
                 (let ((v (exact-round (vector-ref row index))))
-                  (if (> v 0) (format "~a" v) "")))
+                  (if (> v 0) (~a v) "")))
               (lambda (row) (vector-ref row index))))
 
    (let ((index 13))

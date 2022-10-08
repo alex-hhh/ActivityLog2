@@ -21,9 +21,6 @@
 ;; manipulate values, these functions are used to display data to the user in
 ;; the GUI using the appropiate measurement system (metric or statute)
 
-(require
- (rename-in srfi/48 (format format-48)))
-
 (require "utilities.rkt")
 
 (require racket/format
@@ -270,7 +267,7 @@
 ;; (: wind->string (-> Real Real String))
 (define (wind->string speed direction)
   (if (> speed 0)
-      (format-48 "~1,1F ~a ~a" (m/s->speed speed) speed-label (degrees->wind-rose direction))
+      (format "~a ~a ~a" (~r (m/s->speed speed) #:precision 1) speed-label (degrees->wind-rose direction))
       ""))
 
 ;; NOTE: DEGC is always in degrees celsius
@@ -278,7 +275,7 @@
 (define (temperature->string degc [unit-label #f])
   (if (> degc -1000)
       (string-append
-       (format-48 "~1,1F" (celsius->temperature degc))
+       (~r (celsius->temperature degc) #:precision 1)
        (if unit-label (string-append " " temperature-label) ""))
       ""))
 
@@ -287,7 +284,7 @@
 (define (humidity->string hum [unit-label #f])
   (if (and (> hum 0) (<= hum 100))
       (string-append
-       (format-48 "~F" (exact-round hum))
+       (~r hum #:precision 0)
        (if unit-label " %" ""))
       ""))
 
@@ -295,7 +292,7 @@
 (define (pressure->string p [unit-label #f])
   (if (> p 0)
       (string-append
-       (format-48 "~1,1F" (exact->inexact p))
+       (~r p #:precision 1)
        (if unit-label " hPa" ""))
       ""))
 
@@ -305,7 +302,9 @@
 ;; (: speed->string (->* (Real) (Boolean) String))
 (define (speed->string speed/mps [unit-label #f])
   (let ((speed (m/s->speed speed/mps)))
-    (format-48 "~1,2F~a" speed (if unit-label (string-append " " speed-label) ""))))
+    (string-append
+     (~r speed #:precision 2)
+     (if unit-label (string-append " " speed-label) ""))))
 
 ;; (: pace->string (->* (Real) (Boolean) String))
 (define (pace->string speed/mps [unit-label #f])
@@ -316,7 +315,9 @@
              (min (exact-truncate (/ sec/km 60.0)))
              (sec (exact-round (- sec/km (* min 60.0)))))
         (string-append
-         (string-replace (format-48 "~2F:~2F" min sec) " " "0")
+         (~r min #:precision 0 #:min-width 2 #:pad-string "0")
+         ":"
+         (~r sec #:precision 0 #:min-width 2 #:pad-string "0")
          (if unit-label (string-append " " pace-label) "")))
       ""))
 
@@ -327,7 +328,9 @@
              (min (exact-truncate (/ sec/100m 60.0)))
              (sec (exact-truncate (- sec/100m (* min 60.0)))))
         (string-append
-         (string-replace (format-48 "~2F:~2F" min sec) " " "0")
+         (~r min #:precision 0 #:min-width 2 #:pad-string "0")
+         ":"
+         (~r sec #:precision 0 #:min-width 2 #:pad-string "0")
          (if unit-label (string-append " " swim-pace-label) "")))
       ""))
 
@@ -337,20 +340,20 @@
 ;; (: distance->string (->* (Real) (Boolean) String))
 (define (distance->string distance/m [unit-label #f])
   (string-append
-   (format-48 "~1,2F" (m->distance distance/m))
+   (~r (m->distance distance/m) #:precision 2)
    (if unit-label (string-append " " distance-label) "")))
 
 ;; (: short-distance->string (->* (Real) (Boolean) String))
 (define (short-distance->string distance/m [unit-label #f])
   (string-append
-   (format-48 "~F" (inexact->exact (truncate (m->short-distance distance/m))))
+   (~r (m->short-distance distance/m) #:precision 0)
    (if unit-label (string-append " " short-distance-label)  "")))
 
 ;; (: vertical-distance->string (->* (Real) (Boolean) String))
 (define (vertical-distance->string distance/m [unit-label #f])
   (if (rational? distance/m)
       (string-append
-       (format-48 "~F" (inexact->exact (truncate (m->vertical-distance distance/m))))
+       (~r (m->vertical-distance distance/m) #:precision 0)
        (if unit-label (string-append " " vertical-distance-label)  ""))
       (~a distance/m)))
 
@@ -361,67 +364,94 @@
          (m (exact-truncate (/ (- seconds (* h 3600.0)) 60.0)))
          (s (exact-truncate (- seconds (* h 3600.0) (* m 60.0))))
          (ms (exact-truncate (* 10 (- seconds s (* h 3600.0) (* m 60.0))))))
-    (string-replace
-     (if high-precision?
-         (if (> h 0)
-             (format-48 "~2F:~2F:~2F.~F" h m s ms)
-             (format-48 "~2F:~2F.~F" m s ms))
-         (if (> h 0)
-             (format-48 "~2F:~2F:~2F" h m s)
-             (format-48 "~2F:~2F" m s)))
-     " " "0")))
+    (if high-precision?
+        (if (> h 0)
+            (string-append
+             (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+             "."
+             (~r ms #:precision 0))
+            (string-append
+             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+             "."
+             (~r ms #:precision 0)))
+        (if (> h 0)
+            (string-append
+             (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r s #:precision 0 #:min-width 2 #:pad-string "0"))
+            (string-append
+             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+             ":"
+             (~r s #:precision 0 #:min-width 2 #:pad-string "0"))))))
 
 
 ;;................................................... cadence and stride ....
 
 ;; (: stride->string (->* (Real) (Boolean) String))
 (define (stride->string stride [unit-label #f])
-  (if (> stride 0) 
-      (format-48 "~1,2F~a" (m->short-distance stride)
-                 (if unit-label (string-append " " short-distance-label) ""))
+  (if (> stride 0)
+      (string-append
+       (~r (m->short-distance stride) #:precision 2)
+       (if unit-label (string-append " " short-distance-label) ""))
       ""))
 
 ;; (: vosc->string (->* (Real) (Boolean) String))
 (define (vosc->string vosc [unit-label #f])
   (if (> vosc 0)
-      (format-48 "~1,1F~a"
-                 (m->vertical-oscillation vosc)
-                 (if unit-label (string-append " " vertical-oscillation-label) ""))
+      (string-append
+       (~r (m->vertical-oscillation vosc) #:precision 1)
+       (if unit-label (string-append " " vertical-oscillation-label) ""))
       ""))
 
 ;; (: vratio->string (->* (Real) (Boolean) String))
 (define (vratio->string vratio [unit-label #f])
   (if (> vratio 0)
-      (format-48 "~1,1F~a" vratio (if unit-label " %" ""))
+      (string-append
+       (~r vratio #:precision 1)
+       (if unit-label " %" ""))
       ""))
 
 ;; (: stance-time->string (->* (Real) (Boolean) String))
 (define (stance-time->string stime [unit-label #f])
   (if (> stime 0)
-      (format-48 "~F~a" (exact-round stime) (if unit-label " ms" ""))
+      (string-append
+       (~r stime #:precision 0)
+       (if unit-label " ms" ""))
       ""))
 
 ;; (: stance-time-pct->string (->* (Real) (Boolean) String))
 (define (stance-time-pct->string pct [unit-label #f])
   (if (> pct 0)
-      (format-48 "~1,1F~a" pct (if unit-label " %" ""))
+      (string-append
+       (~r pct #:precision 1)
+       (if unit-label " %" ""))
       ""))
 
 ;; (: stance->string (-> Real Real String))
 (define (stance->string stime pct)
   (if (and (> pct 0) (> stime 0))
-      (format-48 "~F ms (~F %)" (exact-round stime) (exact-round pct))
+      (format "~a ms (~a %)" (~r stime #:precision 0) (~r pct #:precision 0))
       ""))
 
 ;; (: cadence->string (->* (Real (U Symbol Nonnegative-Integer)) (Boolean) String))
 (define (cadence->string cadence sport [unit-label #f])
   (if (> cadence 0)
-      (format-48 "~F ~a" (exact-truncate cadence)
-                 (case sport
-                   ((running 1) "SPM")
-                   ((biking 2) "RPM")
-                   ((swimming 5) "strokes/min")
-                   (else "SPM")))
+      (string-append
+       (~r cadence #:precision 0)
+       " "
+       (case sport
+         ((running 1) "SPM")
+         ((biking 2) "RPM")
+         ((swimming 5) "strokes/min")
+         (else "SPM")))
       ""))
 
 
@@ -429,12 +459,16 @@
 
 ;; (: calories->string (-> Real String))
 (define (calories->string cal)
-  (format-48 "~F C" (exact-truncate cal)))
+  (string-append
+   (~r cal #:precision 0)
+   " KCal"))
 
 ;; (: power->string (->* (Real) (Boolean) String))
 (define (power->string p [unit-label #f])
   (if (> p 0)
-      (format-48 "~F~a" (exact-round p) (if unit-label " watts" ""))
+      (string-append
+       (~r p #:precision 0)
+       (if unit-label " watts" ""))
       ""))
 
 ;; (: work->string (->* (Real) (Boolean) String))
@@ -446,20 +480,21 @@
 ;; (: weight->string (->* (Real) (Boolean) String))
 (define (weight->string w [unit-label #f])
   (if (> w 0)
-      (format-48 "~1,1F ~a"
-                 (m->weight w)
-                 (if unit-label weight-label "")) ""))
+      (string-append
+       (~r (m->weight w) #:precision 1)
+       (if unit-label (string-append " " weight-label) ""))
+      ""))
 
 ;; (: pco->string (->* (Real) (Boolean) String))
 (define (pco->string vosc [unit-label #f])
-  (format-48 "~1,1F~a"
-             (m->vertical-oscillation vosc)
-             (if unit-label (string-append " " vertical-oscillation-label) "")))
+  (string-append
+   (~r (m->vertical-oscillation vosc) #:precision 1)
+   (if unit-label (string-append " " vertical-oscillation-label) "")))
 
 
 ;; (: power-phase->string (-> Real Real String))
 (define (power-phase->string start end)
-  (format-48 "~F° - ~F°" (exact-round start) (exact-round end)))
+  (format "~a° - ~a°" (~r start #:precision 0) (~r end #:precision 0)))
 
 
 ;;................................................................ other ....
@@ -470,7 +505,7 @@
 
 ;; (: pct->string (-> Real String))
 (define (pct->string val)
-  (format-48 "~1,1F %" val))
+  (string-append (~r val #:precision 1) " %"))
 
 
 ;.............................................................. readers ....

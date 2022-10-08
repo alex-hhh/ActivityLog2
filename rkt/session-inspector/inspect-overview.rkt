@@ -14,8 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require (rename-in srfi/48 (format format-48))
-         data-frame
+(require data-frame
          db/base
          math/statistics
          pict
@@ -194,8 +193,10 @@
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
-                        (format-48 "~1,1F% (~1,1F% ~a)" v
-                                   dev (if (< dev 0) "Left" "Right")))))
+                        (format "~a% (~a% ~a)"
+                                (~r v #:precision 1)
+                                (~r dev #:precision 1)
+                                (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Total Vertical Travel: "
                     session-total-vertical-travel
                     (lambda (v) (vertical-distance->string v #t)))))
@@ -245,8 +246,10 @@
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
-                        (format-48 "~1,1F% (~1,1F% ~a)" v
-                                   dev (if (< dev 0) "Left" "Right")))))
+                        (format "~a% (~a% ~a)"
+                                (~r v #:precision 1)
+                                (~r dev #:precision 1)
+                                (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Torque Effectiveness: "
                     (lambda (session)
                       (let ((left (session-avg-left-torque-effectiveness session))
@@ -255,7 +258,9 @@
                             (cons left right)
                             #f)))
                     (lambda (v)
-                      (format-48 "~1,1F% L, ~1,1F% R" (car v) (cdr v))))
+                      (format "~a% L, ~a% R"
+                              (~r (car v) #:precision 1)
+                              (~r (cdr v) #:precision 1))))
    (badge-field-def "Pedal Smoothness: "
                     (lambda (session)
                       (let ((left (session-avg-left-pedal-smoothness session))
@@ -264,7 +269,9 @@
                             (cons left right)
                             #f)))
                     (lambda (v)
-                      (format-48 "~1,1F% L, ~1,1F% R" (car v) (cdr v))))
+                      (format "~a% L, ~a% R"
+                              (~r (car v) #:precision 1)
+                              (~r (cdr v) #:precision 1))))
    (badge-field-def "Platform Centre Offset: "
                     (lambda (session)
                       (let ((left (session-avg-left-pco session))

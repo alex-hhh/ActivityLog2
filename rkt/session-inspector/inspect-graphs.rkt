@@ -14,8 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require (rename-in srfi/48 (format format-48))
-         data-frame
+(require data-frame
          data-frame/private/bsearch
          framework
          math/statistics
@@ -26,6 +25,7 @@
          racket/class
          racket/contract
          racket/dict
+         racket/format
          racket/gui/base
          racket/list
          racket/match
@@ -1449,7 +1449,7 @@
       (let ((avg (get-avg-swolf)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
-                      #:label (format-48 "Avg ~1,1F" avg))
+                      #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
 
     (define/override (set-data-frame data-frame)
@@ -1480,7 +1480,7 @@
       (let ((avg (get-avg-stroke-count)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
-                      #:label (format-48 "Avg ~1,1F" avg))
+                      #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
 
     (define/override (set-data-frame data-frame)
@@ -1512,7 +1512,7 @@
       (let ((avg (get-avg-cadence)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
-                      #:label (format-48 "Avg ~1,1F" avg))
+                      #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
 
     (define/override (set-data-frame data-frame)

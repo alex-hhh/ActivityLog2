@@ -17,7 +17,6 @@
 (require db/base
          racket/class
          racket/format
-         (rename-in srfi/48 (format format-48))
          racket/gui/base
          racket/list
          racket/string
@@ -480,7 +479,7 @@ select X.session_id
          (qcolumn "L-R Bal"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
                   fn
                   #:default-visible? #f))
 
@@ -488,7 +487,7 @@ select X.session_id
          (qcolumn "Left TEff"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
                   fn
                   #:default-visible? #f))
 
@@ -496,7 +495,7 @@ select X.session_id
          (qcolumn "Right TEff"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
                   fn
                   #:default-visible? #f))
 
@@ -504,7 +503,7 @@ select X.session_id
          (qcolumn "Left PSmth"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
                   fn
                   #:default-visible? #f))
 
@@ -512,7 +511,7 @@ select X.session_id
          (qcolumn "Right PSmth"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F%" v) "")))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
                   fn
                   #:default-visible? #f))
 
@@ -579,7 +578,7 @@ select X.session_id
          (qcolumn "Training Effect"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                      (if (> v 0) (~r v #:precision 1) "")))
                   fn
                   #:default-visible? #t))
 
@@ -587,7 +586,7 @@ select X.session_id
          (qcolumn "RPE"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1F" v) "")))
+                      (if (> v 0) (~r v #:precision 0) "")))
                   fn
                   #:default-visible? #t))
 
@@ -595,7 +594,7 @@ select X.session_id
          (qcolumn "Effort"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                      (if (> v 0) (~r v #:precision 1) "")))
                   fn
                   #:default-visible? #t))
 
@@ -603,7 +602,7 @@ select X.session_id
          (qcolumn "Intensity"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (format-48 "~1,1F" v) "")))
+                      (if (> v 0) (~r v #:precision 1) "")))
                   fn
                   #:default-visible? #t))
 
