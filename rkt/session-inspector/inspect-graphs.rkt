@@ -56,6 +56,9 @@
 (define (is-lap-swimming/df? data-frame)
   (df-get-property data-frame 'is-lap-swim?))
 
+(define (is-ow-swimming/df? data-frame)
+  (df-get-property data-frame 'is-ow-swim?))
+
 
 ;;.......................................................... chart-view% ....
 
@@ -1786,6 +1789,21 @@
                                 heart-rate-pct-graph%))])
     (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
+
+;; These are the graps used for Open Water Swimming -- some Pool Swimming
+;; graphs don't make sense, but neither do the full graphs.
+(define (make-owswim-graphs parent hover-callback)
+  (for/list ([c% (in-list (list swim-pace-graph%
+                                swim-cadence-graph%
+                                speed-graph%
+                                speed-zone-graph%
+                                heart-rate-graph%
+                                heart-rate-zones-graph%
+                                heart-rate-pct-graph%
+                                stride-graph%
+                                temperature-graph%))])
+    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+
 (define (make-xdata-graphs parent hover-callback)
   (for/list ([md (get-available-xdata-metadata)])
     (new graph-view%
@@ -1989,21 +2007,15 @@
 
     (define default-graphs-1 #f)
     (define swim-graphs-1 #f)
+    (define owswim-graphs-1 #f)
     (define xdata-graphs-1 #f)
 
     ;; Needs to be done after the panel has all its children.
     (send panel set-percentages initial-panel-split)
 
     (define (hover-callback y)
-      (when default-graphs-1
-        (for ((g (in-list default-graphs-1)))
-          (send g draw-marker-at y)))
-      (when swim-graphs-1
-        (for ((g (in-list swim-graphs-1)))
-          (send g draw-marker-at y)))
-      (when xdata-graphs-1
-        (for ((g (in-list xdata-graphs-1)))
-          (send g draw-marker-at y))))
+      (for ([g (in-list graphs)])
+        (send g draw-marker-at y)))
 
     (define (default-graphs)
       (unless default-graphs-1
@@ -2014,6 +2026,11 @@
       (unless swim-graphs-1
         (set! swim-graphs-1 (make-swim-graphs graphs-panel hover-callback)))
       swim-graphs-1)
+
+    (define (owswim-graphs)
+      (unless owswim-graphs-1
+        (set! owswim-graphs-1 (make-owswim-graphs graphs-panel hover-callback)))
+      owswim-graphs-1)
 
     (define (xdata-graphs)
       (unless xdata-graphs-1
@@ -2029,8 +2046,9 @@
         (let ((toplevel (send panel get-top-level-window))
               (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
               (all-graphs (append
-                           (if (is-lap-swimming/df? data-frame)
-                               (swim-graphs) (default-graphs))
+                           (cond ((is-lap-swimming/df? data-frame) (swim-graphs))
+                                 ((is-ow-swimming/df? data-frame) (owswim-graphs))
+                                 (#t (default-graphs)))
                            (xdata-graphs))))
           (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
                  => (lambda (ngraps)
@@ -2044,6 +2062,7 @@
       (send interval-choice save-visual-layout)
       (for-each (lambda (g) (send g save-visual-layout)) (default-graphs))
       (for-each (lambda (g) (send g save-visual-layout)) (swim-graphs))
+      (for-each (lambda (g) (send g save-visual-layout)) (owswim-graphs))
       (for-each (lambda (g) (send g save-visual-layout)) (xdata-graphs))
       (put-pref
        the-pref-tag
@@ -2067,9 +2086,9 @@
                ;; If we already have a list of graphs that are visible, select
                ;; them.
                (define c
-                 (for/list ([g (if (is-lap-swimming/df? data-frame)
-                                   (swim-graphs)
-                                   (append (default-graphs) (xdata-graphs)))]
+                 (for/list ([g (cond ((is-lap-swimming/df? data-frame) (swim-graphs))
+                                     ((is-ow-swimming/df? data-frame) (append (owswim-graphs) (xdata-graphs)))
+                                     (#t (append (default-graphs) (xdata-graphs))))]
                             #:when (member (send g get-preferences-tag) visible))
                    g))
                ;; Ensure the graphs are in the same order as the visible list
@@ -2093,9 +2112,9 @@
                    (#t
                     (list speed-graph% power-graph% heart-rate-graph% cadence-graph%))))
                (define candidates
-                 (if (is-lap-swimming/df? data-frame)
-                     (swim-graphs)
-                     (append (default-graphs) (xdata-graphs))))
+                 (cond ((is-lap-swimming/df? data-frame) (swim-graphs))
+                       ((is-ow-swimming/df? data-frame) (append (owswim-graphs) (xdata-graphs)))
+                       (#t (append (default-graphs) (xdata-graphs)))))
                (for/list ([c (in-list chart-classes)])
                  (for/first ([g (in-list candidates)] #:when (is-a? g c))
                    g)))))
@@ -2113,8 +2132,6 @@
         g))
 
     (define (setup-graphs-for-current-session)
-
-
       (set! graphs (get-graphs-for-session the-session))
       (let ([graph-count (length graphs)])
         (cond ((<= graph-count 3)

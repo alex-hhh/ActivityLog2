@@ -106,6 +106,18 @@
    axis-hr-zone
    axis-swim-pace))
 
+(define owswim-axis-choices
+  (list
+   axis-swim-pace
+   axis-swim-avg-cadence
+   axis-temperature
+   axis-speed
+   axis-speed-zone
+   axis-hr-bpm
+   axis-hr-pct
+   axis-hr-zone
+   axis-stride))
+
 (define histogram-plot-panel%
   (class object% (init parent) (super-new)
     (define pref-tag 'activity-log:histogram-plot)
@@ -207,6 +219,9 @@
 
     (define (lap-swimming?)
       (if data-frame (df-get-property data-frame 'is-lap-swim?) #f))
+
+    (define (open-water-swimming?)
+      (if data-frame (df-get-property data-frame 'is-ow-swim?) #f))
 
     ;; get the label of the axis at INDEX.  This is compicated by the fact
     ;; that some entries in AXIS-CHOICES are dual axes.
@@ -512,8 +527,11 @@
       (save-params-for-sport)
       (set! data-frame df)
       (set! axis-choices
-            (let ((md (append (if (lap-swimming?) swim-axis-choices default-axis-choices)
-                              (get-available-xdata-metadata))))
+            (let ((md (append
+                       (cond ((lap-swimming?) swim-axis-choices)
+                             ((open-water-swimming?) owswim-axis-choices)
+                             (#t default-axis-choices))
+                       (get-available-xdata-metadata))))
               (filter-axis-list data-frame md)))
       (install-axis-choices axis-choices)
       (if (> (length axis-choices) 0)

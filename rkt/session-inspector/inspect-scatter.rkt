@@ -108,6 +108,18 @@
    axis-swim-swolf
    axis-swim-pace))
 
+(define owswim-axis-choices
+  (list
+   axis-swim-pace
+   axis-swim-avg-cadence
+   axis-temperature
+   axis-speed
+   axis-speed-zone
+   axis-hr-bpm
+   axis-hr-pct
+   axis-hr-zone
+   axis-stride))
+
 ;; Find the bounds of the DATA-SERIES. The bounds are rounded to X-DIGITS and
 ;; Y-DIGITS and made slightly larger so they fit all the data points nicely.
 ;; A vector of xmin, xmax, ymin, ymax is returned.
@@ -685,9 +697,13 @@
       (set! outlier-handling 'mark)
       (set! export-file-name #f)
       (define lap-swimming? (df-get-property data-frame 'is-lap-swim?))
+      (define open-water-swimming? (df-get-property data-frame 'is-ow-swim?))
       (set! axis-choices
-            (let ((md (append (if lap-swimming? swim-axis-choices default-axis-choices)
-                              (get-available-xdata-metadata))))
+            (let ((md (append
+                       (cond (lap-swimming? swim-axis-choices)
+                             (open-water-swimming? owswim-axis-choices)
+                             (#t default-axis-choices))
+                       (get-available-xdata-metadata))))
               (filter-axis-list data-frame md)))
       (install-axis-choices axis-choices)
       (restore-params-for-sport)

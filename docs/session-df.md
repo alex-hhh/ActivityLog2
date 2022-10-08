@@ -14,7 +14,8 @@ The data frame object can store a set of properties, which are key - value
 mappings. The following properties are present in the session data frame,
 while other parts of the application can attach additional properties:
 
-* **is-lap-swim?** is #t if this is a swim activity
+* **is-lap-swim?** is #t if this is a pool swim activity
+* **is-ow-swim?** is #t if this is an open-water swim activity
 * **session-id** the database id for the session (A_SESSION.id)
 * **sport** is a vector of sport-id and subsport-id, as defined in the `E_SPORT`
   and `E_SUB_SPORT` database tables.

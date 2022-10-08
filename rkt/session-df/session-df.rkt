@@ -124,10 +124,12 @@
                     (if (sql-null? sub-sport-id) #f sub-sport-id)))
           (vector #f #f))))
 
-  (define is-lap-swim?
+  (define-values (is-lap-swim? is-ow-swim?)
     (when sport
       (match-define (vector sport-id sub-sport-id) sport)
-      (and (equal? sport-id 5) (equal? sub-sport-id 17))))
+      (values
+       (and (equal? sport-id 5) (equal? sub-sport-id 17))
+       (and (equal? sport-id 5) (not (equal? sub-sport-id 17))))))
 
   (define df
     (df-read/sql
@@ -173,6 +175,7 @@
   (df-put-property! df 'critical-power-validity cp-validity)
 
   (df-put-property! df 'is-lap-swim? is-lap-swim?)
+  (df-put-property! df 'is-ow-swim? is-ow-swim?)
   (df-put-property! df 'sport sport)
   (df-put-property! df 'session-id session-id)
 
@@ -360,7 +363,8 @@
       (df-map
        df
        '("dst")
-       (if (df-get-property df 'is-lap-swim?)
+       (if (or (df-get-property df 'is-lap-swim?)
+               (df-get-property df 'is-ow-swim?))
            (if (eq? (al-pref-measurement-system) 'metric)
                distance-meters distance-yards)
            (if (eq? (al-pref-measurement-system) 'metric)
@@ -478,7 +482,8 @@
 
   (when (df-contains? df "spd" "elapsed")
 
-    (if (df-get-property df 'is-lap-swim?)
+    (if (or (df-get-property df 'is-lap-swim?)
+            (df-get-property df 'is-ow-swim?))
         (df-add-lazy!
          df
          "pace" '("spd")
