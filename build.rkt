@@ -32,9 +32,15 @@
          racket/system)
 
 (define app-icon-file "./img/logo/ActivityLog2.ico")
-(define app-exe-file "ActivityLog2.exe")
+(define app-exe-file
+  (if (eq? (system-type 'os) 'windows)
+      "ActivityLog2.exe"
+      "ActivityLog2"))
 (define app-icon-file-ca "./img/logo/AL2-Climb-Analysis.ico")
-(define app-exe-file-ca "AL2-Climb-Analysis.exe")
+(define app-exe-file-ca
+  (if (eq? (system-type 'os) 'windows)
+      "AL2-Climb-Analysis.exe"
+      "AL2-Climb-Analysis"))
 
 (define (app-revision)
   (parameterize ((current-error-port (open-output-bytes)))

@@ -1,7 +1,5 @@
 # -*- mode: conf -*-
 *.bak
-*.exe
-*.fit
 *~
 \#*\#
 .\#*
@@ -10,20 +8,27 @@ scratch*
 Thumbs.db
 *.diff
 *.patch
-# these are generated files
-ActivityLog2.ico
-build-id.txt
-# racket puts compiled files in this folder
+
+# Racket puts compiled files in this folder
 compiled/
-# Folders containing data used during the build.
+
+# Folders containing data generated and used during the build.
+ActivityLog2.ico
+ActivityLog2
+AL2-Climb-Analysis
+build-id.txt
 dist/
 test/test-db/
 test/test-fit/
 pkgs/catalog/
 pkgs/catalog-config.txt
+
 # ignore it for now, contains user specific info.
 .dir-locals.el
+
 # various data files that we don't want under version control
+*.exe
+*.fit
 *.csv
 *.xlsx
 *.xls
@@ -33,4 +38,3 @@ TAGS
 flycheck_*
 test-results-*.xml
 test/test-results/
-

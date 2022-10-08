@@ -66,7 +66,7 @@
 ;; application is compiled into an executable...
 (set-splash-progress-bar?! #f)
 
-(start-splash (vector draw-splash 400 100) "ActivityLog2" 100)
+(start-splash (vector draw-splash 420 120) "ActivityLog2" 100)
 (collect-garbage 'incremental)
 
 (lazy-require ("rkt/main.rkt" (main)))
