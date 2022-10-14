@@ -5,7 +5,7 @@
 ;; some convenience functions for retrieving data from it.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,7 @@
          "../rkt/database.rkt")
 
 (provide/contract
- (sid->df (-> number? data-frame?))
+ (sid->df (-> number? (or/c data-frame? #f)))
  (hrv->df (-> number? (or/c data-frame? #f)))
  (session-df->csv (-> data-frame? path-string? any/c))
  (pp-stops (-> data-frame? any/c)))

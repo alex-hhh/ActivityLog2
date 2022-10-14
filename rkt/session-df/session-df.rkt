@@ -86,7 +86,7 @@
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
  (make-plot-renderer/swim-stroke (-> ts-data/c y-range/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
  (get-series/ordered (-> data-frame? (listof string?)))
- (session-df (-> connection? number? data-frame?))
+ (session-df (-> connection? number? (or/c data-frame? #f)))
  (reorder-sids (-> (listof integer?) (listof integer?))))
 
 (provide y-range/c factor-colors/c)
@@ -116,158 +116,161 @@
 ;; tries to read in a list of sessions to compute summary values...)
 (define (make-session-data-frame db session-id)
 
-  (define sport
-    (let ([row (query-maybe-row db (fetch-sport) session-id)])
-      (if row
-          (match-let (((vector sport-id sub-sport-id) row))
-            (vector (if (sql-null? sport-id) #f sport-id)
-                    (if (sql-null? sub-sport-id) #f sub-sport-id)))
-          (vector #f #f))))
+  (let/ec return
 
-  (define-values (is-lap-swim? is-ow-swim?)
-    (when sport
-      (match-define (vector sport-id sub-sport-id) sport)
-      (values
-       (and (equal? sport-id 5) (equal? sub-sport-id 17))
-       (and (equal? sport-id 5) (not (equal? sub-sport-id 17))))))
+    (define sport
+      (let ([row (query-maybe-row db (fetch-sport) session-id)])
+        (if row
+            (match-let (((vector sport-id sub-sport-id) row))
+              (vector (if (sql-null? sport-id) #f sport-id)
+                      (if (sql-null? sub-sport-id) #f sub-sport-id)))
+            ;; There is no session by this ID
+            (return #f))))
 
-  (define df
-    (df-read/sql
-     db
-     (if is-lap-swim? (fetch-trackpoins/swim) (fetch-trackpoins))
-     session-id))
+    (define-values (is-lap-swim? is-ow-swim?)
+      (when sport
+        (match-define (vector sport-id sub-sport-id) sport)
+        (values
+         (and (equal? sport-id 5) (equal? sub-sport-id 17))
+         (and (equal? sport-id 5) (not (equal? sub-sport-id 17))))))
 
-  (when is-lap-swim?
-    ;; Lap swims don't record the distance in the A_TRACKPOINT table, at least
-    ;; not reliably.  We reconstruct the "dst" series here from the lengths
-    ;; and the "pool_length".  Note that we use the "active" series as a
-    ;; helper, which tracks whether a length is active (i.e. traversing the
-    ;; pool) or passive (i.e. resting at the end of the pool)
-    (match-define (vector span unit)
-      (query-row db "select pool_length, pool_length_unit
+    (define df
+      (df-read/sql
+       db
+       (if is-lap-swim? (fetch-trackpoins/swim) (fetch-trackpoins))
+       session-id))
+
+    (when is-lap-swim?
+      ;; Lap swims don't record the distance in the A_TRACKPOINT table, at least
+      ;; not reliably.  We reconstruct the "dst" series here from the lengths
+      ;; and the "pool_length".  Note that we use the "active" series as a
+      ;; helper, which tracks whether a length is active (i.e. traversing the
+      ;; pool) or passive (i.e. resting at the end of the pool)
+      (match-define (vector span unit)
+        (query-row db "select pool_length, pool_length_unit
                        from A_SESSION where id = ?" session-id))
-    (unless (sql-null? span)
-      ;; NOTE: unfortunately we store the pool length in its original unit,
-      ;; which is a mistake.  The DB should store metric values and those
-      ;; should be converted for display only...
-      (define pool-length (if (or (sql-null? unit) (equal? unit 0))
-                              span
-                              (* span 0.9144)))
-      (define dst 0)
-      ;; NOTE: distance is at the end of the length!
-      (df-add-derived!
-       df
-       "dst"
-       '("active")
-       (lambda (v)
-         (define active (list-ref v 0))
-         (set! dst (+ dst (* active pool-length)))
-         dst))))
+      (unless (sql-null? span)
+        ;; NOTE: unfortunately we store the pool length in its original unit,
+        ;; which is a mistake.  The DB should store metric values and those
+        ;; should be converted for display only...
+        (define pool-length (if (or (sql-null? unit) (equal? unit 0))
+                                span
+                                (* span 0.9144)))
+        (define dst 0)
+        ;; NOTE: distance is at the end of the length!
+        (df-add-derived!
+         df
+         "dst"
+         '("active")
+         (lambda (v)
+           (define active (list-ref v 0))
+           (set! dst (+ dst (* active pool-length)))
+           dst))))
 
-  ;; delete all empty series (e.g "gct" for a cycling activity)
-  (for ([series (in-list (df-series-names df))])
-    (unless (df-has-non-na? df series)
-      (df-del-series! df series)))
+    ;; delete all empty series (e.g "gct" for a cycling activity)
+    (for ([series (in-list (df-series-names df))])
+      (unless (df-has-non-na? df series)
+        (df-del-series! df series)))
 
-  (define-values (cp-data cp-validity)
-    (critical-power-for-session session-id #:database db))
-  (df-put-property! df 'critical-power cp-data)
-  (df-put-property! df 'critical-power-validity cp-validity)
+    (define-values (cp-data cp-validity)
+      (critical-power-for-session session-id #:database db))
+    (df-put-property! df 'critical-power cp-data)
+    (df-put-property! df 'critical-power-validity cp-validity)
 
-  (df-put-property! df 'is-lap-swim? is-lap-swim?)
-  (df-put-property! df 'is-ow-swim? is-ow-swim?)
-  (df-put-property! df 'sport sport)
-  (df-put-property! df 'session-id session-id)
+    (df-put-property! df 'is-lap-swim? is-lap-swim?)
+    (df-put-property! df 'is-ow-swim? is-ow-swim?)
+    (df-put-property! df 'sport sport)
+    (df-put-property! df 'session-id session-id)
 
-  (when (df-contains? df "timestamp")
-    (df-set-sorted! df "timestamp" <)
+    (when (df-contains? df "timestamp")
+      (df-set-sorted! df "timestamp" <)
 
-    ;; NOTE: the session might contain lap timestamps that have no track
-    ;; points, don't put these laps in the data frame
-    (let ((row-count (df-row-count df)))
-      (if (> row-count 0)
-          (let* ([laps (query-list db (fetch-lap-timestamps) session-id)]
-                 [maxts (df-ref df (sub1 row-count) "timestamp")]
-                 [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
-            (df-put-property! df 'laps xlaps))
-          (df-put-property! df 'laps '()))))
+      ;; NOTE: the session might contain lap timestamps that have no track
+      ;; points, don't put these laps in the data frame
+      (let ((row-count (df-row-count df)))
+        (if (> row-count 0)
+            (let* ([laps (query-list db (fetch-lap-timestamps) session-id)]
+                   [maxts (df-ref df (sub1 row-count) "timestamp")]
+                   [xlaps (for/vector ([lap laps] #:when (<= lap maxts)) lap)])
+              (df-put-property! df 'laps xlaps))
+            (df-put-property! df 'laps '()))))
 
-  ;; If we have a "dst" series, mark it as sorted.
-  (when (df-contains? df "dst")
-    (with-handlers
-      (((lambda (e) #t)
-        (lambda (e)
-          ;; df-set-sorted! will raise an exception if the dst series contains
-          ;; NA's or it is not fully sorted.  We fix it in that case and try
-          ;; again.
-          (define prev-value (df-ref df 0 "dst"))
-          (when (df-is-na? df "dst" prev-value)
-            (df-set! df 0 0 "dst")
-            (set! prev-value 0))
-          (for ([index (in-range 1 (df-row-count df))])
-            (let ((value (df-ref df index "dst")))
-              (if (or (df-is-na? df "dst" value) (<= value prev-value))
-                  (df-set! df index prev-value "dst")
-                  (set! prev-value value))))
-          (df-set-sorted! df "dst" <))))
-      (df-set-sorted! df "dst" <)))
+    ;; If we have a "dst" series, mark it as sorted.
+    (when (df-contains? df "dst")
+      (with-handlers
+        (((lambda (e) #t)
+          (lambda (e)
+            ;; df-set-sorted! will raise an exception if the dst series contains
+            ;; NA's or it is not fully sorted.  We fix it in that case and try
+            ;; again.
+            (define prev-value (df-ref df 0 "dst"))
+            (when (df-is-na? df "dst" prev-value)
+              (df-set! df 0 0 "dst")
+              (set! prev-value 0))
+            (for ([index (in-range 1 (df-row-count df))])
+              (let ((value (df-ref df index "dst")))
+                (if (or (df-is-na? df "dst" value) (<= value prev-value))
+                    (df-set! df index prev-value "dst")
+                    (set! prev-value value))))
+            (df-set-sorted! df "dst" <))))
+        (df-set-sorted! df "dst" <)))
 
-  (add-timer-series df)
-  (add-elapsed-series df)
-  (add-distance-series df)
-  (add-temperature-series df)
-  (fixup-invalid-zero-values df "gct")
-  (fixup-invalid-zero-values df "pgct")
-  (smooth-start-of-series df "gct")
-  (smooth-start-of-series df "pgct")
-  (smooth-start-of-series df "vosc")
-  (smooth-start-of-series df "cad")
-  (add-speed-series df)
-  (add-pace-series df)
-  (add-speed-zone-series df)
-  (maybe-add-grade-series! df)
-  (when (is-runnig? sport)
-    (add-gap-series df)             ; needs to be added after the grade series
-    (add-gaspd-series df))
-  (add-hr-pct-series df)
-  (add-hr-zone-series df)
-  (add-stride-series df)
-  (add-vratio-series df)
-  (smooth-start-of-series df "vratio")
-  (add-power-zone-series df)
-  (add-lppa-series df)                  ; left power phase angle
-  (add-lpppa-series df)                 ; left peak power phase angle
-  (fixup-pp-series df "lpps")
-  (fixup-pp-series df "rpps")
-  (fixup-pp-series df "lppps")
-  (fixup-pp-series df "rppps")
-  (add-rppa-series df)
-  (add-rpppa-series df)
-  (fixup-lrbal-series df)
-  (add-torque-series df)
+    (add-timer-series df)
+    (add-elapsed-series df)
+    (add-distance-series df)
+    (add-temperature-series df)
+    (fixup-invalid-zero-values df "gct")
+    (fixup-invalid-zero-values df "pgct")
+    (smooth-start-of-series df "gct")
+    (smooth-start-of-series df "pgct")
+    (smooth-start-of-series df "vosc")
+    (smooth-start-of-series df "cad")
+    (add-speed-series df)
+    (add-pace-series df)
+    (add-speed-zone-series df)
+    (maybe-add-grade-series! df)
+    (when (is-runnig? sport)
+      (add-gap-series df)             ; needs to be added after the grade series
+      (add-gaspd-series df))
+    (add-hr-pct-series df)
+    (add-hr-zone-series df)
+    (add-stride-series df)
+    (add-vratio-series df)
+    (smooth-start-of-series df "vratio")
+    (add-power-zone-series df)
+    (add-lppa-series df)                  ; left power phase angle
+    (add-lpppa-series df)                 ; left peak power phase angle
+    (fixup-pp-series df "lpps")
+    (fixup-pp-series df "rpps")
+    (fixup-pp-series df "lppps")
+    (fixup-pp-series df "rppps")
+    (add-rppa-series df)
+    (add-rpppa-series df)
+    (fixup-lrbal-series df)
+    (add-torque-series df)
 
-  (when is-lap-swim?
-    (add-swolf-series df))
+    (when is-lap-swim?
+      (add-swolf-series df))
 
-  (unless is-lap-swim?
-    (cond ((df-contains? df "timer")
-           (df-set-default-weight-series! df "timer"))
-          ((df-contains? df "elapsed")
-           (df-set-default-weight-series! df "elapsed"))))
+    (unless is-lap-swim?
+      (cond ((df-contains? df "timer")
+             (df-set-default-weight-series! df "timer"))
+            ((df-contains? df "elapsed")
+             (df-set-default-weight-series! df "elapsed"))))
 
-  (when cp-data
-    (cond ((eqv? (vector-ref sport 0) 1) ; running
-           (add-wbald-series/gap df))
-          ((eqv? (vector-ref sport 0) 2) ; biking
-           (add-wbald-series df "pwr"))))
+    (when cp-data
+      (cond ((eqv? (vector-ref sport 0) 1) ; running
+             (add-wbald-series/gap df))
+            ((eqv? (vector-ref sport 0) 2) ; biking
+             (add-wbald-series df "pwr"))))
 
-  (read-xdata-series df db)
+    (read-xdata-series df db)
 
-  ;; WARNING: don't check for empty series here (or any operation that
-  ;; references all the series) as this will materialize all lazy series and
-  ;; make this function really slow!
+    ;; WARNING: don't check for empty series here (or any operation that
+    ;; references all the series) as this will materialize all lazy series and
+    ;; make this function really slow!
 
-  df)
+    df))
 
 (define (add-timer-series df)
   (when (df-contains? df "timestamp")
@@ -1360,12 +1363,13 @@
               (refresh-df sid df)))
         (#t
          (let ((df (make-session-data-frame db sid)))
-           (hash-set! df-cache sid df)
-           (when (> (hash-count df-cache) df-cache-limit)
-             ;; Cache limit reached, demote df-cache to df-cache2 (loosing old
-             ;; data) and create a fresh df-cache
-             (set! df-cache2 df-cache)
-             (set! df-cache (make-hash)))
+           (when df                     ; if the session actually exists
+             (hash-set! df-cache sid df)
+             (when (> (hash-count df-cache) df-cache-limit)
+               ;; Cache limit reached, demote df-cache to df-cache2 (loosing old
+               ;; data) and create a fresh df-cache
+               (set! df-cache2 df-cache)
+               (set! df-cache (make-hash))))
            df))))
 
 ;; Remove session id SID from the cache.  If SID is #f, the entire cache is
