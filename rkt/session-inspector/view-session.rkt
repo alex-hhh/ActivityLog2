@@ -63,8 +63,6 @@
     (define headline "")
     (define sport #f)
     (define sub-sport #f)
-    (define timestamp #f)
-    (define time-zone #f)
     (define perceived-effort 0)
 
     (define panel0 (new horizontal-panel%
@@ -177,11 +175,6 @@
                        (set! perceived-effort (send control get-selection))
                        (send rpe-name set-label (rpe->string perceived-effort)))]))
 
-    (define time-zone-edit
-      (new time-zone-selector%
-           [parent sport-panel-edit]
-           [callback (lambda (id name) (set! time-zone name))]))
-
     (define edit-button
       (new button%
            [parent panel0]
@@ -230,9 +223,6 @@
       (send session-title-edit set-value headline)
       (send sport-name-edit set-selected-sport sport sub-sport)
       (send rpe-name-choice set-selection perceived-effort)
-      (if time-zone
-          (send time-zone-edit set-selected-time-zone time-zone)
-          (send time-zone-edit set-default-time-zone))
       (send panel change-children
             (lambda (old)
               (list session-title-edit sport-panel-edit)))
@@ -249,8 +239,6 @@
       (send sport-name set-label (get-sport-name sport sub-sport))
       (send session-title set-label headline)
       (send rpe-name set-label (rpe->string perceived-effort))
-      (when timestamp              ; NOTE: it is ok for the time-zone to be #f
-        (send start-time set-label (format-date timestamp time-zone)))
       (send panel change-children
             (lambda (old)
               (list session-title start-time sport-panel)))
@@ -273,11 +261,7 @@
          (lambda ()
            (query-exec db "
 update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
- where id = ?" headline (or sport sql-null) (or sub-sport sql-null) (if (> perceived-effort 0) perceived-effort sql-null) sid)
-           (when time-zone
-             (query-exec db "
-update A_SESSION set time_zone_id = (select id from E_TIME_ZONE where name = ?)
-where id = ?" time-zone sid))))))
+ where id = ?" headline (or sport sql-null) (or sub-sport sql-null) (if (> perceived-effort 0) perceived-effort sql-null) sid)))))
 
     (define/public (set-session session)
       (if session
@@ -286,18 +270,16 @@ where id = ?" time-zone sid))))))
             (set! sport (session-sport session))
             (set! sub-sport (session-sub-sport session))
             (set! session-id (dict-ref session 'database-id #f))
-            (set! time-zone (session-time-zone session))
-            (set! timestamp (session-start-time session))
             (set! perceived-effort (or (session-rpe session) 0))
             (send rpe-name set-label (rpe->string perceived-effort))
-            (send start-time set-label (format-date timestamp (session-time-zone session))))
+            (send start-time set-label
+                  (format-date (session-start-time session)
+                               (session-time-zone session))))
           (begin
             (set! headline "")
             (set! sport #f)
             (set! sub-sport #f)
             (set! session-id #f)
-            (set! time-zone #f)
-            (set! timestamp #f)
             (set! perceived-effort 0)
             (send rpe-name set-label (rpe->string perceived-effort))
             (send start-time set-label "")))
