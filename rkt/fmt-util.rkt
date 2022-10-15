@@ -55,6 +55,7 @@
          power-phase->string
          run-pace-string->mps
          swim-pace-string->mps
+         rpe->string
 
          pace-label
          swim-pace-label
@@ -498,6 +499,21 @@
 
 
 ;;................................................................ other ....
+
+(define (rpe->string rpe)
+  (case rpe
+    ((0) "Not Specified (0)")
+    ((1) "Rest (1)")
+    ((2) "Very Easy (2)")
+    ((3) "Easy (3)")
+    ((4) "Confortable (4)")
+    ((5) "Somewhat Difficult (5)")
+    ((6) "Difficult (6)")
+    ((7) "Hard (7)")
+    ((8) "Very Hard (8)")
+    ((9) "Extremely Hard (9)")
+    ((10) "Maximal (10)")
+    (else (format "Unknwon (~a)" rpe))))
 
 ;; (: n->string (-> Real String))
 (define (n->string val)

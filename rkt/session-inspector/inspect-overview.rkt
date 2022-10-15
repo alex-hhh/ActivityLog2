@@ -160,8 +160,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
-   (badge-field-def "RPE: " session-rpe number->string)
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))
    ))
 
 (define *run-timing-fields*
@@ -223,8 +222,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
-   (badge-field-def "RPE: " session-rpe number->string)))
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))))
 
 (define *bike-timing-fields*
   (list
@@ -335,8 +333,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
-   (badge-field-def "RPE: " session-rpe number->string)))
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))))
 
 (define *swim-timing-fields*
   (list
@@ -373,8 +370,7 @@
    (badge-field-def "Training Effect: " session-training-effect number->string)
    (badge-field-def "Effort: " session-training-stress-score
                     (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (~r v #:precision 2)))
-   (badge-field-def "RPE: " session-rpe number->string)))
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))))
 
 (define *other-timing-fields*
   (list

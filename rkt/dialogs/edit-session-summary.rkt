@@ -2,7 +2,7 @@
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,7 @@
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"
+         "../fmt-util.rkt"
          "edit-session-tss.rkt")
 
 (provide get-edit-session-summary-dialog)
@@ -106,18 +107,10 @@
                    [cue-text "km"]))
         (set! rpe-scale-choice
               (new choice% [parent p0]
-                   [label "RPE: "]
-                   [choices '("0 -- Not Specified"
-                              "1 -- Rest"
-                              "2 -- Really Easy"
-                              "3 -- Easy"
-                              "4 -- Moderate"
-                              "5 -- Challenging"
-                              "6 -- Hard"
-                              "7 -- Hard"
-                              "8 -- Really Hard"
-                              "9 -- Really, Really Hard"
-                              "10 -- Maximal")])))
+                   [label "Perceived Effort: "]
+                   [choices
+                    (for/list ([rpe (in-range 11)])
+                      (rpe->string rpe))])))
 
       (let ((p0 (new vertical-pane% [parent p]
                      [border 0] [spacing 5] [stretchable-height #f])))

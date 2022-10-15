@@ -586,7 +586,7 @@ select X.session_id
          (qcolumn "RPE"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (~r v #:precision 0) "")))
+                      (if (> v 0) (rpe->string v) "")))
                   fn
                   #:default-visible? #t))
 
@@ -602,7 +602,7 @@ select X.session_id
          (qcolumn "Intensity"
                   (lambda (row)
                     (let ((v (fn row)))
-                      (if (> v 0) (~r v #:precision 1) "")))
+                      (if (> v 0) (pct->string (* v 100)) "")))
                   fn
                   #:default-visible? #t))
 
