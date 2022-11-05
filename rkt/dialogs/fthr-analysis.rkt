@@ -2,7 +2,7 @@
 ;; fthr-analysis.rkt -- FTHR analysis dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,7 +19,6 @@
 
 (require data-frame
          db
-         json
          map-widget
          math/statistics
          pict
@@ -30,10 +29,7 @@
          racket/contract
          racket/gui
          racket/port
-         racket/runtime-path
          "../color-theme.rkt"
-         "../dbapp.rkt"
-         "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../models/fthr.rkt"
          "../models/sport-zone.rkt"
@@ -41,7 +37,6 @@
          "../sport-charms.rkt"
          "../time-in-zone.rkt"
          "../utilities.rkt"
-         "../weather.rkt"
          "../widgets/grid-pane.rkt"
          "dashboard-common.rkt")
 
@@ -789,7 +784,6 @@
       (if (or primary secondary)
           (begin
             (send detail-panel enable #t)
-            (send dashboard-contents begin-container-sequence)
             (queue-task "fthr-analysis/setup-plots"
                         (lambda () (setup-plots plot-panel fthr-data)))
             (setup-analysis-display session-id
@@ -807,8 +801,7 @@
                                     secondary-zones
                                     secondary-group-box
                                     secondary-description
-                                    set-secondary-button)
-            (send dashboard-contents end-container-sequence))
+                                    set-secondary-button))
           ;; else, try to provide a meaningful error message
           (let ([sport (df-get-property df 'sport #f)])
             (send detail-panel enable #f)
@@ -844,6 +837,7 @@
           (set! toplevel-window toplevel))
         (thread/dbglog (lambda () (load-data db sid)))
         (send toplevel-window show #t) ; will block until finish-dialog is called
+        (set! toplevel-window old-toplevel)
         (void)))
 
     ))
