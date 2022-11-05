@@ -2,7 +2,7 @@
 ;; critical-power.rkt -- Estimate CP2 and CP3 parameters
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -292,69 +292,78 @@
   (define aepower (pre-compute-power mmax-fn ae-start ae-end))
 
   (define total-progress (* (- nm-end nm-start) (- an-end an-start)))
+  (define last-progress 0.00)
 
-  (for/fold ([best-cp : Flonum 0.0]
-             [best-wprime : Flonum 0.0]
-             [best-k : Flonum 0.0]
-             [best-t1 : Flonum 0.0]
-             [best-t2 : Flonum 0.0]
-             [best-t3 : Flonum 0.0]
-             [best-cost : Flonum +inf.0])
-            ([t1 (in-range nm-start nm-end 1.0)])
+  (when progress-callback
+    (progress-callback 0.0))
 
-    (define i1 (exact-truncate (- t1 nm-start)))
-    (define p1 (flvector-ref npower i1))
-    (define w1 (flvector-ref nwork i1))
+  (begin0
+      (for/fold ([best-cp : Flonum 0.0]
+                 [best-wprime : Flonum 0.0]
+                 [best-k : Flonum 0.0]
+                 [best-t1 : Flonum 0.0]
+                 [best-t2 : Flonum 0.0]
+                 [best-t3 : Flonum 0.0]
+                 [best-cost : Flonum +inf.0])
+                ([t1 (in-range nm-start nm-end 1.0)])
 
-    (for/fold ([best-cp : Flonum best-cp]
-               [best-wprime : Flonum best-wprime]
-               [best-k : Flonum best-k]
-               [best-t1 : Flonum best-t1]
-               [best-t2 : Flonum best-t2]
-               [best-t3 : Flonum best-t3]
-               [best-cost : Flonum best-cost])
-              ([t2 (in-range an-start an-end 1.0)])
+        (define i1 (exact-truncate (- t1 nm-start)))
+        (define p1 (flvector-ref npower i1))
+        (define w1 (flvector-ref nwork i1))
 
-      (when progress-callback
-        (define progress (/ (* (- t1 nm-start) (- an-end an-start)) total-progress))
-        (progress-callback progress))
+        (for/fold ([best-cp : Flonum best-cp]
+                   [best-wprime : Flonum best-wprime]
+                   [best-k : Flonum best-k]
+                   [best-t1 : Flonum best-t1]
+                   [best-t2 : Flonum best-t2]
+                   [best-t3 : Flonum best-t3]
+                   [best-cost : Flonum best-cost])
+                  ([t2 (in-range an-start an-end 1.0)])
 
-      (define i2 (exact-truncate (- t2 an-start)))
-      (define p2 (flvector-ref anpower i2))
-      (define w2 (flvector-ref anwork i2))
-      (define delta-w21 (- w2 w1))
-      (define delta-p21 (- p2 p1))
-      (define delta-t21 (- t2 t1))
+          (when progress-callback
+            (define progress (/ (* (- t1 nm-start) (- an-end an-start)) total-progress))
+            (when (> (- progress last-progress) 0.1)
+              (progress-callback progress)
+              (set! last-progress progress)))
 
-      (for/fold ([best-cp : Flonum best-cp]
-                 [best-wprime : Flonum best-wprime]
-                 [best-k : Flonum best-k]
-                 [best-t1 : Flonum best-t1]
-                 [best-t2 : Flonum best-t2]
-                 [best-t3 : Flonum best-t3]
-                 [best-cost : Flonum best-cost])
-                ([t3 (in-range ae-start ae-end 1.0)])
+          (define i2 (exact-truncate (- t2 an-start)))
+          (define p2 (flvector-ref anpower i2))
+          (define w2 (flvector-ref anwork i2))
+          (define delta-w21 (- w2 w1))
+          (define delta-p21 (- p2 p1))
+          (define delta-t21 (- t2 t1))
 
-        (define i3 (exact-truncate (- t3 ae-start)))
-        (define p3 (flvector-ref aepower i3))
-        (define w3 (flvector-ref aework i3))
-        (define delta-w31 (- w3 w1))
-        (define delta-p31 (- p3 p1))
-        (define delta-t31 (- t3 t1))
+          (for/fold ([best-cp : Flonum best-cp]
+                     [best-wprime : Flonum best-wprime]
+                     [best-k : Flonum best-k]
+                     [best-t1 : Flonum best-t1]
+                     [best-t2 : Flonum best-t2]
+                     [best-t3 : Flonum best-t3]
+                     [best-cost : Flonum best-cost])
+                    ([t3 (in-range ae-start ae-end 1.0)])
 
-        (define delta-t (/ delta-t31 delta-t21))
+            (define i3 (exact-truncate (- t3 ae-start)))
+            (define p3 (flvector-ref aepower i3))
+            (define w3 (flvector-ref aework i3))
+            (define delta-w31 (- w3 w1))
+            (define delta-p31 (- p3 p1))
+            (define delta-t31 (- t3 t1))
 
-        (define k (/ (- delta-w31 (* delta-t delta-w21))
-                     (- delta-p31 (* delta-t delta-p21))))
+            (define delta-t (/ delta-t31 delta-t21))
 
-        (if (< k 0.0)
-            (let* ([cp (/ (- delta-w21 (* k delta-p21)) delta-t21)]
-                   [wprime (+ (- w1 (* cp t1) (* k p1)) (* cp k))]
-                   [cost (evaluate-cost/cp3 cp wprime k test-time-points test-data-points)])
-              (if (< cost best-cost)
-                  (values cp wprime k t1 t2 t3 cost)
-                  (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost)))
-            (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost))))))
+            (define k (/ (- delta-w31 (* delta-t delta-w21))
+                         (- delta-p31 (* delta-t delta-p21))))
+
+            (if (< k 0.0)
+                (let* ([cp (/ (- delta-w21 (* k delta-p21)) delta-t21)]
+                       [wprime (+ (- w1 (* cp t1) (* k p1)) (* cp k))]
+                       [cost (evaluate-cost/cp3 cp wprime k test-time-points test-data-points)])
+                  (if (< cost best-cost)
+                      (values cp wprime k t1 t2 t3 cost)
+                      (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost)))
+                (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost)))))
+    (when progress-callback
+      (progress-callback 1.0))))
 
 (: cp2-search (-> Mmax-Function Flonum Flonum Flonum Flonum
                              (Values Flonum Flonum Flonum Flonum Flonum)))
