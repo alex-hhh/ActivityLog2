@@ -23,6 +23,8 @@
   (speed-zone 0 148 255)
   (alt 38 127 0)
   (calt 0 153 136)
+  (altitude 38 127 0)
+  (corrected-altitude 0 153 136)
   ; (grade #x2f #x4f #x4f)
   ; (grade 51 187 238)
   (grade 187 187 187)

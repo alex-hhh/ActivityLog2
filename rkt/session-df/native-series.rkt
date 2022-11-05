@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -437,16 +437,18 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #f)
-         (define/override (series-name) "alt")
+         (define/override (series-name) "altitude")
          (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            (lambda (v)
-             (vertical-distance->string v label?)))
+             (define v1 (convert-vertical-distance->m v))
+             (vertical-distance->string v1 label?)))
          )))
 (register-series-metadata axis-elevation)
+(register-series-metadata axis-elevation #:series-name "alt")
 (provide axis-elevation)
 
 
@@ -458,16 +460,18 @@
            (if (eq? (al-pref-measurement-system) 'metric)
                "Elevation (m)" "Elevation (ft)"))
          (define/override (should-filter?) #f)
-         (define/override (series-name) "calt")
+         (define/override (series-name) "corrected-altitude")
          (define/override (name) "Elevation")
          (define/override (fractional-digits) 1)
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            (lambda (v)
-             (vertical-distance->string v label?)))
+             (define v1 (convert-vertical-distance->m v))
+             (vertical-distance->string v1 label?)))
          )))
 (register-series-metadata axis-corrected-elevation)
+(register-series-metadata axis-corrected-elevation #:series-name "calt")
 (provide axis-corrected-elevation)
 
 

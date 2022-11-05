@@ -3,7 +3,7 @@
 ;; series-metadata.rkt --meta data about data series in session data frames
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -156,22 +156,24 @@
 (define the-metadata-registry (make-hash))
 (define the-swim-metadata-registry (make-hash))
 
-(define (register-series-metadata m (is-lap-swimming? #f))
-  (define sn (send m series-name))
+(define (register-series-metadata m
+                                  (is-lap-swimming? #f)
+                                  #:series-name (sn (send m series-name)))
   (define registry (if is-lap-swimming?
                        the-swim-metadata-registry
                        the-metadata-registry))
   (when (hash-ref registry sn #f)
     (dbglog "register-series-metadata: overriding metadata for ~a" sn))
-  (hash-set! registry (send m series-name) m)
+  (hash-set! registry sn m)
   (void))
 
-(define (unregister-series-metadata m (is-lap-swimming? #f))
-  (define sn (send m series-name))
+(define (unregister-series-metadata
+         m (is-lap-swimming? #f)
+         #:series-name (sn (send m series-name)))
   (define registry (if is-lap-swimming?
                        the-swim-metadata-registry
                        the-metadata-registry))
-  (hash-remove! registry (send m series-name))
+  (hash-remove! registry sn)
   (void))
 
 (define (find-series-metadata series-name (is-lap-swimming? #f))
@@ -192,6 +194,12 @@
 (provide series-metadata%)
 
 (provide/contract
- (register-series-metadata (->* ((is-a?/c series-metadata%)) (boolean?) void?))
- (unregister-series-metadata (->* ((is-a?/c series-metadata%)) (boolean?)  void?))
- (find-series-metadata (->* (string?) (boolean?) (is-a?/c series-metadata%))))
+ (register-series-metadata (->* ((is-a?/c series-metadata%))
+                                (boolean? #:series-name string?)
+                                void?))
+ (unregister-series-metadata (->* ((is-a?/c series-metadata%))
+                                  (boolean? #:series-name string?)
+                                  void?))
+ (find-series-metadata (->* (string?)
+                            (boolean?)
+                            (is-a?/c series-metadata%))))

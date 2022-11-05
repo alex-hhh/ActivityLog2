@@ -25,7 +25,7 @@
  "../dbapp.rkt"
  "../dbutil.rkt")
 
-(struct cp-validity (id sport sub-sport valid-from valid-until))
+(struct cp-validity (id sport sub-sport valid-from valid-until) #:transparent)
 
 (define scp-query
   (virtual-statement

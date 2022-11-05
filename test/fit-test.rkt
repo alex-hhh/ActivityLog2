@@ -208,13 +208,13 @@ select count(*)
   (test-suite
    "FIT file reading"
    (test-case "f0001.fit"
-     (do-basic-checks "./test-fit/f0001.fit" 20 14035))
+     (do-basic-checks "./test-fit/f0001.fit" 22 14035))
    (test-case "f0002.fit"
-     (do-basic-checks "./test-fit/f0002.fit" 19 500))
+     (do-basic-checks "./test-fit/f0002.fit" 21 500))
    (test-case "f0003.fit"
      (do-basic-checks "./test-fit/f0003.fit" 15 48))
    (test-case "f0004.fit"
-     (do-basic-checks "./test-fit/f0004.fit" 20 138294))
+     (do-basic-checks "./test-fit/f0004.fit" 22 138294))
    (test-case "f0005.fit"
      (do-basic-checks "./test-fit/f0005.fit" 13 227))
    (test-case "f0006.fit"
@@ -224,9 +224,9 @@ select count(*)
    (test-case "f0008.fit"
      (do-basic-checks "./test-fit/f0008.fit" 13 2331))
    (test-case "f0009.fit"
-     (do-basic-checks "./test-fit/f0009.fit" 8 57))
+     (do-basic-checks "./test-fit/f0009.fit" 9 57))
    (test-case "f0010.fit (a)"
-     (do-basic-checks "./test-fit/f0010.fit" 21 8078
+     (do-basic-checks "./test-fit/f0010.fit" 23 8078
                       #:extra-db-checks
                       (lambda (db)
                         (define n (query-value db "select count(*) from SESSION_WEATHER"))
@@ -263,10 +263,10 @@ select count(*)
    (test-case "f0012.fit"
      (do-basic-checks "./test-fit/f0012.fit" 5 48))
    (test-case "f0013.fit"
-     (do-basic-checks "./test-fit/f0013.fit" 20 8253))
+     (do-basic-checks "./test-fit/f0013.fit" 22 8253))
    (test-case "f0014.fit"
      (do-basic-checks
-      "./test-fit/f0014.fit" 22 155
+      "./test-fit/f0014.fit" 24 155
       #:extra-db-checks
       (lambda (db)
         (check-xdata-app-count db 1)
@@ -276,7 +276,7 @@ select count(*)
         )))
    (test-case "f0015.fit"
      (do-basic-checks
-      "./test-fit/f0015.fit" 24 4057
+      "./test-fit/f0015.fit" 26 4057
       #:extra-db-checks
       (lambda (db)
         (check-xdata-app-count db 2)
@@ -301,7 +301,7 @@ select count(*)
         )))
    (test-case "f0016.fit"
      (do-basic-checks
-      "./test-fit/f0016.fit" 27 2119
+      "./test-fit/f0016.fit" 29 2119
       #:extra-db-checks
       (lambda (db)
         (check-xdata-app-count db 1)
@@ -324,26 +324,26 @@ select count(*)
       #:extra-df-checks check-run-power))
    (test-case "f0017.fit"
      (do-basic-checks
-      "./test-fit/f0017.fit" 18 3211
+      "./test-fit/f0017.fit" 20 3211
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
-      "./test-fit/f0018.fit" '(17 18 39 18 32) '(583 29 10218 10 8612)
+      "./test-fit/f0018.fit" '(18 20 41 20 34) '(583 29 10218 10 8612)
       #:extra-db-checks check-stryd-xdata
       #:expected-session-count 5))
    (test-case "f0019.fit"
      (do-basic-checks
-      "./test-fit/f0019.fit" 24 4081
+      "./test-fit/f0019.fit" 26 4081
       #:extra-db-checks check-stryd-xdata))
    (test-case "f0022.fit"
      (do-basic-checks "./test-fit/f0022.fit" 13 1868))
    (test-case "f0023.fit"
      (do-basic-checks
-      "./test-fit/f0023.fit" 26 2138
+      "./test-fit/f0023.fit" 28 2138
       #:extra-db-checks check-garmin-run-power-data))
    (test-case "f0025.fit"
      (do-basic-checks
-      "./test-fit/f0025.fit" 27 2148
+      "./test-fit/f0025.fit" 29 2148
       #:extra-db-checks
       (lambda (db)
         (void)
@@ -359,10 +359,10 @@ select count(*)
           (check-xdata-trackpoint-values db app-id field)))))
    (test-case "f0026.fit"
      (do-basic-checks
-      "./test-fit/f0026.fit" 22 6098))
+      "./test-fit/f0026.fit" 24 6098))
    (test-case "f0027.fit"
      (do-basic-checks
-      "./test-fit/f0027.fit" 32 4948
+      "./test-fit/f0027.fit" 34 4948
       #:extra-df-checks
       (lambda (df)
         ;; These series were missing from the activities as they are provided
@@ -371,7 +371,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0028.fit"
      (do-basic-checks
-      "./test-fit/f0028.fit" 25 941
+      "./test-fit/f0028.fit" 27 941
       #:extra-df-checks
       (lambda (df)
         ;; These series were missing from the activities as they are provided
@@ -380,7 +380,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0029.fit"
      (do-basic-checks
-      "./test-fit/f0029.fit" '(18 20 33 18 32) '(943 814 24062 330 19656)
+      "./test-fit/f0029.fit" '(20 22 35 20 34) '(943 814 24062 330 19656)
       #:expected-session-count 5
       #:extra-db-checks
       (lambda (db)
@@ -428,16 +428,16 @@ select count(*)
            (and (number? x) (> x 0)))))))
    (test-case "f0032.fit"
      (do-basic-checks
-      "./test-fit/f0032.fit" 18 1473))
+      "./test-fit/f0032.fit" 20 1473))
    (test-case "f0040.fit"
      (do-basic-checks
-      "./test-fit/f0040.fit" 14 11272))
+      "./test-fit/f0040.fit" 16 11272))
    (test-case "f0042.fit"
      (do-basic-checks
-      "./test-fit/f0042.fit" 15 2110))
+      "./test-fit/f0042.fit" 17 2110))
    (test-case "f0043.fit"
      (do-basic-checks
-      "./test-fit/f0043.fit" 28 2669))
+      "./test-fit/f0043.fit" 30 2669))
    (test-case "f0047.fit (a)"
      ;; This test is different than the others as this checks that the FIT
      ;; file reader itself behaves correctly.
@@ -471,7 +471,7 @@ select count(*)
                         (check = c 0))))
    (test-case "f0048.fit"
      (do-basic-checks
-      "./test-fit/f0048.fit" 25 2191
+      "./test-fit/f0048.fit" 27 2191
       #:extra-df-checks (lambda (df)
                           (void)
                           (check-true (df-contains? df "tempe"))

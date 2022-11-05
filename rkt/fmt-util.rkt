@@ -128,6 +128,8 @@
 ;; (: m->ft (-> Real Real))
 (define (m->ft m) (* m 3.2808))
 
+(define (ft->m m) (/ m 3.2808))
+
 ;; (: celsius->fahrenheit (-> Real Real))
 (define (celsius->fahrenheit c) (+ 32 (* c 1.8)))
 
@@ -161,6 +163,7 @@
 (define vertical-oscillation-label "in")
 (define m->weight kg->lb)
 (define weight-label "kg")
+(define vertical-distance->m values)
 
 ;; Export converters as functions, we cannot export the defines above
 ;; directly, because any code that uses them will not pick up any changes.
@@ -170,12 +173,14 @@
 (define (convert-pace->m/s val) (pace->m/s val))
 (define (convert-swim-pace->m/s val) (swim-pace->m/s val))
 (define (convert-m/s->swim-pace val) (m/s->swim-pace val))
+(define (convert-vertical-distance->m val) (vertical-distance->m val))
 (provide convert-m/s->speed
          convert-speed->m/s
          convert-m/s->pace
          convert-pace->m/s
          convert-swim-pace->m/s
-         convert-m/s->swim-pace)
+         convert-m/s->swim-pace
+         convert-vertical-distance->m)
 
 ;; (: setup-measurement-system (-> Symbol Void))
 (define (setup-measurement-system mu)
@@ -201,7 +206,8 @@
         (set! m->vertical-oscillation mm->inch)
         (set! vertical-oscillation-label "in")
         (set! m->weight kg->lb)
-        (set! weight-label "lb"))
+        (set! weight-label "lb")
+        (set! vertical-distance->m ft->m))
       
       (begin
         (set! m/s->speed m/s->km/h)
@@ -225,6 +231,7 @@
         (set! vertical-oscillation-label "mm")
         (set! m->weight values)
         (set! weight-label "kg")
+        (set! vertical-distance->m values)
         )))
 
 (define ms-tag 'activity-log:measurement-system)

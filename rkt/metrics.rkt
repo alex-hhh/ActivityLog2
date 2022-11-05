@@ -2,7 +2,7 @@
 ;;; metrics.rkt -- calculate aggregate metrics for activities
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -408,7 +408,7 @@
 (define (scatter/jsexpr df series1 series2)
 
   (define is-lap-swim? (df-get-property df 'is-lap-swim?))
-  
+
   (define (extract)
     (if (df-contains? df series1 series2)
         (df-select* df series1 series2 #:filter valid-only)
@@ -778,6 +778,8 @@ select X.session_id
      (clear-saved-metrics-for-series "pace")
      (clear-saved-metrics-for-series "speed")
      (clear-saved-metrics-for-series "stride")
+     (clear-saved-metrics-for-series "altitude")
+     (clear-saved-metrics-for-series "corrected-altitude")
      ;; (clear-saved-metrics-for-series "alt")
      ;; (clear-saved-metrics-for-series "calt")
      ;; (clear-saved-metrics-for-series "vosc")
@@ -867,4 +869,3 @@ select X.session_id
  (aggregate-scatter-bounds (-> aggregate-scatter/c number? number? bounds/c))
  (aggregate-scatter-slr (-> aggregate-scatter/c (or/c #f slr?)))
  (clear-metrics-cache (-> any/c)))
-

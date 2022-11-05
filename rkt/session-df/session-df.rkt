@@ -163,7 +163,7 @@
          "dst"
          '("active")
          (lambda (v)
-           (define active (list-ref v 0))
+           (define active (car v))
            (set! dst (+ dst (* active pool-length)))
            dst))))
 
@@ -226,6 +226,7 @@
     (smooth-start-of-series df "vosc")
     (smooth-start-of-series df "cad")
     (add-speed-series df)
+    (add-altitude-series df)
     (add-pace-series df)
     (add-speed-zone-series df)
     (maybe-add-grade-series! df)
@@ -284,8 +285,8 @@
      (let ((timer 0))
        (lambda (prev-val val)
          (when prev-val
-           (match-define (list ptimestamp) prev-val)
-           (match-define (list timestamp) val)
+           (define ptimestamp (car prev-val))
+           (define timestamp (car val))
            (define dt (- timestamp ptimestamp))
            ;; Keep track of the average time between samples (open water swims
            ;; can have 40-70 seconds between samples) and consider a stop
@@ -336,26 +337,26 @@
          "elapsed"
          '("timestamp")
          (lambda (val)
-           (define timestamp (list-ref val 0))
+           (define timestamp (car val))
            (- timestamp timestamp0))))
     (df-set-sorted! df "elapsed" <)))
 
 (define (add-distance-series df)
 
   (define (distance-km val)
-    (define dst (list-ref val 0))
+    (define dst (car val))
     (if dst (m->km dst) #f))
 
   (define (distance-mi val)
-    (define dst (list-ref val 0))
+    (define dst (car val))
     (if dst (m->mi dst) #f))
 
   (define (distance-yards val)
-    (define dst (list-ref val 0))
+    (define dst (car val))
     (if dst (m->yd dst) #f))
 
   (define (distance-meters val)
-    (list-ref val 0))
+    (car val))
 
   (when (df-contains? df "dst")
 
@@ -390,10 +391,10 @@
 (define (add-speed-series df)
 
   (define (speed-km/h val)
-    (match-define (list spd) val)
+    (define spd (car val))
     (if spd (m/s->km/h spd) spd))
   (define (speed-mi/h val)
-    (match-define (list spd) val)
+    (define spd (car val))
     (if spd (m/s->mi/h spd) #f))
   (when (df-contains? df "spd")
     (df-add-lazy!
@@ -402,6 +403,29 @@
      '("spd")
      (if (eq? (al-pref-measurement-system) 'metric)
          speed-km/h speed-mi/h))))
+
+(define (add-altitude-series df)
+  (define (altitude-meters val)
+    (car val))
+  (define (altitude-feet val)
+    (define alt (car val))
+    (and alt (m->ft alt)))
+  (when (df-contains? df "alt")
+    (df-add-lazy!
+     df
+     "altitude"
+     '("alt")
+     (if (eq? (al-pref-measurement-system) 'metric)
+         altitude-meters
+         altitude-feet)))
+ (when (df-contains? df "calt")
+    (df-add-lazy!
+     df
+     "corrected-altitude"
+     '("calt")
+     (if (eq? (al-pref-measurement-system) 'metric)
+         altitude-meters
+         altitude-feet))))
 
 (define (add-temperature-series df)
   (when (df-contains? df "tempe")
@@ -476,11 +500,11 @@
     (if (and spd (> spd 0.6)) (m/s->sec/mi spd)  #f))
 
   (define (pace-sec/100m val)
-    (match-define (list spd) val)
+    (define spd (car val))
     (if (and spd (> spd 0.1)) (m/s->sec/100m spd) #f))
 
   (define (pace-sec/100yd val)
-    (match-define (list spd) val)
+    (define spd (car val))
     (if (and spd (> spd 0.1)) (m/s->sec/100yd spd) #f))
 
   (when (df-contains? df "spd" "elapsed")
@@ -514,10 +538,8 @@
      "speed-zone"
      '("spd")
      (lambda (val)
-       (match-define (list spd) val)
+       (define spd (car val))
        (if spd (value->zone zones spd) #f)))))
-
-
 
 (define (add-hr-pct-series df)
   (define sid (df-get-property df 'session-id))
@@ -528,7 +550,7 @@
      "hr-pct"
      '("hr")
      (lambda (val)
-       (match-define (list hr) val)
+       (define hr (car val))
        (if hr (value->pct-of-max zones hr) #f)))))
 
 (define (add-hr-zone-series df)
@@ -540,7 +562,7 @@
      "hr-zone"
      '("hr")
      (lambda (val)
-       (match-define (list hr) val)
+       (define hr (car val))
        (if hr (value->zone zones hr) #f)))))
 
 (define (add-stride-series df)
@@ -597,7 +619,7 @@
      "pwr-zone"
      '("pwr")
      (lambda (val)
-       (match-define (list pwr) val)
+       (define pwr (car val))
        (if pwr (value->zone zones pwr) #f)))))
 
 (define (add-lppa-series df)
@@ -625,7 +647,7 @@
      series-name
      (list series-name)
      (lambda (val)
-       (define a (list-ref val 0))
+       (define a (car val))
        (if a (if (> a 180.0) (- a 360) a) #f)))
     ;; Get rid if this series if it became empty
     (unless (df-has-non-na? df series-name)

@@ -85,7 +85,9 @@ session.  To check if a data frame contains some series, use the
 
 * **lat**, **lon** are the latitude, longitude coordinates for the point
 * **alt**, **calt** are the altitude (as recorded by the device) and corrected
-  altitude, in meters
+  altitude, in meters (see notes on elevation correction)
+* **altitude**, **corrected-altitude** are the altitude/corrected altitude
+  series in a convenient metric (either Meters or Yards).
 * **grade** is grade (incline) at the current point, as a percentage
 * **dst** is distance traveled in meters since the start of the activity
 * **distance** is traveled since the start of the activity using the most
