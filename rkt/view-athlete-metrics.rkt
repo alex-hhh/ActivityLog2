@@ -2,7 +2,7 @@
 ;; view-athlete-metrics.rkt -- athelte metrics panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -430,7 +430,10 @@
 
     (define/public (on-interactive-export-sql-query)
       (let ((query (get-athlete-metrics-sql-query date-range)))
-        (send (get-sql-export-dialog)
-              show-dialog (send pane get-top-level-window) query)))
+        (send (get-text-export-dialog)
+              show-dialog
+              (send pane get-top-level-window)
+              "Export SQL Query"
+              query)))
 
     ))

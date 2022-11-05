@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -40,7 +40,7 @@
 (provide mini-interval-view%)
 (provide swim-lengths-view%)
 (provide interval-choice%)
-(provide get-sql-export-dialog)
+(provide get-text-export-dialog)
 (provide time-zone-selector%)
 
 ;; Some generic preferences
@@ -914,50 +914,23 @@ values (?, ?)" session-id id))
 
 ;;............................................. sql-query-export-dialog% ....
 
-(define sql-query-export-dialog%
+(define text-export-dialog%
   (class object%
     (init) (super-new)
-
-    (define dialog-width 400)
-    (define dialog-height 300)
-    (define dialog-title "Export SQL Query")
-
-    (define contents-text-field #f)
-
-    (define (make-toplevel-dialog parent)
+    
+    (define (make-toplevel-dialog parent title #:width [w 400] #:height [h 300])
       (new
        (class dialog% (init) (super-new)
          (define/augment (on-close) (on-close-dialog)))
-       [label dialog-title]
-       [min-width dialog-width]
-       [min-height dialog-height]
+       [label title]
+       [min-width w]
+       [min-height h]
        [parent parent]))
 
-    (define toplevel-window (make-toplevel-dialog #f))
+    ;; Need one to construct the other widgets...
+    (define toplevel-window (make-toplevel-dialog #f "text-export-dialog%"))
 
-    (define (on-save-to-file)
-      (let ((text (send contents-text-field get-value))
-            (file (put-file "Select file to export to" #f #f #f "txt" '()
-                            '(("Text Files" "*.txt") ("Any" "*.*")))))
-        ;; On Windows machines, add back the \r into the text, otherwise the
-        ;; text will not save nicely
-        (when (eq? 'windows (system-type 'os))
-          (set! text (regexp-replace* "\n" text "\r\n")))
-        (when file
-          (call-with-output-file file
-            (lambda (o) (write-string text o))
-            #:mode 'text #:exists 'replace))))
-
-    (define (on-copy-to-clipboard timestamp)
-      (let ((text (send contents-text-field get-value)))
-        ;; On Windows machines, add back the \r into the text, otherwise the
-        ;; text will not paste nicely
-        (when (eq? 'windows (system-type 'os))
-          (set! text (regexp-replace* "\n" text "\r\n")))
-        (send the-clipboard set-clipboard-string text timestamp)))
-
-    (define (on-close-dialog)
-      (send toplevel-window show #f))
+    (define contents-text-field #f)
 
     (define dialog-panel
       (let ((p (new vertical-panel% [parent toplevel-window]
@@ -972,8 +945,16 @@ values (?, ?)" session-id id))
         (let ((client-pane (new vertical-panel% [parent p]
                                 [border 0] [spacing 10]
                                 [alignment '(left top)])))
-          (set! contents-text-field
-                (new text-field% [parent client-pane] [label ""] [style '(multiple)])))
+          (define canvas (new editor-canvas% [parent client-pane] [style '(no-hscroll)]))
+          (define text (new text%))
+          (define text-style
+            (let ([delta (new style-delta%)])
+              (send delta set-family 'modern)
+              (send delta set-size-add 1)
+              delta))
+          (send text change-style text-style 'start 'end #f)
+          (send canvas set-editor text)
+          (set! contents-text-field text))
 
         (let ((bp (new horizontal-pane% [parent p] [border 0]
                        [stretchable-height #f] [alignment '(right center)])))
@@ -986,26 +967,61 @@ values (?, ?)" session-id id))
 
         p))
 
-    (define (do-dialog-operation parent)
-      (let ((old-toplevel toplevel-window))
-        (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
-          (send dialog-panel reparent toplevel)
-          (set! toplevel-window toplevel))
+
+
+
+    (define (on-save-to-file)
+      (let ((text (send contents-text-field get-text 0 'eof #t))
+            (file (put-file "Select file to export to" #f #f #f "txt" '()
+                            '(("Text Files" "*.txt") ("Any" "*.*")))))
+        ;; On Windows machines, add back the \r into the text, otherwise the
+        ;; text will not save nicely
+        (when (eq? 'windows (system-type 'os))
+          (set! text (regexp-replace* "\n" text "\r\n")))
+        (when file
+          (call-with-output-file file
+            (lambda (o) (write-string text o))
+            #:mode 'text #:exists 'replace))))
+
+    (define (on-copy-to-clipboard timestamp)
+      (let ((text (send contents-text-field get-text 0 'eof #t)))
+        ;; On Windows machines, add back the \r into the text, otherwise the
+        ;; text will not paste nicely
+        (when (eq? 'windows (system-type 'os))
+          (set! text (regexp-replace* "\n" text "\r\n")))
+        (send the-clipboard set-clipboard-string text timestamp)))
+
+    (define (on-close-dialog)
+      (send toplevel-window show #f))
+
+    (define (do-dialog-operation parent title width height)
+      (let ([old-toplevel toplevel-window])
+        (set! toplevel-window (make-toplevel-dialog parent title #:width width #:height height))
+        (send dialog-panel reparent toplevel-window)
         (send toplevel-window show #t) ; will block until finish-dialog is called
         (send dialog-panel reparent old-toplevel)
-        (set! toplevel-window old-toplevel)
-        #t))
+        (set! toplevel-window old-toplevel))
+      #t)
 
-    (define/public (show-dialog parent text)
-      (send contents-text-field set-value (regexp-replace* "\r" text ""))
-      (do-dialog-operation parent))))
+    (define/public (show-dialog parent title text #:width [width 400] #:height [height 300])
+      (send contents-text-field lock #f)
+      (send contents-text-field begin-edit-sequence)
+      (send contents-text-field select-all)
+      (send contents-text-field clear)
+      (send contents-text-field insert (regexp-replace* "\r" text ""))
+      (send contents-text-field clear-undos)
+      (send contents-text-field move-position 'home)
+      (send contents-text-field set-modified #f)
+      (send contents-text-field end-edit-sequence)
+      (send contents-text-field lock #t)
+      (do-dialog-operation parent title width height))))
 
-(define the-sql-export-dialog #f)
+(define the-text-export-dialog #f)
 
-(define (get-sql-export-dialog)
-  (unless the-sql-export-dialog
-    (set! the-sql-export-dialog (new sql-query-export-dialog%)))
-  the-sql-export-dialog)
+(define (get-text-export-dialog)
+  (unless the-text-export-dialog
+    (set! the-text-export-dialog (new text-export-dialog%)))
+  the-text-export-dialog)
 
 
 ;;.................................................. time-zone-selector% ....

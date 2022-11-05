@@ -2,7 +2,7 @@
 ;; view-reports.rkt -- provide reporting on activities in the database.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1272,8 +1272,11 @@
       (when selected-report
         (let ((report-info (list-ref the-reports selected-report)))
           (let ((query ((fourth report-info))))
-            (send (get-sql-export-dialog)
-                  show-dialog (send the-pane get-top-level-window) query)))))
+            (send (get-text-export-dialog)
+                  show-dialog
+                  (send the-pane get-top-level-window)
+                  "Export SQL Query"
+                  query)))))
 
     (define first-time? #t)
 

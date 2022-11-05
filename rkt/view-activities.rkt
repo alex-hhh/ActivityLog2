@@ -852,8 +852,11 @@ select X.session_id
       (let ((query (get-activity-list-query
                     sport-filter date-range-filter distance-filter
                     duration-filter labels-filter equipment-filter)))
-        (send (get-sql-export-dialog)
-              show-dialog (send pane get-top-level-window) query)))
+        (send (get-text-export-dialog)
+              show-dialog
+              (send pane get-top-level-window)
+              "Export SQL Query"
+              query)))
 
     
     ;;................................. the activity-operations<%> interface ....

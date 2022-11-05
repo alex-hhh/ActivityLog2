@@ -19,6 +19,8 @@
          db/base
          racket/class
          racket/gui/base
+         racket/port
+         "../al-widgets.rkt"
          "../database.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
@@ -122,6 +124,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         ;; know that the activity has power data or not, so we just check if
         ;; this is a cycling activity.
         (send power-spikes-menu-item enable (and have-sid? sport (equal? (car sport) 2)))
+        (send df-describe-menu-item enable have-sid?)
 
         ))
 
@@ -233,6 +236,23 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (send the-clipboard set-clipboard-string
             (format "~s" (send target get-selected-sid))
             (send e get-time-stamp)))
+
+    (define (on-show-session-data-frame-summary m e)
+      (let ((sid (send target get-selected-sid))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (when (and sid db toplevel)
+          (define df (session-df db sid))
+          (define text (call-with-output-string
+                        (lambda (out)
+                          (parameterize ([current-output-port out])
+                            (df-describe df)))))
+          (send (get-text-export-dialog)
+                show-dialog
+                toplevel
+                (format "df-describe sid = ~a" sid)
+                text
+                #:width 1000 #:height 600))))
 
     (define (on-export-original-file m e)
       (let* ((guid (send target get-selected-guid))
@@ -370,6 +390,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Copy GUID to clipboard" on-copy-guid-to-clipboard))
     (define copy-sid-menu-item
       (make-menu-item "Copy session id to clipboard" on-copy-sid-to-clipboard))
+    (define df-describe-menu-item
+      (make-menu-item "Show session data frame summary..." on-show-session-data-frame-summary))
     (define export-original-menu-item
       (make-menu-item "Export original file..." on-export-original-file))
     (define export-csv-menu-item
