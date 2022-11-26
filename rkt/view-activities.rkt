@@ -750,14 +750,27 @@ select X.session_id
       (when (member sid data (lambda (sid item)
                                (= sid (db-row-ref item "session_id" headers 0))))
         (define row (get-activity-list-1 database sid))
-        (when row                       ; maybe it was already deleted, see AB#44
-          (set! data
-                (for/list ([item (in-list data)])
-                  (if (= sid (db-row-ref item "session_id" headers 0))
-                      row
-                      item)))
-          (let ((index (row-index-for-sid sid)))
-            (send lb update-row index row #f)))))
+        (set! data
+              (let loop ([data data]
+                         [result '()])
+                (cond [(null? data)
+                       (reverse result)]
+                      [(= sid (db-row-ref (car data) "session_id" headers 0))
+                       (if row       ; maybe it was already deleted, see AB#44
+                           (loop (cdr data) (cons row result))
+                           (loop (cdr data) result))]
+                      [#t
+                       (loop (cdr data) (cons (car data) result))])))
+        (let ((index (row-index-for-sid sid)))
+          ;; This session ID (SID) is in our data set, but it is not in the
+          ;; list view rows -- this can happen if the text filter filers out
+          ;; this item, in that case we re-apply the filter, in case the new
+          ;; item is selected now (e.g. it changed its headline), see AB#47
+          (if index
+              (if row
+                  (send lb update-row index row #f)
+                  (send lb delete-row index))
+              (on-text-filter-changed)))))
 
     (define/public (activated)
       ;; Get the full list of events, but we will discard them if the view is
