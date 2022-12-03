@@ -8,8 +8,10 @@ steps:
       # might not be tracked as submodules...
       bash ./etc/scripts/setup-catalog.sh -i pkgs/
       raco pkg install --batch --no-docs --auto al2-dependencies
+    env:
+      PLTSTDERR: 'error warning@optimizer'
+      AL2TFAPIKEY: $(AL2TFAPIKEY)       # needed by map-widget
     displayName: Setup package catalog and install packages
-
 
   # On Linux, we need to start the virtual frame buffer, as the tests require
   # a GUI (even if a virtual one)
