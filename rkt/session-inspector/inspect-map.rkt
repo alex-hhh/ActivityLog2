@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,8 +18,6 @@
          framework
          map-widget
          map-widget/utils
-         math/statistics
-         plot
          racket/class
          racket/contract
          racket/dict
@@ -28,7 +26,6 @@
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
-         "../session-df/session-df.rkt"
          "../utilities.rkt"
          "inspect-graphs.rkt")
 
@@ -118,6 +115,12 @@
 
     (define the-pref-tag 'activity-log:map-panel)
     (define the-session #f)
+
+    ;; Stores a copy of the map-panel split (get-percentages) -- When there is
+    ;; no elevation data, we delete the elevation plot from the map panel,
+    ;; however, we keep the panel split ratio here, so we can restore it if a
+    ;; session with elevation data is inspected again.
+    (define saved-map-panel-split '())
 
     ;; When #t, the selected lap is made to fit the view
     (define zoom-to-lap? #f)
@@ -213,7 +216,7 @@
     (send map-view track-current-location #t)
 
     (define elevation-graph-pane
-      (new horizontal-pane% [parent map-panel] [stretchable-height #f]))
+      (new horizontal-panel% [parent map-panel] [stretchable-height #f]))
 
     (define the-elevation-graph #f)
 
@@ -324,27 +327,39 @@
       (send map-view end-edit-sequence)
       (set! selected-lap-data #f))
 
-    (define initial-interval-panel-split '(1/5 4/5))
-    (define initial-map-panel-split '(4/5 1/5))
-
-    (let ((pref (get-pref the-pref-tag (lambda () #f))))
-      (when (and pref (hash? pref))
-        (set! initial-interval-panel-split (hash-ref pref 'interval-panel-split '(1/5 4/5)))
-        (set! initial-map-panel-split (hash-ref pref 'map-panel-split '(1/5 4/5)))))
-
-    (send panel set-percentages initial-interval-panel-split)
-    (send map-panel set-percentages initial-map-panel-split)
+    (let ([pref (get-pref the-pref-tag #f)])
+      ;; Restore the panel splits for the interval and map panels, or set
+      ;; default ones.
+      (let-values
+          ([(ips mps)
+            (if (and pref (hash? pref))
+                (values
+                 (hash-ref pref 'interval-panel-split '(1/5 4/5))
+                 (hash-ref pref 'map-panel-split '(4/5 1/5)))
+                (values
+                 '(1/5 4/5)
+                 '(4/5 1/5)))])
+        (send panel set-percentages ips)
+        (send map-panel set-percentages mps)))
 
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
       (send interval-view save-visual-layout)
+      (define ips (send panel get-percentages))
+      (define mps
+        (let ([mps (send map-panel get-percentages)])
+          (if (= (length mps) 2)
+              mps
+              saved-map-panel-split)))
       (put-pref
        the-pref-tag
        (hash
-        'interval-panel-split (send panel get-percentages)
-        'map-panel-split (send map-panel get-percentages))))
+        'interval-panel-split ips
+        'map-panel-split mps)))
 
+    ;; Data frame associated with the session
     (define data-frame #f)
+
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when the session
     ;; changes
@@ -380,6 +395,7 @@
         (send the-elevation-graph zoom-to-lap zoom-to-lap?)
         (send the-elevation-graph set-data-frame df)
         (send the-elevation-graph end-edit-sequence))
+
       (send elevation-graph-pane
             change-children
             (lambda (old)
@@ -388,13 +404,37 @@
                      (send the-elevation-graph get-graph-canvas)))
               (if canvas (list canvas) '())))
 
+      ;; When the elevation plot is present (two items in the panel), save the
+      ;; split ratios
+      (let ([split (send map-panel get-percentages)])
+        (when (= (length split) 2)
+          (set! saved-map-panel-split split)))
+
+      ;; Put or delete the elevation panel (depending on whether we have an
+      ;; elevation plot or not.
+      (send map-panel
+            change-children
+            (lambda (old)
+              ;; NOTE: (car old) is p0, see widget creation above, which holds
+              ;; the map
+              (if the-elevation-graph
+                  (list (car old) elevation-graph-pane)
+                  (list (car old)))))
+
+      ;; Must reflow container in map-panel, so it "knows" its number of
+      ;; children and splits and the next step works correctly.
+      (send map-panel reflow-container)
+
+      ;; If the map panel contains an elevation plot, restore the percentages
+      ;; now.
+      (when (= (length (send map-panel get-percentages)) 2)
+        (send map-panel set-percentages saved-map-panel-split))
+
       (send info-message set-label
             (if (allow-tile-download) "" "Map tile download disabled"))
 
       (set! selected-lap #f)
       (send interval-coice set-session session df)
-
-      ;; Add the data tracks
 
       ;; teleports are the timestamps where the recording was stopped, than
       ;; the user traveled a significant distance and re-started the
@@ -437,7 +477,20 @@
                      (position (in-value (df-ref* data-frame index "lat" "lon")))
                      #:when (and (vector-ref position 0) (vector-ref position 1)))
           (send map-view add-marker position "End" -1 (make-color 150 33 33))))
-      (send map-view resize-to-fit)
-      (send map-view end-edit-sequence))
+      (send map-view end-edit-sequence)
+
+      ;; NOTE: the `resize-to-fit` event must be queued with a low priority --
+      ;; this will produce a flicker on the map, but otherwise, the map widget
+      ;; will not receive the resize event and will not be able to use the
+      ;; correct window dimensions and the resize-to-fit will produce
+      ;; incorrect results...
+      ;;
+      ;; The problem is that the map-widget% must receive a on-size callback
+      ;; (also delivered as an event), so resize-to-fit will not have the
+      ;; correct results when we change the size of the map via the
+      ;; `change-children` calls above.
+      (queue-callback
+       (lambda () (send map-view resize-to-fit))
+       #f))
 
     ))
