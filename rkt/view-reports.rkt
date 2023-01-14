@@ -2,7 +2,7 @@
 ;; view-reports.rkt -- provide reporting on activities in the database.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -298,7 +298,7 @@
               (lambda (row) (vector-ref row index))))
 
    (let ((index 11))
-     (qcolumn "Avg Weighted Power"
+     (qcolumn "Avg ISO Power"
               (lambda (row) (n->string (vector-ref row index)))
               (lambda (row) (vector-ref row index))))
 

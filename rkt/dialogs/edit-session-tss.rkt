@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -157,7 +157,7 @@
         ("Swim T-Pace" . swim-tpace)
         ;; ("HR Zone" . hr-zone)  ; rough hr based TSS calculation, not in use
         ("HR Zone" . hr-zone-2)
-        ("Weighted Power" . normalized-power)
+        ("ISO Power" . normalized-power)
         ("Manual" . manual)))
 
     ;; selected method to calculate TSS, one of the symbols in
@@ -220,17 +220,9 @@
       (set! rpe-scale
               (new choice% [parent tss-selection-pane]
                    [label "RPE: "] [style '(deleted)]
-                   [choices '("0 -- Not Specified"
-                              "1 -- Rest"
-                              "2 -- Really Easy"
-                              "3 -- Easy"
-                              "4 -- Moderate"
-                              "5 -- Challenging"
-                              "6 -- Hard"
-                              "7 -- Hard"
-                              "8 -- Really Hard"
-                              "9 -- Really, Really Hard"
-                              "10 -- Maximal")]
+                   [choices
+                    (for/list ([rpe (in-range 11)])
+                      (rpe->string rpe))]
                    [callback (lambda (c e) (calculate-tss))]))
 
       (set! swim-tpace

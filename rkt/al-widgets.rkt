@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -576,7 +576,7 @@ values (?, ?)" session-id id))
 
    (mk-qcolumn "Power" lap-avg-power n->string #:default-visible? #t)
    (mk-qcolumn "Max Power" lap-max-power n->string #:default-visible? #t)
-   (mk-qcolumn "Weighted Power" lap-normalized-power n->string #:default-visible? #t)
+   (mk-qcolumn "ISO Power" lap-normalized-power n->string #:default-visible? #t)
 
    (mk-qcolumn "L-R Bal" lap-left-right-balance pct->string #:default-visible? #t)
    (mk-qcolumn "Left TEff" lap-avg-left-torque-effectiveness n->string #:default-visible? #f)

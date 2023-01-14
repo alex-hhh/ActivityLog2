@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -240,7 +240,7 @@
   (list
    (badge-field-def "Avg Power: " session-avg-power (lambda (v) (power->string v #t)))
    (badge-field-def "Max Power: " session-max-power (lambda (v) (power->string v #t)))
-   (badge-field-def "Weighted Power: " session-normalized-power (lambda (v) (power->string v #t)))
+   (badge-field-def "ISO Power: " session-normalized-power (lambda (v) (power->string v #t)))
    (badge-field-def "Left-Righ Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
