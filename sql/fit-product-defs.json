@@ -160,7 +160,7 @@
                 "name" : "Garmin FR230"
             },
             {
-                "product_id" : 2158,
+                "product_id" : [2158, 2533, 2534],
                 "name" : "Garmin FR735XT"
             },
             {

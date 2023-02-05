@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -506,6 +506,10 @@ select count(*)
                          (format "timestamp ~a outside time range [~a .. ~a]"
                                  ts start end))))))
      (check-true (null? expected-track-lengths) "expected-track-lengths too long"))
+   (test-case "f0051.fit"
+     (do-basic-checks
+      "./test-fit/f0051.fit" '(20 18 15 18 20) '(85 41 21 70 86)
+      #:expected-session-count 5))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -534,5 +538,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0010.fit (a)"))
+             ;; #:only '(("FIT file reading" "f0051.fit"))
              fit-files-test-suite))

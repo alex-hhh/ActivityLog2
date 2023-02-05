@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -901,9 +901,13 @@
       #t)
 
     (define/override (on-session session)
-      ;; Session records can come before the lap records (Garmin Swim), so we
-      ;; cannot collect the laps when we see a session.  Instead we just save
-      ;; it and process it in collect-activity.
+      ;; Session records can come before the lap records (Garmin Swim),
+      ;; combined with the fact that laps in a new session can start before
+      ;; the previous session ended in a multi-sport activity, this can make
+      ;; it challenging to assign laps to session.  Here we assign all laps
+      ;; that we already have (since they came before this session record) and
+      ;; additional laps are added in collect-activity if the session record
+      ;; came before any laps.
 
       (let ((data (process-fields session)))
         (set! data (cons (cons 'devices devices) data))
@@ -921,8 +925,10 @@
         (cond ((dict-ref session 'pool-length-unit #f) =>
                (lambda (v)
                  (set! data (cons (cons 'pool-length-unit v) data)))))
+        (set! data (cons (cons 'laps (reverse laps)) data))
         (set! devices '())
         (set! sport '())
+        (set! laps '())
         (set! sessions (cons data sessions)))
       #t)
 
@@ -1155,22 +1161,25 @@
                         (dict-ref the-session 'start-time #f))
             (set! sessions (list (cons (cons 'timestamp (get-current-timestamp))
                                        the-session))))))
-
       (define (add-session-laps session)
         (define-values (start-time end-time) (get-start-end-times session))
         ;; There is no clear way in the FIT file of which laps belong to a
         ;; session, since session records can come either at the start or the
         ;; end of the FIT file.  We try to be clever here: we grab all laps
         ;; which have their start time before the end time of the session.
-        (let-values ([(our-laps rest)
+        (let-values ([(our-laps remaining-laps)
                       (splitf-at laps
                                  (lambda (v)
                                    (define ts (or (dict-ref v 'start-time #f)
                                                   (dict-ref v 'timestamp #f)
                                                   0))
-                                   (< ts end-time)))])
-          (set! laps rest)            ; will be used by the next session
-          (cons (cons 'laps our-laps) session)))
+                                   (and (>= ts start-time) (< ts end-time))))])
+          (set! laps remaining-laps)    ; will be used by the next session
+          (if (null? our-laps)
+              session
+              (let ([l (append (dict-ref session 'laps '()) our-laps)]
+                    [s (dict-remove session 'laps)])
+                (cons (cons 'laps l) s)))))
 
       (define (add-session-weather-records session)
         (define-values (start-time end-time) (get-start-end-times session))

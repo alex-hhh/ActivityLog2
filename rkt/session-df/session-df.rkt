@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -140,7 +140,7 @@
        (if is-lap-swim? (fetch-trackpoins/swim) (fetch-trackpoins))
        session-id))
 
-    (when is-lap-swim?
+    (when (and is-lap-swim? (> (df-row-count df) 0))
       ;; Lap swims don't record the distance in the A_TRACKPOINT table, at least
       ;; not reliably.  We reconstruct the "dst" series here from the lengths
       ;; and the "pool_length".  Note that we use the "active" series as a
