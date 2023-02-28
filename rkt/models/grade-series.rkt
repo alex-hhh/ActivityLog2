@@ -4,7 +4,7 @@
 ;; grade-series.rkt -- calculate the grade (or slope) in a data frame
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -78,18 +78,26 @@
         (vector-set! alt idx (vector-ref alt (sub1 idx)))))
 
   ;; Compute a distance data from the GPS points, don't use the "dst" series,
-  ;; as it might have stop points which would mess up our calculations.
+  ;; as it might have stop points which would mess up our calculations.  We
+  ;; also account for samples with no lat/lon, for example when the route goes
+  ;; through a tunnel and GPS signal is lost.
+  ;;
+  ;; NOTE: this assumes that tunnels are straight lines, but we have no other
+  ;; data to work with.
   (define dst
-    (let ((adst 0))
+    (let ([adst 0]
+          [plat #f]
+          [plon #f])
       (df-map
        df
        '("lat" "lon")
-       (lambda (prev val)
-         (when prev
-           (match-define (list plat plon) prev)
-           (match-define (list lat lon) val)
-           (when (and plat plon lat lon)
-             (set! adst (+ adst (distance-between plat plon lat lon)))))
+       (lambda (val)
+         (match-define (list lat lon) val)
+         (when (and lat lon)
+           (when (and plat plon)
+             (set! adst (+ adst (distance-between plat plon lat lon))))
+           (set! plat lat)
+           (set! plon lon))
          adst))))
 
   ;; When entering a longer tunnel and loosing the GPS signal, the Garmin
