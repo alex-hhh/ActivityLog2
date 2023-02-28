@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -30,7 +30,6 @@
          "../rkt/session-df/session-df.rkt"
          "../rkt/models/sport-zone.rkt"
          "../rkt/sport-charms.rkt"
-         "../rkt/weather.rkt"
          "../rkt/workout-editor/wk-db.rkt"
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
@@ -38,7 +37,6 @@
          "../rkt/time-in-zone.rkt"
          "test-util.rkt")
 
-(set-allow-weather-download #f)        ; don't download weather for unit tests
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 
 

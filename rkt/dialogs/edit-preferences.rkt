@@ -2,7 +2,7 @@
 ;; edit-preferences.rkt -- edit global preferences
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,7 +18,6 @@
          racket/gui/base
          "../al-widgets.rkt"
          "../fmt-util.rkt"
-         "../weather.rkt"
          "../models/ec-util.rkt"
          "../widgets/main.rkt"
          map-widget)
@@ -35,7 +34,6 @@
 
     (define measurement-system-choice #f)
     (define tablet-friendly-checkbox #f)
-    (define allow-weather-download-check-box #f)
     (define allow-map-tile-download-check-box #f)
     (define fix-elevation-on-import-check-box #f)
     (define map-provider-choice #f)
@@ -54,14 +52,6 @@
                    [choices '("Metric" "Imperial")]))
         (set! tablet-friendly-checkbox
               (new check-box% [label "Tablet friendly dialogs (requires application restart)"]
-                   [parent p1])))
-
-      (let ((p1 (new group-box-panel% [parent p] [label "Weather"]
-                     [horiz-margin 10]
-                     [alignment '(left top)]
-                     [stretchable-height #f])))
-        (set! allow-weather-download-check-box
-              (new check-box% [label "Allow weather data download"]
                    [parent p1])))
 
       (let ((p1 (new group-box-panel% [parent p] [label "Elevation Correction"]
@@ -94,8 +84,6 @@
         (send tablet-friendly-checkbox set-value (if tablet-friendly? #t #f)))
       (let ((allow? (allow-tile-download)))
         (send allow-map-tile-download-check-box set-value (if allow? #t #f)))
-      (let ((allow? (allow-weather-download)))
-        (send allow-weather-download-check-box set-value (if allow? #t #f)))
       (let ([fix? (fix-elevation-on-import)])
         (send fix-elevation-on-import-check-box set-value fix?))
       (let ((index (for/first ([(p idx) (in-indexed (get-tile-providers))]
@@ -118,10 +106,6 @@
 
       (let ((index (send map-provider-choice get-selection)))
         (set-current-tile-provider (list-ref (get-tile-providers) index)))
-
-      (let ((val (send allow-weather-download-check-box get-value)))
-        (unless (eq? val (allow-weather-download))
-          (set-allow-weather-download val)))
 
       (let ([val (send fix-elevation-on-import-check-box get-value)])
         (unless (equal? val (fix-elevation-on-import))

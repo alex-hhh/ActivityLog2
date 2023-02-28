@@ -2,7 +2,7 @@
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,6 +17,8 @@
 (require db/base
          racket/class
          racket/gui/base
+         gui-widget-mixins
+         racket/format
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
@@ -30,8 +32,25 @@
 
 ;;........................................................ weather-edit% ....
 
-(define message-font
-  (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define min-text-field-width 120)
+(define min-wind-speed 0)
+(define max-wind-speed 100)              ; km/h
+
+(define (validate-positive-rational v)
+  (define n (string->number v))
+  (and n (rational? n) (> n 0) n))
+
+(define (validate-non-negative-rational v)
+  (define n (string->number v))
+  (and n (rational? n) (>= n 0) n))
+
+(define ((validate-rational-between minimum maximum) v)
+  (define n (string->number v))
+  (and n (rational? n) (>= n minimum) (<= n maximum) n))
+
+(define wind-rose
+  (list "N" "NNE" "NE" "NEE" "E" "ESE" "SE" "SSE" "S"
+        "SSW" "SW" "WSW" "W" "WNW" "NW" "NNW"))
 
 (define weather-edit%
   (class edit-dialog-base%
@@ -41,194 +60,187 @@
     (define db #f)
     (define sid #f)
 
-    ;; A message% object where we display any errors while fetching weather
-    ;; data.
-    (define info-message #f)
-
     ;; The start time of the activtity, used to determine the weather
     ;; obesrvation timestamp.
     (define start-time (current-seconds))
 
-    ;; Widgets used to display to the user the activity for which we edit the
-    ;; weather.
-    (define activity-headline #f)
-    (define activity-start-time #f)
+    (define wstation "")
 
-    ;; Source of the weather data. Can be: 'nearby -- from one of the nearby
-    ;; weather stations, 'weather-station -- from a specific weather station,
-    ;; or 'manual -- manually entered.
-    (define weather-source #f)
+    (define message-font
+      (send the-font-list find-or-create-font 12 'default 'normal 'normal))
 
-    ;; When (eq? weather-source 'weather-station), this contains the name of
-    ;; the station.
-    (define weather-station #f)
+    (define gui-controls (make-hash))
 
-    ;; list of wobs objects (weather observations) for the current wstation
-    (define observations '())
+    (define/private (value-of control-name)
+      (define control (hash-ref gui-controls control-name))
+      (cond ((is-a? control text-field%)
+             (send control get-value/validated))
+            ((is-a? control check-box%)
+             (send control get-value))
+            ((is-a? control slider%)
+             (send control get-value))
+            ((is-a? control choice%)
+             (send control get-selection))
+            (#t
+             (error "value-of: unknown control type"))))
 
-    ;; Widgets used to select the weather source, weather station and
-    ;; observation timestamp.
-    (define wsource-choice #f)
-    (define wselection-pane #f)
-    (define fetch-weather-button #f)
-    (define wobs-choice #f)
-
-    ;; Widgets used to select weather data values.  When (memq? weather-source
-    ;; '(nearby weather-station), these are read-only and filled in from
-    ;; weather observations (wobs objects)
-    (define temperature-field #f)
-    (define dew-point-field #f)
-    (define humidity-field #f)
-    (define wind-speed-field #f)
-    (define wind-gusts-field #f)
-    (define wind-direction-field #f)
-    (define baromethric-pressure-field #f)
-
-    (define wind-rose
-      (list "N" "NNE" "NE" "NEE" "E" "ESE" "SE" "SSE" "S"
-            "SSW" "SW" "WSW" "W" "WNW" "NW" "NNW"))
+    (define/private (put-value control-name value)
+      (define control (hash-ref gui-controls control-name))
+      (cond ((is-a? control text-field%)
+             (send control set-value value))
+            ((is-a? control choice%)
+             (send control set-selection value))
+            ((is-a? control message%)
+             (send control set-label value))
+            ((is-a? control check-box%)
+             (send control set-value value))
+            ((is-a? control slider%)
+             (send control set-value value))
+            (#t
+             (error "put-value: unknown control type"))))
 
     (let ((p (send this get-client-pane)))
-      (let ((hp (make-horizontal-pane p #f)))
-        (send hp set-alignment 'center 'center)
-        (set! info-message (new message% [parent hp] [label ""]
-                                [font message-font] [auto-resize #t])))
 
       (let ((hp (make-horizontal-pane p #f)))
-        (new message% [parent hp] [label "Activity: "]
+        (new message%
+             [parent hp]
+             [label "Activity: "]
              [stretchable-width #f])
-        (set! activity-headline (new message% [parent hp] [label "Untitled"]
-                                     [font message-font]
-                                     [stretchable-width #t])))
+        (hash-set!
+         gui-controls
+         'activity-headline
+         (new message%
+              [parent hp]
+              [label "Untitled"]
+              [font message-font]
+              [stretchable-width #t])))
       (let ((hp (make-horizontal-pane p #f)))
-        (new message% [parent hp] [label "Start time: "]
+        (new message%
+             [parent hp]
+             [label "Start time: "]
              [stretchable-width #f])
-        (set! activity-start-time (new message% [parent hp] [label "Untitled"]
-                                       [font message-font]
-                                       [stretchable-width #t])))
-
-      (define sel-gb (make-group-box-panel p))
-
-      (let ((hp (make-horizontal-pane sel-gb #f)))
-        (set! wsource-choice
-              (new choice% [parent hp]
-                   [label "Source: "]
-                   [choices '("DarkSky.net" "Manual")]
-                   [callback (lambda (c e)
-                               (let ((sel (send c get-selection)))
-                                 (on-weather-source-changed
-                                  (list-ref '(nearby manual) sel))))]))
-        (set! wselection-pane (make-horizontal-pane hp #f))
-        (set! fetch-weather-button (new button% [parent wselection-pane]
-                                        [label "Fetch Weather Data"]
-                                        [callback (lambda (b e) (on-fetch-weather-data))]))
-        (set! wobs-choice
-              (new choice% [parent wselection-pane]
-                   [label ""]
-                   [choices '()]
-                   [callback (lambda (c e) (on-observation-selected (send c get-selection)))])))
+        (hash-set!
+         gui-controls
+         'activity-start-time
+         (new message%
+              [parent hp]
+              [label "Untitled"]
+              [font message-font]
+              [stretchable-width #t])))
 
       (define contents-gb (make-group-box-panel p))
 
       (let ((hp (make-horizontal-pane contents-gb #f)))
-        (set! temperature-field (new number-input-field%
-                                     [parent hp]
-                                     [cue-text "degrees Celsius"]
-                                     [label "Temperature: "]))
-        (set! humidity-field (new number-input-field%
-                                  [parent hp]
-                                  [cue-text "percentage"]
-                                  [label "Humidity: "]))
-        (set! dew-point-field (new number-input-field%
-                                   [parent hp]
-                                   [cue-text "degrees Celsius"]
-                                   [label "Dew point: "])))
+        (hash-set!
+         gui-controls
+         'temperature
+         (new (validate-mixin
+               validate-non-negative-rational
+               (lambda (v) (~r v #:precision 1))
+               (decorate-mixin
+                (decorate-with "℃" #:validate validate-non-negative-rational)
+                (cue-mixin
+                 "℃"
+                 (tooltip-mixin text-field%))))
+              [parent hp]
+              [min-width min-text-field-width]
+              [allow-empty? #t]
+              [tooltip "Temperature"]
+              [label "Temperature: "]
+              [stretchable-width #f]))
+
+        (hash-set!
+         gui-controls
+         'humidity
+         (new (validate-mixin
+               (validate-rational-between 0 100)
+               (lambda (v) (~r v #:precision 3))
+               (decorate-mixin
+                (decorate-with "%" #:validate (validate-rational-between 0 100))
+                (cue-mixin
+                 "%"
+                 (tooltip-mixin text-field%))))
+              [parent hp]
+              [allow-empty? #t]
+              [min-width min-text-field-width]
+              [tooltip "Relative Humidity"]
+              [label "Humidity: "]
+              [stretchable-width #f]))
+
+        (hash-set!
+         gui-controls
+         'dew-point
+         (new (validate-mixin
+               validate-non-negative-rational
+               (lambda (v) (~r v #:precision 1))
+               (decorate-mixin
+                (decorate-with "℃" #:validate validate-non-negative-rational)
+                (cue-mixin
+                 "℃"
+                 (tooltip-mixin text-field%))))
+              [parent hp]
+              [allow-empty? #t]
+              [min-width min-text-field-width]
+              [tooltip "Temperature"]
+              [label "Temperature: "]
+              [stretchable-width #f])))
 
       (let ((hp (make-horizontal-pane contents-gb #f)))
-        (set! wind-speed-field (new number-input-field%
-                                     [parent hp]
-                                     [cue-text "km/h"]
-                                     [label "Wind speed: "]))
-        (set! wind-gusts-field (new number-input-field%
-                                    [parent hp]
-                                    [cue-text "km/h"]
-                                    [label "Gusts: "]))
-        (set! wind-direction-field (new choice%
-                                        [parent hp]
-                                        [label "Direction: "]
-                                        [choices wind-rose])))
+        (hash-set!
+         gui-controls
+         'wind-speed
+         (new (validate-mixin
+               (validate-rational-between min-wind-speed max-wind-speed)
+               (lambda (v) (~r v #:precision 2))
+               (decorate-mixin
+                (decorate-with "km/h" #:validate validate-non-negative-rational)
+                (cue-mixin "km/h" text-field%)))
+              [parent hp]
+              [label "Wind Speed: "]
+              [allow-empty? #t]
+              [min-width min-text-field-width]
+              [stretchable-width #f]))
+        (hash-set!
+         gui-controls
+         'wind-gusts
+         (new (validate-mixin
+               (validate-rational-between min-wind-speed max-wind-speed)
+               (lambda (v) (~r v #:precision 2))
+               (decorate-mixin
+                (decorate-with "km/h" #:validate validate-non-negative-rational)
+                (cue-mixin "km/h" text-field%)))
+              [parent hp]
+              [label "Wind Gusts: "]
+              [allow-empty? #t]
+              [min-width min-text-field-width]
+              [stretchable-width #f]))
+
+        (hash-set!
+         gui-controls
+         'wind-direction
+         (new choice%
+              [parent hp]
+              [label "Direction: "]
+              [choices wind-rose])))
 
       (let ((hp (make-horizontal-pane contents-gb #f)))
-        (set! baromethric-pressure-field
-              (new number-input-field%
-                   [parent hp]
-                   [stretchable-width #f]
-                   [min-width 50]
-                   [cue-text "hPa"]
-                   [label "Baromethric Pressure: "])))
-
-      )
-
-    (define (on-fetch-weather-data)
-      (when (and db sid)
-        (send fetch-weather-button enable #f)
-        (thread
-         (lambda ()
-           (with-handlers
-             (((lambda (e) #t)
-               (lambda (e)
-                 (queue-callback
-                  (lambda ()
-                    (send info-message set-label
-                          (if (exn? e)
-                              (exn-message e)
-                              "Unknown error while fetching weather"))
-                    (send fetch-weather-button enable #t))))))
-             (let ((observations (get-daily-observations-for-session db sid)))
-               (when observations ; will be #f if weather data download is disabled
-                 (queue-callback
-                  (lambda ()
-                    (send fetch-weather-button enable #t)
-                    (setup-observations observations))))))))))
-
-    (define (on-observation-selected index)
-      (setup-weather-fields (list-ref observations index) #t))
-
-    (define (setup-observations new-observations)
-      (send wobs-choice clear)
-      (send wobs-choice enable #t)
-      (set! observations (sort new-observations < #:key wobs-ts))
-      (for ((o (in-list observations)))
-        (send wobs-choice append (time-of-day->string (wobs-ts o))))
-      (clear-weather-fields)
-      ;; Find the best observation that matches START-TIME and select it.
-      (let loop ((idx 0) (obs observations))
-        (unless (null? obs)
-          (if (>= (wobs-ts (car obs)) start-time)
-              (begin
-                (send wobs-choice set-selection idx)
-                (setup-weather-fields (car obs) #t))
-              (loop (add1 idx) (cdr obs))))))
-
-    (define (on-weather-source-changed new-source)
-      (unless (eq? new-source weather-source)
-        (case new-source
-          ((nearby)
-           (send wselection-pane change-children
-                 (lambda (old) (list fetch-weather-button wobs-choice)))
-           (enable-manual-edit #f))
-
-          ((manual)
-           (send wselection-pane change-children
-                 (lambda (old) '()))
-           (let ((index (send wobs-choice get-selection)))
-             ;; Inherit the weather data from the last selected observation,
-             ;; and use that as a starting point for the edit.
-             (if index
-                 (setup-weather-fields (list-ref observations index) #f)
-                 (clear-weather-fields)))
-           (enable-manual-edit #t)))
-        (set! weather-source new-source)))
+        (hash-set!
+       gui-controls
+       'pressure
+       (new (validate-mixin
+             validate-positive-rational
+             (lambda (v) (~r v #:precision 3))
+             (decorate-mixin
+              (decorate-with "hPa" #:validate validate-positive-rational)
+              (cue-mixin
+               "hPa"
+               (tooltip-mixin text-field%))))
+            [parent hp]
+            [label ""]
+            [allow-empty? #t]
+            [min-width min-text-field-width]
+            [tooltip "Barometric Pressure (sea level) in hPa"]
+            [stretchable-width #f]))))
 
     (define (set-wind-direction wdir)
       (if wdir
@@ -236,59 +248,60 @@
             (let loop ((idx 0) (labels wind-rose))
               (unless (null? labels)
                 (if (equal? label (car labels))
-                    (send wind-direction-field set-selection idx)
+                    (put-value 'wind-direction idx)
                     (loop (+ idx 1) (cdr labels))))))
-          (send wind-direction-field set-selection 0)))
+          (put-value 'wind-direction 0)))
 
     (define (get-wind-direction)
       ;; this is a hack :-)
-      (* (/ 360 (length wind-rose)) (send wind-direction-field get-selection)))
+      (* (/ 360 (length wind-rose)) (value-of 'wind-direction)))
 
     ;; Setup values in the weather fields, based on data in WOBS.  If
     ;; UNIT-LABEL is #t, the values will have unit labels (temperature, speed,
     ;; etc)
-    (define (setup-weather-fields wobs unit-label)
-      (send temperature-field set-value
-            (if (wobs-temp wobs)
-                (temperature->string (wobs-temp wobs) unit-label)
-                ""))
-      (send dew-point-field set-value
-            (if (wobs-dewp wobs)
-                (temperature->string (wobs-dewp wobs) unit-label)
-                ""))
-      (send humidity-field set-value
-            (if (wobs-hum wobs)
-                (humidity->string (wobs-hum wobs) unit-label)
-                ""))
-      (send wind-speed-field set-value
-            (if (wobs-wspd wobs)
-                (speed->string (wobs-wspd wobs) unit-label)
-                ""))
-      (send wind-gusts-field set-value
-            (if (wobs-wgust wobs)
-                (speed->string (wobs-wgust wobs) unit-label)
-                ""))
+    (define (setup-weather-fields wobs)
+      (when (wobs-ts wobs)
+        (set! start-time (wobs-ts wobs)))
+      (put-value
+       'temperature
+       (if (wobs-temp wobs)
+           (temperature->string (wobs-temp wobs) #f)
+           ""))
+      (put-value
+       'dew-point
+       (if (wobs-dewp wobs)
+           (temperature->string (wobs-dewp wobs) #f)
+           ""))
+      (put-value
+       'humidity
+       (if (wobs-hum wobs)
+           (humidity->string (wobs-hum wobs) #f)
+           ""))
+      (put-value
+       'wind-speed
+       (if (wobs-wspd wobs)
+           (speed->string (wobs-wspd wobs) #f)
+           ""))
+      (put-value
+       'wind-gusts
+       (if (wobs-wgust wobs)
+           (speed->string (wobs-wgust wobs) #f)
+           ""))
       (set-wind-direction (wobs-wdir wobs))
-      (send baromethric-pressure-field set-value
-            (if (wobs-pressure wobs)
-                (pressure->string (wobs-pressure wobs) unit-label)
-                "")))
+      (put-value
+       'pressure
+       (if (wobs-pressure wobs)
+           (pressure->string (wobs-pressure wobs) #f)
+           "")))
 
     (define (clear-weather-fields)
-      (send temperature-field set-value "")
-      (send dew-point-field set-value "")
-      (send humidity-field set-value "")
-      (send wind-speed-field set-value "")
-      (send wind-gusts-field set-value "")
+      (put-value 'temperature "")
+      (put-value 'dew-point "")
+      (put-value 'humidity "")
+      (put-value 'wind-speed "")
+      (put-value 'wind-gusts "")
       (set-wind-direction 0)
-      (send baromethric-pressure-field set-value ""))
-
-    ;; Enable/Disable manual editing of weather fields.
-    (define (enable-manual-edit enable?)
-      (for ((f (in-list (list temperature-field dew-point-field humidity-field
-                              wind-speed-field wind-gusts-field wind-direction-field
-                              baromethric-pressure-field))))
-        (send f enable enable?)))
+      (put-value 'pressure ""))
 
     (define (setup-activity-info db sid)
       (let ((row (query-row db "
@@ -298,87 +311,69 @@ select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
                                 (sql-column-ref row 0 "Untitled")
                                 (get-sport-name (sql-column-ref row 1 #f)
                                                 (sql-column-ref row 2 #f)))))
-          (send activity-headline set-label headline))
+          (put-value 'activity-headline headline))
         (set! start-time (sql-column-ref row 3 0))
-        (send activity-start-time set-label (date-time->string start-time))))
+        (put-value 'activity-start-time (date-time->string start-time))))
 
+    ;; NOTE: multiple weather records can be present for a session, we select
+    ;; and allow editing only of the first one.
     (define (setup-activity-weather db sid)
-      (let ((row (query-maybe-row db "
-select wstation, timestamp,
-       ifnull(temperature, -1000),
-       ifnull(dew_point, -1000),
-       ifnull(humidity, -1),
-       ifnull(wind_speed, -1),
-       ifnull(wind_gusts, -1),
-       ifnull(wind_direction, -1),
-       ifnull(pressure, -1)
-from SESSION_WEATHER where session_id =?" sid)))
-        (when row
-          (let ((wstation (sql-column-ref row 0 ""))
-                (timestamp (sql-column-ref row 1 0)))
-            (set! weather-source #f)
-            (cond ((equal? wstation "")
-                   (on-weather-source-changed 'manual)
-                   (send wsource-choice set-selection 1))
-                  (#t
-                   (on-weather-source-changed 'nearby)
-                   (send wsource-choice set-selection 0)))
-            (let ((wo (wobs (sql-column-ref row 1 0)
-                            (sql-column-ref row 2 0)
-                            (sql-column-ref row 3 0)
-                            (sql-column-ref row 4 0)
-                            (sql-column-ref row 5 0)
-                            (sql-column-ref row 6 0)
-                            (sql-column-ref row 7 0)
-                            (sql-column-ref row 8 0))))
-              (setup-observations (list wo)))))))
+      (let ((rows (query-rows db "
+select wstation,
+       timestamp,
+       temperature,
+       dew_point,
+       humidity,
+       wind_speed,
+       wind_gusts,
+       wind_direction,
+       pressure
+from SESSION_WEATHER where session_id =?
+order by timestamp" sid)))
+        (unless (null? rows)
+          (let* ([row (car rows)]
+                 [wo (wobs (sql-column-ref row 1)
+                           (sql-column-ref row 2)
+                           (sql-column-ref row 3)
+                           (sql-column-ref row 4)
+                           (sql-column-ref row 5)
+                           (sql-column-ref row 6)
+                           (sql-column-ref row 7)
+                           (sql-column-ref row 8))])
+            (set! wstation (sql-column-ref row 0 ""))
+            (setup-weather-fields wo)))))
 
     (define (save-weather-data database sid)
-      (cond ((eq? weather-source 'nearby)
-             (let ((wobs (list-ref observations (send wobs-choice get-selection))))
-               (update-session-weather database sid "#dark-sky" wobs)))
-            ((eq? weather-source 'manual)
-             (let ((wo (wobs start-time
-                             (send temperature-field get-converted-value)
-                             (send dew-point-field get-converted-value)
-                             (send humidity-field get-converted-value)
-                             (send wind-speed-field get-converted-value)
-                             (send wind-gusts-field get-converted-value)
-                             (get-wind-direction)
-                             (send baromethric-pressure-field get-converted-value))))
-               (update-session-weather database sid "" wo)))))
+      (define (->sql v)
+        (if (rational? v) v #f))
+      (let ((wo (wobs start-time
+                      (->sql (value-of 'temperature))
+                      (->sql (value-of 'dew-point))
+                      (->sql (value-of 'humidity))
+                      (->sql (value-of 'wind-speed))
+                      (->sql (value-of 'wind-gusts))
+                      (get-wind-direction)
+                      (->sql (value-of 'pressure)))))
+        (update-session-weather database sid wstation wo)))
 
     (define/override (has-valid-data?)
-      (case weather-source
-        ((nearby) (> (length observations) 0))
-        ((manual)
-         (and (send temperature-field has-valid-value?)
-              (send dew-point-field has-valid-value?)
-              (send humidity-field has-valid-value?)
-              (send wind-speed-field has-valid-value?)
-              (send wind-gusts-field has-valid-value?)
-              (send baromethric-pressure-field has-valid-value?)))
-        (else #f)))
+      (define (valid? v)
+        (or (rational? v) (equal? v 'empty)))
+      (and (valid? (value-of 'temperature))
+           (valid? (value-of 'dew-point))
+           (valid? (value-of 'humidity))
+           (valid? (value-of 'wind-speed))
+           (valid? (value-of 'wind-gusts))
+           (valid? (value-of 'pressure))))
 
     (define/public (begin-edit parent database session-id)
       (clear-weather-fields)
-      (send fetch-weather-button enable (and (allow-weather-download) (ds-api-key)))
       (set! db database)
       (set! sid session-id)
 
-      (if (allow-weather-download)
-          (if (ds-api-key)
-              (send info-message set-label "")
-              (send info-message set-label "No DarkSky.net API key set"))
-          (send info-message set-label "Weather data download disabled"))
-
       (with-busy-cursor
         (lambda ()
-          ;; Setup nearby weather stations and set 'nearby as the default
-          ;; setup.
           (setup-activity-info database sid)
-          (send wsource-choice set-selection 0)
-          (on-weather-source-changed 'nearby)
           ;; Retrieve previous weather data, if any, for this activity and
           ;; setup dialog mode accordingly.
           (setup-activity-weather database sid)))

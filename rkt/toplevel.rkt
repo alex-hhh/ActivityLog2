@@ -2,7 +2,7 @@
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -49,7 +49,6 @@
          "view-calendar.rkt"
          "view-equipment.rkt"
          "view-reports.rkt"
-         "weather.rkt"
          "widgets/main.rkt"
          "workout-editor/view-workouts.rkt")
 
@@ -1356,8 +1355,6 @@
       ;; problems.
       (unless (get-pref 'activity-log:allow-tile-download (lambda () #t))
         (dbglog "map tile download disabled"))
-      (unless (ds-api-key)
-        (dbglog "No DarkSky.net API key set"))
       (unless (get-pref 'activity-log:allow-weather-download (lambda () #t))
         (dbglog "weather data download disabled"))
       (let ((equipment (get-section-by-tag 'equipment)))

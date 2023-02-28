@@ -2,7 +2,7 @@
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,6 @@
          "session-df/session-df.rkt"
          "time-in-zone.rkt"
          "utilities.rkt"
-         "weather.rkt"
          "gps-segments/gps-segments.rkt"
          "fit-file/activity-util.rkt")
 
@@ -71,11 +70,6 @@
       (show-progress "skipping corrected elevation (disabled in settings)..."))
   (show-progress "updating time in zone...")
   (update-tiz-for-new-sessions sessions db)
-  (if (allow-weather-download)
-      (begin
-        (show-progress "updating weather data...")
-        (update-weather-for-new-sessions sessions db))
-      (show-progress "skipping weather download (disabled in settings)..."))
   ;; NOTE: these fixes load sessions, and should be after the elevation
   ;; correction (which adds the "calt" series).  Otherwise, the corrected
   ;; elevation will not show up right after import...
@@ -173,16 +167,6 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
   (fixup-elevation-for-session db sessions #f)
   (when progress-monitor
     (send progress-monitor set-progress (- (length sessions) 1))))
-
-(define (update-weather-for-new-sessions sessions db [progress-monitor #f])
-  (when progress-monitor
-    (send progress-monitor
-          begin-stage "Fetching weather data for new sessions" (length sessions)))
-  (for ((sid (in-list sessions))
-        (n (in-range (length sessions))))
-    (update-session-weather-auto db sid)
-    (when progress-monitor
-      (send progress-monitor set-progress (+ n 1)))))
 
 (define (update-tiz-for-new-sessions sessions db [progress-monitor #f])
   (when progress-monitor

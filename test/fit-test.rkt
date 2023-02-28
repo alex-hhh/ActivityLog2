@@ -34,7 +34,6 @@
          "../rkt/session-df/native-series.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/weather.rkt"
          "test-util.rkt")
 
 ;; Copied from fit-file.rkt, for testing purposes
@@ -529,7 +528,6 @@ select count(*)
      ))
 
 (module+ test
-  (set-allow-weather-download #f)        ; don't download weather for unit tests
   (set-fix-elevation-on-import #t)       ; enable elevation correction -- we want to test it.
 
   ;; when set to #t, dbglog output is sent to stdout, useful for debugging
