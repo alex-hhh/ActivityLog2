@@ -4,7 +4,7 @@
 ;; the SDK from https://www.thisisant.com/resources/fit/
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,7 +16,8 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/date)
+(require racket/date
+         racket/math)
 
 ;; Timestamps in the FIT file start from Dec 31, 1989
 (define *fit-epoch* (find-seconds 0 0 0 31 12 1989 #f))
@@ -42,6 +43,16 @@
   ;; degrees.
   (*  (/ s (expt 2 31)) 180.0))
 
+(define (wrap-and-shift x wrap shift)
+  (+ x (* wrap (ceiling (/ (- shift x) wrap)))))
+
+(define (degrees->semicircles d)
+  ;; Put degrees into -180 180 range
+  (define d1 (wrap-and-shift d 360.0 -180.0))
+  (exact-round (* (/ d1 180.0) (expt 2 31))))
+
+(provide degrees->semicircles)
+  
 (define (make-enum-lookup alist)
   (lambda (v)
     (let ((c (assq v alist)))
@@ -79,6 +90,8 @@
     (7 . zones-target)
     (3 . user-profile)
     (78 . hrv)
+    (32 . course-point)
+    (31 . course)
     (206 . field-description)
     (207 . developer-data-id)
     (72 . training-file)
@@ -169,6 +182,24 @@
     (85 . stride-length)))
 
 (provide *record-fields*)
+
+(define *course-fields*
+  '((4 . sport)
+    (5 . name)
+    (6 . capabilities)
+    (7 . sub-sport)))
+
+(define *course-point-fields*
+  '((254 . message-index)
+    (1 . timestamp)
+    (2 . position-lat)
+    (3 . position-long)
+    (4 . distance)
+    (5 . type)
+    (6 . name)
+    (8 . favourite)))
+
+(provide *course-point-fields*)
 
 (define *lap-fields*
   '((254 . message-index)
@@ -615,6 +646,8 @@
     (user-profile . ,*user-profile-fields*)
     (developer-data-id . ,*developer-id-fields*)
     (field-description . ,*field-description-fields*)
+    (course-point . ,*course-point-fields*)
+    (course . ,*course-fields*)
     (weather-conditions . ,*weather-conditions-fields*)
     (weather-alert . ,*weather-alert-fields*)))
 
@@ -1022,6 +1055,61 @@
     (83 . hydrological)
     (84 . special-weather)))
 
+(define *course-point-type*
+  '((0 . generic)
+    (1 . summit)
+    (2 . valley)
+    (3 . water)
+    (4 . food)
+    (5 . danger)
+    (6 . left)
+    (7 . right)
+    (8 . straight)
+    (9 . first-aid)
+    (10 . fourth-category)
+    (11 . third-category)
+    (12 . second-category)
+    (13 . first-category)
+    (14 . hors-category)
+    (15 . sprint)
+    (16 . left-fork)
+    (17 . right-fork)
+    (18 . middle-fork)
+    (19 . slight-left)
+    (20 . sharp-left)
+    (21 . slight-right)
+    (22 . sharp-right)
+    (23 . u-turn)
+    (24 . segment-start)
+    (25 . segment-end)
+    (27 . campsite)
+    (28 . aid-station)
+    (29 . rest-area)
+    (30 . general-distance)
+    (31 . service)
+    (32 . energy-gel)
+    (33 . sports-drink)
+    (34 . mile-marker)
+    (35 . checkpoint)
+    (36 . shelter)
+    (37 . meeting-spot)
+    (38 . overlook)
+    (39 . toilet)
+    (40 . shower)
+    (41 . gear)
+    (42 . sharp-curve)
+    (43 . steep-incline)
+    (44 . tunnel)
+    (45 . bridge)
+    (46 . obstacle)
+    (47 . crossing)
+    (48 . store)
+    (49 . transition)
+    (50 . navaid)
+    (51 . transport)
+    (52 . alert)
+    (53 . info)))
+
 
 ;.................................................... conversion tables ....
 
@@ -1171,6 +1259,17 @@
     (stance-time-balance  . ,div-by-100)
     (stride-length        . ,div-by-10000)))
 
+(define *course-point-conversions*
+  `((timestamp      . ,fit-time->unix-time)
+    (position-lat   . ,semicircles->degrees)
+    (position-long  . ,semicircles->degrees)
+    (distance       . ,div-by-100)
+    (type           . ,(make-enum-lookup *course-point-type*))))
+
+(define *course-conversions*
+  `((sport                 . ,(make-enum-lookup *sport*))
+    (sub-sport             . ,(make-enum-lookup *sub-sport*))))
+
 (define *event-conversions*
   `((timestamp  . ,fit-time->unix-time)
     (event      . ,(make-enum-lookup *event-name*))
@@ -1263,6 +1362,8 @@
     (zones-target . ,*zones-target-conversions*)
     (training-file . ,*training-file-conversions*)
     (user-profile . ,*user-profile-conversions*)
+    (course-point . ,*course-point-conversions*)
+    (course       . ,*course-conversions*)
     (weather-conditions . ,*weather-conditions-conversions*)
     (weather-report . ,*weather-report-conversions*)))
 
