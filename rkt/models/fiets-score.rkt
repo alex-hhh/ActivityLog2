@@ -22,7 +22,8 @@
 
 (require data-frame
          racket/math
-         racket/contract)
+         racket/contract
+         racket/format)
 
 ;; Calculate the FIETS score, which indicates the difficulty of a climb.  See
 ;; "docs/climbs.md" for a discussion on how it is calculated and why.  Return
@@ -54,10 +55,19 @@
         ((> fs 0.25) "CAT 5")
         (#t "")))
 
+(define (fiets-score->string v)
+  (if (rational? v)
+      (let ([cat (fiets-score->climb-category v)]
+            [f (~r v #:precision 2)])
+        (if (equal? cat "")
+            f
+            (string-append f " (" cat ")")))
+      ""))
+
 (provide/contract
  (fiets-score (->* (data-frame?)
                    (#:start (or/c zero? positive-integer?)
                     #:stop (or/c zero? positive-integer?))
                    (or/c zero? positive? #f)))
- (fiets-score->climb-category (-> (or/c zero? positive?) string?)))
-
+ (fiets-score->climb-category (-> (or/c zero? positive?) string?))
+ (fiets-score->string (-> (or/c zero? positive?) string?)))

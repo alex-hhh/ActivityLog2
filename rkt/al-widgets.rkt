@@ -31,7 +31,8 @@
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets/main.rkt"
-         "database.rkt")
+         "database.rkt"
+         "models/fiets-score.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -608,6 +609,7 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Calories" lap-calories n->string #:default-visible? #f)
    (mk-qcolumn "Ascent" lap-total-ascent n->string #:default-visible? #t)
    (mk-qcolumn "Descent" lap-total-descent n->string #:default-visible? #f)
+   (mk-qcolumn "FIETS" (lambda (v) (dict-ref v 'fiets-score #f)) fiets-score->string #:default-visible? #f)
    (mk-qcolumn "Avg Temperature" lap-avg-temperature temperature->string #:default-visible? #f)
    (mk-qcolumn "Max Temperature" lap-max-temperature temperature->string #:default-visible? #f)
    ))
@@ -634,7 +636,8 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Lap" lap-num lap-num-fmt)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance distance->string)
-   (mk-qcolumn "Ascent" lap-total-ascent n->string)))
+   (mk-qcolumn "Ascent" lap-total-ascent n->string)
+   (mk-qcolumn "FIETS" (lambda (v) (dict-ref v 'fiets-score #f)) fiets-score->string)))
 
 (define *bike-mini-descend-fields*
   (list
@@ -655,7 +658,8 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Segment" segment-name ~a)
    (mk-qcolumn "Duration" lap-elapsed-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Distance" lap-distance distance->string)
-   (mk-qcolumn "Power" lap-avg-power n->string)))
+   (mk-qcolumn "Power" lap-avg-power n->string)
+   (mk-qcolumn "FIETS" (lambda (v) (dict-ref v 'fiets-score #f)) fiets-score->string)))
 
 (define *swim-lap-fields*
   (list

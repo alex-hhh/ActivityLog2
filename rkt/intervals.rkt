@@ -22,7 +22,8 @@
          "session-df/session-df.rkt"
          "sport-charms.rkt"
          "models/aerobic-decoupling.rkt"
-         "models/coggan.rkt")
+         "models/coggan.rkt"
+         "models/fiets-score.rkt")
 
 (provide
  make-split-intervals
@@ -328,7 +329,13 @@
       (define d1 (vector-ref (car s) 2))
       (define d2 (vector-ref (cdr s) 2))
       (match-define (list start end) (df-index-of* df "timestamp" d1 d2))
-      (make-interval-summary df start end)))
+      (define summary (make-interval-summary df start end))
+      (define fiets (fiets-score df #:start start #:stop end))
+      (if fiets
+          (cons
+           (cons 'fiets-score fiets)
+           summary)
+          summary)))
 
   (define intervals
     (if (df-contains? df "timestamp" "dst")

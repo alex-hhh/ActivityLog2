@@ -21,6 +21,7 @@
 
 select GSM.id,
        GS.name,
+       GS.fiets_score,
        T_START.timestamp as start_time,
        SS.total_timer_time,
        SS.total_elapsed_time,

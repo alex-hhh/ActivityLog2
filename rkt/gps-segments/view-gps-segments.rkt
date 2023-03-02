@@ -92,12 +92,7 @@
   (let ([d->s (lambda (v) (distance->string v #t))]
         [vd->s (lambda (v) (vertical-distance->string v #t))]
         [pct->s (lambda (v) (string-append (~r v #:precision 1) " %"))]
-        [f->s (lambda (v)
-                (let ([cat (fiets-score->climb-category v)]
-                      [f (~r v #:precision 2)])
-                  (if (equal? cat "")
-                      f
-                      (string-append f " (" cat ")"))))])
+        [f->s fiets-score->string])
     (list
      (make-qcolumn "Name" 1 #f ~a)
      (make-qcolumn "Length" 2 #f d->s)
