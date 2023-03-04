@@ -49,7 +49,6 @@ steps:
     env:
       PLTSTDERR: 'error warning@optimizer'
       AL2TFAPIKEY: $(AL2TFAPIKEY)
-      AL2DSAPIKEY: $(AL2DSAPIKEY)
     displayName: Build Application
 
   # Some of the tests require data files which are (1) large, (2) contain

@@ -17,30 +17,19 @@ build and run the application on your local machine.
 
 ## API Keys for Web Services (optional)
 
-----
+ActivityLog2 uses web services for some of the functionality.  Currently,
+[Thunderforest](http://thunderforest.com/) is used for map tiles.  These
+services require API keys to access them.  The built (and released) version of
+the application has these API keys embedded in the executable, however the
+keys are kept separate from the code base.
 
-**NOTE** You can no longer obtain an API key for weather download.  There is
-[a plan](https://github.com/alex-hhh/ActivityLog2/issues/46) to replace the
-service.
-
-----
-
-ActivityLog2 uses web services for some of the functionality.  Currently two
-services are used: [DarkSky.net](https://www.darksky.com/) is used to retrieve
-weather data for an activity and [Thunderforest](http://thunderforest.com/) is
-used for map tiles.  These services require API keys to access them.  The
-built (and released) version of the application has these API keys embedded in
-the executable, however the keys are kept separate from the code base.
-
-ActivityLog2 will work without these API keys, however, weather data will not
-be downloaded and only [OpenStreetMap](http://www.openstreetmap.org/) map
-tiles will be available.
+ActivityLog2 will work without these API keys, however, only
+[OpenStreetMap](http://www.openstreetmap.org/) map tiles will be available.
 
 You will need to obtain your own API keys, if you wish to build your own
 application.  To use these keys, you need to set two environment variables:
 
 * `AL2TFAPIKEY` -- contains the API key for Thunderforest maps
-* `AL2DSAPIKEY` -- contains the API key for the DarkSky weather service
 
 These environment variables will be used while ActivityLog2 is running during
 development and they will also be embedded in any built executable.
