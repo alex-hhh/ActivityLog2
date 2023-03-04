@@ -9,6 +9,62 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2023.03 (March 2023)
+
+* Removed automatic download of weather data (#46).  The weather data provider
+  DarkSky will discontinue their service, and no suitable replacement was
+  found. The linked issue contains more details, but currently weather data
+  can be added manually or imported from FIT files, for devices that add this
+  info to the activity.
+
+* Fixed a bug with viewing Open Water Swim activities (#89)
+
+* Changed pace for Open Water Swim activity graphs to min/100m or min/100yd
+
+* The map view occupies the entire view when there is no elevation data, such
+  as with Open Water Swim activities.
+
+* Changed how RPE is shown, making it more easily editable from the session
+  inspector.  Also added names to numeric values for RPE.
+
+* Removed the drop-down selection for the activity time zone in the session
+  inspector.  The time zone can still be edited from the "Activtiy/Edit..."
+  dialog.
+
+* Fixed a race condition in the FTHR analysis dashboard, which caused it to
+  show an error.
+
+* The Critical Power estimation chart is now significantly faster.
+
+* Added an "Activity/Show session data frame summary..." menu item.  This
+  shows a description of the data frame for the activity, and can be used do
+  determine what data series are present and how many have NA values -- this
+  is mostly a debugging tool for the data files.
+
+* Fixed a bug that caused an error to be reported when activities are renamed
+  (AB#47)
+
+* Fixed a build issue that caused only Open Street Map tiles to be available
+  in the map view.  Additional map tiles are now available from the
+  Edit/Preferences dialog.
+
+* Fixed a bug that caused corruption in the map tiles -- original issue in one
+  of the packages used by the application:
+  https://github.com/Bogdanp/racket-http-easy/issues/21
+
+* Fixed a bug with grade series calculations when the route goes through a
+  tunnel and GPS signal is lost.
+
+* Lap views which show climbs (Hill Climbs, GPS Segments) now have a FIETS
+  column, The FIETS score is a number indicating the difficulty of the climb.
+
+* Altitude series will now correctly use the imperial system (feet), (#9)
+
+* Updated list of device names, so more devices are recognized by name.
+
+* More FIT devices are recognized in activities, so they can be tracked as
+  equipment.
+
 # Release 2022.09 (September 2022)
 
 * Added a new application icon.
