@@ -113,6 +113,14 @@
    db
    "select * from V_GPS_SEGMENT_MATCH_LIST where segment_id = ?" segment-id))
 
+;; Same as `get-matches-for-segment` but return data just for one session.
+;; This is used to update a single row in the match-lv table.
+(define (get-matches-for-segment1 db segment-id session-id)
+  (query
+   db
+   "select * from V_GPS_SEGMENT_MATCH_LIST where segment_id = ? and session_id = ?"
+   segment-id session-id))
+
 ;; Index all the columns from an SQL query, returns a hash mapping the column
 ;; name to the position in each row of the result set.  RESULT is a query
 ;; result as returned by `query`
@@ -498,9 +506,34 @@
             ;; If the current selected segment has new matches, refresh it.
             (let* ([index (send segment-lv get-selected-row-index)]
                    [data (and index (send segment-lv get-data-for-row index))]
-                   [segment-id (and data (vector-ref data 0))])
+                   [segment-id (and data (vector-ref data 0))]
+                   [segment-updated? #f])
               (when (member segment-id (hash-ref events 'gps-segment-updated-matches '()))
-                (on-segment-updated segment-id #f))))))
+                (on-segment-updated segment-id #t)
+                (set! segment-updated? #t))
+
+              ;; If some sessions were updated or deleted while this view was
+              ;; inactive, refresh the match view.  Note that we don't handle
+              ;; new sessions here: if new sessions are added, and they have
+              ;; matches, a 'gps-segment-updated-matches event should have
+              ;; been posted.
+              (let ([match-session-ids
+                     (for/hash ([row-index (in-range (send match-lv get-row-count))])
+                       (define row (send match-lv get-data-for-row row-index))
+                       (values (column-ref-by-name row "session_id") row-index))])
+                (for ([session-id (hash-ref events 'session-updated '())])
+                  (define index (hash-ref match-session-ids session-id #f))
+                  (when index       ; this session is shown in the match panel
+                    (define session-match (get-matches-for-segment1 database segment-id session-id))
+                    (define data (rows-result-rows session-match))
+                    (unless (null? data)
+                      (send match-lv update-row index (car data)))))
+                (let ([indexes
+                       (for/list ([sid (hash-ref events 'session-deleted '())]
+                                  #:when (hash-ref match-session-ids sid #f))
+                         (hash-ref match-session-ids sid #f))])
+                  (unless (or (null? indexes) segment-updated?)
+                    (on-segment-updated segment-id #t))))))))
 
     (define/private (on-segment-selected row-data)
       (if row-data
