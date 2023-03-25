@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -39,7 +39,9 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
-         "inspect-scatter.rkt")
+         "inspect-scatter.rkt"
+         "inspect-aerolab.rkt"
+         "../aerolab/aerolab-storage.rkt")
 
 (provide view-session%)
 
@@ -354,16 +356,30 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
     (define model-params
       (make-tdata "Model Params" detail-panel
                   (lambda (panel) (new model-parameters-panel% [parent panel]))))
+    (define aerolab
+      (make-tdata
+       "Aerolab"
+       detail-panel
+       (lambda (panel)
+         (new aerolab-panel%
+              [parent panel]
+              [get-aerolab-parameters
+               (lambda () aerolab-parameters)]
+              [put-aerolab-parameters
+               (lambda (p)
+                 (set! aerolab-parameters p)
+                 (store-aerolab-parameters the-database session-id p))]))))
 
     (define installed-tabs '())
 
     (define session-id #f)
     (define session #f)
     (define data-frame #f)                      ; data frame for the session
+    (define aerolab-parameters #f)
     (define generation 0)
     (define the-database database)
 
-    (define (switch-tabs selected)
+    (define/private (switch-tabs selected)
       (let ((tab (list-ref installed-tabs selected)))
         (send detail-panel begin-container-sequence)
         (send detail-panel change-children (lambda (o) (list (tdata-panel tab))))
@@ -374,10 +390,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
               (send (tdata-contents tab) set-session session data-frame))))
         (send detail-panel end-container-sequence)))
 
-    (define (set-session-df sdf)
+    (define/private (set-session-df sdf ap)
       (unless (data-frame? sdf)
         (error "view-session%/set-session-df: expecting a data-frame"))
       (set! data-frame sdf)
+      (set! aerolab-parameters ap)
       (define is-lap-swim? (df-get-property data-frame 'is-lap-swim?))
       (define sport (df-get-property data-frame 'sport))
 
@@ -407,7 +424,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
           ;; allows these to be defined for any activity, but the application
           ;; does not support that.
           (when (or (is-runnig? sport) (is-cycling? sport) (is-swimming? sport))
-            (set! tabs (cons model-params tabs))))
+            (set! tabs (cons model-params tabs)))
+
+          ;; Display the "Aerolab" tab only if we have aerolab parameters,
+          ;; which exist only if the user enabled them from the Activities
+          ;; menu.
+          (when aerolab-parameters
+            (set! tabs (cons aerolab tabs))))
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs))))
@@ -417,16 +440,19 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
       (set! session-id sid)
       (set! session (and session-id the-database (db-fetch-session sid the-database)))
 
-      ;; The session data frame takes a while to fetch, so we do it in a
-      ;; separate thread.
+      ;; The session data frame and aerolab parameters take a while to fetch,
+      ;; so we do it in a separate thread.
       (set! data-frame #f)
+      (set! aerolab-parameters #f)
       (when (and session-id the-database)
         (queue-task
          "fetch-session-data-frame"
          (lambda ()
-           (let ((df (session-df the-database sid)))
+           (let ([df (session-df the-database sid)]
+                 [ap (fetch-aerolab-parameters the-database session-id)])
              (queue-callback
-              (lambda () (set-session-df df)))))))
+              (lambda ()
+                (set-session-df df ap)))))))
 
       (send header set-session session)
       (send header set-database the-database)
@@ -501,10 +527,12 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
       (send (tdata-contents histogram) save-visual-layout)
       (send (tdata-contents mean-max) save-visual-layout)
       (send (tdata-contents quadrant) save-visual-layout)
-      (send (tdata-contents maps) save-visual-layout))
+      (send (tdata-contents maps) save-visual-layout)
+      (send (tdata-contents aerolab) save-visual-layout))
 
     (define/public (unsaved-edits?)
       (or (send (tdata-contents overview) unsaved-edits?)
+          (send (tdata-contents aerolab) unsaved-edits?)
           (send header unsaved-edits?)))
 
     ;; Activity operations interface implementation
@@ -546,4 +574,51 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
       ;; Do nothing...
       (void))
 
+    (define/public (get-aerolab-analysis-status)
+      (cond
+        ((hash? aerolab-parameters)
+         ;; If we have aerolab params, the menu should offer to disable the
+         ;; analysis tab
+         'disable)
+        ((and session
+               the-database
+               (equal? (session-sport session) 2)
+               data-frame
+               (and (df-contains? data-frame "spd" "pwr" "lat" "lon")
+                    (df-contains/any? data-frame "alt" "calt")))
+         ;; Aerolab analysis is available for cycling sessions with power
+         ;; data, speed, latitude/longitude and elevation data
+         'enable)
+        (#t
+         'none)))
+
+    (define/public (show-or-hide-aerolab-tab)
+      (case (get-aerolab-analysis-status)
+        ((none)                     ; This method should not have been invoked
+         (void))
+        ((enable)
+         (set! aerolab-parameters (hash)) ; start empty
+         (store-aerolab-parameters the-database session-id aerolab-parameters)
+         (set! installed-tabs (append installed-tabs (list aerolab)))
+         (let ([index (sub1 (length installed-tabs))])
+           (send detail-panel set (map tdata-name installed-tabs))
+           (send detail-panel set-selection index)
+           (switch-tabs index)))
+        ((disable)
+         (let ((mresult
+                (message-box/custom
+                 "Confirm clear Aerolab Parameters"
+                 "Aerolab parameters will be deleted for this session.  Are you sure?"
+                 #f
+                 "Delete Parameters"
+                 "Cancel"
+                 (get-top-level-window)
+                 '(caution default=3))))
+          (when (equal? mresult 2)
+            (drop-aerolab-parameters the-database session-id)
+            (send (tdata-contents aerolab) clear)
+            (set! installed-tabs (filter (lambda (x) (not (equal? "Aerolab" (tdata-name x)))) installed-tabs))
+            (send detail-panel set (map tdata-name installed-tabs))
+            (send detail-panel set-selection 0)
+            (switch-tabs 0))))))
     ))

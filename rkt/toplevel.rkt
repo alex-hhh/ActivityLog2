@@ -499,6 +499,14 @@
       (let ((target (get-target-section)))
         (and target (send target after-popdown))))
 
+    (define/public (get-aerolab-analysis-status)
+      (let ((target (get-target-section)))
+        (and target (send target get-aerolab-analysis-status))))
+
+    (define/public (show-or-hide-aerolab-tab)
+      (let ((target (get-target-section)))
+        (and target (send target show-or-hide-aerolab-tab))))
+
     (define/public (switch-to-view)
       (send toplevel-application select-section 'activity-list))
 
@@ -1118,11 +1126,13 @@
       (when section                     ; only if it is visible
         (define unsaved-edits? (send section unsaved-edits?))
         (if unsaved-edits?
-            (let ((mresult (message-box/custom "Unsaved Edits" "Session notes are unsaved"
-                                               "Review" "Discard" #f
-                                               tl-frame
-                                               '(stop default=1)
-                                               #f)))
+            (let ((mresult (message-box/custom
+                            "Unsaved Edits"
+                            "Session headline, notes, or aerolab data are unsaved"
+                            "Review" "Discard" #f
+                            tl-frame
+                            '(stop default=1)
+                            #f)))
               (cond ((eq? #f mresult)
                      ;; Just cancel the close
                      #f)

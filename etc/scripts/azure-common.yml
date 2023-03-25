@@ -104,6 +104,10 @@ steps:
     condition: eq(variables.runTests, true)
     displayName: GPS Segments (gps-segment-test)
 
+  - script: raco test test/aerolab-test.rkt
+    condition: eq(variables.runTests, true)
+    displayName: Aerolab (aerolab-test)
+
   - script: raco test test/db-upgrade-test.rkt
     condition: eq(variables.runTests, true)
     displayName: Test Database Upgrade (db-upgrade-test)

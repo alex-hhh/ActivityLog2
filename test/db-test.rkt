@@ -61,42 +61,6 @@
 (define (activity-count db)
   (query-value db "select count(*) from ACTIVITY"))
 
-(define (db-import-manual-session db)
-  (let* ((duration 3600)
-         (distance 1000)
-         (avg-speed (if (and duration distance (> duration 0))
-                        (/ distance duration) #f))
-         (sport (cons 1 #f))
-         (name "Manual session")
-         (desc "Manual session description")
-         (start-time (current-seconds))
-         (rpe-scale 2))
-    (call-with-transaction
-     db
-     (lambda ()
-       (define ssid
-         (db-insert
-          db
-          "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
-             values(?, ?, ?, ?)"
-          (or duration sql-null)
-          (or duration sql-null)
-          (or distance sql-null)
-          (or avg-speed sql-null)))
-       (define aid (db-insert db "insert into ACTIVITY(start_time) values (?)" start-time))
-       (db-insert
-        db
-        "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
-                 values(?, ?, ?, ?, ?, ?, ?, ?)"
-        (or name sql-null)
-        (or desc sql-null)
-        aid
-        start-time
-        (or (car sport) sql-null)
-        (or (cdr sport) sql-null)
-        (if (eqv? rpe-scale 0) sql-null rpe-scale)
-        ssid)))))
-
 (define (db-create-demo-labels db)
   (query-exec db "insert into LABEL (id, name, description) values ('1', 'Label1', ''), ('2', 'Label2', '')"))
 

@@ -2,7 +2,7 @@
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1090,5 +1090,11 @@
 
     (define/public (after-popdown)
       (set! selected-item #f))
+
+    (define/public (get-aerolab-analysis-status)
+      'none)
+
+    (define/public (show-or-hide-aerolab-tab)
+      (void))
 
     ))

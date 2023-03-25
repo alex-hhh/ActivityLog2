@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,6 +21,7 @@
          data-frame
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
+         "../rkt/dbutil.rkt"
          "../rkt/import.rkt"
          "../rkt/intervals.rkt"
          "../rkt/session-df/session-df.rkt"
@@ -219,8 +220,45 @@ where S.time_zone_id = ETZ.id
           (check-pred null? (leaked-section-summaries db)
                       "Leaking SECTION_SUMMARY entries after deleting session"))))))
 
+(define (db-import-manual-session db)
+  (let* ((duration 3600)
+         (distance 1000)
+         (avg-speed (if (and duration distance (> duration 0))
+                        (/ distance duration) #f))
+         (sport (cons 1 #f))
+         (name "Manual session")
+         (desc "Manual session description")
+         (start-time (current-seconds))
+         (rpe-scale 2))
+    (call-with-transaction
+     db
+     (lambda ()
+       (define ssid
+         (db-insert
+          db
+          "insert into SECTION_SUMMARY(total_timer_time, total_elapsed_time, total_distance, avg_speed)
+             values(?, ?, ?, ?)"
+          (or duration sql-null)
+          (or duration sql-null)
+          (or distance sql-null)
+          (or avg-speed sql-null)))
+       (define aid (db-insert db "insert into ACTIVITY(start_time) values (?)" start-time))
+       (db-insert
+        db
+        "insert into A_SESSION(name, description, activity_id, start_time, sport_id, sub_sport_id, rpe_scale, summary_id)
+                 values(?, ?, ?, ?, ?, ?, ?, ?)"
+        (or name sql-null)
+        (or desc sql-null)
+        aid
+        start-time
+        (or (car sport) sql-null)
+        (or (cdr sport) sql-null)
+        (if (eqv? rpe-scale 0) sql-null rpe-scale)
+        ssid)))))
+
 (provide with-fresh-database
          with-database
          db-import-activity-from-file/check
          check-time-in-zone
-         leaked-section-summaries)
+         leaked-section-summaries
+         db-import-manual-session)

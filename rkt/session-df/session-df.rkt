@@ -385,7 +385,7 @@
         (when (or (not current-point) (< current-point prev-point))
           (vector-set! distance idx prev-point))))
 
-    (let ((series (make-series "distance" #:data distance #:cmpfn <=)))
+    (let ((series (make-series "distance" #:data distance #:cmpfn <)))
       (df-add-series! df series))))
 
 (define (add-speed-series df)

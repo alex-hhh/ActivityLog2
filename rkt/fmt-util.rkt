@@ -14,7 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-;;; Comentary:
+;;; Commentary:
 ;;
 ;; Utility functions to convert values (speeds, pace, durations, etc) to
 ;; strings.  Internally, activity log uses the metric system to store and
@@ -78,7 +78,8 @@
  m->yd
  m->ft
  mm->inch
- celsius->temperature)
+ celsius->temperature
+ km/h->m/s)
 
 ;; (: m/s->km/h (-> Real Real))
 (define (m/s->km/h speed) (/ (* speed 3600.0) 1000.0))

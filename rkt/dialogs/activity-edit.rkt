@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -65,7 +65,10 @@
     after-delete
     after-new
     before-popup
-    after-popdown))
+    after-popdown
+    get-aerolab-analysis-status
+    show-or-hide-aerolab-tab
+    ))
 
 (define (get-session-headline db sid)
   (let ((row (query-row db "
@@ -97,11 +100,11 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define (on-demand m)
       (send target before-popup)
       ;; Enable/disable appropiate menus
-      (let* ((sport (and target (send target get-selected-sport)))
-             (sid (and target (send target get-selected-sid)))
-             (have-sid? (and target (number? (send target get-selected-sid))))
-             (have-guid? (and target (string? (send target get-selected-guid))))
-             (is-lap-swim? (and target (equal? sport '(5 . 17)))))
+      (let* ((sport (send target get-selected-sport))
+             (sid (send target get-selected-sid))
+             (have-sid? (number? (send target get-selected-sid)))
+             (have-guid? (string? (send target get-selected-guid)))
+             (is-lap-swim? (equal? sport '(5 . 17))))
         (send inspect-menu-item enable have-sid?)
         (send edit-menu-item enable have-sid?)
         (send fixup-elevation-menu-item enable have-sid?)
@@ -125,6 +128,18 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         ;; this is a cycling activity.
         (send power-spikes-menu-item enable (and have-sid? sport (equal? (car sport) 2)))
         (send df-describe-menu-item enable have-sid?)
+
+        (let ([aerolab-status (send target get-aerolab-analysis-status)])
+          (case aerolab-status
+            ((none)
+             (send aerolab-menu-item enable #f)
+             (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
+            ((enable)
+             (send aerolab-menu-item enable #t)
+             (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
+            ((disable)
+             (send aerolab-menu-item enable #t)
+             (send aerolab-menu-item set-label "Hide Aerolab Analysis..."))))
 
         ))
 
@@ -339,6 +354,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             [toplevel (send target get-top-level-window)])
         (show-power-spikes-dashboard toplevel db sid)))
 
+    (define (on-show-hide-aerolab m e)
+      (send target show-or-hide-aerolab-tab))
+
     (define (switch-to-view m e)
       (send target switch-to-view))
 
@@ -379,6 +397,14 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Edit lap swim ..." on-edit-lap-swim))
     (define power-spikes-menu-item
       (make-menu-item "Clear Power Spikes ..." on-power-spikes))
+
+    ;; NOTE: only show the Aerolab item on the menu, not the right-click menus
+    ;; in the "Activities" or "Calendar" views.
+    (define aerolab-menu-item
+      (if menu-bar
+          (make-menu-item "Show Aerolab Analysis..." on-show-hide-aerolab)
+          #f))
+
     (new separator-menu-item% [parent the-menu])
     (define new-menu-item
       (make-menu-item "New activity ..." on-new #\N))

@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(45);
+insert into SCHEMA_VERSION(version) values(46);
 
 
 --........................................................ Enumerations ....
@@ -964,6 +964,68 @@ select ESL.id as service_log_id,
        else null end) as current
   from EQUIPMENT_SERVICE_LOG ESL, E_SERVICE_TYPE EST
  where ESL.service_type = EST.id;
+
+
+--..................................................... Aerolab ....
+
+-- Method to calculate air density for Aerolab estimations.  Can be dew-point
+-- or humidity based, depending on what data we have.  Assuming dew-point is
+-- available, and accurate, the dew-point method will produce more accurate
+-- results.
+
+create table E_AIR_DENSITY_CALCULATION_METHOD(
+  id integer not null primary key autoincrement,
+  name text unique not null);
+
+insert into E_AIR_DENSITY_CALCULATION_METHOD(id, name)
+values (0, 'Dew Point'),
+       (1, 'Relative Humidity');
+
+-- Holds Aerolab parameters for a session.  Crr and CdA are the important
+-- ones, the rest are used to estimate these.  Note that this table stores
+-- whatever the user set for these parameters in the Aerolab panel of the
+-- session inspector, so it might not contain actual correct values, also all
+-- the values can be null, if the user did not supply any value for those.
+
+create table SESSION_AEROLAB(
+  id integer not null primary key autoincrement,
+  session_id integer not null,  -- session for which this aerolab data belongs
+
+  crr real,                     -- coefficient of rolling resistance
+  cda real,                    -- coefficient of drag area (in meters squared)
+
+  air_density real,        -- in kg/m^3
+  wind_speed real,                    -- speed in m/s
+  wind_direction real,                -- degrees 0-360, 0 = North, 180 = South
+  should_use_wind boolean, -- if true, use wind data in simulation and estimates
+
+  total_weight real,                    -- athlete + bike weight, in kg
+
+  lap_count integer, -- number of laps in the session (for vizualisation only)
+  trim_start real,   -- distance to trim from the start, in km
+  trim_end real,     -- distance to trim from the end, in km
+
+  -- initial offset for virtual altitude, in meters, used to line up virtual
+  -- altitude with the actual altitude data.
+  altitude_offset real,
+
+  -- These fields determine how the air density is to be calculated from
+  -- weather data.
+  air_density_calculation_method integer,
+  temperature real,                     -- degrees Celsius
+  dew_point real,                       -- degrees Celsius
+  pressure real,                        -- in hPa
+  humidity real,                        -- 0 - 100
+
+  foreign key (session_id)
+  references A_SESSION(id)
+  on delete cascade,
+
+  foreign key (air_density_calculation_method)
+  references E_AIR_DENSITY_CALCULATION_METHOD(id)
+  );
+
+create index IX0_SESSION_AEROLAB on SESSION_AEROLAB(session_id);
 
 
 --..................................................... Athlete Metrics ....

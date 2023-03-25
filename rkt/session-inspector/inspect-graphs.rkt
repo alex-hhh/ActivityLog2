@@ -45,7 +45,8 @@
 
 (provide graph-panel%)
 (provide elevation-graph% grade+calt-graph% grade+alt-graph%
-         calt+shaded-grade-graph% alt+shaded-grade-graph%)
+         calt+shaded-grade-graph% alt+shaded-grade-graph%
+         graph-view%)
 
 (define *header-font*
   (send the-font-list find-or-create-font 15 'default 'normal 'normal))
