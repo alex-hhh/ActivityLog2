@@ -33,9 +33,11 @@
          plot-container
          plot-container/hover-util
          plot/utils
+         racket/path
          "../rkt/widgets/qresults-list.rkt"
          "../rkt/utilities.rkt"         ; put-preferences replacement
          "../rkt/models/fiets-score.rkt"
+         "../rkt/fit-file/course.rkt"
          racket/draw)
 
 ;; Install colormaps for showing the gradient on the elevation plot.  See the
@@ -95,7 +97,10 @@
          (sgn grade)
          (exact-floor
           (let ([absolute-grade (abs grade)])
-            (if (< absolute-grade 1.0) 0 (add1 (log absolute-grade 2)))))))
+            (if (or (not (rational? absolute-grade))
+                    (< absolute-grade 1.0))
+                0
+                (add1 (log absolute-grade 2)))))))
     (define index1
       (if (odd? color-count)
           (+ offset index0)
@@ -219,18 +224,32 @@
 ;; Load a GPX file and return a data frame with its contents.  Will also add a
 ;; "dst/km" data series to it, which is the distance in kilometers (the "dst"
 ;; series is in meters).
-(define (load-gpx file-name)
-  (define df (df-read/gpx file-name))
-  (df-add-derived
-   df
-   "dst/km"
-   '("dst")
-   (lambda (v)
-     (match-define (list dst) v)
-     (and dst (/ dst 1000.0))))
-  (df-set-sorted df "dst/km" <)
-  df)
-
+(define (load-course file-name)
+  (with-handlers
+    ([exn:fail?
+      (lambda (e)
+        (message-box
+         "Failed to load file"
+         (format "Failed to load ~a: ~a" file-name (exn-message e)))
+        #f)])
+    (let ([type (path-get-extension file-name)])
+      (define df
+        (cond
+          [(equal? type #".gpx")
+           (df-read/gpx file-name)]
+          [(equal? type #".fit")
+           (df-read/course file-name)]
+          [#t
+           (error "Unknown File Extension")]))
+      (df-add-derived
+       df
+       "dst/km"
+       '("dst")
+       (lambda (v)
+         (match-define (list dst) v)
+         (and dst (/ dst 1000.0))))
+      (df-set-sorted df "dst/km" <)
+      df)))
 
 ;; Add raw-climbs (as produced by `raw-climb-segments`) to the data frame,
 ;; attached to the 'raw-climbs property.  Will also create the "grade" and
@@ -439,14 +458,15 @@
 (define load-gpx-button
   (new button%
        [parent header-pane]
-       [label "Load GPX..."]
+       [label "Load Course..."]
        [callback (lambda (b e)
                    (let ([path (get-file "Load GPX file" toplevel #f #f #f
                                          '()
                                          '(("GPX Files" "*.gpx")
+                                           ("FIT Files" "*.fit")
                                            ("Any" "*.*")))])
                      (when (and path (file-exists? path))
-                       (on-load-gpx path))))]))
+                       (on-load-course path))))]))
 
 (define p0
   (new panel:horizontal-dragable%
@@ -835,24 +855,70 @@
   (send the-map resize-to-fit)
   (send the-map center-map))
 
+;; Calculate the total corrected ascent and descent in the data frame DF
+;; between START-INDEX and END-INDEX using the "alt" series.  Returns a (cons
+;; ASCENT DESCENT)
+;;
+;; NOTE: this is duplicated from "intervals.rkt" - it is here to avoid pulling
+;; in most of the modules from the rest of the application.  Perhahs this
+;; should be in a common file.
+(define (total-ascent-descent df series start-index end-index)
+
+  ;; NOTE: we only accumulate ascent and descent if the elevation gain or loss
+  ;; is greater than 1 meter -- this avoids accumulating lots of very small
+  ;; elevation changes, which would artificially inflate the total elevation
+  ;; gain.
+
+  (match-define
+    (list ascent descent _)
+    (df-fold df series
+             '(0 0 #f)
+             (lambda (accum val)
+               (match-define (list alt) val)
+               (if alt
+                   (match-let ([(list ascent descent current) accum])
+                     (cond ((equal? current #f)
+                            (list ascent descent alt))
+                           ((> alt (add1 current))
+                            (list (+ ascent (- alt current)) descent alt))
+                           ((< alt (sub1 current))
+                            (list ascent (+ descent (- current alt)) alt))
+                           (#t
+                            accum)))
+                   accum))
+             #:start start-index #:stop end-index))
+  (values ascent descent))
+
 ;; Called when the user presses the load-gpx-button.  Loads a new data frame
 ;; from the specified GPX file and creates the climbs + plot.
-(define (on-load-gpx file-name)
+(define (on-load-course file-name)
   (send the-map clear)                  ; remove any previous tracks
-  (set! df (load-gpx file-name))
-  (let ([rdp-epsilon (/ (send climb-detection-slider get-value) 100)])
-    (add-raw-climbs df #:epsilon rdp-epsilon))
-  (on-climb-parameters-changed)
+  (set! df (load-course file-name))
+  (when df
+    (let ([rdp-epsilon (/ (send climb-detection-slider get-value) 100)])
+      (add-raw-climbs df #:epsilon rdp-epsilon))
+    (on-climb-parameters-changed)
 
-  (send the-map add-track (df-select* df "lat" "lon" #:filter valid-only) 'main-track)
-  (send the-map center-map)
-  (send the-map resize-to-fit)
+    (send the-map add-track (df-select* df "lat" "lon" #:filter valid-only) 'main-track)
+    (send the-map center-map)
+    (send the-map resize-to-fit)
 
-  (define name (or (df-get-property df 'name)
-                   (if (path? file-name)
-                       (path->string file-name)
-                       file-name)))
-  (send activity-name-message set-label name))
+    (define name
+      (or (df-get-property df 'name)
+          (if (path? file-name)
+              (path->string file-name)
+              file-name)))
+    (define distance
+      (let ([dst (df-ref df (sub1 (df-row-count df)) "dst")])
+        (if (rational? dst)
+            (string-append (~r (/ dst 1000.0) #:precision 1) " km")
+            "")))
+    (define-values (ascent descent)
+      (let-values ([(a d) (total-ascent-descent df "alt" 0 (df-row-count df))])
+        (values (string-append "ascent " (~r a #:precision 0) " meters")
+                (string-append "descent " (~r a #:precision 0) " meters"))))
+    (send activity-name-message set-label
+          (format "~a -- ~a, ~a, ~a" name distance ascent descent))))
 
 ;; Called when a new climb is selected in the climbs-view.  Selects the climb
 ;; on the map and plot and zooms to selection if needed.
