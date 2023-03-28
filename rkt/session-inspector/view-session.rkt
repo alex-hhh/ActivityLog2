@@ -613,7 +613,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
                  "Delete Parameters"
                  "Cancel"
                  (get-top-level-window)
-                 '(caution default=3))))
+                 '(caution default=3)
+                 #:dialog-mixin al2-message-box-mixin)))
           (when (equal? mresult 2)
             (drop-aerolab-parameters the-database session-id)
             (send (tdata-contents aerolab) clear)

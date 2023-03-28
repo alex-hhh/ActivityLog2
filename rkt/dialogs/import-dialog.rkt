@@ -2,7 +2,7 @@
 ;; view-last-import.rkt -- panel showing activies that were last imported
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -102,7 +102,11 @@
              (lambda (e)
                (let ((message (if (exn? e) (exn-message e) (format "~a" e))))
                  (dbglog-exception "import-dialog%/begin-import" e)
-                 (message-box "Import error" message toplevel-window '(ok stop))))))
+                 (message-box
+                  "Import error"
+                  message toplevel-window
+                  '(ok stop)
+                  #:dialog-mixin al2-message-box-mixin)))))
            (import-new-activities-from-directory
             import-directory
             database

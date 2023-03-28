@@ -2,7 +2,7 @@
 ;; edit-labels.rkt -- edit the session labels (add, edit, delete)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -29,10 +29,10 @@
   (class edit-dialog-base%
     (init)
     (super-new [title "Edit Label"] [icon ""] [min-height 10])
-    
+
     (define name-field #f)
     (define description-field #f)
-    
+
     (let ((p (send this get-client-pane)))
       (let ((p1 (new vertical-pane%
                      [parent p] [spacing 5]
@@ -43,7 +43,7 @@
         (set! description-field
               (new text-field% [parent p1] [label "Description: "]
                    [min-width 300]))))
-    
+
     (define/override (has-valid-data?)
       (> (string-length (send name-field get-value)) 0))
 
@@ -70,28 +70,28 @@
 (define le-columns
   (list
    (qcolumn "Label" label-name label-name)
-   (qcolumn "Use count" 
+   (qcolumn "Use count"
             (lambda (row) (number->string (label-use-count row)))
             label-use-count)
    (qcolumn "Description" label-description label-description)))
 
 ;; Query to fetch all labels and their use count.
 (define le-query
-  "select L.id, 
-          L.name, 
-          (select count(SL.label_id) 
-             from SESSION_LABEL SL 
-            where SL.label_id = L.id), 
-          L.description 
+  "select L.id,
+          L.name,
+          (select count(SL.label_id)
+             from SESSION_LABEL SL
+            where SL.label_id = L.id),
+          L.description
      from LABEL L")
 
 (define edit-labels-dialog%
   (class edit-dialog-base%
     (init)
     (super-new [title "Labels"] [icon (edit-icon)] [min-width 600] [min-height 400])
-    
+
     (define label-lb #f)
-    
+
     (define one-label-editor (new edit-one-label-dialog%))
 
     ;; List of deleted label id's.  These will be deleted from the database
@@ -119,31 +119,32 @@
                    [parent p1] [pref-tag 'activity-log:label-editor]))))
 
     (send label-lb setup-column-defs le-columns)
-    
+
     (define (on-add-label)
-      (let ((new-label (send one-label-editor show-dialog 
+      (let ((new-label (send one-label-editor show-dialog
                              (send this get-top-level-window) "" "")))
         (when new-label
-          (send label-lb add-row 
+          (send label-lb add-row
                 (vector #f (car new-label) 0 (cdr new-label))))))
-    
+
     (define (on-delete-label)
       (let ((index (send label-lb get-selected-row-index)))
         (when index
           (let ((data (send label-lb get-data-for-row index)))
             (if (> (label-use-count data) 0)
                 (message-box
-                 "Cannot delete" 
+                 "Cannot delete"
                  "Cowardly refusing to delete a label that is attached to sessions."
                  (send this get-top-level-window)
-                 '(ok stop))
+                 '(ok stop)
+                 #:dialog-mixin al2-message-box-mixin)
                 (begin
                   ;; Store the id of the label to delete, it will be deleted
                   ;; when the user saves the changes
                   (when (label-id data)
                     (set! deleted-label-ids (cons (label-id data) deleted-label-ids)))
                   (send label-lb delete-row index)))))))
-    
+
     (define (on-edit-label)
       (let ((index (send label-lb get-selected-row-index)))
         (when index
@@ -153,13 +154,13 @@
                                    (label-name data)
                                    (label-description data))))
               (when new-label
-                (send label-lb update-row index 
+                (send label-lb update-row index
                       (vector
                        (label-id data)
                        (car new-label)
                        (label-use-count data)
                        (cdr new-label)))))))))
-    
+
     (define (populate-labels db)
       (let ((rows (query-rows db le-query)))
         (send label-lb set-data rows)))
@@ -186,7 +187,7 @@
                   db
                   "insert into LABEL(name, description) values (?, ?)"
                   (label-name data) (label-description data))))))))
-    
+
     (define/public (show-dialog parent db)
       (set! deleted-label-ids '())
       (populate-labels db)

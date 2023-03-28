@@ -2,7 +2,7 @@
 ;; view-workouts.rkt -- workouts management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -169,7 +169,9 @@
             (message-box
              "Cannot delete workout library"
              "Cannot delete workout library, because it contains workouts.\n\nOnly empty libraries can be deleted."
-             toplevel '(stop ok)))))
+             toplevel
+             '(stop ok)
+             #:dialog-mixin al2-message-box-mixin))))
 
     (define (on-new-workout m e)
       (let* ((db (send target get-database))
@@ -194,7 +196,9 @@
               (message-box
                "Could not open file"
                (format "File ~a does not exist." file)
-               toplevel '(stop ok))))))
+               toplevel
+               '(stop ok)
+               #:dialog-mixin al2-message-box-mixin)))))
 
     (define (on-duplicate-workout m e)
       (let* ((db (send target get-database))
@@ -220,7 +224,8 @@
            "Confirm delete"
            (format "Are you sure you want to delete the ~a workout" wname)
            toplevel
-           '(caution yes-no)))
+           '(caution yes-no)
+           #:dialog-mixin al2-message-box-mixin))
         (when (eq? result 'yes)
           (delete-workout db workout-id)
           (send target after-delete-workout workout-id))))
@@ -373,10 +378,13 @@ select id, name, sport_id, sub_sport_id, serial, library_id
           (let ((mresult (message-box/custom
                           "Unsaved Edits"
                           "Workout headline, notes or steps are not saved"
-                          "Review" "Discard" #f
+                          "Review"
+                          "Discard"
+                          #f
                           (send pane get-top-level-window)
                           '(stop default=1)
-                          #f)))
+                          #f
+                          #:dialog-mixin al2-message-box-mixin)))
             (cond ((or (eq? #f mresult) (eqv? 1 mresult))
                    #f)
                   ((eqv? 2 mresult)

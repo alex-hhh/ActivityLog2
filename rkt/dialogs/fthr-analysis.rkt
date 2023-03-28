@@ -2,7 +2,7 @@
 ;; fthr-analysis.rkt -- FTHR analysis dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -38,6 +38,7 @@
          "../time-in-zone.rkt"
          "../utilities.rkt"
          "../widgets/grid-pane.rkt"
+         "../widgets/widget-utilities.rkt"
          "dashboard-common.rkt")
 
 (define (make-mmax-df df series)
@@ -645,13 +646,12 @@
       (when fthr-data
         (define text (fthr->text fthr-data))
         (send the-clipboard set-clipboard-string text (current-seconds))
-        (message-box "Copied to Clipboard"
-                     "Analysis was copied to the clipboard"
-                     toplevel-window
-                     '(ok)
-                     #:dialog-mixin (lambda (base)
-                                      (class base
-                                        (init)(super-new [border 20]))))))
+        (message-box
+         "Copied to Clipboard"
+         "Analysis was copied to the clipboard"
+         toplevel-window
+         '(ok)
+         #:dialog-mixin al2-message-box-mixin)))
 
     ;; Save the FTHR analisys and sport zones to a PDF document.  The user is
     ;; prompted for the output file name.

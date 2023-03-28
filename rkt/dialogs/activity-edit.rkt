@@ -24,7 +24,8 @@
          "../database.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
-         "../utilities.rkt")
+         "../utilities.rkt"
+         "../widgets/widget-utilities.rkt")
 
 ;; (lazy-require
 ;;  ("edit-session-summary.rkt" (get-edit-session-summary-dialog))
@@ -183,7 +184,12 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                         "Confirm clear corrected elevation"
                         (format "Really clear the corrected elevation for \"~a\"?~%You can re-create this data again using Fixup Elevation."
                                 (get-session-headline db sid))
-                        #f "Clear" "Cancel" toplevel '(caution default=3))))
+                        #f
+                        "Clear"
+                        "Cancel"
+                        toplevel
+                        '(caution default=3)
+                        #:dialog-mixin al2-message-box-mixin)))
           (when (equal? mresult 2)
             (clear-corrected-elevation-for-session db sid)
             (log-event 'session-updated sid)
@@ -204,7 +210,13 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
              "Cannot edit weather"
              (format "Cowardly refusing to edit weather for ~a: multiple weather records are present"
                      (get-session-headline db sid))
-             #f #f "OK" toplevel '(stop default=3))
+             #f
+             #f
+             "OK"
+             toplevel
+             '(stop default=3)
+             #:dialog-mixin
+             al2-message-box-mixin)
             (when (send (get-weather-editor) begin-edit toplevel db sid)
               ;; NOTE: weather-data-changed event is raised by the weather editor!
               (send target after-update sid)))))
@@ -237,7 +249,12 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                           "Confirm delete"
                           (format "Really delete activity \"~a\"?~%This cannot be undone."
                                   (get-session-headline db sid))
-                          #f "Delete" "Cancel" toplevel '(caution default=3))))
+                          #f
+                          "Delete"
+                          "Cancel"
+                          toplevel
+                          '(caution default=3)
+                          #:dialog-mixin al2-message-box-mixin)))
             (when (equal? mresult 2)
               (db-delete-session sid db)
               (log-event 'session-deleted sid)
@@ -306,8 +323,11 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                 (let* ((sn (get-series/ordered df)))
                   (call-with-output-file fname (lambda (port) (apply df-write/csv df port sn))
                     #:mode 'text #:exists 'truncate/replace ))
-                (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
-                             toplevel '(ok stop)))))))
+                (message-box
+                 "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
+                 toplevel
+                 '(ok stop)
+                 #:dialog-mixin al2-message-box-mixin))))))
 
     (define (on-export-gpx m e)
       (let ((sid (send target get-selected-sid))
@@ -335,13 +355,21 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                   ;; GPX export will fail if some data series are missing
                   ;; (e.g. lat, lon)
                   ((exn? (lambda (e)
-                           (message-box "GPX Export Failed" (exn-message e) toplevel '(ok stop)))))
+                           (message-box
+                            "GPX Export Failed"
+                            (exn-message e)
+                            toplevel
+                            '(ok stop)
+                            #:dialog-mixin al2-message-box-mixin))))
                   (call-with-output-file fname
                     (lambda (port)
                       (df-write/gpx df port #:name (get-session-headline db sid)))
                     #:mode 'text #:exists 'truncate/replace ))
-                (message-box "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
-                             toplevel '(ok stop)))))))
+                (message-box
+                 "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"
+                 toplevel
+                 '(ok stop)
+                 #:dialog-mixin al2-message-box-mixin))))))
 
     (define (on-fthr-analysis m e)
       (let ((sid (send target get-selected-sid))

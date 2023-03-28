@@ -2,7 +2,7 @@
 ;; view-equipment.rkt -- equipment and service log management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -405,7 +405,12 @@ values(?, ?, ?, ?, ?, ?)" eqid name start-date target-type target-value end-date
                         (mresult (message-box/custom
                                   "Confirm delete"
                                   (format "~a is used in ~a sessions, maybe it should be retired. Really delete?" name nuses)
-                                  "Retire" "Delete" "Cancel" toplevel '(caution default=3))))
+                                  "Retire"
+                                  "Delete"
+                                  "Cancel"
+                                  toplevel
+                                  '(caution default=3)
+                                  #:dialog-mixin al2-message-box-mixin)))
                    (cond ((equal? mresult 1)
                           (begin
                             (retire-equipment db eqid)
@@ -516,7 +521,12 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
         (let ((mresult (message-box/custom
                         "Confirm delete"
                         "Really delete service log entry? Maybe it should be marked complete?"
-                        "Mark Complete" "Delete" "Cancel" toplevel '(caution default=3))))
+                        "Mark Complete"
+                        "Delete"
+                        "Cancel"
+                        toplevel
+                        '(caution default=3)
+                        #:dialog-mixin al2-message-box-mixin)))
           (cond ((equal? mresult 1)
                  (begin
                    (mark-service-log-complete db svid #t)

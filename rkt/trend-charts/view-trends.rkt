@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -362,9 +362,12 @@
         (let ((mresult (message-box/custom
                         "Confirm delete"
                         (format "Really delete chart \"~a\"?" (send c get-name))
-                        #f "Delete" "Cancel"
+                        #f
+                        "Delete"
+                        "Cancel"
                         (send parent get-top-level-window)
-                        '(caution default=3))))
+                        '(caution default=3)
+                        #:dialog-mixin al2-message-box-mixin)))
           (when (equal? mresult 2)
             (send trend-charts-panel delete index)
             (if (eqv? index 0)
@@ -415,9 +418,12 @@
             ;; and run "racket -l errortrace -t run.rkt"
             (let ((message (if (exn? e) (exn-message e) e)))
               (dbglog-exception name e)
-              (message-box name message
-                           (send parent get-top-level-window)
-                           '(ok stop))))))
+              (message-box
+               name
+               message
+               (send parent get-top-level-window)
+               '(ok stop)
+               #:dialog-mixin al2-message-box-mixin)))))
         (thunk)))
 
     (define (on-interactive-export-image)

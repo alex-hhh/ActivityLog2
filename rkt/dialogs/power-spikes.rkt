@@ -3,7 +3,7 @@
 ;; metrics for an activity
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -562,26 +562,20 @@
         (define ftp (send ftp-input get-converted-value))
         (define cutoff (send plot get-cutoff))
         (unless ftp
-          (message-box "Invalid FTP Setting"
-                       "Need a valid FTP value"
-                       toplevel-window
-                       '(ok stop)
-                       #:dialog-mixin (lambda (d%)
-                                        (class d%
-                                          (init) (super-new)
-                                          (send this border 20)
-                                          (send this spacing 20))))
+          (message-box
+           "Invalid FTP Setting"
+           "Need a valid FTP value"
+           toplevel-window
+           '(ok stop)
+           #:dialog-mixin al2-message-box-mixin)
           (return #f))
         (define proceed?
-          (message-box "Clear Power Spikes?"
-                       (format "Clear Power Spikes above ~a watts?" cutoff)
-                       toplevel-window
-                       '(yes-no)
-                       #:dialog-mixin (lambda (d%)
-                                        (class d%
-                                          (init) (super-new)
-                                          (send this border 20)
-                                          (send this spacing 20)))))
+          (message-box
+           "Clear Power Spikes?"
+           (format "Clear Power Spikes above ~a watts?" cutoff)
+           toplevel-window
+           '(yes-no)
+           #:dialog-mixin al2-message-box-mixin))
         (when (equal? proceed? 'yes)
           (send do-fixups-button enable #f)
           (send close-button enable #f)

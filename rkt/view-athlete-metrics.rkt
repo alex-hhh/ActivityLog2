@@ -2,7 +2,7 @@
 ;; view-athlete-metrics.rkt -- athelte metrics panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -121,7 +121,12 @@
         (let ((mresult (message-box/custom
                         "Confirm delete"
                         (format "Really delete metrics?~%This cannot be undone.")
-                        #f "Delete" "Cancel" tl '(caution default=3))))
+                        #f
+                        "Delete"
+                        "Cancel"
+                        tl
+                        '(caution default=3)
+                        #:dialog-mixin al2-message-box-mixin)))
           (when (eqv? mresult 2)
             ;; Do this first, after we delete the athlete metrics, we won't be
             ;; able to retrieve the sessions that are affected by this.

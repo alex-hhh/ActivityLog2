@@ -782,7 +782,12 @@
                            (#t
                             (format "~a : ~a" database-path e)))))
             (dbglog "interactive-open-database: ~a" msg)
-            (message-box "Database open error" msg frame '(ok stop))))))
+            (message-box
+             "Database open error"
+             msg
+             frame
+             '(ok stop)
+             #:dialog-mixin al2-message-box-mixin)))))
       (let ((db (open-activity-log database-path cb)))
         (set! database db))))
 
@@ -1132,7 +1137,8 @@
                             "Review" "Discard" #f
                             tl-frame
                             '(stop default=1)
-                            #f)))
+                            #f
+                            #:dialog-mixin al2-message-box-mixin)))
               (cond ((eq? #f mresult)
                      ;; Just cancel the close
                      #f)
@@ -1434,14 +1440,22 @@
                  (edata (cdr iresult)))
             (cond ((eq? ecode 'failed)
                    (message-box
-                    "Import failed" (format "Failed to import ~a: ~a" file edata)
-                    tl-frame '(stop ok)))
+                    "Import failed"
+                    (format "Failed to import ~a: ~a" file edata)
+                    tl-frame
+                    '(stop ok)
+                    #:dialog-mixin al2-message-box-mixin))
 
                   ((eq? ecode 'already-exists)
                    (let ((mresult (message-box/custom
                                    "Import failed"
                                    (format "~a was previously imported. Force re-import?" file)
-                                   "Re-import" "Cancel" #f tl-frame '(caution default=2))))
+                                   "Re-import"
+                                   "Cancel"
+                                   #f
+                                   tl-frame
+                                   '(caution default=2)
+                                   #:dialog-mixin al2-message-box-mixin)))
                      (when (eqv? mresult 1)
                        (let ((aid (db-get-activity-id edata database)))
                          (db-delete-activity-hard aid database)
@@ -1453,15 +1467,21 @@
                                  (let ((equipment (get-section-by-tag 'equipment)))
                                    (send (send equipment get-content) log-due-items)))
                                (message-box
-                                "Import failed" (format "Failed to import ~a: ~a" file ecode)
-                                tl-frame '(stop ok))))))))
+                                "Import failed"
+                                (format "Failed to import ~a: ~a" file ecode)
+                                tl-frame
+                                '(stop ok)
+                                #:dialog-mixin al2-message-box-mixin)))))))
 
                   ((eq? ecode 'retired-device)
                    ;; TODO: force the re-import by un-retiring the device and
                    ;; retiring it back again.
                    (message-box
-                    "Import failed" (format "Failed to import ~a: retired device" file)
-                    tl-frame '(stop ok)))
+                    "Import failed"
+                    (format "Failed to import ~a: retired device" file)
+                    tl-frame
+                    '(stop ok)
+                    #:dialog-mixin al2-message-box-mixin))
 
                   ((eq? ecode 'ok)
                    (do-post-import-tasks database)
@@ -1470,7 +1490,11 @@
 
                   (#t
                    (message-box
-                    "Import failed" (format "Failed to import ~a: ~a" file edata) tl-frame '(stop ok)))))
+                    "Import failed"
+                    (format "Failed to import ~a: ~a" file edata)
+                    tl-frame
+                    '(stop ok)
+                    #:dialog-mixin al2-message-box-mixin))))
           (refresh-current-view)))
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (unless (or (sql-null? nsessions) (zero? nsessions))
@@ -1495,10 +1519,12 @@
               ;; This can happen since the "get-directory" will not check if
               ;; the initial directory exists (and it might not if it is on a
               ;; mapped drive that is disconnected.
-              (message-box "Cannot import"
-                           (format "Directory ~a does not exist." dir)
-                           tl-frame
-                           '(stop ok))))
+              (message-box
+               "Cannot import"
+               (format "Directory ~a does not exist." dir)
+               tl-frame
+               '(stop ok)
+               #:dialog-mixin al2-message-box-mixin)))
         #f)
       (let ((nsessions (query-value database "select count(*) from A_SESSION")))
         (unless (or (sql-null? nsessions) (zero? nsessions))
