@@ -129,17 +129,18 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send power-spikes-menu-item enable (and have-sid? sport (equal? (car sport) 2)))
         (send df-describe-menu-item enable have-sid?)
 
-        (let ([aerolab-status (send target get-aerolab-analysis-status)])
-          (case aerolab-status
-            ((none)
-             (send aerolab-menu-item enable #f)
-             (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
-            ((enable)
-             (send aerolab-menu-item enable #t)
-             (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
-            ((disable)
-             (send aerolab-menu-item enable #t)
-             (send aerolab-menu-item set-label "Hide Aerolab Analysis..."))))
+        (when aerolab-menu-item
+          (let ([aerolab-status (send target get-aerolab-analysis-status)])
+            (case aerolab-status
+              ((none)
+               (send aerolab-menu-item enable #f)
+               (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
+              ((enable)
+               (send aerolab-menu-item enable #t)
+               (send aerolab-menu-item set-label "Show Aerolab Analysis..."))
+              ((disable)
+               (send aerolab-menu-item enable #t)
+               (send aerolab-menu-item set-label "Hide Aerolab Analysis...")))))
 
         ))
 
