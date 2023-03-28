@@ -153,7 +153,8 @@
       (df-add-series! df alt-series)
       (df-set-sorted! df "timestamp" <)
       (df-set-sorted! df "dst" <)
-      (df-put-property! df 'course-points cpdf)
+      (when (> (df-row-count cpdf) 0)
+        (df-put-property! df 'course-points cpdf))
       (when course-name
         (df-put-property! df 'name (bytes->string/utf-8 course-name)))
       (when course-capabilities
