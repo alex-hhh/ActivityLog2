@@ -730,6 +730,8 @@
     (28 . monitoring-daily)
     (23 . monitoring-b)))
 
+;; NOTE: all sports added here must also exist in the database, see
+;; db-schema.sql, E_SPORT table.
 (define *sport*
   '((0 . generic)
     (1 . running)
@@ -746,10 +748,17 @@
     (13 . alpine-skiing)
     (14 . snowboarding)
     (15 . rowing)
+    (17 . hiking)
+    (32 . sailing)
+    (37 . stand-up-paddleboardning)
+    (41 . kayaking)
+    (53 . diving)
     (254 . all)))
 
 (provide *sport*)
 
+;; NOTE: all sub-sports added here must also exist in the database, see
+;; db-schema.sql, E_SUB_SPORT table.
 (define *sub-sport*
   '((0 . generic)
     (1 . treadmill)

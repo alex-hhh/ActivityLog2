@@ -2,7 +2,7 @@
 ;; about-frame.rkt -- show the about dialog for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -135,9 +135,9 @@
   (insert-newline editor)
   (insert-reference editor "Data stored in SQLite" "http://sqlite.org")
   (insert-newline editor)
-  (insert-reference editor "Icons from Icons8" "https://www.icons8.com")
+  (insert-reference editor "Some Icons from Icons8" "https://www.icons8.com")
   (insert-newline editor)
-  (insert-reference editor "Weather data from Dark Sky" "https://www.darksky.net/poweredby")
+  (insert-reference editor "Some Icons Created by Freepik - Flaticon" "https://www.flaticon.com/free-icons/sport")
   (insert-newline editor)
   (insert-reference editor "Maps from Thunderforest" "http://www.thunderforest.com/")
   (insert-newline editor)

@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -78,6 +78,9 @@
 (define-runtime-path yoga-icon-file "../img/yoga-64.png")
 (define-runtime-path note-icon-file "../img/note-64.png")
 (define-runtime-path skiing-icon-file "../img/skiing-64.png")
+(define-runtime-path diving-icon-file "../img/diving-64.png")
+(define-runtime-path sup-icon-file "../img/paddleboarding-64.png")
+(define-runtime-path kayak-icon-file "../img/kayak-64.png")
 
 (define *large-bitmaps*
   (hash
@@ -93,6 +96,9 @@
    "yoga" (read-bitmap yoga-icon-file)
    "note" (read-bitmap note-icon-file)
    "ski" (read-bitmap skiing-icon-file)
+   "sup" (read-bitmap sup-icon-file)
+   "kayak" (read-bitmap kayak-icon-file)
+   "diving" (read-bitmap diving-icon-file)
    ))
 
 (define *sport-letters*

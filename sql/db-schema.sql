@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(46);
+insert into SCHEMA_VERSION(version) values(47);
 
 
 --........................................................ Enumerations ....
@@ -41,6 +41,11 @@ insert into E_SPORT(id, name, color, icon) values(12, 'Cross Country Skiing', -1
 insert into E_SPORT(id, name, color, icon) values(13, 'Alpine Skiing', 19, 'ski');
 insert into E_SPORT(id, name, color, icon) values(14, 'Snowboarding', -1, '');
 insert into E_SPORT(id, name, color, icon) values(15, 'Rowing', -1, '');
+insert into E_SPORT(id, name, color, icon) values(17, 'Hiking', -1, 'hike');
+insert into E_SPORT(id, name, color, icon) values(32, 'Sailing', -1, 'sail');
+insert into E_SPORT(id, name, color, icon) values(37, 'Stand Up Paddleboarding', -1, 'sup');
+insert into E_SPORT(id, name, color, icon) values(41, 'Kayaking', -1, 'kayak');
+insert into E_SPORT(id, name, color, icon) values(53, 'Diving', -1, 'diving');
 insert into E_SPORT(id, name, color, icon) values(254, 'All', -1, '');
 
 create table E_SUB_SPORT(
@@ -78,13 +83,6 @@ insert into E_SUB_SPORT(id, sport_id, name, color, icon) values(23, 0, 'Exercise
 insert into E_SUB_SPORT(id, sport_id, name, color, icon) values(24, 0, 'Challenge', -1, '');
 insert into E_SUB_SPORT(id, sport_id, name, color, icon) values(25, 0, 'Indoor Skiing', -1, '');
 insert into E_SUB_SPORT(id, sport_id, name, color, icon) values(254, 254, 'All', -1, '');
-
--- other sport ID's, not defined by the FIT file format, we use identifiers
--- greater than 255, so we won't clash with the default sport names.
-
-insert into E_SUB_SPORT(id, sport_id, name, color, icon) values (256, 0, 'Hiking', 3, 'hike');
-insert into E_SUB_SPORT(id, sport_id, name, color, icon) values (257, 0, 'Sailing', 3, 'sail');
-insert into E_SUB_SPORT(id, sport_id, name, color, icon) values (258, 0, 'Note', 3, 'note');
 
 create table E_SWIM_STROKE(
   id integer not null primary key autoincrement,

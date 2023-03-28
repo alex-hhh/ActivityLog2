@@ -81,8 +81,11 @@
   (4  19   242 138 206) ; 'Flexibility Training'  10
   (4  20   232 167 255) ; 'Strength Training'  11
   (0  25   255 250 250) ; 'Indoor Skiing'  19
-  (0  256  185 255 65) ; 'Hiking'  3
-  (0  257  185 255 65) ; 'Sailing'  3
+  (17 #f  185 255 65) ; 'Hiking'  3
+  (32 #f  187 204 238) ; 'Sailing'  3
+  (37 #f  187 204 238) ; 'StandUp Paddleboarding'
+  (41 #f  187 204 238) ; 'Kayaking'
+  (53 #f  187 204 238) ; 'Diving'
   (0  258  185 255 65) ; 'Note'  3
   )
  (sport-colors-dark
@@ -97,8 +100,11 @@
   (4  19   242 138 206) ; 'Flexibility Training'  10
   (4  20   199 21 133) ; 'Strength Training'  11
   (0  25   119 136 153) ; 'Indoor Skiing'  19
-  (0  256  34 139 34) ; 'Hiking'  3
-  (0  257  34 139 34) ; 'Sailing'  3
+  (17 #f  34 139 34) ; 'Hiking'  3
+  (32 #f  34 34 85) ; 'Sailing'  3
+  (37 #f  34 34 85) ; 'StandUp Paddleboarding'
+  (41 #f  34 34 85) ; 'Kayaking'
+  (53 #f  34 34 85) ; 'Diving'
   (0  258  34 139 34) ; 'Note'  3
   )
  (swim-stroke-colors
