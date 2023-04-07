@@ -129,6 +129,11 @@
     ;; the track overlaps onto itself several times.
     (define show-selected-lap-only? #f)
 
+    ;; When #t, the map will scroll so that the selected location from the
+    ;; elevation graph is in view, uses the map-widget's
+    ;; track-current-location method
+    (define track-location? #t)
+
     (define panel (new (class panel:horizontal-dragable%
                          (init)
                          (super-new)
@@ -174,6 +179,7 @@
     (define zoom-slider #f)
     (define info-message #f)
     (define map-view #f)
+    (define track-location-checkbox #f)
 
     (let ([p0 (new vertical-pane% [parent map-panel] [border 0] [spacing 1])])
       (let ((p (new horizontal-pane%
@@ -188,6 +194,12 @@
         (new check-box% [parent p] [label "Show Only Selected Lap"]
              [value show-selected-lap-only?]
              [callback (lambda (b e) (show-selected-lap-only (send b get-value)))])
+        (set! track-location-checkbox
+              (new check-box%
+                   [parent p]
+                   [label "Track Location"]
+                   [callback (lambda (c e)
+                               (on-track-location (send c get-value)))]))
         (set! zoom-slider
               (new slider% [parent p] [label "Zoom Level "]
                    [min-value (min-zoom-level)]
@@ -213,7 +225,7 @@
                      (send zoom-slider set-value zl)))
                  [parent p0])))
 
-    (send map-view track-current-location #t)
+    (send map-view track-current-location track-location?)
 
     (define elevation-graph-pane
       (new horizontal-panel% [parent map-panel] [stretchable-height #f]))
@@ -327,6 +339,10 @@
       (send map-view end-edit-sequence)
       (set! selected-lap-data #f))
 
+    (define/private (on-track-location flag)
+      (set! track-location? flag)
+      (send map-view track-current-location track-location?))
+
     (let ([pref (get-pref the-pref-tag #f)])
       ;; Restore the panel splits for the interval and map panels, or set
       ;; default ones.
@@ -340,7 +356,10 @@
                  '(1/5 4/5)
                  '(4/5 1/5)))])
         (send panel set-percentages ips)
-        (send map-panel set-percentages mps)))
+        (send map-panel set-percentages mps))
+      (let ([flag (hash-ref pref 'track-location #t)])
+        (send track-location-checkbox set-value flag)
+        (on-track-location flag)))
 
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
@@ -355,7 +374,8 @@
        the-pref-tag
        (hash
         'interval-panel-split ips
-        'map-panel-split mps)))
+        'map-panel-split mps
+        'track-location track-location?)))
 
     ;; Data frame associated with the session
     (define data-frame #f)
