@@ -30,7 +30,7 @@
 ;; the "inspect-aerolab.rkt" file.
 
 (require data-frame
-         data-frame/private/annealing
+         data-frame/annealing
          geoid/geodesy
          math/flonum
          math/statistics

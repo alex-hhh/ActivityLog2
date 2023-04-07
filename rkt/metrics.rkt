@@ -2,7 +2,7 @@
 ;;; metrics.rkt -- calculate aggregate metrics for activities
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,8 +15,8 @@
 ;; more details.
 
 (require data-frame
-         data-frame/private/slr
-         data-frame/private/spline
+         data-frame/slr
+         data-frame/spline
          db/base
          math/statistics
          racket/async-channel
@@ -647,7 +647,8 @@
           (vector xmin xmax ymin ymax)))))
 
 ;; Calculate simple linear regression parameters for SCATTER-GROUP (a
-;; aggregate-scatter/c).  We just expand the SCATTER-GROUP and call MAKE-SLR.
+;; aggregate-scatter/c).  We just expand the SCATTER-GROUP and call
+;; SIMPLE-LINEAR-REGRESSION.
 (define (aggregate-scatter-slr scatter-group)
   ;; TODO: when computing scatter plots, we need both the bounds and SLR data.
   ;; We currently expand the SCATTER-GROUP both here and in
@@ -666,7 +667,7 @@
           (set! xs (cons x xs))
           (set! ws (cons (car key+value) ws))
           (set! ys (cons y ys)))
-        (make-slr xs ys ws))))
+        (simple-linear-regression xs ys ws))))
 
 
 ;;................................................................. rest ....

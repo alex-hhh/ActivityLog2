@@ -5,7 +5,7 @@
 ;; see https://alex-hhh.github.io/2021/04/climb-analysis-tool.html
 ;;
 ;; This file is part of AL2-Climb-Analysis
-;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -241,14 +241,14 @@
            (df-read/course file-name)]
           [#t
            (error "Unknown File Extension")]))
-      (df-add-derived
+      (df-add-derived!
        df
        "dst/km"
        '("dst")
        (lambda (v)
          (match-define (list dst) v)
          (and dst (/ dst 1000.0))))
-      (df-set-sorted df "dst/km" <)
+      (df-set-sorted! df "dst/km" <)
       df)))
 
 ;; Add raw-climbs (as produced by `raw-climb-segments`) to the data frame,
@@ -260,7 +260,7 @@
   (define raw-climbs (raw-climb-segments df #:epsilon epsilon))
 
   (let ([climbs raw-climbs])
-    (df-add-derived
+    (df-add-derived!
      df
      "grade"
      '("dst/km")
@@ -276,7 +276,7 @@
                  (climb-grade current-climb)
                  #f))))))
 
-  (df-add-derived
+  (df-add-derived!
    df
    "grade-color"
    '("grade")
@@ -284,7 +284,7 @@
      (match-define (list grade) v)
      (and grade (grade->color-index grade))))
 
-  (df-put-property df 'raw-climbs raw-climbs))
+  (df-put-property! df 'raw-climbs raw-climbs))
 
 ;; Add climbs to the data frame DF as produced by the `climb-segments`
 ;; function.  The climbs are attached to the 'climbs property on the data
@@ -301,7 +301,7 @@
                                        #:min-grade min-grade
                                        #:min-score min-score
                                        #:max-join-distance max-join-distance))
-    (df-put-property df 'climbs the-climbs)))
+    (df-put-property! df 'climbs the-climbs)))
 
 ;; Create plot renderers which render the altitude vs distance from the data
 ;; frame DF.  Line will be shaded underneath with a color based on the grade
@@ -815,7 +815,7 @@
                (or (not should-join?) (rational? max-join-distance)))
           (add-climbs df #:min-grade min-grade #:min-score min-score
                       #:max-join-distance (and should-join? max-join-distance))
-          (df-put-property df 'climbs '())))
+          (df-put-property! df 'climbs '())))
     (let ([climbs (df-get-property df 'climbs)])
       (when climbs
         (send climbs-view set-data climbs)))

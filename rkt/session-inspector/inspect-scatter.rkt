@@ -2,7 +2,7 @@
 ;; inspect-scatter.rkt -- scatter plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,7 +15,7 @@
 ;; more details.
 
 (require data-frame
-         data-frame/private/slr
+         data-frame/slr
          math/statistics
          plot
          plot/no-gui
@@ -25,6 +25,7 @@
          racket/match
          racket/math
          racket/string
+         racket/format
          plot-container
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
@@ -232,7 +233,15 @@
   (for ([d data])
     (set! xs (cons (vector-ref d 0) xs))
     (set! ys (cons (vector-ref d 1) ys)))
-  (make-slr xs ys))
+  (simple-linear-regression xs ys))
+
+;; Return a function renderer for the linear regression defined by SLR
+(define (slr-renderer slr)
+  (function
+   (lambda (x) (+ (slr-alpha slr) (* (slr-beta slr) x)))
+   #:color '(#x2f #x4f #x4f)
+   #:width 2
+   #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
 
 ;; Update a scatter plot state and return a new one. STATE is the old state,
 ;; if the data member is valid, data will not be extracted again). DF is the

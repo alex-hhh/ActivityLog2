@@ -3,7 +3,7 @@
 ;; fthr-test.rkt -- test the FTHR dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -35,11 +35,11 @@
 
 ;; Sample data does not change, so we load it once for all tests to use.
 (define run-data (df-read/csv "test-data/track-data-2098.csv"))
-(df-set-sorted run-data "elapsed" <)
-(df-put-property run-data 'sport (vector 1 #f))
+(df-set-sorted! run-data "elapsed" <)
+(df-put-property! run-data 'sport (vector 1 #f))
 (define bike-data (df-read/csv "test-data/track-data-2604.csv"))
-(df-set-sorted bike-data "elapsed" <)
-(df-put-property bike-data 'sport (vector 2 #f))
+(df-set-sorted! bike-data "elapsed" <)
+(df-put-property! bike-data 'sport (vector 2 #f))
 
 (define fthr-test-suite
   (test-suite

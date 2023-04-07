@@ -2,7 +2,7 @@
 ;; trends-scatter.rkt -- aggregate scatter chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,7 +15,7 @@
 ;; more details.
 
 (require data-frame
-         data-frame/private/slr
+         data-frame/slr
          plot-container/hover-util
          plot-container
          plot
@@ -27,6 +27,7 @@
          racket/match
          racket/math
          racket/string
+         racket/format
          "../al-widgets.rkt"
          "../metrics.rkt"
          "../session-df/native-series.rkt"
@@ -36,6 +37,14 @@
          "../utilities.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
+
+;; Return a function renderer for the linear regression defined by SLR
+(define (slr-renderer slr)
+  (function
+   (lambda (x) (+ (slr-alpha slr) (* (slr-beta slr) x)))
+   #:color '(#x2f #x4f #x4f)
+   #:width 2
+   #:label (format "r = ~a" (~r (slr-r slr) #:precision 2))))
 
 ;; Find an axis that works in SERIES-NAME and return its position in
 ;; AXIS-LIST.  Return #f is not found
