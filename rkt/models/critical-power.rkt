@@ -2,7 +2,7 @@
 ;; critical-power.rkt -- Estimate CP2 and CP3 parameters
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -178,17 +178,6 @@
 (define-type Test-Data (Mutable-Vectorof Data-Point))
 (define-type Mmax-Function (-> Flonum Flonum))
 
-;; Multiplier used for the "negative" cost in `evaluate-cost` -- this is the
-;; cost where the sample data is above the model -- in general we want to
-;; penalize this situation, since this means that the data is better than the
-;; prediction.  If this is set to 1.0 negative cost weights the same as the
-;; positive cost, so we do a "least squares fit" on the data.  A large value
-;; means we are doing more of an "envelope fit" where the model is almost
-;; above the data for the entire series.
-;;
-(: negative-cost-multiplier Flonum)
-(define negative-cost-multiplier 20.0)
-
 ;; Number of samples we take from the mmax function for evaluating the cost of
 ;; our fit.
 ;;
@@ -215,44 +204,39 @@
 
 ;; Evaluate how good the CP3 parameters are against the test data samples a
 ;; lower value means a better fit.  We do least-squares fitting, except that
-;; values where the data is above the model is penalized by
-;; `negative-cost-multiplier`.
+;; values where the data is above the model is penalized
 ;;
 (: evaluate-cost/cp3 (-> Flonum Flonum Flonum FlVector FlVector Flonum))
 (define (evaluate-cost/cp3 cp wprime k time-points data-points)
-
-  (define-values
-    (pcost ncost)
-    (for/fold ([pcost : Flonum 0.0] [ncost : Flonum 0.0])
-              ([t (in-flvector time-points)]
-               [value (in-flvector data-points)])
-      (let* ((model (+ cp (/ wprime (- t k))))
-             (diff (- value model))
-             (cost (* diff diff)))
-        (if (>= model value)
-            (values (+ pcost cost) ncost)
-            (values pcost (+ ncost cost))))))
-
-  (+ pcost (* negative-cost-multiplier ncost)))
+  (for/fold ([cost : Flonum 0.0])
+            ([t (in-flvector time-points)]
+             [value (in-flvector data-points)])
+    (let* ((model (+ cp (/ wprime (- t k))))
+           (diff (- value model)))
+      (+ cost
+         (if (>= model value)
+             (sqr diff)
+             ;; Give a higher cost if the model is below the data, meaning
+             ;; that the athlete has better performance than what the model
+             ;; predicts.  `diff` should be positive and we add 1 to it,
+             ;; since, for values less than 1, raising them to the power of 4
+             ;; produces smaller values than raising them to the power of 2.
+             (expt (add1 diff) 4))))))
 
 ;; Same as `evaluate-cost/cp3` but for the CP2 model.
 ;;
 (: evaluate-cost/cp2 (-> Flonum Flonum FlVector FlVector Flonum))
 (define (evaluate-cost/cp2 cp wprime time-points data-points)
-
-  (define-values
-    (pcost ncost)
-    (for/fold ([pcost : Flonum 0.0] [ncost : Flonum 0.0])
-              ([t (in-flvector time-points)]
-               [value (in-flvector data-points)])
-      (let* ((model (+ cp (/ wprime t)))
-             (diff (- value model))
-             (cost (* diff diff)))
-        (if (>= model value)
-            (values (+ pcost cost) ncost)
-            (values pcost (+ ncost cost))))))
-
-  (+ pcost (* negative-cost-multiplier ncost)))
+  (for/fold ([cost : Flonum 0.0])
+            ([t (in-flvector time-points)]
+             [value (in-flvector data-points)])
+    (let* ((model (+ cp (/ wprime t)))
+           (diff (- value model)))
+      (+ cost
+         (if (>= model value)
+             (sqr diff)
+             ;; See note on `evaluate-cost/cp3`
+             (expt (add1 diff) 4))))))
 
 ;; Precompute the WORK produced by MMAX-FN at 1 second interval between START
 ;; and END and return a flvector of these values.
