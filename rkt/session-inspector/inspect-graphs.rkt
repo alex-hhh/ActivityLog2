@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -932,7 +932,7 @@
         (let ((render-tree (list (pd-plot-rt pd))))
           (set! render-tree (cons (tick-grid) render-tree))
           (when (ps-avg? ps)
-            (let ((avg (get-average-renderer)))
+            (let ((avg (get-redline-renderer)))
               (when avg (set! render-tree (cons avg render-tree)))))
           (append stop-point-renderers (reverse render-tree))))
 
@@ -1074,7 +1074,9 @@
                       (match-let (((list xmin xmax color) (pd-hlivl npdata)))
                         (set-overlay-renderers the-plot-snip (list (hover-vrange xmin xmax color))))
                       (set-overlay-renderers the-plot-snip #f))
-                  (send graph-canvas refresh))
+                  ;; a refresh here is unnecessary, since setting the overlay
+                  ;; renderers above will trigger a refresh anyway
+                  #;(send graph-canvas refresh))
 
                 (set! previous-plot-state pstate)
                 (set! plot-state pstate)
@@ -1104,7 +1106,7 @@
 
         (refresh-plot)))
 
-    (define/public (get-average-renderer)
+    (define/public (get-redline-renderer)
       (define df (ps-df plot-state))
       (define sport (df-get-property df 'sport #f))
       (define primary-renderer
@@ -1241,13 +1243,13 @@
   (class graph-view%
     (super-new [primary-y-axis axis-elevation])
     ;; Don't display an average line for the elevation
-    (define/override (get-average-renderer) #f)))
+    (define/override (get-redline-renderer) #f)))
 
 (define corrected-elevation-graph%
   (class graph-view%
     (super-new [primary-y-axis axis-corrected-elevation])
     ;; Don't display an average line for the elevation
-    (define/override (get-average-renderer) #f)))
+    (define/override (get-redline-renderer) #f)))
 
 (define grade-graph%
   (class graph-view%
@@ -1258,14 +1260,16 @@
     (super-new [primary-y-axis axis-grade]
                [secondary-y-axis axis-corrected-elevation]
                [dual-axis? #t]
-               [headline "Grade + Elevation (corrected)"])))
+               [headline "Grade + Elevation (corrected)"])
+    (define/override (get-redline-renderer) #f)))
 
 (define grade+alt-graph%
   (class graph-view%
     (super-new [primary-y-axis axis-grade]
                [secondary-y-axis axis-elevation]
                [dual-axis? #t]
-               [headline "Grade + Elevation (original)"])))
+               [headline "Grade + Elevation (original)"])
+    (define/override (get-redline-renderer) #f)))
 
 (define grade-shading-color-map 'cb-rdbu-11)
 (define grade-shading-color-indexer
@@ -1278,7 +1282,8 @@
                [color-map grade-shading-color-map]
                [color-index-fn grade-shading-color-indexer]
                [preferences-tag 'al2-graphs:calt+shaded-grade]
-               [headline "Elevation (corrected) Color by Grade"])))
+               [headline "Elevation (corrected) Color by Grade"])
+    (define/override (get-redline-renderer) #f)))
 
 (define alt+shaded-grade-graph%
   (class graph-view%
@@ -1287,7 +1292,8 @@
                [color-map grade-shading-color-map]
                [color-index-fn grade-shading-color-indexer]
                [preferences-tag 'al2-graphs:alt+shaded-grade]
-               [headline "Elevation (original) Color by Grade"])))
+               [headline "Elevation (original) Color by Grade"])
+    (define/override (get-redline-renderer) #f)))
 
 (define heart-rate-graph%
   (class graph-view%
@@ -1416,7 +1422,7 @@
           (set! avg-speed (statistics-mean st))))
       avg-speed)
 
-    (define/override (get-average-renderer)
+    (define/override (get-redline-renderer)
       (let ((avg (get-avg-speed)))
         (if (and avg (> avg 0))
             (let ((pace (m/s->swim-pace avg)))
@@ -1449,7 +1455,7 @@
           (set! avg-swolf (statistics-mean st))))
       avg-swolf)
 
-    (define/override (get-average-renderer)
+    (define/override (get-redline-renderer)
       (let ((avg (get-avg-swolf)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
@@ -1480,7 +1486,7 @@
           (set! avg-stroke-count (statistics-mean st))))
       avg-stroke-count)
 
-    (define/override (get-average-renderer)
+    (define/override (get-redline-renderer)
       (let ((avg (get-avg-stroke-count)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
@@ -1512,7 +1518,7 @@
           (set! avg-cadence (statistics-mean st))))
       avg-cadence)
 
-    (define/override (get-average-renderer)
+    (define/override (get-redline-renderer)
       (let ((avg (get-avg-cadence)))
 	(if (and avg (> avg 0))
             (function (lambda (x) avg)
@@ -1648,6 +1654,12 @@
       (for ([item visible])
         (send visible-lb append (send item get-headline)))
       (send available-lb clear)
+      ;; Sort the available series, to make graps easier to find.
+      (set! available
+            (sort available
+                  (lambda (a b)
+                    (string<? (send a get-headline)
+                              (send b get-headline)))))
       (for ([item available])
         (send available-lb append (send item get-headline))))
 
@@ -1832,12 +1844,14 @@
     (define filter-amount 0)        ; amount of filtering to use in graphs
 
     ;; Map the preferred x-axis (as an index) by sport, this is saved as a
-    ;; user preference
+    ;; user preference.  Use `get-x-axis-by-sport` and `put-x-axis-by-sport`
+    ;; to get and set values from this hash.
     (define x-axis-by-sport (make-hash))
 
     ;; Map the visible graphs by sport, this is saved as a user preference.
     ;; Each sport allows a different list of graphs to be shown and in a
-    ;; different order.
+    ;; different order.  Use `get-graphs-by-sport` and `put-graphs-by-sport`
+    ;; to get and set values from this hash.
     (define graphs-by-sport (make-hash))
 
     ;; The axis-choices for the graphs, either default-x-axis-choices or
@@ -1892,10 +1906,48 @@
       (for ([g (in-list graphs)])
         (send g highlight-interval #f #f)))
 
+    (define/private (put-x-axis-by-sport index)
+      (define sport (session-sport the-session))
+      (define sub-sport (session-sub-sport the-session))
+      (define key
+        (if sub-sport
+            (cons sport sub-sport)
+            sport))
+      (hash-set! x-axis-by-sport key index))
+
+    (define/private (get-x-axis-by-sport)
+      (define sport (session-sport the-session))
+      (define sub-sport (session-sub-sport the-session))
+      (define key
+        (if sub-sport
+            (cons sport sub-sport)
+            sport))
+      (or (hash-ref x-axis-by-sport key #f)
+          (hash-ref x-axis-by-sport sport 0)))
+
+    (define/private (put-graphs-by-sport graphs)
+      (define sport (session-sport the-session))
+      (define sub-sport (session-sub-sport the-session))
+      (define key
+        (if sub-sport
+            (cons sport sub-sport)
+            sport))
+      (hash-set! graphs-by-sport key graphs))
+
+    (define/private (get-graphs-by-sport)
+      (define sport (session-sport the-session))
+      (define sub-sport (session-sub-sport the-session))
+      (define key
+        (if sub-sport
+            (cons sport sub-sport)
+            sport))
+      (or (hash-ref graphs-by-sport key #f)
+          (hash-ref graphs-by-sport sport #f)))
+
     (define (set-x-axis index)
       (let ((x-axis (cdr (list-ref x-axis-choices index))))
         (when the-session
-          (hash-set! x-axis-by-sport (session-sport the-session) index))
+          (put-x-axis-by-sport index))
         (for ([g (in-list graphs)])
           (send g set-x-axis x-axis))))
 
@@ -1962,7 +2014,7 @@
 
     (new check-box% [parent control-panel]
          [value show-avg?]
-         [label "Show Average"]
+         [label "Show Redline"]
          [callback (lambda (b e) (show-average-line (send b get-value)))])
 
     (new check-box% [parent control-panel]
@@ -2045,7 +2097,7 @@
         (unless sds-dialog
           (set! sds-dialog (new select-data-series-dialog%)))
         (let ((toplevel (send panel get-top-level-window))
-              (visible-tags (hash-ref graphs-by-sport (session-sport the-session) #f))
+              (visible-tags (get-graphs-by-sport))
               (all-graphs (append
                            (cond ((is-lap-swimming/df? data-frame) (swim-graphs))
                                  ((is-ow-swimming/df? data-frame) (owswim-graphs))
@@ -2053,9 +2105,7 @@
                            (xdata-graphs))))
           (cond ((send sds-dialog show-dialog toplevel visible-tags all-graphs)
                  => (lambda (ngraps)
-                      (hash-set! graphs-by-sport
-                                 (session-sport the-session)
-                                 ngraps)
+                      (put-graphs-by-sport ngraps)
                       (setup-graphs-for-current-session)))))))
 
     (define/public (save-visual-layout)
@@ -2078,9 +2128,9 @@
 
     ;; Return the available graphs for SESSION.  For non-lap swimming
     ;; activities, we only use the graphs for which we have data.
-    (define (get-graphs-for-session session)
-      (define sport (session-sport session))
-      (define visible (hash-ref graphs-by-sport sport #f))
+    (define (get-graphs-for-session)
+      (define sport (session-sport the-session))
+      (define visible (get-graphs-by-sport))
 
       (define candidates
         (cond (visible
@@ -2133,7 +2183,7 @@
         g))
 
     (define (setup-graphs-for-current-session)
-      (set! graphs (get-graphs-for-session the-session))
+      (set! graphs (get-graphs-for-session))
       (let ([graph-count (length graphs)])
         (cond ((<= graph-count 3)
                (send graphs-panel column-count 1))
@@ -2177,12 +2227,9 @@
         (send filter-amount-choice enable (not lap-swimming?))
         (send x-axis-choice clear)
         (for-each (lambda (x) (send x-axis-choice append (car x))) x-axis-choices)
+        (send control-panel reflow-container)
 
-        (let* ((sport-x-axis (hash-ref x-axis-by-sport (session-sport session) 0)))
-          ;; We have an ambiguity here, as the open water swim has 3 choices,
-          ;; but lap swimming only two.  Our X-AXIS-BY-SPORT hash only
-          ;; considers the sport (not the sub-sport) when saving the
-          ;; selection...
+        (let ((sport-x-axis (get-x-axis-by-sport)))
           (if (>= sport-x-axis (length x-axis-choices))
               (send x-axis-choice set-selection 0)
               (send x-axis-choice set-selection sport-x-axis))

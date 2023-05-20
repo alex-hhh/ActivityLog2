@@ -555,17 +555,16 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
     ;; Regardless of outcome, we will always update the TIZ if we have any
     ;; sessions in the list.
     (define (maybe-show-confirmation-dialog num-sessions)
-      (if (> (abs (- num-sessions original-modified-session-count)) 10)
-          (eq? (message-box
-                "Confirmation"
-                (format (string-append "~a sessions are affected by the changes and will need to be updated.  "
-                                       "Continue and update these sessions?")
-                        num-sessions)
-                (send this get-top-level-window)
-                '(caution yes-no))
-               'yes
-               #:dialog-mixin al2-message-box-mixin)
-          #t))
+      (and (> (abs (- num-sessions original-modified-session-count)) 10)
+           (eq? (message-box
+                 "Confirmation"
+                 (format (string-append "~a sessions are affected by the changes and will need to be updated.  "
+                                        "Continue and update these sessions?")
+                         num-sessions)
+                 (send this get-top-level-window)
+                 '(caution yes-no)
+                 #:dialog-mixin al2-message-box-mixin)
+                'yes)))
 
     (define/override (on-finish-edit result)
       ;; NOTE: we need to return #t if we want to close the dialog, #t

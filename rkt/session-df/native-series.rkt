@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -233,6 +233,7 @@
     (define/override (inverted-mean-max?) #t)
     (define/override (series-name) "pace")
     (define/override (name) "Pace")
+    (define/override (missing-value) #f)
     ;; NOTE: speed is stored in the FIT file as m/s * 1000 (and truncated
     ;; to an integer).  When converting to pace, the minimum delta
     ;; between two representable pace values is 0.09 (do the maths!) and
