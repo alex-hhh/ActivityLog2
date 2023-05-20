@@ -16,6 +16,7 @@
 
 (require data-frame
          data-frame/private/bsearch
+         data-frame/slr
          framework
          math/statistics
          plot-container
@@ -41,7 +42,8 @@
          "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt")
+         "../widgets/main.rkt"
+         "../models/aerobic-decoupling.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph% grade+calt-graph% grade+alt-graph%
@@ -1403,6 +1405,66 @@
     (super-new [primary-y-axis axis-left-peak-power-phase-angle]
                [secondary-y-axis axis-right-peak-power-phase-angle])))
 
+(define pwr-hr-reserve-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-pwr-reserve]
+               [secondary-y-axis axis-hr-reserve]
+               [dual-axis? #t]
+               [headline "Power/HR Reserve"])
+
+    (define/override (get-redline-renderer) #f)))
+
+(define spd-hr-reserve-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-spd-reserve]
+               [secondary-y-axis axis-hr-reserve]
+               [dual-axis? #t]
+               [headline "Speed/HR Reserve"])
+
+    (define/override (get-redline-renderer) #f)))
+
+(define adecl-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-adecl]
+               [headline "Aerobic Decoupling"])
+
+    (define session #f)
+    (define x-series #f)
+
+    (define/override (set-data-frame df)
+      (set! session df)
+      (super set-data-frame df))
+
+    (define/override (set-x-axis new-x-axis)
+      (set! x-series (send new-x-axis series-name))
+      (super set-x-axis new-x-axis))
+
+    (define/override (get-redline-renderer)
+      (if (and session x-series)
+          (let-values
+              ([(xs ys)
+                (for/fold ([xs '()]
+                           [ys '()])
+                          ([(ts adecl) (in-data-frame session x-series "adecl")])
+                  (if (and (rational? ts) (rational? adecl))
+                      (values (cons ts xs) (cons adecl ys))
+                      (values xs ys)))])
+            (match-define (slr alpha beta r) (simple-linear-regression xs ys))
+            (define fn (lambda (x) (+ alpha (* beta x))))
+            ;; NOTE: xs and ys are reversed!
+            (define drop
+              (let* ([x-max (first xs)]
+                     [x-min (last xs)]
+                     [y-max (fn x-max)]
+                     [y-min (fn x-min)])
+                (- y-max y-min)))
+            (function fn #:label
+                      (if (> drop 0)
+                          (format "Raise: ~a (% points)" (~r drop #:precision 1))
+                          (format "Drop: ~a (% points)" (~r (- drop) #:precision 1)))))
+          #f))
+    ))
+
 
 ;;..................................................... swim-pace-graph% ....
 
@@ -1786,7 +1848,10 @@
                                 pp-angle-graph%
                                 ppp-start-graph%
                                 ppp-end-graph%
-                                ppp-angle-graph%))])
+                                ppp-angle-graph%
+                                pwr-hr-reserve-graph%
+                                spd-hr-reserve-graph%
+                                adecl-graph%))])
     (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-swim-graphs parent hover-callback)

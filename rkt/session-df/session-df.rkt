@@ -44,7 +44,8 @@
          "../sport-charms.rkt"
          "../utilities.rkt"
          "series-metadata.rkt"
-         "xdata-series.rkt")
+         "xdata-series.rkt"
+         "../models/aerobic-decoupling.rkt")
 
 ;; Check if R is a valid plot range, as produced by `get-plot-y-range` and
 ;; used by several other functions.  This is used in the `y-range/c` contract.
@@ -249,6 +250,7 @@
     (add-rpppa-series df)
     (fixup-lrbal-series df)
     (add-torque-series df)
+    (maybe-add-adecl! df)
 
     (when is-lap-swim?
       (add-swolf-series df))
