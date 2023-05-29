@@ -300,7 +300,17 @@
                                  ((= sport 5) (swim-pace->string speed #t))
                                  (#t (speed->string speed #t)))))
                        fn
-                  #:default-visible? #t))
+                       #:default-visible? #t))
+            (let ([fn (lambda (row)
+                         (let ([duration (column-ref-by-name row "duration" 0)]
+                               [ascent (column-ref-by-name row "ascent" 0)])
+                           (if (> duration 0) (* 3600.0 (/ ascent duration)) 0)))])
+              (qcolumn "Climb Rate"
+                       (lambda (row)
+                         (let ([climb-rate (fn row)])
+                           (if (zero? climb-rate) "" (vertical-speed->string climb-rate #t))))
+                       fn
+                       #:default-visible? #t))
             (let ((fn (lambda (row) (column-ref-by-name row "max_speed" 0))))
               (qcolumn "Max Speed"
                   (lambda (row)

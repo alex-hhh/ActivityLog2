@@ -130,6 +130,8 @@
    energy            ; energy required for the climb to lift 1kg of weight
                      ; (this needs to be multiplied by the cyclist + bike
                      ; weight to find the energy required for the climb
+   ts-start          ; timestamp for start of segment
+   ts-end            ; timestamp for end of segment
    )
   #:transparent)
 
@@ -139,13 +141,22 @@
 (define (climb-elevation c)
   (- (climb-top c) (climb-bottom c)))
 
+(define (climb-duration c)
+  (- (climb-ts-end c) (climb-ts-start c)))
+
 ;; Construct a climb between two data points, each data point being a vector
 ;; of distance and altitude.  This is a low level function, which simply
 ;; constructs a `climb` instance out of points `a` and `b` without assuming
 ;; they actually form a climb or not.
 (define (make-climb a b)
-  (match-define (vector dst-a alt-a) a)
-  (match-define (vector dst-b alt-b) b)
+  (define-values (dst-a alt-a ts-a)
+    (match a
+      [(vector dst-a alt-a ts-a) (values dst-a alt-a ts-a)]
+      [(vector dst-a alt-a) (values dst-a alt-a 0)]))
+  (define-values (dst-b alt-b ts-b)
+    (match b
+      [(vector dst-b alt-b ts-b) (values dst-b alt-b ts-b)]
+      [(vector dst-b alt-b) (values dst-b alt-b 0)]))
   (let* ([distance (- dst-b dst-a)]
          [elevation (- alt-b alt-a)]
          [grade (* (/ elevation (* distance 1000.0)) 100.0)]
@@ -153,7 +164,7 @@
          [score (/ (* elevation elevation) (* distance 10000.0))]
          ;; NOTE: don't spend energy on descents
          [energy (if (> elevation 0) (* (sin (atan elevation distance)) elevation) 0)])
-    (climb dst-a dst-b alt-a alt-b grade grade score energy)))
+    (climb dst-a dst-b alt-a alt-b grade grade score energy ts-a ts-b)))
 
 ;; Construct a list of climb segments from the data frame df -- these will be
 ;; segments of constant grade, but can go either up or down (thus being
@@ -162,11 +173,12 @@
 ;; to smooth out the altitude data before segmenting it.  The higher the value
 ;; the longer the segments will be, smoothing out smaller climbs and descents.
 (define (raw-climb-segments df #:epsilon [epsilon *rdp-epsilon*])
+  (define data
+    (if (df-contains? df "timestamp")
+        (df-select* df "dst/km" "alt" "timestamp" #:filter valid-only)
+        (df-select* df "dst/km" "alt" #:filter valid-only)))
   (define simplified-altitude
-    (rdp-simplify
-     (df-select* df "dst/km" "alt" #:filter valid-only)
-     #:epsilon epsilon
-     #:destroy-original? #t))
+    (rdp-simplify data #:epsilon epsilon #:destroy-original? #t))
   (for/list ([a (in-vector simplified-altitude 0)]
              [b (in-vector simplified-altitude 1)])
     (make-climb a b)))
@@ -192,7 +204,9 @@
    grade
    (max (climb-max-grade a) (climb-max-grade b))
    (+ (climb-score a) (climb-score b))
-   (+ (climb-energy a) (climb-energy b))))
+   (+ (climb-energy a) (climb-energy b))
+   (climb-ts-start a)
+   (climb-ts-end b)))
 
 ;; Find the true climb segments from RAW-CLIMBS (a list of climbs produced by
 ;; `raw-climb-segments`.  Climbs whose grade is smaller than min-grade are
@@ -705,7 +719,19 @@
          (qcolumn
           "Energy (kJ)"
           (lambda (c) (~r (energy c) #:precision 2))
-          energy))))
+          energy))
+
+       (let ([climb-rate
+              (lambda (c)
+                (let ([duration (climb-duration c)]
+                      [ascent (climb-elevation c)])
+                  (if (> duration 0) (* (/ ascent duration) 3600) 0)))])
+         (qcolumn
+          "Climb Rate (m/h)"
+          (lambda (c)
+            (let ([cr (climb-rate c)])
+              (if (zero? cr) "" (~r cr #:precision 0))))
+          climb-rate))))
 
 ;; Setup the defaults for the map: track location is synchronized with the
 ;; track location check box value, and the line with and color of the selected
