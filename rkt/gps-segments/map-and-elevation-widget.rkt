@@ -126,6 +126,7 @@
          (and grade (grade->color-index grade)))))))
 
 (define (make-plot-callback df map)
+  ;; NOTE: _alt is the altitude at mouse position, which is irrelevant for us.
   (lambda (snip event dst _alt)
     (let/ec return
       (unless (good-hover? snip dst _alt event)
@@ -147,7 +148,7 @@
                                  ("Altitude" ,(vertical-distance->string alt #t))
                                  ("Grade" ,(string-append (~r grade #:precision 1) "%"))))])
               (list (vrule dst #:style 'long-dash)
-                    (point-pict (vector dst _alt) main-badge #:anchor 'auto)))
+                    (point-pict (vector dst alt) main-badge #:anchor 'auto)))
             '()))
 
       (send snip set-overlay-renderers renderers))))

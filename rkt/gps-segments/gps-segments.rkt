@@ -106,8 +106,12 @@
     (df-put-property! df 'max-elevation max-elevation)
 
     (define segment-height
-      (let ([bottom (df-ref df 0 "alt")]
-            [top (df-ref df (sub1 (df-row-count df)) "alt")])
+      (let ([bottom
+             (for/or ([index (in-range (df-row-count df))])
+               (df-ref df index "alt"))]
+            [top
+             (for/or ([index (in-inclusive-range (sub1 (df-row-count df)) 0 -1)])
+               (df-ref df index "alt"))])
         (and bottom top (- top bottom))))
 
     ;; NOTE: this grade calculation only works correctly for segments which
@@ -117,8 +121,10 @@
       (and segment-height segment-length
            (* (/ segment-height segment-length) 100.0)))
 
-    (df-put-property! df 'segment-height segment-height)
-    (df-put-property! df 'segment-grade segment-grade))
+    (when segment-height
+      (df-put-property! df 'segment-height segment-height))
+    (when segment-grade
+      (df-put-property! df 'segment-grade segment-grade)))
 
   (let ([score (fiets-score df)])
     (when score
@@ -399,7 +405,7 @@ where T.length_id = L.id
 
 ;; Distance in meters between two geoids for them to be considered to match
 ;; the start or end of a segment
-(define *segment-search-limit* 15)      ; meters
+(define *segment-search-limit* 30)      ; meters
 
 ;; Return the list of intervals in the data frame DF which closely match the
 ;; segment defined by WAYPOINTS (a vector of GEOIDS) and SEGMENT-LENGTH the
@@ -480,24 +486,24 @@ where T.length_id = L.id
 
   (define candidate-matches
     (for*/list ([start (in-list pruned-start-indices)]
-              [end (in-list pruned-end-indices)]
-              #:when (let ([ilen (- (list-ref end 1) (list-ref start 1))])
-                       (and (> ilen 0)  ; end is after start
-                            (< (abs (- ilen segment-length)) length-limit))))
-    (define start-index (list-ref start 0))
-    (define end-index (list-ref end 0))
-    (define interval-length (- (list-ref end 1) (list-ref start 1)))
-    (define interval (df-select df "geoid" #:filter valid-only
-                                #:start start-index
-                                #:stop end-index))
+                [end (in-list pruned-end-indices)]
+                #:when (let ([ilen (- (list-ref end 1) (list-ref start 1))])
+                         (and (> ilen 0)  ; end is after start
+                              (< (abs (- ilen segment-length)) length-limit))))
+      (define start-index (list-ref start 0))
+      (define end-index (list-ref end 0))
+      (define interval-length (- (list-ref end 1) (list-ref start 1)))
+      (define interval (df-select df "geoid" #:filter valid-only
+                                  #:start start-index
+                                  #:stop end-index))
 
-    (define dtw-cost (waypoint-alignment-cost interval waypoints))
-    (define good? (good-match? dtw-cost interval-length (- end-index start-index)
-                               segment-length (vector-length waypoints)))
-    (list start-index
-          end-index
-          good?
-          dtw-cost)))
+      (define dtw-cost (waypoint-alignment-cost interval waypoints))
+      (define good? (good-match? dtw-cost interval-length (- end-index start-index)
+                                 segment-length (vector-length waypoints)))
+      (list start-index
+            end-index
+            good?
+            dtw-cost)))
 
   (for/list ([m (in-list candidate-matches)] #:when (list-ref m 2))
     (match-define (list start-index end-index good? dtw-cost) m)

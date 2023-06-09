@@ -390,14 +390,14 @@ update SECTION_SUMMARY
      (query-exec
       db
       (update-segment-summary-query)
-      (df-get-property segment 'segment-height sql-null)
-      (df-get-property segment 'segment-grade sql-null)
-      (df-get-property segment 'total-ascent sql-null)
-      (df-get-property segment 'total-descent sql-null)
-      (df-get-property segment 'max-grade sql-null)
-      (df-get-property segment 'min-elevation sql-null)
-      (df-get-property segment 'max-elevation sql-null)
-      (df-get-property segment 'fiets-score sql-null)
+      (or (df-get-property segment 'segment-height) sql-null)
+      (or (df-get-property segment 'segment-grade) sql-null)
+      (or (df-get-property segment 'total-ascent) sql-null)
+      (or (df-get-property segment 'total-descent) sql-null)
+      (or (df-get-property segment 'max-grade) sql-null)
+      (or (df-get-property segment 'min-elevation) sql-null)
+      (or (df-get-property segment 'max-elevation) sql-null)
+      (or (df-get-property segment 'fiets-score) sql-null)
       segment-id))))
 
 ;; Same as `fixup-elevation-for-session-internal`, except for GPS segments
