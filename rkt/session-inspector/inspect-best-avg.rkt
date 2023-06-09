@@ -195,8 +195,11 @@
   ;; is inside the plot too (CP2 is infinite at 0, and would dwarf the rest of
   ;; the plot, so we don't adjust for it).  If the series is inverted, we
   ;; adjust the minimum Y value.
+  ;;
+  ;; NOTE: we use the `pd-function` for the axis, instead of cp3-function, as
+  ;; the axis one will adjust for m/s -> min/km or min/100m correctly
   (define-values (min-x-2 max-x-2 min-y-2 max-y-2)
-    (let ([pmax (and (cp3? cp-data) ((cp3-function cp-data) min-x-0))])
+    (let ([pmax (and (cp3? cp-data) ((send axis pd-function cp-data) min-x-0))])
       (if pmax
           (values min-x-1 max-x-1
                   (if inverted? (min pmax min-y-1) min-y-1)
@@ -454,7 +457,7 @@
                  ;; lost once we insert a new plot in the canvas.
                  [saved-location (get-snip-location pd-model-snip)])
             (let-values (((min-x max-x min-y max-y)
-                          (plot-bounds (get-series-axis) zero-base? mean-max-data bests-data cp-data)))
+                          (plot-bounds mean-max-axis zero-base? mean-max-data bests-data cp-data)))
               ;; aux data might not exist, if an incorrect/invalid aux-axis is
               ;; selected
               (if (> (length mean-max-aux-data) 0)
