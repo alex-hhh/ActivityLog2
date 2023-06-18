@@ -858,7 +858,8 @@
        'trim-start
        (new (validate-mixin
              validate-non-negative-rational
-             (lambda (v) (~r v #:precision 3))
+             (lambda (v)
+               (if (rational? v) (~r v #:precision 3) (~a v)))
              (decorate-mixin
               (decorate-with "km" #:validate validate-non-negative-rational)
               (cue-mixin
@@ -880,7 +881,8 @@
        'trim-end
        (new (validate-mixin
              validate-non-negative-rational
-             (lambda (v) (~r v #:precision 3))
+             (lambda (v)
+               (if (rational? v) (~r v #:precision 3) (~a v)))
              (decorate-mixin
               (decorate-with "km" #:validate validate-non-negative-rational)
               (cue-mixin
@@ -902,7 +904,8 @@
        'altitude-offset-text-box
        (new (validate-mixin
              validate-rational
-             (lambda (v) (~r v #:precision 1))
+             (lambda (v)
+               (if (rational? v) (~r v #:precision 1) (~a v)))
              (decorate-mixin
               (decorate-with "m" #:validate validate-rational)
               (cue-mixin
@@ -938,7 +941,8 @@
          'wind-speed-text-box
          (new (validate-mixin
                (validate-rational-between min-wind-speed max-wind-speed)
-               (lambda (v) (~r v #:precision 2))
+               (lambda (v)
+                 (if (rational? v) (~r v #:precision 2) (~a v)))
                (decorate-mixin
                 (decorate-with "km/h" #:validate validate-non-negative-rational)
                 (cue-mixin "km/h" text-field%)))
@@ -965,7 +969,8 @@
          'wind-direction-text-box
          (new (validate-mixin
                (validate-rational-between min-wind-direction max-wind-direction)
-               (lambda (v) (~r v #:precision 1))
+               (lambda (v)
+                 (if (rational? v) (~r v #:precision 1) (~a v)))
                (decorate-mixin
                 print-wind-direction
                 (cue-mixin (format "~a to ~a" min-wind-direction max-wind-direction)
@@ -993,7 +998,8 @@
          'air-density-text-box
          (new (validate-mixin
                validate-positive-rational
-               (lambda (v) (~r v #:precision 4))
+               (lambda (v)
+                 (if (rational? v) (~r v #:precision 4) (~a v)))
                (decorate-mixin
                 (decorate-with "kg/m³" #:validate validate-positive-rational)
                 (cue-mixin "kg/m³" text-field%)))
@@ -1026,7 +1032,8 @@
        'crr-text-box
        (new (validate-mixin
              (validate-rational-between min-crr max-crr)
-             (lambda (v) (~r v #:precision 6))
+             (lambda (v)
+               (if (rational? v) (~r v #:precision 6) (~a v)))
              (tooltip-mixin text-field%))
             [parent g]
             [label ""]
@@ -1052,7 +1059,8 @@
        'cda-text-box
        (new (validate-mixin
              (validate-rational-between min-cda max-cda)
-             (lambda (v) (~r v #:precision 4))
+             (lambda (v)
+               (if (rational? v) (~r v #:precision 4) (~a v)))
              (decorate-mixin
               (decorate-with "m²" #:validate (validate-rational-between min-cda max-cda))
               (tooltip-mixin text-field%)))
@@ -1112,8 +1120,8 @@
       ;; have multiple Weather Conditions records, we currently pick the first
       ;; one (they should be in timestamp order).
       (define weather
-        (let ([w (dict-ref session-data 'weather-conditions (lambda () #f))])
-          (if w (car w) null)))
+        (let ([w (dict-ref session-data 'weather-conditions (lambda () '()))])
+          (if (null? w) null (car w))))
 
       (define keys
         '(wind-speed wind-direction temperature dew-point humidity pressure))
@@ -1189,7 +1197,7 @@
                  (hash-ref s
                            'air-density
                            (lambda ()
-                             (calculate-air-density-from-params s))))
+                             (or (calculate-air-density-from-params s) ""))))
       (put-crr (hash-ref s 'crr (lambda () "")))
       (put-cda (hash-ref s 'cda (lambda () "")))
       (update-lap-markers)

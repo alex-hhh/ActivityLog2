@@ -59,12 +59,10 @@
   (new message% [parent parent] [label ""] [min-width witdh] [stretchable-width stretchable?]))
 
 (define (with-busy-cursor thunk)
-  (begin-busy-cursor)
-  (with-handlers
-    (((lambda (x) #t)
-      (lambda (x) (end-busy-cursor) (raise x))))
-    (thunk))
-  (end-busy-cursor))
+  (dynamic-wind
+    begin-busy-cursor
+    thunk
+    end-busy-cursor))
 
 (define (w-duration->string seconds)
   (let* ((h (exact-truncate (/ seconds 3600.0)))
