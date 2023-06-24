@@ -1,5 +1,4 @@
 #lang racket/base
-
 ;; aerolab-widget.rkt --
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
@@ -19,27 +18,28 @@
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require data-frame
-         racket/class
-         racket/gui/base
-         racket/match
          geoid/geodesy
-         racket/math
-         racket/format
          gui-widget-mixins
-         plot-container
          math/statistics
          plot
+         plot-container
          plot-container/hover-util
+         racket/class
          racket/dict
-         "../fmt-util.rkt"
-         "../widgets/widget-utilities.rkt"
-         "../widgets/grid-pane.rkt"
+         racket/format
+         racket/gui/base
+         racket/match
+         racket/math
          (prefix-in ct: "../color-theme.rkt")
-         "air-density.rkt"
-         "air-density-dialog.rkt"
-         "aerolab-utilities.rkt"
+         "../fit-file/activity-util.rkt"
+         "../fmt-util.rkt"
+         "../widgets/grid-pane.rkt"
+         "../widgets/widget-utilities.rkt"
+         "aerolab-annealing-dialog.rkt"
          "aerolab-annealing.rkt"
-         "aerolab-annealing-dialog.rkt")
+         "aerolab-utilities.rkt"
+         "air-density-dialog.rkt"
+         "air-density.rkt")
 
 (provide aerolab-widget%)
 
@@ -617,7 +617,7 @@
                   [stretchable-width #t]
                   [stretchable-height #f])])
       (define larger-font
-        (send the-font-list find-or-create-font 16 'default 'normal 'normal))
+        (send the-font-list find-or-create-font 14 'default 'normal 'normal))
       (new message% [parent p] [label "Crr"])
       (hash-set! gui-controls
                  'crr-info-message
@@ -641,11 +641,11 @@
                  'cost-info-message
                  (new (tooltip-mixin message%)
                       [parent p]
-                      [tooltip "Smaller is better"]
+                      [tooltip "Least Squares Fit, Smaller is better"]
                       ;; [auto-resize #t]
-                      [stretchable-width #t]
+                      [stretchable-width #f]
                       [font larger-font]
-                      [label "---"]))
+                      [label "-------"]))
       (hash-set!
        gui-controls
        'estimate-crr-cda
@@ -763,15 +763,52 @@
                      #:stop stop-index
                      #:altitude-series alt-series-name)))))
         (update-virtual-altitude-plot)
-        ;; Put the values for CRR, CDA and cost
-        (put-value 'crr-info-message
-                   (if (rational? crr) (~r crr #:precision 4) "---"))
-        (put-value 'cda-info-message
-                   (if (rational? cda)
-                       (format "~a m²" (~r cda #:precision 4))
-                       "---"))
+        ;; Put the values for CRR, CDA and cost.  We also place estimated
+        ;; Watts used for aero and rolling resistance as well as percentage of
+        ;; average watts for the session.
+        ;;
+        ;; NOTE: on an aerolab testing activity, watts due to kinetic energy
+        ;; (acceleration/deceleration) should be very small since all energy
+        ;; spent on acceleration will be gained back when decelerating.  Watts
+        ;; due to potential energy (uphill/downhil) should be very small since
+        ;; the route is a loop and all energy used for climing is gained back
+        ;; when descending.
+        (define-values (crr-info cda-info)
+          (let ([w (value-of 'total-weight-text-box)]
+                [d (value-of 'air-density-text-box)]
+                [s (session-avg-speed session-data)]
+                [p (session-avg-power session-data)])
+            (values
+             (if (rational? crr)
+                 (if (and w s p)
+                     (let ([w-crr (exact-floor (* crr w 9.807 s))])
+                       (format "~a (~a w, ~a %)"
+                               (~r crr #:precision 4)
+                               w-crr
+                               (~r (* 100.0 (/ w-crr p)) #:precision 1)))
+                     (~r crr #:precision 4))
+                 "---")
+             (if (rational? cda)
+                 (if (and w s p d)
+                     (let ([w-cda (exact-floor (* 0.5 cda d s s s))])
+                       (format "~a m² (~a w, ~a %)"
+                               (~r cda #:precision 4)
+                               w-cda
+                               (~r (* 100.0 (/ w-cda p)) #:precision 1)))
+                     (format "~a m²" (~r cda #:precision 4)))
+                 "---"))))
+
+        (put-value 'crr-info-message crr-info)
+        (put-value 'cda-info-message cda-info)
         (put-value 'cost-info-message
-                   (if (rational? cost) (~r cost #:precision 1) "---"))))
+                   (if (rational? cost)
+                       (cond ((> cost 10000)
+                              (string-append (~r (/ cost 1000) #:precision 0) "k"))
+                             ((> cost 2000)
+                              (string-append (~r (/ cost 1000) #:precision 1) "k"))
+                             (else
+                              (~r cost #:precision 0)))
+                       "---"))))
 
     (define/private (update-virtual-altitude-plot)
       (when altitude-plot
