@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -57,7 +57,6 @@
 
 (provide user-notification-logger)
 
-(define the-log-port #f)                    ; port to which all log messages go
 (define log-to-standard-output #f)          ; when #t dbglog also prints to stdout
 
 (define (set-dbglog-to-standard-output flag)
@@ -67,15 +66,6 @@
   (when log-to-standard-output
     (unless (port-counts-lines? (current-output-port))
       (port-count-lines! (current-output-port)))))
-
-;; Open the log file if needed.  We use a single log file in append mode, we
-;; don't expect the file to grow too much so we don't recyle it.  If it
-;; becomes a problem, we can create a new file for each new invokation (or
-;; some other strategy).
-(define (maybe-init-the-log-port)
-  (unless the-log-port
-    (let ((fname (build-path (data-directory) "ActivityLogDbg.log")))
-      (set! the-log-port (open-output-file fname #:mode 'text #:exists 'append)))))
 
 ;; Return the current timestamp as a string.  Includes milliseconds.  It is
 ;; used to put timestamps in the log messages.
@@ -102,20 +92,20 @@
          "."
          (fmt r 3))))))
 
-;; Write MSG to the log file.  A timestamp is prepended and a newline is
-;; appended.  The log port is flushed immediately, so it is not particularily
-;; efficient to log many things...
+;; Internal logger that dbglog sends messages to (ensures logging works
+;; correctly when invoked from multiple threads.
+(define al2-logger (make-logger 'al2-logger #f))
+
+;; Write a timestamped message to the log file -- the message is constructed
+;; by applying `format` to the "FORMAT-STRING" and "ARGS".  Log messages are
+;; constructed than sent to `al2-logger` for actual logging, and, when
+;; `log-to-standard-output` is #t, they are also printed to the current output
+;; port.
 (define (dbglog format-string . args)
+
   (define msg (apply format format-string args))
-  (define ts (get-current-timestamp))
-  (maybe-init-the-log-port)
-  (define (do-log port)
-    (write-string (get-current-timestamp) port)
-    (write-string " " port)
-    (write-string msg port)
-    (write-string "\n" port)
-    (flush-output port))
-  (do-log the-log-port)
+  (log-message al2-logger 'info 'al2-logger msg #f #f)
+
   (when log-to-standard-output
     (let ((out (current-output-port)))
       ;; Turn on line counting (if not already on) and write a new line before
@@ -125,10 +115,75 @@
       ;; `set-dbglog-to-standard-output` was called.
       (unless (port-counts-lines? out)
         (port-count-lines! out))
-      (define-values (line column position) (port-next-location out))
+      (define-values (_line column _position) (port-next-location out))
       (when (and column (not (zero? column)))
         (write-string "\n" out))
-      (do-log out))))
+      (write-string (get-current-timestamp) out)
+      (write-string " " out)
+      (write-string msg out)
+      (write-string "\n" out)
+      (flush-output out))))
+
+;; The actual logging happens here
+
+(let (;; This is the output port we log messages to.  This file will be closed
+      ;; when the current custodian shuts down the application.
+      [output (let ([fname (build-path (data-directory) "ActivityLogDbg.log")])
+                (open-output-file fname #:mode 'text #:exists 'append))]
+
+      ;; Keep track of the last message printed.  If the same message is
+      ;; printed again, we just append a counter to the current log -- this
+      ;; reduces spamming.  The timestamp is for the first logged message
+      [last-message-semaphore (make-semaphore 1)]
+      [last-message #f]
+      [last-message-count 0])
+
+  ;; Register a flush callback with the current plumber, so we print the last
+  ;; counter (if applicable) and flush our log
+  (plumber-add-flush!
+   (current-plumber)
+   (lambda (_handle)
+     (call-with-semaphore
+      last-message-semaphore
+      (lambda ()
+        (when (> last-message-count 1)
+          (write-string (format " (~a times)" last-message-count) output))
+        (write-string "\n" output)
+        (flush-output output)
+        (set! last-message #f)
+        (set! last-message-count 0)))))
+
+  ;; In a separate thread, receive messages from the al2-logger and write them
+  ;; out to the output port, keeping track of duplicate messages.
+  (thread
+   (lambda ()
+     (let ([receiver (make-log-receiver al2-logger 'info)])
+       (let loop ([item (sync receiver)])
+         (define message (vector-ref item 1))
+         (call-with-semaphore
+          last-message-semaphore
+          (lambda ()
+            (if (equal? message last-message)
+                (set! last-message-count (add1 last-message-count))
+                (begin
+                  (when (> last-message-count 1)
+                    (write-string (format " (~a times)" last-message-count) output))
+                  (unless (equal? last-message #f)
+                    ;; Only write a new line if we wrote out a message, this
+                    ;; prevents an empty line each time we start logging.
+                    (write-string "\n" output))
+                  (write-string (get-current-timestamp) output)
+                  (write-string " " output)
+                  (write-string message output)
+                  ;; Flushing the output slows things down, but we don't log
+                  ;; that much and it's good to see log results immediately.
+                  (flush-output output)
+                  (set! last-message message)
+                  (set! last-message-count 1)))))
+         (loop (sync receiver))))))
+
+  ;; Return void so we don't print the thread id to stdout
+  (void))
 
 ;; Log an exception, WHO is prepended to the log message, can be the function
 ;; name that calls `dbglog-exception'
@@ -279,7 +334,7 @@
 ;; A logger where user notifications can be sent, for example by
 ;; `notify-user`.  The application will need to create a receiver for this
 ;; logger and do something with the messages (like display them on the screen)
-(define user-notification-logger (make-logger 'user-notification (current-logger)))
+(define user-notification-logger (make-logger 'user-notification #f))
 
 ;; Log a message with the intent of displaying it to the user.  The
 ;; application will create a log sink for this logger that displays messages

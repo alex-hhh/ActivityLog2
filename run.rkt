@@ -2,7 +2,7 @@
 ;; run.rkt -- toplevel file to run the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,6 +20,10 @@
          racket/lazy-require
          "rkt/check-missing-modules.rkt"
          "rkt/app-info.rkt")
+
+;; Get a timestamp as early in the startup process as possible.  We pass this
+;; to main to log the time it takes us to start up.
+(define early-start-timestamp (current-inexact-monotonic-milliseconds))
 
 ;; Check and inform the user that these packages need to be installed...
 (check-missing-modules
@@ -70,4 +74,4 @@
 (collect-garbage 'incremental)
 
 (lazy-require ("rkt/main.rkt" (main)))
-(main)
+(main early-start-timestamp)

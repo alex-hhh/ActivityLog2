@@ -1,8 +1,8 @@
 #lang racket/base
-;; activity-log-main.rkt -- main application entry point
+;; main.rkt -- main application entry point
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,6 +16,8 @@
 
 (require framework/splash
          racket/class
+         racket/math
+         (only-in map-widget map-widget-logger)
          "dbutil.rkt"
          "dialogs/first-run.rkt"
          "toplevel.rkt"
@@ -26,9 +28,32 @@
 
 (define dbfile-key 'activity-log:database-file)
 
-(define (main)
+;; Create a log-receiver for LOGGERS which logs all their messages using
+;; `dbglog`
+(define (make-dbglog-sink . loggers)
+  (define sources (for/list ([logger loggers])
+                    (make-log-receiver logger 'info)))
+  (define (do-logging)
+    (let* ((log-item (apply sync sources))
+           (level (vector-ref log-item 0))
+           (message (vector-ref log-item 1)))
+      ;; NOTE: an empty message indicates a notification retraction (as
+      ;; determined by tag, which sits in the third place of LOG-ITEM vector).
+      ;; Retractions are only used in the GUI to remove the message from the
+      ;; banner, so we ignore them here.
+      (unless (equal? message "")
+        (dbglog "~a: ~a" level message)))
+    (do-logging))
+  (thread do-logging)
+  (void))
+
+(define (main start-timestamp)
+  ;; notifications from our loggers go do the dbglog sink
+  (make-dbglog-sink map-widget-logger user-notification-logger)
   (dbglog "main started, version ~a, ~a, ~a"
           (app-version) (app-commit-id) (app-build-timestamp))
+  (let ([d (exact-round (- (current-inexact-monotonic-milliseconds) start-timestamp))])
+    (dbglog "startup duration ~a ms" d))
   (with-handlers
     (((lambda (e) #t)
       (lambda (e)

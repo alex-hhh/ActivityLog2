@@ -17,7 +17,9 @@
 (require db/base
          framework/splash
          geoid
-         map-widget
+         (only-in map-widget
+                  vacuum-tile-cache-database
+                  shutdown-map-tile-workers)
          racket/async-channel
          racket/class
          racket/gui/base
@@ -53,26 +55,6 @@
          "workout-editor/view-workouts.rkt")
 
 (provide toplevel-window%)
-
-(define (make-dbglog-sink . loggers)
-  (define sources (for/list ([logger loggers])
-                    (make-log-receiver logger 'info)))
-  (define (do-logging)
-    (let* ((log-item (apply sync sources))
-           (level (vector-ref log-item 0))
-           (message (vector-ref log-item 1)))
-      ;; NOTE: an empty message indicates a notification retraction (as
-      ;; determined by tag, which sits in the third place of LOG-ITEM vector).
-      ;; Retractions are only used in the GUI to remove the message from the
-      ;; banner, so we ignore them here.
-      (unless (equal? message "")
-        (dbglog "~a: ~a" level message)))
-    (do-logging))
-  (thread do-logging)
-  (void))
-
-;; notifications from our loggers go do the dbglog sink
-(make-dbglog-sink map-widget-logger user-notification-logger)
 
 ;; Create a notification banner
 (define (make-log-output-window parent)
