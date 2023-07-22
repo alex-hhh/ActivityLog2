@@ -4,16 +4,12 @@ jobs:
 
 # ......................................................... LINUX BUILD ....
 
-# NOTE: as of 30/10/2020 Linux builds on Azure hang and I wasn't able to
-# determine the cause -- even rebuilding older versions, which successfully
-# built in the past, no longer works.  Disabling Linux builds for now...
-
   - job: Linux
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-22.04'
 
     variables:
-      RACKET_VERSION: 8.8-cs
+      RACKET_VERSION: 8.9-cs
       RACKET_DIR: $(Agent.BuildDirectory)/racket
       runTests: true
 
@@ -25,12 +21,14 @@ jobs:
 
     - template: azure-common.yml
 
+# ....................................................... WINDOWS BUILD ....
+
   - job: Windows
     pool:
       vmImage: 'windows-2019'
 
     variables:
-      RACKET_VERSION: 8.8-cs
+      RACKET_VERSION: 8.9-cs
       RACKET_DIR: 'C:/Program Files/Racket'
 
       # The windows build (and especially the tests) take a long time.  The
