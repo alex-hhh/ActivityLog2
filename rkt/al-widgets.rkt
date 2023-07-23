@@ -575,6 +575,15 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Cadence" lap-avg-cadence n->string #:default-visible? #t)
    (mk-qcolumn "Max Cadence" lap-max-cadence n->string #:default-visible? #f)
 
+   (mk-qcolumn "Climb Rate"
+               (lambda (entry)
+                 (let ([duration (lap-time entry)]
+                       [ascent (lap-total-ascent entry)])
+                   (and ascent duration (> duration 0)
+                        (* 3600.0 (/ ascent duration)))))
+               (lambda (val) (vertical-speed->string val #t))
+               #:default-visible? #f)
+
    (mk-qcolumn "Power" lap-avg-power n->string #:default-visible? #t)
    (mk-qcolumn "Max Power" lap-max-power n->string #:default-visible? #t)
    (mk-qcolumn "ISO Power" lap-normalized-power n->string #:default-visible? #t)

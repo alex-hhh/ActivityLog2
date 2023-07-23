@@ -37,6 +37,7 @@
          distance->string
          short-distance->string
          vertical-distance->string
+         vertical-speed->string
          duration->string
          n->string
          pct->string
@@ -160,6 +161,8 @@
 (define short-distance-label "yd")
 (define m->vertical-distance m->ft)
 (define vertical-distance-label "ft")
+(define m->vertical-speed m->ft)
+(define vertical-speed-label "m/h")
 (define m->vertical-oscillation mm->inch) ; !!!
 (define vertical-oscillation-label "in")
 (define m->weight kg->lb)
@@ -204,6 +207,8 @@
         (set! short-distance-label "yd")
         (set! m->vertical-distance m->ft)
         (set! vertical-distance-label "ft")
+        (set! m->vertical-speed m->ft)
+        (set! vertical-speed-label "ft/h")
         (set! m->vertical-oscillation mm->inch)
         (set! vertical-oscillation-label "in")
         (set! m->weight kg->lb)
@@ -228,6 +233,8 @@
         (set! short-distance-label "m")
         (set! m->vertical-distance values)
         (set! vertical-distance-label "m")
+        (set! m->vertical-speed values)
+        (set! vertical-speed-label "m/h")
         (set! m->vertical-oscillation values)
         (set! vertical-oscillation-label "mm")
         (set! m->weight values)
@@ -365,6 +372,13 @@
        (~r (m->vertical-distance distance/m) #:precision '(= 1))
        (if unit-label (string-append " " vertical-distance-label)  ""))
       (~a distance/m)))
+
+(define (vertical-speed->string speed/m [unit-label #f])
+  (if (rational? speed/m)
+      (string-append
+       (~r (m->vertical-speed speed/m) #:precision 0)
+       (if unit-label (string-append " " vertical-speed-label)  ""))
+      (~a speed/m)))
 
 ;; (: duration->string (->* (Real) (Boolean) String))
 (define (duration->string seconds [high-precision? #f])
