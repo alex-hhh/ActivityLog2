@@ -318,7 +318,10 @@
         (set! picts
               (append picts
                       (list (text "k" pd-label-face)
-                            (text (~r (round k) #:precision 0) pd-item-face)
+                            (text (if (rational? k)
+                                      (~r (round k) #:precision 0)
+                                      (~a k))
+                                  pd-item-face)
                             (text "seconds" pd-label-face)))))
 
       ;; NOTE: we could have used cp2-recovery-constant and
@@ -326,7 +329,10 @@
       (set! picts
             (append picts
                     (list (text "τ" pd-label-face)
-                          (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                          (text (let ([tau (round (/ wprime cp))])
+                                  (~r tau #:precision 0)
+                                  (~a tau))
+                                pd-item-face)
                           (text "seconds" pd-label-face))))
 
       (define p1
@@ -808,22 +814,34 @@
           ((cp3 cp wprime k) (values cp wprime k (cp3-pmax cp-params) (cp3-function cp-params)))))
       (define picts
         (list (text "CP" pd-label-face)
-              (text (~r (round cp) #:precision 0) pd-item-face)
+              (text (if (rational? cp)
+                        (~r (round cp) #:precision 0)
+                        (~a cp))
+                    pd-item-face)
               (text "watts" pd-label-face)
               (text "W'" pd-label-face)
-              (text (~r (round wprime) #:precision 0) pd-item-face)
+              (text (if (rational? wprime)
+                        (~r (round wprime) #:precision 0)
+                        (~a wprime))
+                    pd-item-face)
               (text "joules" pd-label-face)))
       (when pmax
         (set! picts
               (append picts
                       (list (text "Pmax" pd-label-face)
-                            (text (~r (round pmax) #:precision 0) pd-item-face)
+                            (text (if (rational? pmax)
+                                      (~r (round pmax) #:precision 0)
+                                      (~a pmax))
+                                  pd-item-face)
                             (text "watts" pd-label-face)))))
       (when k
         (set! picts
               (append picts
                       (list (text "k" pd-label-face)
-                            (text (~r (round k) #:precision 0) pd-item-face)
+                            (text (if (rational? k)
+                                      (~r (round k) #:precision 0)
+                                      (~a k))
+                                  pd-item-face)
                             (text "seconds" pd-label-face)))))
 
       ;; NOTE: we could have used cp2-recovery-constant and
@@ -831,7 +849,11 @@
       (set! picts
             (append picts
                     (list (text "τ" pd-label-face)
-                          (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                          (text (let ([tau (round (/ wprime cp))])
+                                  (if (rational? tau)
+                                      (~r tau #:precision 0)
+                                      (~a tau)))
+                                pd-item-face)
                           (text "seconds" pd-label-face))))
       (define p1
         (vc-append 10 title (table 3 picts lc-superimpose cc-superimpose 15 3)))
@@ -1311,7 +1333,10 @@
              (set! picts
                    (append picts
                            (list (text "k" pd-label-face)
-                                 (text (~r (round k) #:precision 0) pd-item-face)
+                                 (text (if (rational? k)
+                                           (~r (round k) #:precision 0)
+                                           (~a k))
+                                       pd-item-face)
                                  (text "seconds" pd-label-face)))))
 
            ;; NOTE: we could have used cp2-recovery-constant and
@@ -1319,7 +1344,11 @@
            (set! picts
                  (append picts
                          (list (text "τ" pd-label-face)
-                               (text (~r (round (/ wprime cp)) #:precision 0) pd-item-face)
+                               (text (let ([tau (round (/ wprime cp))])
+                                       (if (rational? tau)
+                                           (~r tau #:precision 0)
+                                           (~a tau)))
+                                     pd-item-face)
                                (text "seconds" pd-label-face))))
 
            (define p1

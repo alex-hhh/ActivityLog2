@@ -178,29 +178,39 @@
 (define-type Test-Data (Mutable-Vectorof Data-Point))
 (define-type Mmax-Function (-> Flonum Flonum))
 
-;; Number of samples we take from the mmax function for evaluating the cost of
-;; our fit.
+;; Sample the MMAX-FN at intervals between START and END using GROW-RATE as
+;; the growth from START to END -- this creates more frequent samples at the
+;; start of the range, where the PD function is expected to change more
+;; rapidy, than at the end of the range where the PD function change will
+;; taper off.
 ;;
-(: test-data-samples Positive-Integer)
-(define test-data-samples 100)
+;; Returns two flvectors: one for the time points one for the values of the
+;; MMAX-FN at these time points.
 
-;; Sample the MMAX-FN at regular intervals between START and END.
-;; `test-data-samples` samples are taken.  Returns two flvectors: one for the
-;; time points one for the values of the MMAX-FN at these time points.
-;;
-(: make-test-data (-> Mmax-Function Flonum Flonum (Values FlVector FlVector)))
-(define (make-test-data mmax-fn start end)
+(: make-test-data (-> Mmax-Function Flonum Flonum Flonum (Values FlVector FlVector)))
+(define (make-test-data mmax-fn start end grow-rate)
   ;; NOTE: we take special care to return floating point values here
-  (let ((step (/ (- end start) test-data-samples)))
-    (define time-points
-      (for/flvector #:length test-data-samples
-          ([tp (in-range start end step)])
-        (exact->inexact tp)))
-    (define data-points
-      (for/flvector #:length test-data-samples
-          ([t (in-flvector time-points)])
-        (mmax-fn t)))
-    (values time-points data-points)))
+  (define time-points
+    (let ([points (let loop : (Listof Flonum)
+                       ([result (list start)]
+                        [current start])
+                    (define next (* current grow-rate))
+                    (cond ((> next end)
+                           (reverse result))
+                          ((= (exact-round next) (exact-round current))
+                           ;; Must have at least 1 second between samples, so
+                           ;; we skip this one
+                           (loop result next))
+                          (else
+                           (loop (cons (round next) result) next))))])
+      (for/flvector #:length (length points)
+                    ([p (in-list points)])
+        (exact->inexact p))))
+  (define data-points
+    (for/flvector #:length (flvector-length time-points)
+                  ([t (in-flvector time-points)])
+      (mmax-fn t)))
+  (values time-points data-points))
 
 ;; Evaluate how good the CP3 parameters are against the test data samples a
 ;; lower value means a better fit.  We do least-squares fitting, except that
@@ -221,7 +231,7 @@
              ;; predicts.  `diff` should be positive and we add 1 to it,
              ;; since, for values less than 1, raising them to the power of 4
              ;; produces smaller values than raising them to the power of 2.
-             (expt (add1 diff) 4))))))
+             (expt diff 4))))))
 
 ;; Same as `evaluate-cost/cp3` but for the CP2 model.
 ;;
@@ -236,7 +246,7 @@
          (if (>= model value)
              (sqr diff)
              ;; See note on `evaluate-cost/cp3`
-             (expt (add1 diff) 4))))))
+             (expt diff 4))))))
 
 ;; Precompute the WORK produced by MMAX-FN at 1 second interval between START
 ;; and END and return a flvector of these values.
@@ -265,7 +275,7 @@
     (raise "cp3: search intervals out of order"))
 
   (define-values (test-time-points test-data-points)
-    (make-test-data mmax-fn nm-start ae-end))
+    (make-test-data mmax-fn nm-start ae-end 1.1))
 
   ;; Pre-compute the work and power values in the anaerobic and aerobic ranges
   (define nwork (pre-compute-work mmax-fn nm-start nm-end))
@@ -338,7 +348,7 @@
             (define k (/ (- delta-w31 (* delta-t delta-w21))
                          (- delta-p31 (* delta-t delta-p21))))
 
-            (if (< k 0.0)
+            (if (< k -1.0) ; limit k to 1 second, there is no instantaneous Pmax!
                 (let* ([cp (/ (- delta-w21 (* k delta-p21)) delta-t21)]
                        [wprime (+ (- w1 (* cp t1) (* k p1)) (* cp k))]
                        [cost (evaluate-cost/cp3 cp wprime k test-time-points test-data-points)])
@@ -361,7 +371,7 @@
   (define aework (pre-compute-work mmax-fn ae-start ae-end))
 
   (define-values (test-time-points test-data-points)
-    (make-test-data mmax-fn an-start ae-end))
+    (make-test-data mmax-fn an-start ae-end 1.1))
 
   (for/fold ([best-cp : Flonum 0.0]
              [best-wprime : Flonum 0.0]
