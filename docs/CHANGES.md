@@ -9,6 +9,70 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2023.07 (July 2023)
+
+* Add Aerolab analysis for sessions (AB#41). This implements estimating the
+  Coefficient of Drag Area (CdA) and Coefficient of Rolling Resistance (Crr)
+  using the method described in "estimating CdA with a power meter" by
+  R. Chung.
+
+  This is the initial implementation, which has been used for a limited amount
+  of testing.
+
+  For more details about this feature, see
+  [Aerolab](https://github.com/alex-hhh/ActivityLog2/wiki/Aerolab).
+
+* Add climb rate as a metric for laps and GPS segments, this measures the
+  vertical climb speed for a segment (most useful for climb sections) and it
+  is a good indicator for how hard you are climbing.  It ISO Power (normalized
+  power) is a better metric, but that one requires a power meter.
+
+* Improvements to Critical Power model fitting to produce more realistic
+  estimations when there is poor data at shorter time intervals. Also avoid
+  crashing the application when the CP parameters cannot be determined.
+
+* Fix Swimming MMAX plot range by converting between a m/s value into an
+  appropriate min/km, min/100m, etc values, so the numeric limits for the plot
+  are appropiate.
+
+* New graphs for the session inspector: heart rate, power/speed reserve and
+  aerobic decoupling graphs.  The "reserve" graphs show a 30second rolling
+  average, of heart rate reserve (percentage between min and max heart rate),
+  or power/speed threshold (CP, CV).  Aerobic decoupling shows the ratio
+  between heart rate reserve and power or speed reserve.
+
+* New sport types: Kayak and SUP. Hiking and Sailing sport IDs were re-mapped,
+  so they are correctly labeled when importing FIT files with these
+  activities.
+
+* Improvements to AL2-Climb-Analysis tool: added ability to read binary FIT
+  course files, fixed a bug for course files with points in the same location,
+  and added a summary (distance, ascent, descent) to the header
+
+* Add option to track/not track location on the map in the session inspector,
+  since scrolling the map each time the mouse goes over the elevation plot can
+  sometimes be annoying.
+
+* Update activity summaries in the segment match view when they change
+  (AB#50).  Changes to activities, like changing the headline or removing an
+  activity are detected by the segment match list and they are updated there
+  as well.  This avoids potential bugs where a deleted activity is still shown
+  in the view and the user attempts to select it.
+
+* Fix bug preventing saving updated Sport Zones in the sport zone editor
+
+* graphs in the graph selector dialog for the session inspector are now sorted
+  alphabetically and easier to find
+
+* graphs in the session inspector are now sub-sport specific, allowing, for
+  example to have different graphs for Road Cycling vs Indoor Cycling.
+
+* Changed the "Average Line" to "Redline" in the graphs to indicate that we
+  don't always display the actual average for that setting.
+
+* Changed default missing value to #f instead of 0 for some graphs, so the
+  graph does not drop to 0 for a missing value.
+
 # Release 2023.03 (March 2023)
 
 * Removed automatic download of weather data (#46).  The weather data provider
