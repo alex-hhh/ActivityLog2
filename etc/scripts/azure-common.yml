@@ -116,6 +116,10 @@ steps:
     condition: eq(variables.runTests, true)
     displayName: Test Trends Chart (trends-test)
 
+  - script: raco test test/session-inspector-test.rkt
+    condition: eq(variables.runTests, true)
+    displayName: Test Session Inspector (session-inspector-test)
+
   - script: raco test test/aggregate-test.rkt
     condition: eq(variables.runTests, true)
     displayName: Test Agregate Data (aggregate-test)

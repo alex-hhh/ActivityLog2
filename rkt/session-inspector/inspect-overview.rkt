@@ -796,4 +796,7 @@ select ifnull(val, 0)
     (define/public (unsaved-edits?)
       (send description-field unsaved-edits?))
 
+    (define/public (save-visual-layout)
+      (void))
+
     ))

@@ -348,7 +348,7 @@
       ;; default ones.
       (let-values
           ([(ips mps)
-            (if (and pref (hash? pref))
+            (if (hash? pref)
                 (values
                  (hash-ref pref 'interval-panel-split '(1/5 4/5))
                  (hash-ref pref 'map-panel-split '(4/5 1/5)))
@@ -357,7 +357,9 @@
                  '(4/5 1/5)))])
         (send panel set-percentages ips)
         (send map-panel set-percentages mps))
-      (let ([flag (hash-ref pref 'track-location #t)])
+      (let ([flag (if (hash? pref)
+                      (hash-ref pref 'track-location #t)
+                      #t)])
         (send track-location-checkbox set-value flag)
         (on-track-location flag)))
 
