@@ -1,618 +1,2389 @@
 [
     {
-        "manufacturer_id" : 1,
-        "name" : "Garmin",
-        "products" : [
+        "manufacturer_id": 1,
+        "name": "Garmin",
+        "products": [
             {
-                "product_id" : [5, 7, 8, 12],
-                "name" : "Heart Rate Monitor"
+                "product_id": [
+                    1,
+                    5,
+                    7,
+                    8,
+                    12,
+                    13,
+                    18,
+                    4130
+                ],
+                "name": "Garmin HRM"
             },
             {
-                "product_id" : [16, 20],
-                "name" : "Garmin Cadence Sensor 2"
+                "product_id": 2,
+                "name": "axh01"
             },
             {
-                "product_id" : [473, 474, 475, 494],
-                "name" : "Garmin FR301"
+                "product_id": 3,
+                "name": "axb01"
             },
             {
-                "product_id" : [717, 987],
-                "name" : "Garmin FR405"
+                "product_id": 4,
+                "name": "axb02"
             },
             {
-                "product_id" : 782,
-                "name" : "Garmin FR50"
+                "product_id": 6,
+                "name": "dsi_alf02"
             },
             {
-                "product_id" : 988,
-                "name" : "Garmin FR60"
+                "product_id": [
+                    9,
+                    15
+                ],
+                "name": "Garmin Speed Sensor"
             },
             {
-                "product_id" : 1018,
-                "name" : "Garmin FR310XT"
-            },
-            {
-                "product_id" : [1036, 1199, 1213, 1387],
-                "name" : "Garmin Edge 500"
-            },
-            {
-                "product_id" : [1124, 1274],
-                "name" : "Garmin FR110"
-            },
-            {
-                "product_id" : [1169, 1333, 1334, 1386],
-                "name" : "Garmin Edge 800"
-            },
-            {
-                "product_id" : 1325,
-                "name" : "Garmin Edge 200"
-            },
-            {
-                "product_id" : 1328,
-                "name" : "Garmin FR910XT"
-            },
-            {
-                "product_id" : [1345, 1410],
-                "name" : "Garmin FR610"
-            },
-            {
-                "product_id" : 1360,
-                "name" : "Garmin FR210"
-            },
-            {
-                "product_id" : [1380, 1381],
-                "name" : "Garmin Vector"
-            },
-            {
-                "product_id" : 1436,
-                "name" : "Garmin FR70"
-            },
-            {
-                "product_id" : 1446,
-                "name" : "Garmin FR310XT 4T"
-            },
-            {
-                "product_id" : [1482, 1688],
-                "name" : "Garmin FR10"
-            },
-            {
-                "product_id" : 1499,
-                "name" : "Garmin Swim"
-            },
-            {
-                "product_id" : 1551,
-                "name" : "Garmin Fenix"
-            },
-            {
-                "product_id" : [1561, 1742, 1821],
-                "name" : "Garmin Edge 510"
-            },
-            {
-                "product_id" : 1567,
-                "name" : "Garmin Edge 810"
-            },
-            {
-                "product_id" : [1623, 2173],
-                "name" : "Garmin FR620"
-            },
-            {
-                "product_id" : [1632, 2174],
-                "name" : "Garmin FR220"
-            },
-            {
-                "product_id" : 1743,
-                "name" : "Garmin HRM Tri"
-            },
-            {
-                "product_id" : [1752, 2327],
-                "name" : "Garmin HRM Run"
-            },
-            {
-                "product_id" : [1765, 2130, 2131, 2132],
-                "name" : "Garmin FR920XT"
-            },
-            {
-                "product_id" : [1836, 2052, 2053, 2070, 2100],
-                "name" : "Garmin Edge 1000"
-            },
-            {
-                "product_id" : 1903,
-                "name" : "Garmin FR15"
-            },
-            {
-                "product_id" : 1907,
-                "name" :"Garmin Vivoactive"
-            },
-            {
-                "product_id" : 1967,
-                "name" : "Garmin Fenix 2"
-            },
-            {
-                "product_id" : [2050, 2188, 2189],
-                "name" : "Garmin Fenix 3"
-            },
-            {
-                "product_id" : [2067, 2260],
-                "name" : "Garmin Edge 520"
-            },
-            {
-                "product_id" : 2079,
-                "name": "Garmin Vector S"
-            },
-            {
-                "product_id" : 2147,
-                "name" : "Garmin Edge 25"
-            },
-            {
-                "product_id" : 2148,
-                "name" : "Garmin FR25"
-            },
-            {
-                "product_id" : [2153, 2219],
-                "name" : "Garmin FR225"
-            },
-            {
-                "product_id" : 2156,
-                "name" : "Garmin FR630"
-            },
-            {
-                "product_id" : 2157,
-                "name" : "Garmin FR230"
-            },
-            {
-                "product_id" : [2158, 2533, 2534],
-                "name" : "Garmin FR735XT"
-            },
-            {
-                "product_id" : 2161,
-                "name" : "Garmin Vector 2"
-            },
-            {
-                "product_id" : 2162,
-                "name" : "Garmin Vector 2s"
-            },
-            {
-                "product_id" : 2204,
-                "name" : "Garmin Edge 1000 Explore"
-            },
-            {
-                "product_id" : 2238,
-                "name" : "Garmin Edge 20"
-            },
-            {
-                "product_id" : 2337,
-                "name" : "Garmin Vivoactive HR"
-            },
-            {
-                "product_id" : 2347,
-                "name" : "Garmin Vivosmart HR+"
-            },
-            {
-                "product_id" : 2348,
-                "name" : "Garmin Vivosmart HR"
-            },
-            {
-                "product_id" : 2413,
-                "name" : "Garmin Fenix 3 HR"
-            },
-            {
-                "product_id" : 2417,
-                "name" : "Garmin Virb Ultra 30"
-            },
-            {
-                "product_id" : 2431,
-                "name" : "Garmin FR235"
-            },
-            {
-                "product_id" : 2530,
-                "name" : "Garmin Edge 820"
-            },
-            {
-                "product_id" : 2531,
-                "name" : "Garmin Edge 820 Explore"
-            },
-            {
-                "product_id" : 2544,
-                "name" : "Garmin Fenix 5s"
-            },
-            {
-                "product_id" : 2593,
-                "name" : "Running Dynamics Pod"
-            },
-            {
-                "product_id" : 2604,
-                "name" : "Garmin Fenix 5x"
-            },
-            {
-                "product_id" : 2691,
-                "name" : "Garmin FR935"
-            },
-            {
-                "product_id" : 2697,
-                "name" : "Garmin Fenix 5"
-            },
-            {
-                "product_id" : 2713,
-                "name" : "Garmin Edge 1030"
-            },
-            {
-                "product_id" : 2787,
-                "name" : "Garmin Vector 3"
-            },
-            {
-                "product_id" : [2886, 2888],
-                "name" : "Garmin FR645"
-            },
-            {
-                "product_id" : 2900,
-                "name" : "Garmin Fenix 5s +"
-            },
-            {
-                "product_id" : 3110,
-                "name" : "Garmin Fenix 5 +"
-            },
-            {
-                "product_id" : 3111,
-                "name" : "Garmin Fenix 5x +"
-            },
-            {
-                "product_id" : [3291, 3516],
-                "name" : "Garmin Fenix 6x"
-            },
-            {
-                "product_id" : [3287, 3288, 3512, 3513],
-                "name" : "Garmin Fenix 6s"
-            },
-            {
-                "product_id" : [3289, 3290, 3514, 3515],
-                "name" : "Garmin Fenix 6"
-            },
-            {
-                "product_id" : 3112,
-                "name" : "Garmin Edge 520 +"
-            },
-            {
-                "product_id" : 3113,
-                "name" : "Garmin FR945"
-            },
-            {
-                "product_id" : 3121,
-                "name" : "Garmin Edge 530"
-            },
-            {
-                "product_id" : 3122,
-                "name" : "Garmin Edge 830"
-            },
-            {
-                "product_id" : 3126,
-                "name" : "Garmin Instinct"
-            },
-            {
-                "product_id" : 3192,
-                "name" : "Garmin Speed Sensor 2"
-            },
-            {
-                "product_id" : 3299,
-                "name" : "Garmin HRM Dual"
-            },
-            {
-                "product_id" : 3300,
-                "name" : "Garmin HRM Pro"
-            },
-            {
-                "product_id" : [ 3405, 3639 ],
-                "name" : "Garmin Swim 2"
-            },
-            {
-                "product_id" : 3592,
-                "name" : "Garmin Varia RTL515"
-            },
-            {
-                "product_id" : [3905, 3908],
-                "name" : "Garmin Fenix 7s"
-            },
-            {
-                "product_id" : [3906, 3909],
-                "name" : "Garmin Fenix 7"
-            },
-            {
-                "product_id" : [3907, 3910],
-                "name" : "Garmin Fenix 7x"
-            },
-            {
-                "product_id" : 3466,
-                "name" : "Garmin Instinct Solar"
-            },
-            {
-                "product_id" : 3558,
-                "name" : "Garmin Edge 130 Plus"
-            },
-            {
-                "product_id" : 3888,
-                "name" : "Garmin Instinct 2"
-            },
-            {
-                "product_id" : 3889,
-                "name" : "Garmin Instinct 2S"
-            },
-            {
-                "product_id" : 3990,
-                "name" : "Garmin FR255"
-            },
-            {
-                "product_id" : 4024,
-                "name" : "Garmin FR955"
-            },
-            {
-                "product_id" : 20119,
-                "name" : "Garmin Training Center"
-            },
-            {
-                "product_id" : 65532,
-                "name" : "Android ANT+ Plugin"
-            },
-            {
-                "product_id" : 65534,
-                "name" : "Garmin Connect Website"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 6,
-        "name" : "SRM",
-        "products" : [
-            {
-                "product_id" : 6,
-                "name" : "SRM PC6"
-            },
-            {
-                "product_id" : 7,
-                "name" : "SRM PC7"
-            },
-            {
-                "product_id" : 8,
-                "name" : "SRM PC8"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 7,
-        "name" : "Quarq",
-        "products" : [
-            {
-                "product_id" : 1,
-                "name" : "Quarq Cinqo"
-            },
-            {
-                "product_id" : 9479,
-                "name" : "Quarq DZERO"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 8,
-        "name" : "iBike",
-        "products" : [
-            {
-                "product_id" : 2054,
-                "name" : "iBike AeroPod"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 9,
-        "name" : "Powertap",
-        "products" : [
-            {
-                "product_id" : 14,
-                "name" : "Joule 2.0"
-            },
-            {
-                "product_id" : 18,
-                "name" : "Joule"
-            },
-            {
-                "product_id" : 19,
-                "name" : "Joule GPS"
-            },
-            {
-                "product_id" : 22,
-                "name" : "Joule GPS+"
-            },
-            {
-                "product_id" : 272,
-                "name" : "Powertap C1"
-            },
-            {
-                "product_id" : 288,
-                "name" : "Powertap P1"
-            },
-            {
-                "product_id" : 4096,
-                "name" : "Powertap G3"
-            },
-            {
-                "product_id" : 4353,
-                "name" : "Powercal"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 13,
-        "name" : "Dynastream",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 29,
-        "name" : "Power2max",
-        "products" : [
-            {
-                "product_id" : 1031,
-                "name" : "Power2max S"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 32,
-        "name" : "Wahoo",
-        "products" : [
-            {
-                "product_id" : 0,
-                "name" : "Wahoo fitness"
-            },
-            {
-                "product_id" : 28,
-                "name" : "Wahoo ELEMNT"
-            },
-            {
-                "product_id" : 31,
-                "name" : "Wahoo ELEMNT BOLT"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 38,
-        "name" : "o_synce",
-        "products" : [
-            {
-                "product_id" : 1,
-                "name" : "o_synce navi2coach"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 48,
-        "name" : "Pioneer",
-        "products" : [
-            {
-                "product_id" : 2,
-                "name" : "Pioneer SGX-CA500"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 69,
-        "name" : "Stages",
-        "products" : [
-            {
-                "product_id" : 1,
-                "name" : "Stages Power (gen 1)"
-            },
-            {
-                "product_id" : 2,
-                "name" : "Stages Power (gen 2)"
-            },
-            {
-                "product_id" : 3,
-                "name" : "Stages Power (gen 3)"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 70,
-        "name" : "Sigmasport ROX",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 76,
-        "name" : "Moxy Monitor",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 89,
-        "name" : "Tacx",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 95,
-        "name" : "Stryd",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 98,
-        "name" : "BSX",
-        "products" : [
-            {
-                "product_id" : 2,
-                "name" : "BSX Insight 2"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 107,
-        "name" : "Magene",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 115,
-        "name" : "igpsport",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 258,
-        "name" : "Lezyne",
-        "products" : [
-            {
-                "product_id" : 4,
-                "name" : "Lezyne Super GPS"
-            },
-            {
-                "product_id" : 6,
-                "name" : "Lezyne Micro-GPS"
+                "product_id": [
+                    10,
+                    16,
+                    3193
+                ],
+                "name": "Garmin Cadence Sensor"
             },
             {
                 "product_id": 11,
-                "name" : "Lezyne MegaXL"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 260,
-        "name" : "Zwift",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 263,
-        "name" : "Favero",
-        "products" : [
-            {
-                "product_id" : 12,
-                "name" : "Favero Assioma Duo"
-            }
-        ]
-    },
-    {
-        "manufacturer_id" : 267,
-        "name" : "Bryton",
-        "products" : []
-    },
-    {
-        "manufacturer_id" : 268,
-        "name" : "SRAM",
-        "products" : [
-            {
-                "product_id" : 1037,
-                "name" : "SRAM Rival eTap AXS"
+                "name": "axs01"
             },
             {
-                "product_id" : 1052,
-                "name" : "SRAM Rival AXS"
+                "product_id": [
+                    14,
+                    2153,
+                    2219
+                ],
+                "name": "Garmin FR225"
+            },
+            {
+                "product_id": 255,
+                "name": "Garmin Wrist HRM"
+            },
+            {
+                "product_id": [
+                    473,
+                    474,
+                    475,
+                    494
+                ],
+                "name": "Garmin FR301"
+            },
+            {
+                "product_id": [
+                    717,
+                    987
+                ],
+                "name": "Garmin FR405"
+            },
+            {
+                "product_id": 782,
+                "name": "Garmin FR50"
+            },
+            {
+                "product_id": 988,
+                "name": "Garmin FR60"
+            },
+            {
+                "product_id": 1011,
+                "name": "dsi_alf01"
+            },
+            {
+                "product_id": 1018,
+                "name": "Garmin FR310XT"
+            },
+            {
+                "product_id": [
+                    1036,
+                    1199,
+                    1213,
+                    1387,
+                    1422
+                ],
+                "name": "Garmin Edge 500"
+            },
+            {
+                "product_id": [
+                    1124,
+                    1274
+                ],
+                "name": "Garmin FR110"
+            },
+            {
+                "product_id": [
+                    1169,
+                    1333,
+                    1334,
+                    1386,
+                    1497
+                ],
+                "name": "Garmin Edge 800"
+            },
+            {
+                "product_id": 1253,
+                "name": "chirp"
+            },
+            {
+                "product_id": [
+                    1325,
+                    1555
+                ],
+                "name": "Garmin Edge 200"
+            },
+            {
+                "product_id": [
+                    1328,
+                    1537,
+                    1600,
+                    1664
+                ],
+                "name": "Garmin FR910XT"
+            },
+            {
+                "product_id": 1341,
+                "name": "alf04"
+            },
+            {
+                "product_id": [
+                    1345,
+                    1410
+                ],
+                "name": "Garmin FR610"
+            },
+            {
+                "product_id": 1360,
+                "name": "Garmin FR210"
+            },
+            {
+                "product_id": [
+                    1380,
+                    1381
+                ],
+                "name": "Garmin Vector"
+            },
+            {
+                "product_id": [
+                    1405,
+                    1936,
+                    2266,
+                    2292,
+                    2656,
+                    2806,
+                    2962,
+                    3049,
+                    3085,
+                    3314,
+                    3823,
+                    3927,
+                    3934,
+                    3986,
+                    4001,
+                    4002,
+                    4233
+                ],
+                "name": "Garmin Approach"
+            },
+            {
+                "product_id": 1436,
+                "name": "Garmin FR70"
+            },
+            {
+                "product_id": 1446,
+                "name": "Garmin FR310XT 4T"
+            },
+            {
+                "product_id": 1461,
+                "name": "amx"
+            },
+            {
+                "product_id": [
+                    1482,
+                    1688
+                ],
+                "name": "Garmin FR10"
+            },
+            {
+                "product_id": 1499,
+                "name": "Garmin Swim"
+            },
+            {
+                "product_id": 1551,
+                "name": "Garmin Fenix"
+            },
+            {
+                "product_id": [
+                    1561,
+                    1742,
+                    1821,
+                    1918
+                ],
+                "name": "Garmin Edge 510"
+            },
+            {
+                "product_id": [
+                    1567,
+                    1721,
+                    1822,
+                    1823
+                ],
+                "name": "Garmin Edge 810"
+            },
+            {
+                "product_id": 1570,
+                "name": "Garmin Tempe"
+            },
+            {
+                "product_id": [
+                    1623,
+                    1928,
+                    1929,
+                    2072,
+                    2173
+                ],
+                "name": "Garmin FR620"
+            },
+            {
+                "product_id": [
+                    1632,
+                    1930,
+                    1931,
+                    2073,
+                    2174
+                ],
+                "name": "Garmin FR220"
+            },
+            {
+                "product_id": 1735,
+                "name": "Garmin Virb Elite"
+            },
+            {
+                "product_id": 1736,
+                "name": "Garmin Edge Touring"
+            },
+            {
+                "product_id": 1743,
+                "name": "Garmin HRM Tri"
+            },
+            {
+                "product_id": [
+                    1752,
+                    2327
+                ],
+                "name": "Garmin HRM Run"
+            },
+            {
+                "product_id": [
+                    1765,
+                    2130,
+                    2131,
+                    2132
+                ],
+                "name": "Garmin FR920XT"
+            },
+            {
+                "product_id": [
+                    1836,
+                    2052,
+                    2053,
+                    2070,
+                    2100,
+                    2274
+                ],
+                "name": "Garmin Edge 1000"
+            },
+            {
+                "product_id": [
+                    1837,
+                    2150,
+                    2406,
+                    2606,
+                    2878
+                ],
+                "name": "Garmin Vivofit"
+            },
+            {
+                "product_id": 1853,
+                "name": "Garmin Virb Remote"
+            },
+            {
+                "product_id": 1885,
+                "name": "Garmin Vivoki"
+            },
+            {
+                "product_id": [
+                    1903,
+                    2061
+                ],
+                "name": "Garmin FR15"
+            },
+            {
+                "product_id": [
+                    1907,
+                    2160,
+                    2337,
+                    2497,
+                    2700,
+                    2988,
+                    3066,
+                    3163,
+                    3224,
+                    3225,
+                    3387,
+                    3388,
+                    3389,
+                    3446,
+                    3473
+                ],
+                "name": "Garmin Vivoactive"
+            },
+            {
+                "product_id": [
+                    1956,
+                    2135,
+                    2271,
+                    2294,
+                    2347,
+                    2348,
+                    2361,
+                    2362,
+                    2622,
+                    2831,
+                    2927,
+                    3218,
+                    4063
+                ],
+                "name": "Garmin Vivosmart"
+            },
+            {
+                "product_id": 1967,
+                "name": "Garmin Fenix 2"
+            },
+            {
+                "product_id": [
+                    1988,
+                    2332,
+                    2457,
+                    3943,
+                    3944,
+                    4312,
+                    4313,
+                    4314
+                ],
+                "name": "Garmin Epix"
+            },
+            {
+                "product_id": [
+                    2050,
+                    2188,
+                    2189,
+                    2293,
+                    2407,
+                    2408,
+                    2432,
+                    2473,
+                    2474,
+                    2475,
+                    2476,
+                    2477,
+                    2675
+                ],
+                "name": "Garmin Fenix 3"
+            },
+            {
+                "product_id": [
+                    2067,
+                    2260,
+                    2261
+                ],
+                "name": "Garmin Edge 520"
+            },
+            {
+                "product_id": 2079,
+                "name": "Garmin Vector S"
+            },
+            {
+                "product_id": 2134,
+                "name": "Garmin VirbX"
+            },
+            {
+                "product_id": 2140,
+                "name": "Garmin ETrex"
+            },
+            {
+                "product_id": [
+                    2147,
+                    2288,
+                    2289
+                ],
+                "name": "Garmin Edge 25"
+            },
+            {
+                "product_id": 2148,
+                "name": "Garmin FR25"
+            },
+            {
+                "product_id": [
+                    2156,
+                    2310,
+                    2311
+                ],
+                "name": "Garmin FR630"
+            },
+            {
+                "product_id": [
+                    2157,
+                    2313
+                ],
+                "name": "Garmin FR230"
+            },
+            {
+                "product_id": [
+                    2158,
+                    2533,
+                    2534
+                ],
+                "name": "Garmin FR735XT"
+            },
+            {
+                "product_id": 2161,
+                "name": "Garmin Vector 2"
+            },
+            {
+                "product_id": 2162,
+                "name": "Garmin Vector 2s"
+            },
+            {
+                "product_id": 2172,
+                "name": "Garmin VirbXE"
+            },
+            {
+                "product_id": 2175,
+                "name": "Garmin Truswing"
+            },
+            {
+                "product_id": [
+                    2187,
+                    2262,
+                    2547,
+                    2819,
+                    4125
+                ],
+                "name": "Garmin D2"
+            },
+            {
+                "product_id": 2192,
+                "name": "Garmin Varia Headlight"
+            },
+            {
+                "product_id": [
+                    2193,
+                    2379
+                ],
+                "name": "Garmin Varia Taillight"
+            },
+            {
+                "product_id": 2204,
+                "name": "Garmin Edge 1000 Explore"
+            },
+            {
+                "product_id": 2225,
+                "name": "Garmin Varia Radar Tailight"
+            },
+            {
+                "product_id": 2226,
+                "name": "Garmin Varia Radar Display"
+            },
+            {
+                "product_id": [
+                    2238,
+                    2290
+                ],
+                "name": "Garmin Edge 20"
+            },
+            {
+                "product_id": 2276,
+                "name": "Garmin Varia Remote"
+            },
+            {
+                "product_id": [
+                    2368,
+                    2772,
+                    2945,
+                    3308,
+                    3378,
+                    3422,
+                    3982,
+                    3983
+                ],
+                "name": "Garmin Vivomove"
+            },
+            {
+                "product_id": [
+                    2396,
+                    2397,
+                    2431,
+                    2733,
+                    3144
+                ],
+                "name": "Garmin FR235"
+            },
+            {
+                "product_id": 2398,
+                "name": "Garmin Varia Vision"
+            },
+            {
+                "product_id": 2413,
+                "name": "Garmin Fenix 3 HR"
+            },
+            {
+                "product_id": 2417,
+                "name": "Garmin Virb Ultra 30"
+            },
+            {
+                "product_id": 2429,
+                "name": "Garmin Index Smart Scale"
+            },
+            {
+                "product_id": [
+                    2441,
+                    2512
+                ],
+                "name": "Garmin Oregon7"
+            },
+            {
+                "product_id": 2444,
+                "name": "Garmin Rino7"
+            },
+            {
+                "product_id": 2496,
+                "name": "Garmin Nautix"
+            },
+            {
+                "product_id": [
+                    2503,
+                    2650,
+                    2667,
+                    2668,
+                    2727,
+                    2814
+                ],
+                "name": " Garmin FR35"
+            },
+            {
+                "product_id": [
+                    2530,
+                    2531,
+                    2599,
+                    2600,
+                    2628,
+                    2629,
+                    2630
+                ],
+                "name": "Garmin Edge 820"
+            },
+            {
+                "product_id": [
+                    2544,
+                    2797
+                ],
+                "name": "Garmin Fenix 5s"
+            },
+            {
+                "product_id": 2567,
+                "name": "Garmin Varia UT800"
+            },
+            {
+                "product_id": 2593,
+                "name": "Running Dynamics Pod"
+            },
+            {
+                "product_id": [
+                    2604,
+                    2798
+                ],
+                "name": "Garmin Fenix 5x"
+            },
+            {
+                "product_id": [
+                    2623,
+                    2832
+                ],
+                "name": "Garmin Vivosport"
+            },
+            {
+                "product_id": 2687,
+                "name": "Garmin Virb 360"
+            },
+            {
+                "product_id": [
+                    2691,
+                    2833
+                ],
+                "name": "Garmin FR935"
+            },
+            {
+                "product_id": [
+                    2697,
+                    2796
+                ],
+                "name": "Garmin Fenix 5"
+            },
+            {
+                "product_id": [
+                    2713,
+                    2924,
+                    3095,
+                    3570,
+                    3812
+                ],
+                "name": "Garmin Edge 1030"
+            },
+            {
+                "product_id": 2769,
+                "name": "Garmin Foretrex"
+            },
+            {
+                "product_id": 2787,
+                "name": "Garmin Vector 3"
+            },
+            {
+                "product_id": [
+                    2859,
+                    3143,
+                    3258,
+                    3542,
+                    3702,
+                    3930,
+                    4005,
+                    4132,
+                    4442
+                ],
+                "name": "Garmin Descent"
+            },
+            {
+                "product_id": [
+                    2886,
+                    2888,
+                    3003,
+                    3004
+                ],
+                "name": "Garmin FR645"
+            },
+            {
+                "product_id": [
+                    2891,
+                    2977
+                ],
+                "name": "Garmin FR30"
+            },
+            {
+                "product_id": [
+                    2900,
+                    3134
+                ],
+                "name": "Garmin Fenix 5s +"
+            },
+            {
+                "product_id": [
+                    2909,
+                    3092,
+                    3558,
+                    3813
+                ],
+                "name": "Garmin Edge 130"
+            },
+            {
+                "product_id": 3011,
+                "name": "Garmin Edge Explore"
+            },
+            {
+                "product_id": [
+                    3028,
+                    3284
+                ],
+                "name": "Garmin GpsMap66"
+            },
+            {
+                "product_id": 3110,
+                "name": "Garmin Fenix 5 +"
+            },
+            {
+                "product_id": [
+                    3111,
+                    3135
+                ],
+                "name": "Garmin Fenix 5x +"
+            },
+            {
+                "product_id": [
+                    3112,
+                    3142
+                ],
+                "name": "Garmin Edge 520 +"
+            },
+            {
+                "product_id": [
+                    3113,
+                    3441,
+                    3652,
+                    3978
+                ],
+                "name": "Garmin FR945"
+            },
+            {
+                "product_id": [
+                    3121,
+                    3349
+                ],
+                "name": "Garmin Edge 530"
+            },
+            {
+                "product_id": [
+                    3122,
+                    3350
+                ],
+                "name": "Garmin Edge 830"
+            },
+            {
+                "product_id": [
+                    3126,
+                    4155,
+                    4394
+                ],
+                "name": "Garmin Instinct"
+            },
+            {
+                "product_id": [
+                    3145,
+                    3321
+                ],
+                "name": "Garmin FR245"
+            },
+            {
+                "product_id": 3192,
+                "name": "Garmin Speed Sensor 2"
+            },
+            {
+                "product_id": [
+                    3226,
+                    3600,
+                    3703,
+                    3704,
+                    3737,
+                    3740,
+                    3837,
+                    3851,
+                    3949,
+                    3950,
+                    4017,
+                    4115,
+                    4116
+                ],
+                "name": "Venu"
+            },
+            {
+                "product_id": [
+                    3246,
+                    3247,
+                    3248,
+                    3249,
+                    3250,
+                    3251,
+                    3420,
+                    3421,
+                    3448,
+                    3449,
+                    3450,
+                    3451,
+                    3624,
+                    3648,
+                    3739,
+                    3850,
+                    4105,
+                    4124
+                ],
+                "name": "Garmin Marq"
+            },
+            {
+                "product_id": [
+                    3287,
+                    3288,
+                    3512,
+                    3513
+                ],
+                "name": "Garmin Fenix 6s"
+            },
+            {
+                "product_id": [
+                    3289,
+                    3290,
+                    3514,
+                    3515
+                ],
+                "name": "Garmin Fenix 6"
+            },
+            {
+                "product_id": [
+                    3291,
+                    3516
+                ],
+                "name": "Garmin Fenix 6x"
+            },
+            {
+                "product_id": 3299,
+                "name": "Garmin HRM Dual"
+            },
+            {
+                "product_id": 3300,
+                "name": "Garmin HRM Pro"
+            },
+            {
+                "product_id": [
+                    3405,
+                    3639
+                ],
+                "name": "Garmin Swim 2"
+            },
+            {
+                "product_id": 3466,
+                "name": "Garmin Instinct Solar"
+            },
+            {
+                "product_id": 3469,
+                "name": "Garmin FR45"
+            },
+            {
+                "product_id": [
+                    3498,
+                    3537
+                ],
+                "name": "Garmin Legacy Rey"
+            },
+            {
+                "product_id": [
+                    3499,
+                    3538
+                ],
+                "name": "Garmin Legacy Darth Vader"
+            },
+            {
+                "product_id": [
+                    3500,
+                    3535
+                ],
+                "name": "Garmin Legacy Captain Marvel"
+            },
+            {
+                "product_id": [
+                    3501,
+                    3536
+                ],
+                "name": "Garmin Legacy First Avenger"
+            },
+            {
+                "product_id": 3578,
+                "name": "Garmin Rally 200"
+            },
+            {
+                "product_id": [
+                    3589,
+                    3794
+                ],
+                "name": "Garmin FR745"
+            },
+            {
+                "product_id": [
+                    3615,
+                    3809
+                ],
+                "name": "Garmin Lily"
+            },
+            {
+                "product_id": [
+                    3638,
+                    3872,
+                    4341
+                ],
+                "name": "Garmin Enduro"
+            },
+            {
+                "product_id": [
+                    3843,
+                    4305
+                ],
+                "name": "Edge 1040"
+            },
+            {
+                "product_id": 3865,
+                "name": "gnss"
+            },
+            {
+                "product_id": [
+                    3869,
+                    4033
+                ],
+                "name": "FR55"
+            },
+            {
+                "product_id": [
+                    3888,
+                    4071
+                ],
+                "name": "Garmin Instinct 2"
+            },
+            {
+                "product_id": [
+                    3905,
+                    3908
+                ],
+                "name": "Garmin Fenix 7s"
+            },
+            {
+                "product_id": [
+                    3906,
+                    3909,
+                    4375
+                ],
+                "name": "Garmin Fenix 7"
+            },
+            {
+                "product_id": [
+                    3907,
+                    3910
+                ],
+                "name": "Garmin Fenix 7x"
+            },
+            {
+                "product_id": [
+                    3990,
+                    3991,
+                    3992,
+                    3993
+                ],
+                "name": "Garmin FR255"
+            },
+            {
+                "product_id": 4024,
+                "name": "Garmin FR955"
+            },
+            {
+                "product_id": 4061,
+                "name": "Garmin Edge 540"
+            },
+            {
+                "product_id": 4062,
+                "name": "Garmin Edge 840"
+            },
+            {
+                "product_id": 4135,
+                "name": "Tactix7"
+            },
+            {
+                "product_id": 4169,
+                "name": "Edge Explore2"
+            },
+            {
+                "product_id": [
+                    4257,
+                    4258
+                ],
+                "name": "Garmin FR265"
+            },
+            {
+                "product_id": [
+                    4265,
+                    4268
+                ],
+                "name": "Tacx Neo"
+            },
+            {
+                "product_id": [
+                    4266,
+                    4267
+                ],
+                "name": "Tacx Neo2"
+            },
+            {
+                "product_id": 4269,
+                "name": "Tacx Santori"
+            },
+            {
+                "product_id": 4270,
+                "name": "Tacx Flow"
+            },
+            {
+                "product_id": 4271,
+                "name": "Tacx Vortex"
+            },
+            {
+                "product_id": 4272,
+                "name": "Tacx Bushido"
+            },
+            {
+                "product_id": 4273,
+                "name": "Tacx Genius"
+            },
+            {
+                "product_id": 4274,
+                "name": "Tacx Flux"
+            },
+            {
+                "product_id": 4275,
+                "name": "Tacx Flux2"
+            },
+            {
+                "product_id": 4276,
+                "name": "Tacx Magnum"
+            },
+            {
+                "product_id": 4315,
+                "name": "Garmin FR965"
+            },
+            {
+                "product_id": 10007,
+                "name": "sdm4"
+            },
+            {
+                "product_id": 10014,
+                "name": "Garmin Edge Remote"
+            },
+            {
+                "product_id": 20119,
+                "name": "Garmin Training Center"
+            },
+            {
+                "product_id": [
+                    20533,
+                    20534,
+                    20565,
+                    30045,
+                    30046,
+                    30047
+                ],
+                "name": "Tacx Training App"
+            },
+            {
+                "product_id": 65531,
+                "name": "Connectiq Simulator"
+            },
+            {
+                "product_id": 65532,
+                "name": "Android ANT+ Plugin"
+            },
+            {
+                "product_id": 65534,
+                "name": "Garmin Connect Website"
             }
         ]
     },
     {
-        "manufacturer_id" : 282,
-        "name" : "The Sufferfest",
-        "products" : []
+        "manufacturer_id": 2,
+        "name": "Garmin",
+        "products": []
     },
     {
-        "manufacturer_id" : 284,
-        "name" : "Rouvy",
-        "products" : []
+        "manufacturer_id": 3,
+        "name": "Zephyr",
+        "products": []
     },
     {
-        "manufacturer_id" : 289,
-        "name" : "Hammerhead",
-        "products" : []
+        "manufacturer_id": 4,
+        "name": "Dayton",
+        "products": []
+    },
+    {
+        "manufacturer_id": 5,
+        "name": "IDT",
+        "products": []
+    },
+    {
+        "manufacturer_id": 6,
+        "name": "SRM",
+        "products": [
+            {
+                "product_id": 6,
+                "name": "SRM PC6"
+            },
+            {
+                "product_id": 7,
+                "name": "SRM PC7"
+            },
+            {
+                "product_id": 8,
+                "name": "SRM PC8"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 7,
+        "name": "Quarq",
+        "products": [
+            {
+                "product_id": 1,
+                "name": "Quarq Cinqo"
+            },
+            {
+                "product_id": 9479,
+                "name": "Quarq DZERO"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 8,
+        "name": "iBike",
+        "products": [
+            {
+                "product_id": 2054,
+                "name": "iBike AeroPod"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 9,
+        "name": "Powertap",
+        "products": [
+            {
+                "product_id": 14,
+                "name": "Joule 2.0"
+            },
+            {
+                "product_id": 18,
+                "name": "Joule"
+            },
+            {
+                "product_id": 19,
+                "name": "Joule GPS"
+            },
+            {
+                "product_id": 22,
+                "name": "Joule GPS+"
+            },
+            {
+                "product_id": 272,
+                "name": "Powertap C1"
+            },
+            {
+                "product_id": 288,
+                "name": "Powertap P1"
+            },
+            {
+                "product_id": 4096,
+                "name": "Powertap G3"
+            },
+            {
+                "product_id": 4353,
+                "name": "Powercal"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 10,
+        "name": "Spark HK",
+        "products": []
+    },
+    {
+        "manufacturer_id": 11,
+        "name": "Tanita",
+        "products": []
+    },
+    {
+        "manufacturer_id": 12,
+        "name": "Echowell",
+        "products": []
+    },
+    {
+        "manufacturer_id": 13,
+        "name": "Dynastream",
+        "products": []
+    },
+    {
+        "manufacturer_id": 14,
+        "name": "Nautilus",
+        "products": []
+    },
+    {
+        "manufacturer_id": 15,
+        "name": "Dynastream",
+        "products": [
+            {
+                "product_id": 6,
+                "name": "Dynastream HRM"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 16,
+        "name": "Timex",
+        "products": []
+    },
+    {
+        "manufacturer_id": 17,
+        "name": "Metrigear",
+        "products": []
+    },
+    {
+        "manufacturer_id": 18,
+        "name": "Xelic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 19,
+        "name": "Beuer",
+        "products": []
+    },
+    {
+        "manufacturer_id": 20,
+        "name": "Cardiosport",
+        "products": []
+    },
+    {
+        "manufacturer_id": 21,
+        "name": "A&D",
+        "products": []
+    },
+    {
+        "manufacturer_id": 22,
+        "name": "Hmm",
+        "products": []
+    },
+    {
+        "manufacturer_id": 23,
+        "name": "Suunto",
+        "products": []
+    },
+    {
+        "manufacturer_id": 24,
+        "name": "Thita Elektronik",
+        "products": []
+    },
+    {
+        "manufacturer_id": 25,
+        "name": "Gpulse",
+        "products": []
+    },
+    {
+        "manufacturer_id": 26,
+        "name": "Clean Mobile",
+        "products": []
+    },
+    {
+        "manufacturer_id": 27,
+        "name": "Pedal Brain",
+        "products": []
+    },
+    {
+        "manufacturer_id": 28,
+        "name": "Peaksware",
+        "products": []
+    },
+    {
+        "manufacturer_id": 29,
+        "name": "Power2max",
+        "products": [
+            {
+                "product_id": 1031,
+                "name": "Power2max S"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 30,
+        "name": "Lemon Fitness",
+        "products": []
+    },
+    {
+        "manufacturer_id": 31,
+        "name": "Dexcom",
+        "products": []
+    },
+    {
+        "manufacturer_id": 32,
+        "name": "Wahoo",
+        "products": [
+            {
+                "product_id": 0,
+                "name": "Wahoo fitness"
+            },
+            {
+                "product_id": 6,
+                "name": "Wahoo HRM"
+            },
+            {
+                "product_id": 28,
+                "name": "Wahoo ELEMNT"
+            },
+            {
+                "product_id": 31,
+                "name": "Wahoo ELEMNT BOLT"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 33,
+        "name": "Octane Fitness",
+        "products": []
+    },
+    {
+        "manufacturer_id": 34,
+        "name": "Archinoetics",
+        "products": []
+    },
+    {
+        "manufacturer_id": 35,
+        "name": "The Hurt Box",
+        "products": []
+    },
+    {
+        "manufacturer_id": 36,
+        "name": "Citizen",
+        "products": []
+    },
+    {
+        "manufacturer_id": 37,
+        "name": "Magellan",
+        "products": []
+    },
+    {
+        "manufacturer_id": 38,
+        "name": "o_synce",
+        "products": [
+            {
+                "product_id": 1,
+                "name": "o_synce navi2coach"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 39,
+        "name": "Holux",
+        "products": []
+    },
+    {
+        "manufacturer_id": 40,
+        "name": "Concept2",
+        "products": []
+    },
+    {
+        "manufacturer_id": 41,
+        "name": "Shimano",
+        "products": []
+    },
+    {
+        "manufacturer_id": 42,
+        "name": "One Giant Leap",
+        "products": []
+    },
+    {
+        "manufacturer_id": 43,
+        "name": "Ace Sensor",
+        "products": []
+    },
+    {
+        "manufacturer_id": 44,
+        "name": "Brim Brothers",
+        "products": []
+    },
+    {
+        "manufacturer_id": 45,
+        "name": "Xplova",
+        "products": []
+    },
+    {
+        "manufacturer_id": 46,
+        "name": "Perception Digital",
+        "products": []
+    },
+    {
+        "manufacturer_id": 47,
+        "name": "Bf1systems",
+        "products": []
+    },
+    {
+        "manufacturer_id": 48,
+        "name": "Pioneer",
+        "products": [
+            {
+                "product_id": 2,
+                "name": "Pioneer SGX-CA500"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 49,
+        "name": "Spantec",
+        "products": []
+    },
+    {
+        "manufacturer_id": 50,
+        "name": "Metalogics",
+        "products": []
+    },
+    {
+        "manufacturer_id": 51,
+        "name": "4iiiis",
+        "products": []
+    },
+    {
+        "manufacturer_id": 52,
+        "name": "Seiko Epson",
+        "products": []
+    },
+    {
+        "manufacturer_id": 53,
+        "name": "Seiko Epson",
+        "products": []
+    },
+    {
+        "manufacturer_id": 54,
+        "name": "Ifor Powell",
+        "products": [
+            {
+                "product_id": 1,
+                "name": "IpBike"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 55,
+        "name": "Maxwell Guider",
+        "products": []
+    },
+    {
+        "manufacturer_id": 56,
+        "name": "Star Trac",
+        "products": []
+    },
+    {
+        "manufacturer_id": 57,
+        "name": "Breakaway",
+        "products": []
+    },
+    {
+        "manufacturer_id": 58,
+        "name": "Alatech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 59,
+        "name": "Mio Tech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 60,
+        "name": "Rotor",
+        "products": []
+    },
+    {
+        "manufacturer_id": 61,
+        "name": "Geonaute",
+        "products": []
+    },
+    {
+        "manufacturer_id": 62,
+        "name": "Id Bike",
+        "products": []
+    },
+    {
+        "manufacturer_id": 63,
+        "name": "Specialized",
+        "products": []
+    },
+    {
+        "manufacturer_id": 64,
+        "name": "Wtek",
+        "products": []
+    },
+    {
+        "manufacturer_id": 65,
+        "name": "Physical Enterprises",
+        "products": []
+    },
+    {
+        "manufacturer_id": 66,
+        "name": "North Pole Engineering",
+        "products": []
+    },
+    {
+        "manufacturer_id": 67,
+        "name": "Bktool",
+        "products": []
+    },
+    {
+        "manufacturer_id": 68,
+        "name": "Cateye",
+        "products": []
+    },
+    {
+        "manufacturer_id": 69,
+        "name": "Stages",
+        "products": [
+            {
+                "product_id": 1,
+                "name": "Stages Power (gen 1)"
+            },
+            {
+                "product_id": 2,
+                "name": "Stages Power (gen 2)"
+            },
+            {
+                "product_id": 3,
+                "name": "Stages Power (gen 3)"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 70,
+        "name": "Sigmasport ROX",
+        "products": [
+            {
+                "product_id": 15,
+                "name": "Sigma ROX 10.0"
+            },
+            {
+                "product_id": 18,
+                "name": "Sigma ROX 7.0"
+            },
+            {
+                "product_id": 41,
+                "name": "Sigma ROX 11.0"
+            },
+            {
+                "product_id": 42,
+                "name": "Sigma iD.RUN"
+            },
+            {
+                "product_id": 43,
+                "name": "Sigma iD.RUN HR"
+            },
+            {
+                "product_id": 44,
+                "name": "Sigma ROX 12.0"
+            },
+            {
+                "product_id": 45,
+                "name": "Sigma iD.FREE"
+            },
+            {
+                "product_id": 46,
+                "name": "Sigma iD.TRI"
+            },
+            {
+                "product_id": 47,
+                "name": "Sigma PURE GPS"
+            },
+            {
+                "product_id": 49,
+                "name": "Sigma ROX 11.1"
+            },
+            {
+                "product_id": 51,
+                "name": "Sigma ROX 2.0"
+            },
+            {
+                "product_id": 52,
+                "name": "Sigma ROX 4.0"
+            },
+            {
+                "product_id": 54,
+                "name": "Sigma ROX 12.1"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 71,
+        "name": "TomTom",
+        "products": []
+    },
+    {
+        "manufacturer_id": 72,
+        "name": "Peripedal",
+        "products": []
+    },
+    {
+        "manufacturer_id": 73,
+        "name": "Wattbike",
+        "products": []
+    },
+    {
+        "manufacturer_id": 76,
+        "name": "Moxy Monitor",
+        "products": []
+    },
+    {
+        "manufacturer_id": 77,
+        "name": "Ciclosport",
+        "products": []
+    },
+    {
+        "manufacturer_id": 78,
+        "name": "Powerbahn",
+        "products": []
+    },
+    {
+        "manufacturer_id": 79,
+        "name": "Acorn Projects",
+        "products": []
+    },
+    {
+        "manufacturer_id": 80,
+        "name": "Lifebeam",
+        "products": []
+    },
+    {
+        "manufacturer_id": 81,
+        "name": "Bontrager",
+        "products": []
+    },
+    {
+        "manufacturer_id": 82,
+        "name": "Wellgo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 83,
+        "name": "Scosche",
+        "products": [
+            {
+                "product_id": 3,
+                "name": "Scosche Rithm+"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 84,
+        "name": "Magura",
+        "products": []
+    },
+    {
+        "manufacturer_id": 85,
+        "name": "Woodway",
+        "products": []
+    },
+    {
+        "manufacturer_id": 86,
+        "name": "Elite",
+        "products": []
+    },
+    {
+        "manufacturer_id": 87,
+        "name": "Nielsen Kellerman",
+        "products": []
+    },
+    {
+        "manufacturer_id": 88,
+        "name": "DK City",
+        "products": []
+    },
+    {
+        "manufacturer_id": 89,
+        "name": "Tacx",
+        "products": [
+            {
+                "product_id": 2180,
+                "name": "Tacx Vortex Smart"
+            },
+            {
+                "product_id": 2800,
+                "name": "Tacx Neo"
+            },
+            {
+                "product_id": 2850,
+                "name": "Tacx Neo 2 Smart"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 90,
+        "name": "Direction Tech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 91,
+        "name": "Magtonic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 92,
+        "name": "1PartCarbon",
+        "products": []
+    },
+    {
+        "manufacturer_id": 93,
+        "name": "Inside Ride Tech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 94,
+        "name": "Sound of Motion",
+        "products": []
+    },
+    {
+        "manufacturer_id": 95,
+        "name": "Stryd",
+        "products": []
+    },
+    {
+        "manufacturer_id": 96,
+        "name": "ICG",
+        "products": []
+    },
+    {
+        "manufacturer_id": 97,
+        "name": "MiPulse",
+        "products": []
+    },
+    {
+        "manufacturer_id": 98,
+        "name": "BSX",
+        "products": [
+            {
+                "product_id": 2,
+                "name": "BSX Insight 2"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 99,
+        "name": "Look",
+        "products": []
+    },
+    {
+        "manufacturer_id": 100,
+        "name": "Campagnolo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 101,
+        "name": "Body Bike Smart",
+        "products": []
+    },
+    {
+        "manufacturer_id": 102,
+        "name": "Praxisworks",
+        "products": []
+    },
+    {
+        "manufacturer_id": 103,
+        "name": "Limits Tech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 104,
+        "name": "Topaction",
+        "products": []
+    },
+    {
+        "manufacturer_id": 105,
+        "name": "Cosinuss",
+        "products": []
+    },
+    {
+        "manufacturer_id": 106,
+        "name": "Fitcare",
+        "products": []
+    },
+    {
+        "manufacturer_id": 107,
+        "name": "Magene",
+        "products": []
+    },
+    {
+        "manufacturer_id": 108,
+        "name": "Giant",
+        "products": [
+            {
+                "product_id": 21845,
+                "name": "Giant Power Pro"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 109,
+        "name": "Tigrasport",
+        "products": []
+    },
+    {
+        "manufacturer_id": 110,
+        "name": "Salutron",
+        "products": []
+    },
+    {
+        "manufacturer_id": 111,
+        "name": "Technogym",
+        "products": []
+    },
+    {
+        "manufacturer_id": 112,
+        "name": "Bryton",
+        "products": []
+    },
+    {
+        "manufacturer_id": 113,
+        "name": "Latitude",
+        "products": []
+    },
+    {
+        "manufacturer_id": 114,
+        "name": "Soaring Tech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 115,
+        "name": "igpsport",
+        "products": []
+    },
+    {
+        "manufacturer_id": 116,
+        "name": "Thinkrider",
+        "products": []
+    },
+    {
+        "manufacturer_id": 117,
+        "name": "Gopher Sport",
+        "products": []
+    },
+    {
+        "manufacturer_id": 118,
+        "name": "Water Rower",
+        "products": []
+    },
+    {
+        "manufacturer_id": 119,
+        "name": "Orange Theory",
+        "products": []
+    },
+    {
+        "manufacturer_id": 120,
+        "name": "Inpeak",
+        "products": []
+    },
+    {
+        "manufacturer_id": 121,
+        "name": "Kinetic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 122,
+        "name": "Johnson Health",
+        "products": []
+    },
+    {
+        "manufacturer_id": 123,
+        "name": "Polar",
+        "products": [
+            {
+                "product_id": 2,
+                "name": "Polar H10"
+            },
+            {
+                "product_id": 3,
+                "name": "Polar H9"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 124,
+        "name": "Seesense",
+        "products": []
+    },
+    {
+        "manufacturer_id": 125,
+        "name": "NCI Technology",
+        "products": []
+    },
+    {
+        "manufacturer_id": 126,
+        "name": "iSquare",
+        "products": []
+    },
+    {
+        "manufacturer_id": 127,
+        "name": "Leomo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 128,
+        "name": "IFit",
+        "products": []
+    },
+    {
+        "manufacturer_id": 129,
+        "name": "Coros",
+        "products": []
+    },
+    {
+        "manufacturer_id": 130,
+        "name": "Versa Design",
+        "products": []
+    },
+    {
+        "manufacturer_id": 131,
+        "name": "Chileaf",
+        "products": []
+    },
+    {
+        "manufacturer_id": 132,
+        "name": "Cycplus",
+        "products": []
+    },
+    {
+        "manufacturer_id": 133,
+        "name": "Gravaa",
+        "products": []
+    },
+    {
+        "manufacturer_id": 134,
+        "name": "Sigeyi",
+        "products": []
+    },
+    {
+        "manufacturer_id": 135,
+        "name": "Coospo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 136,
+        "name": "Geoid",
+        "products": []
+    },
+    {
+        "manufacturer_id": 137,
+        "name": "Bosch",
+        "products": []
+    },
+    {
+        "manufacturer_id": 138,
+        "name": "Kyto",
+        "products": []
+    },
+    {
+        "manufacturer_id": 139,
+        "name": "Kinetic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 140,
+        "name": "Decathlon Byte",
+        "products": []
+    },
+    {
+        "manufacturer_id": 141,
+        "name": "Tq Systems",
+        "products": []
+    },
+    {
+        "manufacturer_id": 142,
+        "name": "Tag Heuer",
+        "products": []
+    },
+    {
+        "manufacturer_id": 143,
+        "name": "Keiser Fitness",
+        "products": []
+    },
+    {
+        "manufacturer_id": 144,
+        "name": "Zwift",
+        "products": []
+    },
+    {
+        "manufacturer_id": 145,
+        "name": "Porsche",
+        "products": []
+    },
+    {
+        "manufacturer_id": 146,
+        "name": "Blackbird",
+        "products": []
+    },
+    {
+        "manufacturer_id": 147,
+        "name": "Melian",
+        "products": []
+    },
+    {
+        "manufacturer_id": 148,
+        "name": "Ezon",
+        "products": []
+    },
+    {
+        "manufacturer_id": 255,
+        "name": "Development",
+        "products": []
+    },
+    {
+        "manufacturer_id": 257,
+        "name": "Health and Life",
+        "products": []
+    },
+    {
+        "manufacturer_id": 258,
+        "name": "Lezyne",
+        "products": [
+            {
+                "product_id": 4,
+                "name": "Lezyne Super GPS"
+            },
+            {
+                "product_id": 6,
+                "name": "Lezyne Micro-GPS"
+            },
+            {
+                "product_id": 11,
+                "name": "Lezyne MegaXL"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 259,
+        "name": "Scribe Labs",
+        "products": []
+    },
+    {
+        "manufacturer_id": 260,
+        "name": "Zwift",
+        "products": []
+    },
+    {
+        "manufacturer_id": 261,
+        "name": "Watteam",
+        "products": []
+    },
+    {
+        "manufacturer_id": 262,
+        "name": "Recon",
+        "products": []
+    },
+    {
+        "manufacturer_id": 263,
+        "name": "Favero",
+        "products": [
+            {
+                "product_id": 12,
+                "name": "Favero Assioma Duo"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 264,
+        "name": "Dynopvelo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 265,
+        "name": "Strava",
+        "products": []
+    },
+    {
+        "manufacturer_id": 266,
+        "name": "Precor",
+        "products": []
+    },
+    {
+        "manufacturer_id": 267,
+        "name": "Bryton",
+        "products": []
+    },
+    {
+        "manufacturer_id": 268,
+        "name": "SRAM",
+        "products": [
+            {
+                "product_id": 1037,
+                "name": "SRAM Rival eTap AXS"
+            },
+            {
+                "product_id": 1052,
+                "name": "SRAM Rival AXS"
+            }
+        ]
+    },
+    {
+        "manufacturer_id": 269,
+        "name": "Navman",
+        "products": []
+    },
+    {
+        "manufacturer_id": 270,
+        "name": "Cobi",
+        "products": []
+    },
+    {
+        "manufacturer_id": 271,
+        "name": "Spivi",
+        "products": []
+    },
+    {
+        "manufacturer_id": 272,
+        "name": "Mio Magellan",
+        "products": []
+    },
+    {
+        "manufacturer_id": 273,
+        "name": "Evesports",
+        "products": []
+    },
+    {
+        "manufacturer_id": 274,
+        "name": "Sensitivus",
+        "products": []
+    },
+    {
+        "manufacturer_id": 275,
+        "name": "Podoon",
+        "products": []
+    },
+    {
+        "manufacturer_id": 276,
+        "name": "Life Time Fitness",
+        "products": []
+    },
+    {
+        "manufacturer_id": 277,
+        "name": "Falco e Motors",
+        "products": []
+    },
+    {
+        "manufacturer_id": 278,
+        "name": "Minoura",
+        "products": []
+    },
+    {
+        "manufacturer_id": 279,
+        "name": "Cycliq",
+        "products": []
+    },
+    {
+        "manufacturer_id": 280,
+        "name": "Luxottica",
+        "products": []
+    },
+    {
+        "manufacturer_id": 281,
+        "name": "Trainer Road",
+        "products": []
+    },
+    {
+        "manufacturer_id": 282,
+        "name": "The Sufferfest",
+        "products": []
+    },
+    {
+        "manufacturer_id": 283,
+        "name": "Full Speed Ahead",
+        "products": []
+    },
+    {
+        "manufacturer_id": 284,
+        "name": "Rouvy",
+        "products": []
+    },
+    {
+        "manufacturer_id": 285,
+        "name": "Feedback Sports",
+        "products": []
+    },
+    {
+        "manufacturer_id": 286,
+        "name": "Omata",
+        "products": []
+    },
+    {
+        "manufacturer_id": 287,
+        "name": "VDO",
+        "products": []
+    },
+    {
+        "manufacturer_id": 288,
+        "name": "Magnetic Days",
+        "products": []
+    },
+    {
+        "manufacturer_id": 289,
+        "name": "Hammerhead",
+        "products": []
+    },
+    {
+        "manufacturer_id": 290,
+        "name": "Kurt Kinetic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 291,
+        "name": "Shapelog",
+        "products": []
+    },
+    {
+        "manufacturer_id": 292,
+        "name": "Dabuzido",
+        "products": []
+    },
+    {
+        "manufacturer_id": 293,
+        "name": "Jetblack",
+        "products": []
+    },
+    {
+        "manufacturer_id": 294,
+        "name": "Coros",
+        "products": []
+    },
+    {
+        "manufacturer_id": 295,
+        "name": "Virtugo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 296,
+        "name": "Velosense",
+        "products": []
+    },
+    {
+        "manufacturer_id": 297,
+        "name": "Cyclegent",
+        "products": []
+    },
+    {
+        "manufacturer_id": 298,
+        "name": "Trailforks",
+        "products": []
+    },
+    {
+        "manufacturer_id": 299,
+        "name": "Mahle",
+        "products": []
+    },
+    {
+        "manufacturer_id": 300,
+        "name": "Nurvv",
+        "products": []
+    },
+    {
+        "manufacturer_id": 301,
+        "name": "Microprogram",
+        "products": []
+    },
+    {
+        "manufacturer_id": 302,
+        "name": "Zone5Cloud",
+        "products": []
+    },
+    {
+        "manufacturer_id": 303,
+        "name": "Greenteg",
+        "products": []
+    },
+    {
+        "manufacturer_id": 304,
+        "name": "Yamaha",
+        "products": []
+    },
+    {
+        "manufacturer_id": 305,
+        "name": "Whoop",
+        "products": []
+    },
+    {
+        "manufacturer_id": 306,
+        "name": "Gravaa",
+        "products": []
+    },
+    {
+        "manufacturer_id": 307,
+        "name": "Onelap",
+        "products": []
+    },
+    {
+        "manufacturer_id": 308,
+        "name": "Monark Exercise",
+        "products": []
+    },
+    {
+        "manufacturer_id": 309,
+        "name": "Form",
+        "products": []
+    },
+    {
+        "manufacturer_id": 310,
+        "name": "Decathlon",
+        "products": []
+    },
+    {
+        "manufacturer_id": 311,
+        "name": "Syncros",
+        "products": []
+    },
+    {
+        "manufacturer_id": 312,
+        "name": "Heatup",
+        "products": []
+    },
+    {
+        "manufacturer_id": 313,
+        "name": "Cannondale",
+        "products": []
+    },
+    {
+        "manufacturer_id": 314,
+        "name": "True Fitness",
+        "products": []
+    },
+    {
+        "manufacturer_id": 315,
+        "name": "RGT Cycling",
+        "products": []
+    },
+    {
+        "manufacturer_id": 316,
+        "name": "Vasa",
+        "products": []
+    },
+    {
+        "manufacturer_id": 317,
+        "name": "Race Republic",
+        "products": []
+    },
+    {
+        "manufacturer_id": 318,
+        "name": "Fazua",
+        "products": []
+    },
+    {
+        "manufacturer_id": 319,
+        "name": "Oreka",
+        "products": []
+    },
+    {
+        "manufacturer_id": 320,
+        "name": "Isec",
+        "products": []
+    },
+    {
+        "manufacturer_id": 321,
+        "name": "Lulumelon Studio",
+        "products": []
+    },
+    {
+        "manufacturer_id": 322,
+        "name": "Shanyue",
+        "products": []
+    },
+    {
+        "manufacturer_id": 323,
+        "name": "Spinning Mda",
+        "products": []
+    },
+    {
+        "manufacturer_id": 324,
+        "name": "Hilldating",
+        "products": []
+    },
+    {
+        "manufacturer_id": 5759,
+        "name": "Actigraph",
+        "products": []
     }
 ]
