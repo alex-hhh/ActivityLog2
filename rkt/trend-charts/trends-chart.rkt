@@ -40,7 +40,6 @@
 
 (provide/contract
  (get-true-min-start-date (-> connection? exact-integer?))
- (make-low-pass-filter (-> positive? boolean? (-> vector? vector?)))
  (pmc-date-ticks (-> ticks?))
  (generate-timestamps (-> exact-integer? exact-integer? (or/c 0 1 2)
                           (listof exact-integer?)))
@@ -473,41 +472,6 @@
 ;; Create the X-Axis tiks to be used in PMC plots.
 (define (pmc-date-ticks)
   (ticks pmc-date-ticks-layout pmc-date-ticks-format))
-
-;; Create a low-pass filter of WIDTH.  The returned function will accept a
-;; data point (a vector of [X Y]) and will return a new filtered datapoint [X
-;; Y-filtered]).  The filter will keep state.
-;;
-;; When STOP-DETECTION? is #t, the function will attempt to detect stop points
-;; (where dX is 0) and reset the filter.  This will produce nicer looking
-;; graphs.  This works best if the data to be filtered was extracted with stop
-;; detection (see `make-low-pass-filter')
-;;
-(define (make-low-pass-filter width stop-detection?)
-  ;; NOTE: this function can be called from multiple threads and the value of
-  ;; STATE is shared between subsequent calls to this function, so we make
-  ;; sure it has a per-thread value.
-  (let ((state (make-thread-cell #f)))
-    (lambda (v)
-      (if (eq? (thread-cell-ref state) #f)
-          (begin (thread-cell-set! state v) v) ; first value
-
-          ;; Start filtering
-          (let* ((dt (- (vector-ref v 0) (vector-ref (thread-cell-ref state) 0)))
-                 (alpha (/ dt (+ dt width)))
-                 (new-v (vector (vector-ref v 0)
-                                (+ (* alpha (vector-ref v 1))
-                                   (* (- 1 alpha)
-                                      (vector-ref (thread-cell-ref state) 1))))))
-            ;; NOTE: stop detection introduces duplicate items (same X axis
-            ;; value) to make graphs look nicer.  Don't break it, reset the
-            ;; filter instead.
-            (if (and stop-detection? (< dt 0.001))
-                (let ((v (vector-copy v)))
-                  (vector-set! v 1 0)
-                  (thread-cell-set! state v)
-                  v)
-                (begin (thread-cell-set! state new-v) new-v)))))))
 
 
 ;;...................................................... session-markers ....

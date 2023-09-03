@@ -1,9 +1,9 @@
 #lang racket/base
-
+;; SPDX-License-Identifier: GPL-3.0-or-later
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,72 +15,90 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
+(require data-frame
          plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
          racket/gui/base
          racket/match
-         racket/stream
+         racket/runtime-path
          "../al-widgets.rkt"
          "../database.rkt"
+         "../dbutil.rkt"
          "../fmt-util-ut.rkt"
-         "../fmt-util.rkt"
+         "../sport-charms.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
 
 (provide pmc-trends-chart%)
 
-;; Number of day over which we average the daily TSS to obtain the "Chronic
-;; Training Load" (fitness).  Default is 42 (6 weeks)
-(define ctl-range 42)
-
-;; Number of days over which we average the daily TSS to obtain the "Acute
-;; Training Load" (fatigue).  Default is 7 days.
-(define atl-range 7)
+;; Calculate and return the "dots-per-pixel" values for the plot SNIP on the X
+;; and Y axis -- this is the conversion factor between pixels and plot units
+;; along the two plot axes.
+;;
+;; WARNING: this assumes that the plot uses linear scale without any plot
+;; transforms!
+;;
+(define (compute-plot-dpp plot-snip)
+  (match-define (vector (vector min-x max-x) (vector min-y max-y))
+    (send plot-snip get-plot-bounds))
+  ;; NOTE: plot Y axis grows from bottom to top, but DC grows (increses) from
+  ;; top to bottom, so from MIN-Y we obtain DC-MAX-Y and vice-versa.
+  (match-define (vector dc-min-x dc-max-y)
+    (send plot-snip plot->dc (vector min-x min-y)))
+  (match-define (vector dc-max-x dc-min-y)
+    (send plot-snip plot->dc (vector max-x max-y)))
+  (values
+   (/ (- max-x min-x) (- dc-max-x dc-min-x))
+   (/ (- max-y min-y) (- dc-max-y dc-min-y))))
 
 (define pmc-chart-settings%
   (class edit-dialog-base%
     (init-field database [default-name "Trends"] [default-title "Trends Chart"])
     (super-new [title "Chart Settings"] [icon (edit-icon)] [min-height 10])
 
-    (define name-gb (make-group-box-panel (send this get-client-pane)))
-    (define name-field (new text-field% [parent name-gb] [label "Name "]))
-    (send name-field set-value default-name)
-    (define title-field (new text-field% [parent name-gb] [label "Title "]))
-    (send title-field set-value default-title)
+    (define-values
+      (name-field
+       title-field)
+      (let ([gb (make-group-box-panel (send this get-client-pane))])
+        (values
+         (new text-field%
+              [parent gb]
+              [label "Name "]
+              [init-value default-name])
+         (new text-field%
+              [parent gb]
+              [label "Title "]
+              [init-value default-title]))))
 
-    (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define date-range-selector (new date-range-selector% [parent time-gb]))
+    (define date-range-selector
+      (let ([gb (make-group-box-panel (send this get-client-pane))])
+        (new date-range-selector% [parent gb])))
 
-    (define sessions-gb (make-group-box-panel (send this get-client-pane)))
-    (define labels-msg
-      (new message% [parent sessions-gb] [label "Mark Sessions With These Labels"]))
-    (define labels-input (new label-input-field% [parent sessions-gb]))
+    (define labels-input
+      (let ([gb (make-group-box-panel (send this get-client-pane))])
+        (new message%
+             [parent gb]
+             [label "Mark Sessions With These Labels"])
+        (new label-input-field% [parent gb])))
 
-    (define show-form-check-box #f)
-    (define show-daily-tss-check-box #f)
-    (define show-fitness-check-box #f)
-    (define show-fatigue-check-box #f)
-
-    (define curves-gb (make-group-box-panel (send this get-client-pane)))
-
-    (let ((p (new vertical-pane% [parent curves-gb]
-                  [stretchable-width #f] [border 20]
-                  [alignment '(center center)])))
-      (let ((q (new horizontal-pane% [parent p]
-                    [alignment '(center center)])))
-        (set! show-form-check-box
-              (new check-box% [parent q] [label "Form"] [value #t]))
-        (set! show-daily-tss-check-box
-              (new check-box% [parent q] [label "Daily TSS"] [value #t])))
-      (let ((q (new horizontal-pane% [parent p]
-                    [alignment '(center center)])))
-        (set! show-fitness-check-box
-              (new check-box% [parent q] [label "Fitness"] [value #t]))
-        (set! show-fatigue-check-box
-              (new check-box% [parent q] [label "Fatigue"] [value #t]))))
+    (define-values
+      (show-form-check-box
+       show-daily-tss-check-box
+       show-fitness-check-box
+       show-fatigue-check-box)
+      (let* ([gb (make-group-box-panel (send this get-client-pane))]
+             [p (new grid-pane%
+                     [parent gb]
+                     [columns 2]
+                     [alignment '(left center)]
+                     [border 20])])
+        (values
+         (new check-box% [parent p] [label "Form"] [value #t])
+         (new check-box% [parent p] [label "Daily TSS"] [value #t])
+         (new check-box% [parent p] [label "Fitness"] [value #t])
+         (new check-box% [parent p] [label "Fatigue"] [value #t]))))
 
     (define/public (get-chart-settings)
       (hash
@@ -124,202 +142,152 @@
 
     ))
 
-;; Return a list of TSS values between START and END and the timestamp when
-;; they were "earned".  A list of (vector TIMESTAMP TSS) is returned.
-(define (get-tss start end db)
-  ;; NOTE: the TSS is earned at the end of an activtiy.
-  (query-rows
-   db
-   "select round(VAL.start_time + VAL.duration) as timestamp, VAL.tss as tss
-     from V_ACTIVITY_LIST VAL
-     where VAL.start_time between ? and ?
-       and VAL.tss > 0
-   order by timestamp"
-   start end))
 
-(define day-in-seconds (* 24 3600))     ; number of seconds in a day
+(define-runtime-path sql-pmc-data-path "../../sql/queries/pmc-data.sql")
+(define sql-pmc-data (define-sql-statement sql-pmc-data-path))
 
-;; Generate a stream of TSS values between START and END timestamps.  TSS
-;; values are generated every SKIP seconds.  TSS values are taken from SAMPLES
-;; (as returned by `get-tss`, but extra 0 TSS entries are generated in-between
-;; tss samples.  The resulting stream has a TSS value (possibly 0)
-;; approximately every SKIP seconds.
-(define (generate-tss-stream start end skip samples)
+(define-runtime-path sql-pmc-sessions-path "../../sql/queries/pmc-sessions.sql")
+(define sql-pmc-sessions (define-sql-statement sql-pmc-sessions-path))
 
-  (define (g crt samples)
-    (cond ((> crt end) empty-stream)
-          ((null? samples)
-           (stream-cons (vector crt 0) (g (+ crt skip) samples)))
-          (#t (let ((sample (vector-ref (car samples) 0)))
-                (if (< sample crt)
-                    (stream-cons (car samples)
-                                 (g
-                                  (if (< (- crt sample) day-in-seconds)
-                                      (+ crt skip)
-                                      crt)
-                                  (cdr samples)))
-                    (stream-cons (vector crt 0) (g (+ crt skip) samples)))))))
+(define (read-pmc-data db start-timestamp end-timestamp)
+  (define (->string timestamp)
+    (let ([d (seconds->date timestamp)])
+      (string-append
+       (~a (date-year d) #:width 4 #:left-pad-string "0" #:align 'right)
+       "-"
+       (~a (date-month d) #:width 2 #:left-pad-string "0" #:align 'right)
+       "-"
+       (~a (date-day d) #:width 2 #:left-pad-string "0" #:align 'right))))
+  (define start (->string start-timestamp))
+  (define end (->string end-timestamp))
+  (df-read/sql db (sql-pmc-data) start end))
 
-  (g start samples))
+(define (read-pmc-sessions db start-timestamp end-timestamp)
+  (define df (df-read/sql db (sql-pmc-sessions) start-timestamp end-timestamp))
+  (when (> (df-row-count df) 0)
+    (df-set-sorted! df "day" string<?))
+  df)
 
-;; Produce PMC data, a list of (vector TIMESTAMP CTL ATL TSS), between START
-;; and END dates, using SAMPLES as the TSS values.  SAMPLES is as returned by
-;; `get-tss`.
-;;
-;; This method assumes that two TSS "earnings" in a day are not additive and
-;; treats each one of them separately.  In general, it will produce lower ATL
-;; and CTL values.
-(define (produce-pmc-data-1 start end samples)
+;; Number of day over which we average the daily TSS to obtain the "Chronic
+;; Training Load" (fitness).  Default is 42 (6 weeks)
+(define default-ctl-range 42)
 
-  (define search-start (start-of-day start))
-  (define search-end (start-of-day (+ end day-in-seconds)))
+;; Number of days over which we average the daily TSS to obtain the "Acute
+;; Training Load" (fatigue).  Default is 7 days.
+(define default-atl-range 7)
 
-  (define atl-filter (make-low-pass-filter (* atl-range day-in-seconds) #f))
-  (define ctl-filter (make-low-pass-filter (* ctl-range day-in-seconds) #f))
+(define (prepare-pmc db start-timestamp end-timestamp
+                     #:ctl-range [ctl-range default-ctl-range]
+                     #:initial-ctl [initial-ctl 0]
+                     #:atl-range [atl-range default-atl-range]
+                     #:initial-atl [initial-atl 0])
+  (define df (read-pmc-data db start-timestamp end-timestamp))
 
-  (for/list ([tss-point (generate-tss-stream search-start search-end day-in-seconds samples)])
-    ;; NOTE: the filter functions return a (vector TIMESTAMP VALUE)
-    (let ((ctl (ctl-filter tss-point))
-          (atl (atl-filter tss-point)))
-      (vector
-       (vector-ref tss-point 0)         ; timestamp
-       (vector-ref ctl 1)
-       (vector-ref atl 1)
-       (vector-ref tss-point 1)         ; TSS
-       ))))
+  ;; "timestamp" series records the entry at the start of the day (midnight)
+  (df-set-sorted! df "timestamp" <)
 
-(define (produce-pmc-data/method-1 start end db)
-  (let ((samples (get-tss start end db)))
-    (produce-pmc-data-1 start end samples)))
+  ;; "tsmidday" series is the midday timestamp (12 hours after "timestamp"),
+  ;; we use this one to display entries on the plot -- since it looks much
+  ;; nicer.  The PMC chart has one entry per day, and it looks much nicer if
+  ;; the entry shows up in the middle of the day, even if the TSS was earned
+  ;; earlier/later that day.
+  (df-set-sorted! df "tsmidday" <)
 
-;; Return a hash table containing the daily TSS for each day between START and
-;; END.
-(define (get-daily-tss start end db)
-  (define result (make-hash))
-  (for (([date tss]
-         (in-query
-          db
-          "select date(S.start_time, 'unixepoch', 'localtime'),
-                  sum(S.training_stress_score)
-             from A_SESSION S
-            where S.training_stress_score is not null
-              and S.start_time between ? and ?
-         group by date(S.start_time, 'unixepoch', 'localtime')"
-          start end)))
+  (let ([ctl initial-ctl])
+    (df-add-derived!
+     df
+     "ctl"
+     '("timestamp" "tss")
+     (lambda (prev current)
+       (if (and prev current)
+           (match-let ([(list pt _ptss) prev]
+                       [(list ct ctss) current])
+             (define dt (/ (- ct pt) (* 24 3600)))
+             (define alpha (/ dt (+ dt ctl-range)))
+             (define new-ctl (+ (* alpha ctss) (* (- 1 alpha) ctl)))
+             (set! ctl new-ctl)
+             new-ctl)
+           ctl))))
 
-    (hash-set! result (str->date date) tss))
-  result)
+  (let ([atl initial-atl])
+    (df-add-derived!
+     df
+     "atl"
+     '("timestamp" "tss")
+     (lambda (prev current)
+       (if (and prev current)
+           (match-let ([(list pt _ptss) prev]
+                       [(list ct ctss) current])
+             (define dt (/ (- ct pt) (* 24 3600)))
+             (define alpha (/ dt (+ dt atl-range)))
+             (define new-atl (+ (* alpha ctss) (* (- 1 alpha) atl)))
+             (set! atl new-atl)
+             new-atl)
+           atl))))
 
-;; produce the performance data between START and END dates based on daily
-;; TSS-DATA (as returned by `get-daily-tss'.  The PMC is a list of (vector DAY
-;; CTL ATL DAY-TSS).
-;;
-;; This method assumes that TSS is additive in a day and will produce bigger
-;; ATL / CTL values.
-(define (produce-pmc-data-2 start end tss-data)
+  ;; Fitness for each day is calculated as the difference between ctl and atl
+  ;; of the PREVIOUS DAY!
+  (df-add-derived!
+   df
+   "form"
+   '("ctl" "atl")
+   (lambda (prev current)
+     (if prev
+         (match-let ([(list ctl atl) prev])
+           (- ctl atl))
+         0)))
 
-  (define search-start (start-of-day start))
-  (define search-end (start-of-day (+ end (* 24 3600))))
+  df)
 
-  (define atl-filter (make-low-pass-filter (* atl-range day-in-seconds) #f))
-  (define ctl-filter (make-low-pass-filter (* ctl-range day-in-seconds) #f))
-
-  (let ((result '()))
-    (let loop ((day search-start))
-      (when (< day search-end)
-        (let* ((tss (hash-ref tss-data day 0))
-               (v (vector day tss))
-               (ctl (vector-ref (ctl-filter v) 1))
-               (atl (vector-ref (atl-filter v) 1)))
-          (set! result (cons (vector day ctl atl tss) result)))
-        (loop (+ day (* 24 3600)))))
-    (reverse result)))
-
-(define (produce-pmc-data/method-2 start end db)
-  (let ((samples (get-daily-tss start end db)))
-    (produce-pmc-data-2 start end samples)))
-
-(define (get-fitness-data-series pmc-data)
-  (for/list ((e (in-list pmc-data)))
-    (vector (vector-ref e 0) (vector-ref e 1))))
-
-(define (get-fatigue-data-series pmc-data)
-  (for/list ((e (in-list pmc-data)))
-    (vector (vector-ref e 0) (vector-ref e 2))))
-
-;; NOTE: the form computed "today" is applied the next day.  That is, form is
-;; plotted at the start of the day, fitness and fatigue at the end of the day.
-;; See also issue #2
-(define (get-form-data-series pmc-data)
-  (for/list ((e (in-list pmc-data))
-             (next (in-list (if (pair? pmc-data) (cdr pmc-data) '()))))
-    (vector (vector-ref next 0) (- (vector-ref e 1) (vector-ref e 2)))))
-
-(define (get-tss-data-series pmc-data)
-  ;; NOTE: TSS data series does not contain zeroes
-  (for/list ((e (in-list pmc-data)))
-             ;; #:when (> (vector-ref e 3) 0))
-    (vector (vector-ref e 0) (vector-ref e 3))))
-
-;; Find the performance data corresponding to TIMESTAMP inside PMC-DATA.
-;; Returns a list of 5 values:
-;;
-;; timestamp -- the start of day timestamp,
-;;
-;; CTL -- form, or chronic training load for the day,
-;;
-;; ATL -- fatigue, or acute training load for the day,
-;;
-;; TSB -- fitness, or training stress balance, calculated as CTL - ATL on the
-;; *previous* day (see issue #2)
-;;
-;; TSS -- total training stress for the day
-;;
-;; NOTE that TSB or form is computed on yesterdays values.  I.e. form is shown
-;; at the beginning of the day, while ATL, CTL are shown at the end of the
-;; day.  See also issue #2
 (define (get-pmc-data-for-timestamp pmc-data timestamp)
-  (for/or ((yesterday pmc-data)
-           (today (cdr pmc-data)))
-    (match-define (vector ts ctl atl tss) today)
-    (and (> timestamp ts)
-         (< (- timestamp ts) (* 24 3600))
-         (match-let (((vector yts yctl yatl ytss) yesterday))
-           (list ts ctl atl (- yctl yatl) tss)))))
+  ;; We cannot use df-lookup here, as it would return the first entry with a
+  ;; time stamp greater than TIMESTAMP, and we want the earlier one, since
+  ;; timestamps record the start of the day.
+  (define index (df-index-of pmc-data "timestamp" timestamp))
+  (if (> index 0)                       ; no entry before the first one
+      (df-ref* pmc-data (sub1 index) "timestamp" "day" "ctl" "atl" "form" "tss")
+      #f))
 
 (define (make-form-renderer data)
-  (let ((fdata (get-form-data-series data))
-        (zeroes (for/list ((e (in-list data)))
-                  (vector (vector-ref e 0) 0))))
+  (let* ((fdata (df-select* data "tsmidday" "form"))
+         (zeroes (for/list ((e (in-vector fdata)))
+                   (vector (vector-ref e 0) 0))))
     (lines-interval
      fdata zeroes
-     #:color "blue"
+     #:color '(0 119 187)               ; blue
      #:line1-width 2.0
      #:line2-width 0
      #:alpha 0.2
      #:label "Form")))
 
-(define *sea-green* '(#x2e #x8b #x57))
-(define *sea-green-hl* (make-object color% #x2e #x8b #x57 0.2))
+;; Return true if the entry V have a TSS value.  We fill our data set with
+;; zeroes for days with no activities.  We use this function to filter out
+;; days with no TSS in `make-tss-renderer`.
+(define (have-tss? v)
+  (let ([tss (vector-ref v 1)])
+    (and (real? tss) (> tss 0))))
 
 (define (make-tss-renderer data)
-  (let ((tdata (get-tss-data-series data)))
-    (points tdata
-            #:color "black"
-            #:fill-color "purple"
-            #:size 7
-            #:line-width 1.5
-            #:label "Training Stress")))
+  (points (df-select* data "tsmidday" "tss" #:filter have-tss?)
+          #:color "black"
+          #:fill-color '(51 187 238)  ; cyan
+          #:size 7
+          #:line-width 0.5
+          #:sym 'fullcircle4
+          #:label "Training Stress"))
 
 (define (make-fitness-renderer data)
-  (let ((fdata (get-fitness-data-series data)))
-    (lines fdata #:color *sea-green* #:width 3.0 #:label "Fitness")))
-
-(define *dark-red* '(#x8b #x00 #x00))
+  (lines (df-select* data "tsmidday" "ctl")
+         #:color '(0 153 136)         ; teal
+         #:width 3.0
+         #:label "Fitness"))
 
 (define (make-fatigue-renderer data)
-  (let ((fdata (get-fatigue-data-series data)))
-    (lines fdata #:color *dark-red* #:width 1.5 #:label "Fatigue")))
+  (lines (df-select* data "tsmidday" "atl")
+         #:color
+         '(204 51 17)                 ; red
+         #:width 1.5
+         #:label "Fatigue"))
 
 (define (make-renderer-tree params pmc-data session-markers)
 
@@ -330,36 +298,24 @@
 
   (define max-y
     (for/fold ([y 0])
-              ([item (in-list pmc-data)])
-      (match-define (vector ts ctl atl tss) item)
+              ([(ctl atl tss) (in-data-frame pmc-data "ctl" "atl" "tss")])
       (max y (if show-fitness? ctl 0) (if show-fatigue? atl 0) (if show-tss? tss 0))))
 
+  (define renderer-tree
+    (list (tick-grid)
+          (make-session-marker-renderers
+           session-markers
+           #:y (+ max-y 20)
+           #:color "dark orange")
+          (and show-form? (make-form-renderer pmc-data))
+          (and show-fitness? (make-fitness-renderer pmc-data))
+          (and show-fatigue? (make-fatigue-renderer pmc-data))
+          (and show-tss? (make-tss-renderer pmc-data))
+          ;; Add a "today" vertical line to the plot
+          (vrule (current-seconds))))
 
-  (let ((rt (list (tick-grid)
-                  (make-session-marker-renderers session-markers
-                                                 #:y (+ max-y 20)
-                                                 #:color "dark orange"))))
-    (when show-form?
-      (let ((form-renderer (make-form-renderer pmc-data)))
-        (set! rt (cons form-renderer rt))))
-
-    (when show-fitness?
-      (let ((fitness-renderer (make-fitness-renderer pmc-data)))
-        (set! rt (cons fitness-renderer rt))))
-
-    (when show-fatigue?
-      (let ((fatigue-renderer (make-fatigue-renderer pmc-data)))
-        (set! rt (cons fatigue-renderer rt))))
-
-    (when show-tss?
-      (let ((daily-tss-renderer (make-tss-renderer pmc-data)))
-        (set! rt (cons daily-tss-renderer rt))))
-
-    ;; Add a "today" vertical line to the plot
-    (set! rt
-          (cons (vrule (current-seconds)) rt))
-
-    rt))
+  ;; Remove #f values from the renderer tree -- for plots that we don't show.
+  (filter values renderer-tree))
 
 (define (generate-plot output-fn renderer-tree)
   (parameterize ([plot-x-ticks (pmc-date-ticks)])
@@ -392,13 +348,24 @@
    renderer-tree))
 
 (define pmc-trends-chart%
-  (class trends-chart% (init-field database) (super-new)
+  (class trends-chart%
+    (init-field database)
+    (super-new)
+
+    (define *sea-green-hl* (make-object color% #x2e #x8b #x57 0.2))
 
     (define data-valid? #f)
+
     (define pmc-data #f)
+    (define pmc-sessions #f)
     (define session-markers '())        ; see read-session-markers
+
     (define cached-day #f)
     (define cached-badge #f)
+    (define cached-session-badges (make-hash))
+
+    (define plot-scale-x 1)
+    (define plot-scale-y 1)
 
     (define/override (make-settings-dialog)
       (new pmc-chart-settings%
@@ -409,7 +376,10 @@
     (define/override (invalidate-data)
       (set! data-valid? #f)
       (set! cached-day #f)
-      (set! cached-badge #f))
+      (set! cached-badge #f)
+      (set! plot-scale-x 1)
+      (set! plot-scale-y 1)
+      (set! cached-session-badges (make-hash)))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'session-deleted #f)
@@ -419,62 +389,93 @@
     (define/override (export-data-to-file file formatted?)
       (when pmc-data
         (call-with-output-file file
-          (lambda (out) (export-data-as-csv out formatted?))
-          #:mode 'text #:exists 'truncate)))
+          (lambda (out) (df-write/csv pmc-data out))
+          #:mode 'text
+          #:exists 'truncate)))
 
-    (define (export-data-as-csv out formatted?)
-      (define (fmt val) (~r val #:precision 2 #:notation 'positional))
-      (write-string "Day, ATL, CTL, TSB, Stress" out)
-      (newline out)
-      ;; PMC is computed well in advance to compensate for the long ramp up
-      ;; time of ATL CTL values.  Only print out the actual range, values
-      ;; before start-date are not accurate.
-      (let ((params (send this get-chart-settings)))
-        (match-define (cons start-date end-date)
-          (hash-ref params 'timestamps (cons 0 0)))
-        (for ((datum pmc-data) #:when (>= (vector-ref datum 0) start-date))
-          (match-define (vector day ctl atl tss) datum)
-          (write-string
-           (format "~a, ~a, ~a, ~a, ~a~%"
-                   (calendar-date->string day)
-                   (fmt atl) (fmt ctl) (fmt (- ctl atl)) (fmt tss))
-           out))))
+    (define/private (get-session-badge ts day)
+      (define b (hash-ref cached-session-badges day #f))
+      (unless b
+        (when pmc-sessions
+          (let-values ([(start stop) (df-equal-range pmc-sessions "day" day)])
+            (define sessions
+              (for/fold ([result (list (list "" (calendar-date->string ts)))])
+                        ([(h t sport sub-sport)
+                          (in-data-frame pmc-sessions "headline" "tss" "sport" "sub_sport"
+                                         #:start start #:stop stop)])
+                (cons (list #f (get-sport-name sport sub-sport))
+                      (cons (list (~r t #:precision 0) h)
+                            result))))
+            (set! b (make-hover-badge sessions))
+            (hash-set! cached-session-badges day b))))
+      b)
+
+    (define/private (get-day-badge ts day ctl atl tsb tss params)
+      (unless (eq? cached-day day)
+        (define info
+          (filter
+           values                      ; remove any #f entries generated below
+           (list (and (hash-ref params 'show-tss? #f)
+                      (list "Stress" (~r tss #:precision 1)))
+                 (and (hash-ref params 'show-fatigue? #t)
+                      (list "Fatigue" (~r atl #:precision 1)))
+                 (and (hash-ref params 'show-fitness? #t)
+                      (list "Fitness" (~r ctl #:precision 1)))
+                 (and (hash-ref params 'show-form? #t)
+                      (list "Form" (~r tsb #:precision 1)))
+                 (list "Date" (calendar-date->string ts)))))
+        (set! cached-day day)
+        (set! cached-badge (make-hover-badge info)))
+      cached-badge)
 
     (define (plot-hover-callback snip event x y)
-      (define info '())
-      (define (add-info tag val) (set! info (cons (list tag val) info)))
-      (define renderers '())
-      (define (add-renderer r) (set! renderers (cons r renderers)))
-      (when (good-hover? snip x y event)
-        (let ((entry (get-pmc-data-for-timestamp pmc-data x))
-              (params (send this get-chart-settings)))
-          (when entry
-            (match-define (list ts ctl atl tsb tss) entry)
-            ;; Highlight the entire day -- while the plot is linear, values
-            ;; are only computed for an entire day.
-            (add-renderer (hover-vrange ts (+ ts (* 24 3600)) *sea-green-hl*))
-            (unless (eq? cached-day ts)
-              (add-info "Date" (calendar-date->string ts))
-              (when (hash-ref params 'show-form? #t)
-                (add-info "Form" (~r tsb #:precision 1)))
-              (when (hash-ref params 'show-fitness? #t)
-                (add-info "Fitness" (~r ctl #:precision 1)))
-              (when (hash-ref params 'show-fatigue? #t)
-                (add-info "Fatigue" (~r atl #:precision 1)))
-              (when (hash-ref params 'show-tss? #f)
-                (add-info "Stress" (~r tss #:precision 1)))
-              (unless (null? info)
-                (set! cached-badge (make-hover-badge info))))
-            (when cached-badge (add-renderer (hover-label x y cached-badge))))))
-      (set-overlay-renderers snip renderers))
+      (define renderers
+        (if (good-hover? snip x y event)
+            (let ([entry (get-pmc-data-for-timestamp pmc-data x)])
+              (if entry
+                  (match-let ([(vector ts day ctl atl tsb tss) entry])
+                    (define params (send this get-chart-settings))
+                    (if (and (> tss 0)  ; only when there's some activity
+                             (hash-ref params 'show-tss? #f)
+                             (< (/ (abs (- ts x)) plot-scale-x) 10)
+                             (< (/ (abs (- tss y)) plot-scale-y) 10))
+                        ;; Mouse cursor is close to one of the TSS points, and
+                        ;; they are shown on the plot.  Display the session(s)
+                        ;; associated with that TSS point
+                        (list
+                         (points
+                          (list (vector ts tss))
+                          #:color "black"
+                          #:fill-color '(238 51 119)  ; magenta
+                          #:size 14
+                          #:line-width 0.5
+                          #:sym 'fullcircle4)
+                         (let ([b (get-session-badge ts day)])
+                           (if b (hover-label x y b) null)))
+
+                        ;; Otherwise, highlight the entire day -- while the
+                        ;; plot is linear, values are only computed for an
+                        ;; entire day.
+                        (list
+                          (hover-vrange ts (+ ts (* 24 3600)) *sea-green-hl*)
+                          (let ([b (get-day-badge ts day ctl atl tsb tss params)])
+                            (if b (hover-label x y b) null)))))
+                  ;; No entry
+                  null))
+            ;; Not a good hover
+            null))
+        (set-overlay-renderers snip renderers))
 
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
       (let ((params (send this get-chart-settings)))
         (if params
-            (let ((rt (make-renderer-tree params pmc-data session-markers)))
-              (let ((snip (insert-plot-snip canvas params rt)))
-                (set-mouse-event-callback snip plot-hover-callback)))
+            (let* ([rt (make-renderer-tree params pmc-data session-markers)]
+                   [snip (insert-plot-snip canvas params rt)])
+              (set-mouse-event-callback snip plot-hover-callback)
+              (define-values (sx sy) (compute-plot-dpp snip))
+              (set! plot-scale-x sx)
+              (set! plot-scale-y sy))
             #f)))
 
     (define/override (save-plot-image file-name width height)
@@ -484,7 +485,7 @@
             (let ((rt (make-renderer-tree params pmc-data session-markers)))
               (save-plot-to-file file-name width height params rt))))))
 
-    (define (maybe-build-pmc-data)
+    (define/private (maybe-build-pmc-data)
       (unless data-valid?
         (let ((params (send this get-chart-settings)))
           (when params
@@ -494,9 +495,10 @@
             ;; NOTE: we extend the range so ATL CTL at the start of the range
             ;; is correctly computed (w/ exponential averaging, all past TSS
             ;; values have a contribution to the present)
-            (let ((start (max 0 (- start-date (* 4 ctl-range 24 3600))))
+            (let ((start (max 0 (- start-date (* 4 default-ctl-range 24 3600))))
                   (end end-date))
-              (set! pmc-data (produce-pmc-data/method-2 start end database)))
+              (set! pmc-data (prepare-pmc database start end))
+              (set! pmc-sessions (read-pmc-sessions database start end)))
             (set! session-markers (read-session-markers database params))
             (set! data-valid? #t)))))
 
