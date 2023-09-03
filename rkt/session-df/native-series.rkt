@@ -1057,6 +1057,24 @@
 (register-series-metadata axis-right-pedal-smoothness)
 (provide axis-right-pedal-smoothness)
 
+
+
+;;....................................... axis-combined-pedal-smoothness ....
+
+(define axis-combined-pedal-smoothness
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Pedal Smoothness, Both Pedals (%)")
+         (define/override (axis-label) "Pedal Smoothness, Combined (%)")
+         (define/override (name) "PSmth Combined")
+         (define/override (should-filter?) #t)
+         (define/override (y-range) (cons 0 50))
+         (define/override (plot-label) "Both Pedals")
+         (define/override (series-name) "cpsmth")
+         (define/override (fractional-digits) 1))))
+(register-series-metadata axis-combined-pedal-smoothness)
+(provide axis-combined-pedal-smoothness)
+
+
 
 ;;..................................... axis-left-platform-centre-offset ....
 

@@ -1238,7 +1238,7 @@
     "hr" "hr-pct" "hr-zone"
     "cad" "stride"
     "vosc" "vratio" "gct" "pgct"
-    "pwr" "pwr-zone" "wbal" "lrbal" "lteff" "rteff" "lpsmth" "rpsmth"
+    "pwr" "pwr-zone" "wbal" "lrbal" "lteff" "rteff" "lpsmth" "rpsmth" "cpsmth"
     "lpco" "rpco"
     "lpps" "lppe" "rpps" "rppe" "lppa" "rppa"
     "lppps" "lpppe" "rppps" "rpppe" "lpppa" "rpppa"

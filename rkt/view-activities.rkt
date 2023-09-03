@@ -515,6 +515,14 @@ select X.session_id
                   fn
                   #:default-visible? #f))
 
+       (let ((fn (lambda (row) (db-row-ref row "cpdlsmth" headers 0))))
+         (qcolumn "Combined PSmth"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (string-append (~r v #:precision 1) "%") "")))
+                  fn
+                  #:default-visible? #f))
+
        (let ((fn (lambda (row) (db-row-ref row "lpco" headers #f))))
          (qcolumn "Left PCO"
                   (lambda (row)

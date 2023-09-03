@@ -1370,6 +1370,10 @@
     (super-new [primary-y-axis axis-left-pedal-smoothness]
                [secondary-y-axis axis-right-pedal-smoothness])))
 
+(define cpsmth-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-combined-pedal-smoothness])))
+
 (define pco-graph%
   (class graph-view%
     (super-new [primary-y-axis axis-left-platform-centre-offset]
@@ -1842,6 +1846,7 @@
                                 lrbal-graph%
                                 teff-graph%
                                 psmth-graph%
+                                cpsmth-graph%
                                 pco-graph%
                                 pp-start-graph%
                                 pp-end-graph%

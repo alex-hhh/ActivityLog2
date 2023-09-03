@@ -147,6 +147,7 @@
                    avg_right_torque_effectiveness,
                    avg_left_pedal_smoothness,
                    avg_right_pedal_smoothness,
+                   avg_combined_pedal_smoothness,
                    avg_left_pco,
                    avg_right_pco,
                    avg_left_pp_start,
@@ -160,7 +161,7 @@
                    aerobic_decoupling,
                    avg_temperature,
                    max_temperature)
-                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields `(total-timer-time total-elapsed-time
                                    total-distance total-calories avg-speed
                                    max-speed avg-heart-rate max-heart-rate
@@ -175,6 +176,7 @@
                                    left-right-balance
                                    avg-left-torque-effectiveness avg-right-torque-effectiveness
                                    avg-left-pedal-smoothness avg-right-pedal-smoothness
+                                   avg-combined-pedal-smoothness
                                    avg-left-pco avg-right-pco
                                    avg-left-pp-start avg-left-pp-end
                                    avg-right-pp-start avg-right-pp-end
@@ -306,10 +308,10 @@
                    vertical_oscillation, stance_time, stance_time_percent,
                    power, accumulated_power, left_right_balance,
                    left_torque_effectiveness, right_torque_effectiveness,
-                   left_pedal_smoothness, right_pedal_smoothness,
+                   left_pedal_smoothness, right_pedal_smoothness, combined_pedal_smoothness,
                    left_pco, right_pco, left_pp_start, left_pp_end, right_pp_start, right_pp_end,
                    left_ppp_start, left_ppp_end, right_ppp_start, right_ppp_end, temperature, tile_code, geoid)
-                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
+                 values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")))
         (fields
          `(timestamp position-lat position-long altitude distance cadence
                      speed heart-rate vertical-oscillation
@@ -317,6 +319,7 @@
                      power accumulated-power left-right-balance
                      left-torque-effectiveness right-torque-effectiveness
                      left-pedal-smoothness right-pedal-smoothness
+                     combined-pedal-smoothness
                      left-pco right-pco
                      left-pp-start left-pp-end right-pp-start right-pp-end
                      left-ppp-start left-ppp-end right-ppp-start right-ppp-end
@@ -766,6 +769,7 @@
                          SS.avg_right_torque_effectiveness,
                          SS.avg_left_pedal_smoothness,
                          SS.avg_right_pedal_smoothness,
+                         SS.avg_combined_pedal_smoothness,
                          S.training_stress_score,
                          S.intensity_factor,
                          S.rpe_scale,
@@ -841,6 +845,7 @@
             SS.avg_right_torque_effectiveness,
             SS.avg_left_pedal_smoothness,
             SS.avg_right_pedal_smoothness,
+            SS.avg_combined_pedal_smoothness,
             S.training_stress_score,
             S.intensity_factor,
             S.rpe_scale,
@@ -879,7 +884,7 @@
                   avg-power max-power normalized-power
                   left-right-balance
                   avg-left-torque-effectiveness avg-right-torque-effectiveness
-                  avg-left-pedal-smoothness avg-right-pedal-smoothness
+                  avg-left-pedal-smoothness avg-right-pedal-smoothness avg-combined-pedal-smoothness
                   training-stress-score intensity-factor rpe-scale
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
@@ -923,6 +928,7 @@
                          SS.avg_right_torque_effectiveness,
                          SS.avg_left_pedal_smoothness,
                          SS.avg_right_pedal_smoothness,
+                         SS.avg_combined_pedal_smoothness,
                          SS.avg_left_pco,
                          SS.avg_right_pco,
                          SS.avg_left_pp_start,
@@ -954,7 +960,7 @@
                   avg-power max-power normalized-power
                   left-right-balance
                   avg-left-torque-effectiveness avg-right-torque-effectiveness
-                  avg-left-pedal-smoothness avg-right-pedal-smoothness
+                  avg-left-pedal-smoothness avg-right-pedal-smoothness avg-combined-pedal-smoothness
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
@@ -997,6 +1003,7 @@
                          SS.avg_right_torque_effectiveness,
                          SS.avg_left_pedal_smoothness,
                          SS.avg_right_pedal_smoothness,
+                         SS.avg_combined_pedal_smoothness,
                          SS.avg_left_pco,
                          SS.avg_right_pco,
                          SS.avg_left_pp_start,
@@ -1026,7 +1033,7 @@
                   avg-stance-time-percent
                   avg-power max-power normalized-power
                   avg-left-torque-effectiveness avg-right-torque-effectiveness
-                  avg-left-pedal-smoothness avg-right-pedal-smoothness
+                  avg-left-pedal-smoothness avg-right-pedal-smoothness avg-combined-pedal-smoothness
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end
@@ -1061,6 +1068,7 @@
                          T.right_torque_effectiveness,
                          T.left_pedal_smoothness,
                          T.right_pedal_smoothness,
+                         T.combined_pedal_smoothness,
                          T.left_pco,
                          T.right_pco,
                          T.left_pp_start,
@@ -1086,7 +1094,7 @@
                               stance-time stance-time-percent
                               power accumulated-power left-right-balance
                               left-torque-effectiveness right-torque-effectiveness
-                              left-pedal-smoothness right-pedal-smoothness
+                              left-pedal-smoothness right-pedal-smoothness combined-pedal-smoothness
                               left-pco right-pco
                               left-pp-start left-pp-end right-pp-start right-pp-end
                               left-ppp-start left-ppp-end right-ppp-start right-ppp-end
@@ -1150,6 +1158,7 @@
     avg-right-torque-effectiveness
     avg-left-pedal-smoothness
     avg-right-pedal-smoothness
+    avg-combined-pedal-smoothness
     avg-left-pco
     avg-right-pco
     avg-left-pp-start

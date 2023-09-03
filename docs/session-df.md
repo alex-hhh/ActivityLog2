@@ -148,6 +148,8 @@ Grade Adjusted Pace is calculated using the model described
   respectively
 * **lpsmth**, **rpsmth** is the pedal smoothness, for left and right pedal
   respectively
+* **cpsmth** is the combined pedal smoothness, for power meters that cannot
+  provide separate readings for left and right pedals.
 * **lpco**, **rpco** is the platform center offset for left and right pedal
   respectively.  The value is in millimeters.
 * **lpps**, **lppe**, **rpps**, **rppe** is the power phase start and end

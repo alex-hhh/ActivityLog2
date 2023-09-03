@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(47);
+insert into SCHEMA_VERSION(version) values(48);
 
 
 --........................................................ Enumerations ....
@@ -318,6 +318,7 @@ create table SECTION_SUMMARY (
   avg_right_torque_effectiveness real,
   avg_left_pedal_smoothness real,
   avg_right_pedal_smoothness real,
+  avg_combined_pedal_smoothness real, -- some power meters provide a single combined value
 
   avg_left_pco real,                    -- PCO = platform centre offset, mm
   avg_right_pco real,
@@ -431,6 +432,7 @@ create table A_TRACKPOINT (
   right_torque_effectiveness real,
   left_pedal_smoothness real,
   right_pedal_smoothness real,
+  combined_pedal_smoothness real, -- some power meters provide a single, combined value
 
   left_pco real,                        -- PCO = platform centre offset (mm)
   right_pco real,
@@ -1296,6 +1298,7 @@ create view V_GPS_SEGMENT_MATCH_LIST as
          SS.avg_right_torque_effectiveness as rtorqeff,
          SS.avg_left_pedal_smoothness as lpdlsmth,
          SS.avg_right_pedal_smoothness as rpdlsmth,
+         SS.avg_combined_pedal_smoothness as cpdlsmth,
          SS.avg_left_pco as lpco,
          SS.avg_right_pco as rpco,
          SS.avg_left_pp_start as lppstart,
@@ -1465,6 +1468,7 @@ create view V_ACTIVITY_LIST as
          SS.avg_right_torque_effectiveness as rtorqeff,
          SS.avg_left_pedal_smoothness as lpdlsmth,
          SS.avg_right_pedal_smoothness as rpdlsmth,
+         SS.avg_combined_pedal_smoothness as cpdlsmth,
          SS.avg_left_pco as lpco,
          SS.avg_right_pco as rpco,
          SS.avg_left_pp_start as lppstart,

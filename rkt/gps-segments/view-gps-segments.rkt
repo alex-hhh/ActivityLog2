@@ -385,6 +385,14 @@
                        fn
                        #:default-visible? #f))
 
+            (let ((fn (lambda (row) (column-ref-by-name row "cpdlsmth" #f))))
+              (qcolumn "Combined PSmth"
+                       (lambda (row)
+                         (let ((v (fn row)))
+                           (if v (~r v #:precision 1) "")))
+                       fn
+                       #:default-visible? #f))
+
             (let ((fn (lambda (row) (column-ref-by-name row "lpco" #f))))
               (qcolumn "Left PCO"
                        (lambda (row)

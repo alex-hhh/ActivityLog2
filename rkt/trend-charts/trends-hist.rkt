@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -79,6 +79,7 @@
    axis-left-right-balance
    (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
    (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
+   axis-combined-pedal-smoothness
    (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
    (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
    (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)

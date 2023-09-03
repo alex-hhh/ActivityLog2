@@ -593,6 +593,7 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Right TEff" lap-avg-right-torque-effectiveness n->string #:default-visible? #f)
    (mk-qcolumn "Left PSmth" lap-avg-left-pedal-smoothness n->string #:default-visible? #f)
    (mk-qcolumn "Right PSmth" lap-avg-right-pedal-smoothness n->string #:default-visible? #f)
+   (mk-qcolumn "Combined PSmth" lap-avg-combined-pedal-smoothness n->string #:default-visible? #f)
 
    (mk-qcolumn "Left PCO" lap-avg-left-pco
                    (lambda (val) (number->string (exact-round val))) #:default-visible? #f)

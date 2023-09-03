@@ -262,14 +262,17 @@
    (badge-field-def "Pedal Smoothness: "
                     (lambda (session)
                       (let ((left (session-avg-left-pedal-smoothness session))
-                            (right (session-avg-right-pedal-smoothness session)))
+                            (right (session-avg-right-pedal-smoothness session))
+                            (combined (session-avg-combined-pedal-smoothness session)))
                         (if (and left right)
                             (cons left right)
-                            #f)))
+                            combined)))
                     (lambda (v)
-                      (format "~a% L, ~a% R"
-                              (~r (car v) #:precision 1)
-                              (~r (cdr v) #:precision 1))))
+                      (if (cons? v)
+                          (format "~a% L, ~a% R"
+                                  (~r (car v) #:precision 1)
+                                  (~r (cdr v) #:precision 1))
+                          (format "~a%" (~r v #:precision 1)))))
    (badge-field-def "Platform Centre Offset: "
                     (lambda (session)
                       (let ((left (session-avg-left-pco session))

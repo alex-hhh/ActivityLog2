@@ -327,7 +327,9 @@ select count(*)
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
-      "./test-fit/f0018.fit" '(18 20 41 20 34) '(583 29 10218 10 8612)
+      ;; This file has a single 0 value inside the series cpsmth, for combined
+      ;; pedal smoothness.  It also has l/r smoothness values...
+      "./test-fit/f0018.fit" '(18 20 42 20 34) '(583 29 10218 10 8612)
       #:extra-db-checks check-stryd-xdata
       #:expected-session-count 5))
    (test-case "f0019.fit"

@@ -81,6 +81,7 @@
    axis-left-right-balance
    (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
    (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
+   axis-combined-pedal-smoothness
    (list "Platform Center Offset" axis-left-platform-centre-offset axis-right-platform-centre-offset)
    (list "Power Phase Start" axis-left-power-phase-start axis-right-power-phase-start)
    (list "Power Phase End" axis-left-power-phase-end axis-right-power-phase-end)

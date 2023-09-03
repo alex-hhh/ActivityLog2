@@ -52,6 +52,7 @@
   (rteff #x64 #x95 #xed)
   (lpsmth #xff #x7f #x50)
   (rpsmth #x64 #x95 #xed)
+  (cpsmth #x64 #x95 #xed)               ; combined is same color as the right
   (lpco #xff #x7f #x50)
   (rpco #x64 #x95 #xed)
   (lpps #xff #x7f #x50)

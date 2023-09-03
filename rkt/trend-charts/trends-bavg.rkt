@@ -64,6 +64,7 @@
    axis-right-torque-effectiveness
    axis-left-pedal-smoothness
    axis-right-pedal-smoothness
+   axis-combined-pedal-smoothness
    axis-left-power-phase-angle
    axis-left-peak-power-phase-angle
    axis-right-power-phase-angle

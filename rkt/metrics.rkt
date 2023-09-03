@@ -243,9 +243,11 @@
          (meta (find-series-metadata series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
          (hist (df-histogram df series #:bucket-width bw)))
-    (for/list ((item hist) #:when (> (vector-ref item 1) 0))
-      (match-define (vector value rank) item)
-      (list value rank))))
+    (if hist
+        (for/list ([item (in-vector hist)] #:when (> (vector-ref item 1) 0))
+          (match-define (vector value rank) item)
+          (list value rank))
+        null)))
 
 (define db-hist-insert-stmt
   (virtual-statement

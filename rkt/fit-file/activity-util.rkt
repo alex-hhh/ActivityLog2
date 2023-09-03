@@ -2,7 +2,7 @@
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -335,6 +335,7 @@
  session-avg-pedal-smoothness
  session-avg-left-pedal-smoothness
  session-avg-right-pedal-smoothness
+ session-avg-combined-pedal-smoothness
  session-left-right-balance
 
  session-laps)
@@ -517,6 +518,9 @@
 (define (session-avg-right-pedal-smoothness session)
   (dict-ref session 'avg-right-pedal-smoothness #f))
 
+(define (session-avg-combined-pedal-smoothness session)
+  (dict-ref session 'avg-combined-pedal-smoothness #f))
+
 (define (session-avg-pedal-smoothness session)
   (let ((left (dict-ref session 'avg-left-pedal-smoothness #f))
         (right (dict-ref session 'avg-right-pedal-smoothness #f)))
@@ -570,6 +574,7 @@
  lap-avg-right-torque-effectiveness
  lap-avg-left-pedal-smoothness
  lap-avg-right-pedal-smoothness
+ lap-avg-combined-pedal-smoothness
  lap-left-right-balance
 
 
@@ -618,6 +623,7 @@
 (define lap-avg-right-torque-effectiveness session-avg-right-torque-effectiveness)
 (define lap-avg-left-pedal-smoothness session-avg-left-pedal-smoothness)
 (define lap-avg-right-pedal-smoothness session-avg-right-pedal-smoothness)
+(define lap-avg-combined-pedal-smoothness session-avg-combined-pedal-smoothness)
 (define lap-left-right-balance session-left-right-balance)
 
 (define lap-total-ascent session-total-ascent)
