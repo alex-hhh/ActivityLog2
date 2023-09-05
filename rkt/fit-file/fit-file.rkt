@@ -1059,6 +1059,38 @@
 
       (define p (process-fields lap))
 
+      ;; Wattbike lap start time adjustment.  Wattbike's start-time is
+      ;; "seconds since the start of the activitiy", plus they subtract the
+      ;; FIT-epoch from it, resulting in a negative number, cast this signed
+      ;; value to an unsigned one and write it to the file.  When we read it
+      ;; back, this produces a very large 32 bit unsigned value, to which we
+      ;; add the *fit-epoch*, since we assume it is a normal FIT date-time
+      ;; value.
+      ;;
+      ;; All these adjustments result in a completely unrealistic timestamp
+      ;; and here we attempt to undo this damage...
+      (let ([st (dict-ref p 'start-time #f)])
+
+        ;; If we have a timestamp and it is a negative value in signed-32-bit
+        ;; representation...
+        (when (and st (> st #x8000000))
+          (let ([activity-start (or activity-timestamp (get-start-timestamp))])
+            (when activity-start
+              ;; ... plus, this timestamp is waaay off from the activtiy start
+              ;; -- this check allows us to use correct FIT timestamps beyond
+              ;; 2038, failing Wattbike timestamps instead.
+              (when (> (- st activity-start) (* 24 3600 10))
+                ;; Full "undo damage" formula is:
+                ;;
+                ;; * t1 = st - fit-epoch   ; undo our fit-epoch adjustment
+                ;; * t2 = t1 - #x100000001 ; convert to signed value
+                ;; * t3 = t2 + fit-epoch   ; undo Wattbike fit-epoch adjustment
+                ;;
+                ;; All this simplifies to: (- st #x100000001), since we
+                ;; subtract than add fit-epoch.
+                (let ([ast (+ (- st #x100000001) activity-start)])
+                  (set! p (dict-set (dict-remove p 'start-time) 'start-time ast))))))))
+
       (define-values (lap-with-records remaining-lengths remaining-records)
         (cond ((and (null? lengths) (null? records))
                ;; Easy case (we hope), just a lap with no additional data and

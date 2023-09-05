@@ -23,8 +23,13 @@
 (define *fit-epoch* (find-seconds 0 0 0 31 12 1989 #f))
 (provide *fit-epoch*)
 
+;; Convert a timestamp from FIT epoch to UNIX epoch.
+;;
+;; NOTE: time values below #x10000000 are meant to represent "seconds since
+;; device was powered on" -- if the entire fit file uses the same "epoch", it
+;; does not matter if we adjust for the *fit-epoch*.  Also, "time since
+;; powered on" is not really meaningfull for timestamps anyway...
 (define (fit-time->unix-time t)
-  ;; Convert a timestamp from FIT epoch to UNIX epoch
   (+ t *fit-epoch*))
 (provide fit-time->unix-time)
 
@@ -52,7 +57,7 @@
   (exact-round (* (/ d1 180.0) (expt 2 31))))
 
 (provide degrees->semicircles)
-  
+
 (define (make-enum-lookup alist)
   (lambda (v)
     (let ((c (assq v alist)))
@@ -64,6 +69,20 @@
 (define (div-by-10000 v) (/ v 10000.0))
 (define (div-by-128 v) (/ v 128.0))
 (define (div-by-2 v) (/ v 2.0))
+
+(define (convert-summary-left-right-balance v)
+  ;; Left-Right ballance in lap and session summaries is encoded differently
+  ;; from the values in record fields -- this is a 16 bit value, instead of an
+  ;; 8 bit one.  However, Wattbike seems to use the same encoding as for
+  ;; records.
+  ;;
+  ;; We use a heuristic to detemine which encoding it uses: since the 16 bit
+  ;; value is multipled by 100, we would expect correctly encoded values to be
+  ;; over 255, otherwise they would represent the highly unlikely split of 2%
+  ;; right - 98% left.
+  (if (< v #xff)
+      (bitwise-and v #x7f)              ; Wattbike incorrect encoding
+      (/ (bitwise-and v #x7fff) 100.0)))
 
 
 ;.................................................... field definitions ....
@@ -1174,7 +1193,7 @@
     (nec-long              . ,semicircles->degrees)
     (swc-lat               . ,semicircles->degrees)
     (swc-long              . ,semicircles->degrees)
-    (left-right-balance    . ,(lambda (v) (/ (bitwise-and v #x7fff) 100.0)))
+    (left-right-balance    . ,convert-summary-left-right-balance)
     (avg-left-torque-effectiveness . ,div-by-2)
     (avg-right-torque-effectiveness . ,div-by-2)
     (avg-left-pedal-smoothness . ,div-by-2)
@@ -1220,7 +1239,7 @@
     (avg-stance-time          . ,div-by-10)
     (avg-fractional-cadence   . ,div-by-128)
     (max-fractional-cadence   . ,div-by-128)
-    (left-right-balance    . ,(lambda (v) (/ (bitwise-and v #x7fff) 100)))
+    (left-right-balance    . ,convert-summary-left-right-balance)
     (avg-left-torque-effectiveness . ,div-by-2)
     (avg-right-torque-effectiveness . ,div-by-2)
     (avg-left-pedal-smoothness . ,div-by-2)

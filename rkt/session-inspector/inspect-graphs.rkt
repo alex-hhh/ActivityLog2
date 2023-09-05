@@ -644,11 +644,15 @@
         (series (send (ps-x-axis ps) series-name)))
     (if (and (cons? ivl) df y)
         (let ((c (send y plot-color)))
-          (append
-           (if (is-lap-swimming/df? df)
-               (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
-               (ivl-extents df series (car ivl) (cdr ivl)))
-           (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
+          (define result
+            (append
+             (if (is-lap-swimming/df? df)
+                 (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
+                 (ivl-extents df series (car ivl) (cdr ivl)))
+             (list (make-object color% (send c red) (send c green) (send c blue) 0.2))))
+          (if (and (number? (car result)) (number? (cadr result)))
+              result
+              #f))
         #f)))
 
 ;; Construct an invertible-function? which transforms a value such that the
@@ -946,7 +950,9 @@
                            (if (is-lap-swimming/df? df)
                                (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
                                (ivl-extents df series (car ivl) (cdr ivl)))])
-                (stretch-transform start end 30))
+                (if (and (number? start) (number? end))
+                    (stretch-transform start end 30)
+                    id-transform))
               id-transform)))
 
       (define (get-x-axis-ticks)
@@ -954,10 +960,13 @@
               (ivl (ps-ivl ps))
               (series (send x-axis series-name)))
           (if (and (cons? ivl) (ps-zoom? ps))
-              (ticks-add ticks
-                         (if (is-lap-swimming/df? df)
-                             (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
-                             (ivl-extents df series (car ivl) (cdr ivl))))
+              (match-let ([(list start end)
+                           (if (is-lap-swimming/df? df)
+                               (ivl-extents/swim (pd-sdata pd) (car ivl) (cdr ivl))
+                               (ivl-extents df series (car ivl) (cdr ivl)))])
+                (if (and (number? start) (number? end))
+                    (ticks-add ticks (list start end))
+                    ticks))
               ticks)))
 
       (parameterize ([plot-x-transform (get-x-transform)]
@@ -1109,6 +1118,8 @@
         (refresh-plot)))
 
     (define/public (get-redline-renderer)
+      ;; NOTE: we might not have statistics for a series, if a graph is
+      ;; selected but there is no data for that graph...
       (define df (ps-df plot-state))
       (define sport (df-get-property df 'sport #f))
       (define primary-renderer
@@ -1117,20 +1128,22 @@
                (let* ([series (send metadata series-name)]
                       [st (df-statistics df series)]
                       [formatter (send metadata value-formatter sport)])
-                 (hrule (statistics-mean st)
-                        #:label (format "Avg ~a ~a"
-                                        (or (send metadata plot-label) "")
-                                        (formatter (statistics-mean st))))))))
+                 (and st
+                      (hrule (statistics-mean st)
+                             #:label (format "Avg ~a ~a"
+                                             (or (send metadata plot-label) "")
+                                             (formatter (statistics-mean st)))))))))
       (define secondary-renderer
         (let ([metadata (ps-y-axis2 plot-state)])
           (and metadata
                (let* ([series (send metadata series-name)]
                       [st (df-statistics df series)]
                       [formatter (send metadata value-formatter sport)])
-                 (hrule (statistics-mean st)
-                        #:label (format "Avg ~a ~a"
-                                        (or (send metadata plot-label) "")
-                                        (formatter (statistics-mean st))))))))
+                 (and st
+                      (hrule (statistics-mean st)
+                             #:label (format "Avg ~a ~a"
+                                             (or (send metadata plot-label) "")
+                                             (formatter (statistics-mean st)))))))))
 
       (filter values (list primary-renderer secondary-renderer)))
 
@@ -1485,7 +1498,7 @@
     (define (get-avg-speed)
       (unless avg-speed
         (let ((st (df-statistics (get-data-frame) "spd")))
-          (set! avg-speed (statistics-mean st))))
+          (set! avg-speed (and st (statistics-mean st)))))
       avg-speed)
 
     (define/override (get-redline-renderer)
@@ -1518,7 +1531,7 @@
     (define (get-avg-swolf)
       (unless avg-swolf
         (let ((st (df-statistics (get-data-frame) "swolf")))
-          (set! avg-swolf (statistics-mean st))))
+          (set! avg-swolf (and st (statistics-mean st)))))
       avg-swolf)
 
     (define/override (get-redline-renderer)
@@ -1549,7 +1562,7 @@
     (define (get-avg-stroke-count)
       (unless avg-stroke-count
         (let ((st (df-statistics (get-data-frame) "strokes")))
-          (set! avg-stroke-count (statistics-mean st))))
+          (set! avg-stroke-count (and st (statistics-mean st)))))
       avg-stroke-count)
 
     (define/override (get-redline-renderer)
@@ -1581,7 +1594,7 @@
     (define (get-avg-cadence)
       (unless avg-cadence
         (let ((st (df-statistics (get-data-frame) "cad")))
-          (set! avg-cadence (statistics-mean st))))
+          (set! avg-cadence (and st (statistics-mean st)))))
       avg-cadence)
 
     (define/override (get-redline-renderer)
