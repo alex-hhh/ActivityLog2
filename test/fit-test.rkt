@@ -347,7 +347,6 @@ select count(*)
       "./test-fit/f0025.fit" 29 2148
       #:extra-db-checks
       (lambda (db)
-        (void)
         (check-stryd-xdata db)
         ;; Stryd Pace Application
         (define app-id "8e471b4dddf4481a9861d80f22113f9a")
@@ -474,7 +473,6 @@ select count(*)
      (do-basic-checks
       "./test-fit/f0048.fit" 27 2191
       #:extra-df-checks (lambda (df)
-                          (void)
                           (check-true (df-contains? df "tempe"))
                           (check-true (df-contains? df "temperature")))))
    (test-case "f0049.fit"
@@ -511,6 +509,24 @@ select count(*)
      (do-basic-checks
       "./test-fit/f0051.fit" '(20 18 15 18 20) '(85 41 21 70 86)
       #:expected-session-count 5))
+   (test-case "f0052.fit"
+     (do-basic-checks
+      "./test-fit/f0052.fit" 26 3866
+      #:extra-df-checks
+      (lambda (df)
+        (check-true (df-contains? df "cpsmth")))))
+   (test-case "f0053.fit"
+     (do-basic-checks
+      "./test-fit/f0053.fit" 14 1399
+      #:extra-df-checks
+      (lambda (df)
+        (define limit (df-row-count df))
+        ;; All lap indexes must be valid
+        (for ([lap-start (in-vector (df-get-property df 'laps))])
+          (define index (df-index-of df "timestamp" lap-start))
+          (check-true (and (number? index)
+                           (>= index 0)
+                           (< index limit)))))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
