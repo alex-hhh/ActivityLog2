@@ -65,9 +65,10 @@
 (define-runtime-path p46-file "../sql/migrations/p46-aerolab.sql")
 (define-runtime-path p47-file "../sql/migrations/p47-new-sports.sql")
 (define-runtime-path p48-file "../sql/migrations/p48-pedal-smoothness.sql")
+(define-runtime-path p49-file "../sql/migrations/p49-time-zone.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 48)
+(define (schema-version) 49)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -101,7 +102,8 @@
    44 p45-file
    45 p46-file
    46 p47-file
-   47 p48-file))
+   47 p48-file
+   48 p49-file))
 
 (define the-current-database #f)
 

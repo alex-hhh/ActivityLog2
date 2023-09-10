@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(48);
+insert into SCHEMA_VERSION(version) values(49);
 
 
 --........................................................ Enumerations ....
@@ -127,7 +127,7 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('America/Atikokan'), ('America/Bahia'), ('America/Bahia_Banderas'), ('America/Barbados'), ('America/Belem'),
        ('America/Belize'), ('America/Blanc-Sablon'), ('America/Boa_Vista'), ('America/Bogota'), ('America/Boise'),
        ('America/Cambridge_Bay'), ('America/Campo_Grande'), ('America/Cancun'), ('America/Caracas'),
-       ('America/Cayenne'), ('America/Cayman'), ('America/Chicago'), ('America/Chihuahua'), ('America/Costa_Rica'),
+       ('America/Cayenne'), ('America/Cayman'), ('America/Ciudad_Juarez'), ('America/Chicago'), ('America/Chihuahua'), ('America/Costa_Rica'),
        ('America/Creston'), ('America/Cuiaba'), ('America/Curacao'), ('America/Danmarkshavn'), ('America/Dawson'),
        ('America/Dawson_Creek'), ('America/Denver'), ('America/Detroit'), ('America/Dominica'), ('America/Edmonton'),
        ('America/Eirunepe'), ('America/El_Salvador'), ('America/Fort_Nelson'), ('America/Fortaleza'),
@@ -143,18 +143,18 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('America/Mazatlan'), ('America/Menominee'), ('America/Merida'), ('America/Metlakatla'),
        ('America/Mexico_City'), ('America/Miquelon'), ('America/Moncton'), ('America/Monterrey'),
        ('America/Montevideo'), ('America/Montserrat'), ('America/Nassau'), ('America/New_York'),
-       ('America/Nipigon'), ('America/Nome'), ('America/Noronha'), ('America/North_Dakota/Beulah'),
+       ('America/Nome'), ('America/Noronha'), ('America/North_Dakota/Beulah'),
        ('America/North_Dakota/Center'), ('America/North_Dakota/New_Salem'), ('America/Ojinaga'),
-       ('America/Panama'), ('America/Pangnirtung'), ('America/Paramaribo'), ('America/Phoenix'),
+       ('America/Panama'), ('America/Paramaribo'), ('America/Phoenix'),
        ('America/Port-au-Prince'), ('America/Port_of_Spain'), ('America/Porto_Velho'), ('America/Puerto_Rico'),
-       ('America/Punta_Arenas'), ('America/Rainy_River'), ('America/Rankin_Inlet'), ('America/Recife'),
+       ('America/Punta_Arenas'), ('America/Rankin_Inlet'), ('America/Recife'),
        ('America/Regina'), ('America/Resolute'), ('America/Rio_Branco'), ('America/Santarem'),
        ('America/Santiago'), ('America/Santo_Domingo'), ('America/Sao_Paulo'), ('America/Scoresbysund'),
        ('America/Sitka'), ('America/St_Barthelemy'), ('America/St_Johns'), ('America/St_Kitts'),
        ('America/St_Lucia'), ('America/St_Thomas'), ('America/St_Vincent'), ('America/Swift_Current'),
-       ('America/Tegucigalpa'), ('America/Thule'), ('America/Thunder_Bay'), ('America/Tijuana'),
+       ('America/Tegucigalpa'), ('America/Thule'), ('America/Tijuana'),
        ('America/Toronto'), ('America/Tortola'), ('America/Vancouver'), ('America/Whitehorse'),
-       ('America/Winnipeg'), ('America/Yakutat'), ('America/Yellowknife'), ('Antarctica/Casey'),
+       ('America/Winnipeg'), ('America/Yakutat'), ('Antarctica/Casey'),
        ('Antarctica/Davis'), ('Antarctica/DumontDUrville'), ('Antarctica/Macquarie'), ('Antarctica/Mawson'),
        ('Antarctica/McMurdo'), ('Antarctica/Palmer'), ('Antarctica/Rothera'), ('Antarctica/Syowa'),
        ('Antarctica/Troll'), ('Antarctica/Vostok'), ('Arctic/Longyearbyen'), ('Asia/Aden'),
@@ -188,15 +188,15 @@ values ('Africa/Abidjan'), ('Africa/Accra'), ('Africa/Addis_Ababa'), ('Africa/Al
        ('Europe/Brussels'), ('Europe/Bucharest'), ('Europe/Budapest'), ('Europe/Busingen'),
        ('Europe/Chisinau'), ('Europe/Copenhagen'), ('Europe/Dublin'), ('Europe/Gibraltar'),
        ('Europe/Guernsey'), ('Europe/Helsinki'), ('Europe/Isle_of_Man'), ('Europe/Istanbul'),
-       ('Europe/Jersey'), ('Europe/Kaliningrad'), ('Europe/Kiev'), ('Europe/Kirov'), ('Europe/Lisbon'),
+       ('Europe/Jersey'), ('Europe/Kaliningrad'), ('Europe/Kyiv'), ('Europe/Kirov'), ('Europe/Lisbon'),
        ('Europe/Ljubljana'), ('Europe/London'), ('Europe/Luxembourg'), ('Europe/Madrid'),
        ('Europe/Malta'), ('Europe/Mariehamn'), ('Europe/Minsk'), ('Europe/Monaco'),
        ('Europe/Moscow'), ('Europe/Oslo'), ('Europe/Paris'), ('Europe/Podgorica'), ('Europe/Prague'),
        ('Europe/Riga'), ('Europe/Rome'), ('Europe/Samara'), ('Europe/San_Marino'), ('Europe/Sarajevo'),
        ('Europe/Saratov'), ('Europe/Simferopol'), ('Europe/Skopje'), ('Europe/Sofia'), ('Europe/Stockholm'),
-       ('Europe/Tallinn'), ('Europe/Tirane'), ('Europe/Ulyanovsk'), ('Europe/Uzhgorod'), ('Europe/Vaduz'),
+       ('Europe/Tallinn'), ('Europe/Tirane'), ('Europe/Ulyanovsk'), ('Europe/Vaduz'),
        ('Europe/Vatican'), ('Europe/Vienna'), ('Europe/Vilnius'), ('Europe/Volgograd'), ('Europe/Warsaw'),
-       ('Europe/Zagreb'), ('Europe/Zaporozhye'), ('Europe/Zurich'), ('Indian/Antananarivo'),
+       ('Europe/Zagreb'), ('Europe/Zurich'), ('Indian/Antananarivo'),
        ('Indian/Chagos'), ('Indian/Christmas'), ('Indian/Cocos'), ('Indian/Comoro'), ('Indian/Kerguelen'),
        ('Indian/Mahe'), ('Indian/Maldives'), ('Indian/Mauritius'), ('Indian/Mayotte'), ('Indian/Reunion'),
        ('Pacific/Apia'), ('Pacific/Auckland'), ('Pacific/Bougainville'), ('Pacific/Chatham'),
