@@ -527,6 +527,18 @@ select count(*)
           (check-true (and (number? index)
                            (>= index 0)
                            (< index limit)))))))
+   (test-case "f0055.fit"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define the-fit-file "./test-fit/f0055.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     ;; Normally, just reading the file threw an exception
+     (check-not-exn
+      (lambda ()
+        (define data (read-activity-from-file the-fit-file))
+        (define session (car (dict-ref data 'sessions '())))
+        (check-false (null? session)))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -554,5 +566,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0051.fit"))
+             ;; #:only '(("FIT file reading" "f0055.fit"))
              fit-files-test-suite))

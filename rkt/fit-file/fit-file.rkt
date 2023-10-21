@@ -493,12 +493,13 @@
       (match-define (list name size type) field)
       (cond ((>= type 1000)
              ;; this is a DDI, find the actual type and read it.  Don't do any
-             ;; conversion on i, but use the specified field name for it (if
-             ;; it is available)
+             ;; conversion on it, but use the specified field name for it, if
+             ;; it is available
              (match-let (((list dname dtype)
                           (hash-ref dev-field-types
                                     (cons type name)
-                                    (lambda () (raise-error "unknown dev field: ~a" (- type 1000))))))
+                                    (lambda ()
+                                      (raise-error "unknown dev field: name ~a index ~a" name (- type 1000))))))
                (cons (or dname name) (read-value-fn dtype size stream))))
             (#t
              (let ((value (read-value-fn type size stream)))
@@ -520,7 +521,10 @@
     (let ((app-id (hash-ref app-defs ddi #f)))
       (if app-id
           (string->symbol (string-append app-id "-" (~a number)))
-          (string->symbol (bytes->string/utf-8 name)))))
+          (string->symbol
+           (if name
+               (bytes->string/utf-8 name)
+               (format "dev-field-~a" ddi))))))
 
   (define (make-string-id id)
     (if (vector? id)                    ; Coros2 uses integers, see f0040
@@ -554,7 +558,7 @@
                ;; (display (format "DATA local: ~a (~a)~%" (third header) (car reader)))
                (let ((message-id (car reader))
                      (message-data ((cdr reader) fit-stream)))
-                 ;; (printf "DATA CONTENTS: ~a~%" message-data)
+                 ;; (printf "ID: ~a~%    DATA CONTENTS: ~a~%" message-id message-data)
                  (cond ((eq? message-id 'developer-data-id)
                         ;; A developer-data-id message "announces" a new XDATA
                         ;; application.  We convert the developer-id and
@@ -582,16 +586,23 @@
                         ;; added to the field as a 'field-key entry for easier
                         ;; processing of XDATA later on.
                         (let* ((ddi (dict-ref message-data 'developer-data-index #f))
-                               (type (dict-ref message-data 'fit-base-type #f))
-                               (number (dict-ref message-data 'field-def-number #f))
+                               ;; Have dev fields with missing type and number
+                               ;; -- not sure how this works, but Garmin
+                               ;; Connect accepts such fit files, so we use
+                               ;; some defaults here...
+                               (type (dict-ref message-data 'fit-base-type #x0d))
+                               (number (dict-ref message-data 'field-def-number 1))
                                (name (dict-ref message-data 'field-name #f))
-                               (units (dict-ref message-data 'units #f))
-                               (key (dev-field-key ddi number name)))
+                               (units (dict-ref message-data 'units #f)))
+                          (unless ddi
+                            (raise-error "Missing developer-data-index: ~a~%" message-data))
+                          (define key (dev-field-key ddi number name))
+
                           (hash-set! dev-field-types (cons (+ 1000 ddi) number) (list key type))
                           ;; NOTE: we need to store the application id in the
                           ;; field, the developer-data-index is not unique and
-                          ;; will be overriden (there is a test that will catch
-                          ;; this)
+                          ;; will be overriden (there is a test that will
+                          ;; catch this)
                           (set! message-data `((application-id . ,(hash-ref app-defs ddi #f))
                                                (field-key . ,key)
                                                ,@message-data))
