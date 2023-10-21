@@ -380,7 +380,7 @@
 
       (cc-superimpose
        (filled-rounded-rectangle (+ (pict-width p) 20) (+ (pict-height p) 20) -0.1
-                                 #:draw-border? #f #:color pd-background)
+                                 #:draw-border? #t #:color pd-background)
        p))
 
     (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
@@ -883,7 +883,7 @@
 
       (cc-superimpose
        (filled-rounded-rectangle (+ (pict-width p) 15) (+ (pict-height p) 15) -0.1
-                                 #:draw-border? #f #:color pd-background)
+                                 #:draw-border? #t #:color pd-background)
        p))
 
     ))

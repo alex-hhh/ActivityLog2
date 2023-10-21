@@ -2,7 +2,7 @@
 ;; trends-test.rkt -- test the trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -476,7 +476,7 @@
            (do-tc-check db pmc-trends-chart% pmc-settings test-snip-canvas%))
          (check = 0 (send result get-num-set-background-message-calls))
          (check = 1 (send result get-num-snips-set))
-         (check = 0 (send result get-num-floating-snips-set))
+         (check = 1 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-true (file-exists? test-image-file))
          (check-true (file-exists? test-data-file)))))
@@ -490,7 +490,7 @@
            (do-tc-check db pmc-trends-chart% pmc-settings test-snip-canvas%))
          (check = 0 (send result get-num-set-background-message-calls))
          (check = 1 (send result get-num-snips-set))
-         (check = 0 (send result get-num-floating-snips-set))
+         (check = 1 (send result get-num-floating-snips-set))
          ;; NOTE PMC data is still exported on an empty database
          (check-true (file-exists? test-image-file))
          (check-true (file-exists? test-data-file))

@@ -3,7 +3,7 @@
 ;; trends-heatmap.rkt -- route heat maps displayed on a map
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -113,6 +113,7 @@
           (and editor (send editor on-default-char event)))))
 
     (define/override (draw dc x y . _)
+      (define old-smoothing (send dc get-smoothing))
       (send dc set-smoothing 'smoothed)
       (send dc set-brush
             (send the-brush-list find-or-create-brush
@@ -121,7 +122,8 @@
             (send the-pen-list find-or-create-pen item-color 0.5 'solid))
       (send dc draw-rectangle x y width height)
       (for ([b (in-list controls)])
-        (send b draw dc x y)))
+        (send b draw dc x y))
+      (send dc set-smoothing old-smoothing))
 
     (define/override (resize w h)
       (set! width w)

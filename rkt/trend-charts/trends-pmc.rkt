@@ -16,12 +16,15 @@
 ;; more details.
 
 (require data-frame
+         pict
+         pict/snip
          plot-container/hover-util
          plot/no-gui
          racket/class
          racket/format
          racket/gui/base
          racket/match
+         racket/math
          racket/runtime-path
          "../al-widgets.rkt"
          "../database.rkt"
@@ -32,6 +35,28 @@
          "trends-chart.rkt")
 
 (provide pmc-trends-chart%)
+
+;; Number of day over which we average the daily TSS to obtain the "Chronic
+;; Training Load" (fitness).  Default is 42 (6 weeks)
+(define default-ctl-range 42)
+
+;; Number of days over which we average the daily TSS to obtain the "Acute
+;; Training Load" (fatigue).  Default is 7 days.
+(define default-atl-range 7)
+
+;; Number of weeks of past training we consider when calculating the ramp rate
+;; for a specific day
+(define default-ramp-rate-weeks 4)
+
+;; Colors and line width of the plot elements
+(define form-renderer-color '(0 119 187)) ; blue
+(define form-renderer-line-width 2.0)
+(define tss-renderer-color '(51 187 238)) ; cyan
+(define tss-point-size 9)
+(define fitness-renderer-color '(0 153 136)) ; teal
+(define fitness-renderer-line-width 3.0)
+(define fatigue-renderer-color '(204 51 17)) ; red
+(define fatigue-renderer-line-width 1.5)
 
 ;; Calculate and return the "dots-per-pixel" values for the plot SNIP on the X
 ;; and Y axis -- this is the conversion factor between pixels and plot units
@@ -149,7 +174,7 @@
 (define-runtime-path sql-pmc-sessions-path "../../sql/queries/pmc-sessions.sql")
 (define sql-pmc-sessions (define-sql-statement sql-pmc-sessions-path))
 
-(define (read-pmc-data db start-timestamp end-timestamp)
+(define (fetch-pmc-data db start-timestamp end-timestamp)
   (define (->string timestamp)
     (let ([d (seconds->date timestamp)])
       (string-append
@@ -162,26 +187,18 @@
   (define end (->string end-timestamp))
   (df-read/sql db (sql-pmc-data) start end))
 
-(define (read-pmc-sessions db start-timestamp end-timestamp)
+(define (fetch-pmc-sessions db start-timestamp end-timestamp)
   (define df (df-read/sql db (sql-pmc-sessions) start-timestamp end-timestamp))
   (when (> (df-row-count df) 0)
     (df-set-sorted! df "day" string<?))
   df)
-
-;; Number of day over which we average the daily TSS to obtain the "Chronic
-;; Training Load" (fitness).  Default is 42 (6 weeks)
-(define default-ctl-range 42)
-
-;; Number of days over which we average the daily TSS to obtain the "Acute
-;; Training Load" (fatigue).  Default is 7 days.
-(define default-atl-range 7)
 
 (define (prepare-pmc db start-timestamp end-timestamp
                      #:ctl-range [ctl-range default-ctl-range]
                      #:initial-ctl [initial-ctl 0]
                      #:atl-range [atl-range default-atl-range]
                      #:initial-atl [initial-atl 0])
-  (define df (read-pmc-data db start-timestamp end-timestamp))
+  (define df (fetch-pmc-data db start-timestamp end-timestamp))
 
   ;; "timestamp" series records the entry at the start of the day (midnight)
   (df-set-sorted! df "timestamp" <)
@@ -193,45 +210,44 @@
   ;; earlier/later that day.
   (df-set-sorted! df "tsmidday" <)
 
+  ;; Simpler exponential decay (low pass filtering) when we know that the
+  ;; samples in the data frame are equally spaced, every day in our case.
+  ;; Otherwise, we would have to calculate alpha as 'dt / (dt + range)' for
+  ;; each sample.
+  (define ctl-alpha (- 1.0 (exp (/ -1.0 ctl-range))))
+  (define atl-alpha (- 1.0 (exp (/ -1.0 atl-range))))
+
   (let ([ctl initial-ctl])
     (df-add-derived!
      df
      "ctl"
      '("timestamp" "tss")
-     (lambda (prev current)
-       (if (and prev current)
-           (match-let ([(list pt _ptss) prev]
-                       [(list ct ctss) current])
-             (define dt (/ (- ct pt) (* 24 3600)))
-             (define alpha (/ dt (+ dt ctl-range)))
-             (define new-ctl (+ (* alpha ctss) (* (- 1 alpha) ctl)))
-             (set! ctl new-ctl)
-             new-ctl)
-           ctl))))
+     (lambda (current)
+       (match-let ([(list _ct ctss) current])
+         (define new-ctl (+ (* ctl-alpha ctss) (* (- 1.0 ctl-alpha) ctl)))
+         (set! ctl new-ctl)
+         new-ctl)
+       ctl)))
 
   (let ([atl initial-atl])
     (df-add-derived!
      df
      "atl"
      '("timestamp" "tss")
-     (lambda (prev current)
-       (if (and prev current)
-           (match-let ([(list pt _ptss) prev]
-                       [(list ct ctss) current])
-             (define dt (/ (- ct pt) (* 24 3600)))
-             (define alpha (/ dt (+ dt atl-range)))
-             (define new-atl (+ (* alpha ctss) (* (- 1 alpha) atl)))
-             (set! atl new-atl)
-             new-atl)
-           atl))))
+     (lambda (current)
+       (match-let ([(list _ct ctss) current])
+         (define new-atl (+ (* atl-alpha ctss) (* (- 1.0 atl-alpha) atl)))
+         (set! atl new-atl)
+         new-atl)
+       atl)))
 
-  ;; Fitness for each day is calculated as the difference between ctl and atl
-  ;; of the PREVIOUS DAY!
+  ;; Form for each day is calculated as the difference between ctl and atl of
+  ;; the PREVIOUS DAY as the difference between CTL and ATL.
   (df-add-derived!
    df
    "form"
    '("ctl" "atl")
-   (lambda (prev current)
+   (lambda (prev _current)
      (if prev
          (match-let ([(list ctl atl) prev])
            (- ctl atl))
@@ -240,25 +256,162 @@
   df)
 
 (define (get-pmc-data-for-timestamp pmc-data timestamp)
-  ;; We cannot use df-lookup here, as it would return the first entry with a
+  ;; We cannot use `df-lookup` here, as it would return the first entry with a
   ;; time stamp greater than TIMESTAMP, and we want the earlier one, since
   ;; timestamps record the start of the day.
-  (define index (df-index-of pmc-data "timestamp" timestamp))
-  (if (> index 0)                       ; no entry before the first one
-      (df-ref* pmc-data (sub1 index) "timestamp" "day" "ctl" "atl" "form" "tss")
-      #f))
+  (define index (sub1 (df-index-of pmc-data "timestamp" timestamp)))
+  (if (>= index 0)                      ; no entry before the first one
+      (let ([result (df-ref* pmc-data index "timestamp" "day" "ctl" "atl" "form" "tss")])
+        (if (< (- timestamp (vector-ref result 0)) (* 24 3600))
+            (values result index)
+            ;; This entry is the last one in the data-frame, but timestamp is
+            ;; more than a day in advance, so it is not a match...
+            (values #f #f)))
+      (values #f #f)))
 
-(define (make-form-renderer data)
-  (let* ((fdata (df-select* data "tsmidday" "form"))
-         (zeroes (for/list ((e (in-vector fdata)))
-                   (vector (vector-ref e 0) 0))))
-    (lines-interval
-     fdata zeroes
-     #:color '(0 119 187)               ; blue
-     #:line1-width 2.0
-     #:line2-width 0
-     #:alpha 0.2
-     #:label "Form")))
+;; Return the "ramping rate" for the date specified as TIMESTAMP. Ramping rate
+;; is measured in CTL points/week and it is an estimate of how much change in
+;; CTL happened in recent time.  We calculate "ramping rate" as the slope of a
+;; linear fit over the "ctl"/"timestamp" series, between "TIMESTAMP" and
+;; "DAYS-IN-PAST" number of days in the past.
+;;
+;; While TIMESTAMP is a unix timestamp, we consider only "day-level"
+;; granularity since this is how the pmc-data is stored: one sample, or row,
+;; for each day.
+;;
+(define (get-ramping-rate pmc-data timestamp [days-in-past 28])
+
+  (define stop
+    (let ([tindex (df-index-of pmc-data "timestamp" timestamp)])
+      (cond ((= tindex 0)
+             ;; timestamp is before the first row
+             #f)
+            ((and (= tindex (df-row-count pmc-data))
+                  ;; timestamp is inside the 24-hour period of the last row
+                  (< (- timestamp (df-ref pmc-data "timestamp" (sub1 tindex))) (* 24 3600)))
+             tindex)
+            (else
+             ;; include "today" in the ramping rate calculations
+             (add1 tindex)))))
+
+  (and stop
+       (let* ([start-timestamp (- timestamp (* days-in-past 24 3600))]
+              [start (df-index-of pmc-data "timestamp" start-timestamp)]
+              [lsf (and
+                    ;; must have at least two entries to calculate slope
+                    (> (- stop start) 2)
+                    (df-least-squares-fit
+                     pmc-data "timestamp" "ctl" #:mode 'linear
+                     #:start start #:stop stop))]
+              [slope (list-ref (least-squares-fit-coefficients lsf) 1)])
+         ;; Convert the slope from CTL points/second to CTL points/week
+         (* slope 7 24 3600))))
+
+;; Prepare a pict representing the plot legend based on `pmc-data` -- this is
+;; a more complex legend that what would be shown by the plot package: we show
+;; not only the keys for the plot lines, but also the form, fitness and
+;; fatigue, as well as the ramping rate for "today", if today's date is in
+;; `pmc-data`
+(define (pmc-plot-legend pmc-data)
+  ;; TODO: copied from native-series.rkt, really need to normalize these
+  ;; overlay colors, fonts and faces
+  (define pd-background (make-object color% #xff #xf8 #xdc 0.95))
+  (define pd-item-color (make-object color% #x2f #x4f #x4f))
+  (define pd-label-color (make-object color% #x77 #x88 #x99))
+  (define pd-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+  (define pd-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+  (define pd-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+  (define pd-title-face (cons pd-item-color pd-title-font))
+  (define pd-item-face (cons pd-item-color pd-item-font))
+  (define pd-label-face (cons pd-label-color pd-label-font))
+
+  (define plot-legend/pict
+    (let ([w 40]
+          [h 10])
+      (define entries
+        (list (text "Form" pd-item-face) (colorize (filled-rectangle w h) form-renderer-color)
+              (text "Fitness" pd-item-face) (colorize (linewidth fitness-renderer-line-width (hline w h)) fitness-renderer-color)
+              (text "Fatigue" pd-item-face) (colorize (linewidth fatigue-renderer-line-width (hline w h)) fatigue-renderer-color)
+              (text "Stress" pd-item-face)
+              (cc-superimpose
+               (ghost (rectangle w h))
+               (colorize
+                (disk tss-point-size
+                      #:draw-border? #t
+                      #:border-color "black")
+                tss-renderer-color))))
+      (table 2 entries lc-superimpose cc-superimpose 30 3)))
+
+  (define today (current-seconds))
+
+  (define title/pict
+    (text (string-append "Today, " (calendar-date->string today)) pd-title-face))
+
+  (define today-report/pict
+    (let-values ([(entry _index) (get-pmc-data-for-timestamp pmc-data today)])
+      (if entry
+          (match-let ([(vector _ts _day ctl atl tsb _tss) entry])
+            (let* ([rr-days (* default-ramp-rate-weeks 7)]
+                   [rr (get-ramping-rate pmc-data today rr-days)]
+                   [fmt (lambda (v) (if (real? v) (~r v #:precision '(= 1)) "N/A"))]
+                   [entries
+                    (list (text "Fitness" pd-label-face)
+                          (text (fmt ctl) pd-item-face)
+                          (text "CTL" pd-label-face)
+                          (text "Fatigue" pd-label-face)
+                          (text (fmt atl) pd-item-face)
+                          (text "ATL" pd-label-face)
+                          (text "Form" pd-label-face)
+                          (text (fmt tsb) pd-item-face)
+                          (text "TSB" pd-label-face)
+                          (text "Ramping Rate" pd-label-face)
+                          (text (fmt rr) pd-item-face)
+                          (text "CTL points/week" pd-label-face)
+                          (text "" pd-label-face)
+                          (text "" pd-label-face)
+                          (text (format "past ~a weeks" default-ramp-rate-weeks) pd-label-face))])
+              (table 3 entries
+                     (list lc-superimpose rc-superimpose lc-superimpose)
+                     cc-superimpose 15 3)))
+          (text "today's date not in the plot" pd-label-face))))
+
+  (define p
+    (vc-append
+     10
+     title/pict
+     (colorize (hline (* (pict-width plot-legend/pict) 1.5) 1) pd-label-color)
+     today-report/pict
+     (colorize (hline (* (pict-width plot-legend/pict) 1.5) 1) pd-label-color)
+     plot-legend/pict))
+  (cc-superimpose
+    (filled-rounded-rectangle
+     (+ (pict-width p) 20) (+ (pict-height p) 20) -0.05
+     #:draw-border? #t
+     #:color pd-background)
+    p))
+
+(define (make-form-renderer data start-index today-index)
+  (list
+   (let* ((fdata (df-select* data "tsmidday" "form" #:start start-index #:stop today-index))
+          (zeroes (for/list ((e (in-vector fdata)))
+                    (vector (vector-ref e 0) 0))))
+     (lines-interval
+      fdata zeroes
+      #:color form-renderer-color
+      #:line1-width form-renderer-line-width
+      #:line2-width 0
+      #:alpha 0.2))
+   ;; This part represents future form, show it differently.
+   (let* ((fdata (df-select* data "tsmidday" "form" #:start (sub1 today-index)))
+          (zeroes (for/list ((e (in-vector fdata)))
+                    (vector (vector-ref e 0) 0))))
+     (lines-interval
+      fdata zeroes
+      #:color form-renderer-color
+      #:line1-width form-renderer-line-width
+      #:line1-style 'short-dash
+      #:line2-width 0
+      #:alpha 0.1))))
 
 ;; Return true if the entry V have a TSS value.  We fill our data set with
 ;; zeroes for days with no activities.  We use this function to filter out
@@ -267,27 +420,37 @@
   (let ([tss (vector-ref v 1)])
     (and (real? tss) (> tss 0))))
 
-(define (make-tss-renderer data)
-  (points (df-select* data "tsmidday" "tss" #:filter have-tss?)
+(define (make-tss-renderer data start-index _today-index)
+  ;; TODO: when we have planned workouts, we'll need to show them differently
+  ;; (by splitting the data on the NOW index)
+  (points (df-select* data "tsmidday" "tss" #:start start-index #:filter have-tss?)
           #:color "black"
-          #:fill-color '(51 187 238)  ; cyan
-          #:size 7
+          #:fill-color tss-renderer-color
+          #:size tss-point-size
           #:line-width 0.5
-          #:sym 'fullcircle4
-          #:label "Training Stress"))
+          #:sym 'fullcircle4))
 
-(define (make-fitness-renderer data)
-  (lines (df-select* data "tsmidday" "ctl")
-         #:color '(0 153 136)         ; teal
-         #:width 3.0
-         #:label "Fitness"))
+(define (make-fitness-renderer data start-index today-index)
+  (list
+   (lines (df-select* data "tsmidday" "ctl" #:start start-index #:stop today-index)
+          #:color fitness-renderer-color
+          #:width fitness-renderer-line-width)
+   ;; This part represents future fitness, show it differently
+   (lines (df-select* data "tsmidday" "ctl" #:start (sub1 today-index))
+          #:color fitness-renderer-color
+          #:width (* fitness-renderer-line-width 2/3)
+          #:style 'short-dash)))
 
-(define (make-fatigue-renderer data)
-  (lines (df-select* data "tsmidday" "atl")
-         #:color
-         '(204 51 17)                 ; red
-         #:width 1.5
-         #:label "Fatigue"))
+(define (make-fatigue-renderer data start-index today-index)
+  (list
+   (lines (df-select* data "tsmidday" "atl" #:start start-index #:stop today-index)
+          #:color fatigue-renderer-color
+          #:width fatigue-renderer-line-width)
+   ;; This part represents future fatigue, show it differently
+   (lines (df-select* data "tsmidday" "atl" #:start (sub1 today-index))
+          #:color fatigue-renderer-color
+          #:width (* fatigue-renderer-line-width 2/3)
+          #:style 'short-dash)))
 
 (define (make-renderer-tree params pmc-data session-markers)
 
@@ -296,23 +459,33 @@
   (define show-fatigue? (hash-ref params 'show-fatigue? #t))
   (define show-tss? (hash-ref params 'show-tss? #f))
 
+  (match-define (cons start _end) (hash-ref params 'timestamps '(0 . 0)))
+
+  (define start-index (sub1 (df-index-of pmc-data "timestamp" start)))
+  (define today-index (df-index-of pmc-data "timestamp" (current-seconds)))
+
   (define max-y
     (for/fold ([y 0])
-              ([(ctl atl tss) (in-data-frame pmc-data "ctl" "atl" "tss")])
+              ([(ctl atl tss) (in-data-frame pmc-data "ctl" "atl" "tss" #:start start-index)])
       (max y (if show-fitness? ctl 0) (if show-fatigue? atl 0) (if show-tss? tss 0))))
 
   (define renderer-tree
     (list (tick-grid)
           (make-session-marker-renderers
            session-markers
-           #:y (+ max-y 20)
+           #:y (+ max-y 25)
            #:color "dark orange")
-          (and show-form? (make-form-renderer pmc-data))
-          (and show-fitness? (make-fitness-renderer pmc-data))
-          (and show-fatigue? (make-fatigue-renderer pmc-data))
-          (and show-tss? (make-tss-renderer pmc-data))
-          ;; Add a "today" vertical line to the plot
-          (vrule (current-seconds))))
+
+          ;; Hack to make sure there is enough room at the top of the plot,
+          ;; since the plot package calculates tight bounds by default, so the
+          ;; highest entry is right on the border.  We place an invisible
+          ;; point higher than the highest value, to make some room.
+          (points (list (vector 0 (+ max-y 25))) #:sym 'none)
+
+          (and show-form? (make-form-renderer pmc-data start-index today-index))
+          (and show-fitness? (make-fitness-renderer pmc-data start-index today-index))
+          (and show-fatigue? (make-fatigue-renderer pmc-data start-index today-index))
+          (and show-tss? (make-tss-renderer pmc-data start-index today-index))))
 
   ;; Remove #f values from the renderer tree -- for plots that we don't show.
   (filter values renderer-tree))
@@ -322,7 +495,7 @@
     (output-fn renderer-tree)))
 
 (define (insert-plot-snip canvas params renderer-tree)
-  (match-define (cons start-date end-date) (hash-ref params 'timestamps (cons 0 0)))
+  (match-define (cons start _end) (hash-ref params 'timestamps (cons 0 0)))
   (generate-plot
    (lambda (renderer-tree)
      (plot-to-canvas
@@ -330,11 +503,11 @@
       ;; x-min is here because PMC data is retrieved further in the past to
       ;; start the "attenuation process", but we want the plot to start at the
       ;; date that the user specified.
-      #:x-min start-date #:x-label #f #:y-label #f #:legend-anchor 'bottom-left))
+      #:x-min start #:x-label #f #:y-label #f #:legend-anchor 'bottom-left))
    renderer-tree))
 
 (define (save-plot-to-file file-name width height params renderer-tree)
-  (match-define (cons start-date end-date) (hash-ref params 'timestamps (cons 0 0)))
+  (match-define (cons start _end) (hash-ref params 'timestamps (cons 0 0)))
   (generate-plot
    (lambda (renderer-tree)
      (plot-file
@@ -343,8 +516,7 @@
       ;; x-min is here because PMC data is retrieved further in the past to
       ;; start the "attenuation process", but we want the plot to start at the
       ;; date that the user specified.
-      #:x-min start-date #:x-label #f #:y-label #f
-      #:legend-anchor 'bottom-left))
+      #:x-min start #:x-label #f #:y-label #f #:legend-anchor 'bottom-left))
    renderer-tree))
 
 (define pmc-trends-chart%
@@ -359,6 +531,9 @@
     (define pmc-data #f)
     (define pmc-sessions #f)
     (define session-markers '())        ; see read-session-markers
+    (define params (hash))              ; chart parameters for current plot
+    (define pmc-today-snip #f)
+    (define saved-pmc-today-snip-location #f)
 
     (define cached-day #f)
     (define cached-badge #f)
@@ -366,6 +541,7 @@
 
     (define plot-scale-x 1)
     (define plot-scale-y 1)
+    (define tss-search-half-range 1)
 
     (define/override (make-settings-dialog)
       (new pmc-chart-settings%
@@ -379,6 +555,8 @@
       (set! cached-badge #f)
       (set! plot-scale-x 1)
       (set! plot-scale-y 1)
+      (set! tss-search-half-range 1)
+      (set! pmc-today-snip #f)
       (set! cached-session-badges (make-hash)))
 
     (define/override (is-invalidated-by-events? events)
@@ -404,7 +582,7 @@
                           (in-data-frame pmc-sessions "headline" "tss" "sport" "sub_sport"
                                          #:start start #:stop stop)])
                 (cons (list #f (get-sport-name sport sub-sport))
-                      (cons (list (~r t #:precision 0) h)
+                      (cons (list (~r t #:precision 0) (or h "Unnamed session"))
                             result))))
             (set! b (make-hover-badge sessions))
             (hash-set! cached-session-badges day b))))
@@ -428,38 +606,82 @@
         (set! cached-badge (make-hover-badge info)))
       cached-badge)
 
+    ;; Check if mouse cursor at X, Y is close to one of the TSS points, and
+    ;; return an overlay highlighting that TSS point and displaying the
+    ;; session(s) associated with it.
+    ;;
+    ;; ENTRY is the tss data right under the cursor X position, as obtained by
+    ;; `get-pmc-data-for-timestamp', and INDEX is the position in the PMC-DATA
+    ;; data frame for that entry -- we'll use INDEX to "look around" for
+    ;; nearby data points along the X series, in case the PMC plot covers a
+    ;; long period and multiple days are close in X space...
+    (define/private (hover-over-tss-point x y entry index pmc-data)
+      (let/ec return
+
+        ;; First check if we target the current ENTRY -- this would save
+        ;; another data-frame lookup.
+        (match-let ([(vector ts day _ctl _atl _tsb tss) entry])
+          ;; Points are placed in the middle of the day (12pm) rather than at
+          ;; the beginning of the day (12am)
+          (define ts-midday (+ ts (* 12 3600)))
+          (when (and (> tss 0)  ; only when there's some activity
+                     ;; the check below is redundant
+                     ;; (< (/ (abs (- ts-midday x)) plot-scale-x) 10)
+                     (< (/ (abs (- tss y)) plot-scale-y) 10))
+            (return (list
+                     (points
+                      (list (vector ts-midday tss))
+                      #:color "black"
+                      #:fill-color '(238 51 119)  ; magenta
+                      #:size 14
+                      #:line-width 0.5
+                      #:sym 'fullcircle4)
+                     (let ([b (get-session-badge ts day)])
+                       (if b (hover-label x y b) null))))))
+
+        (for ([idx (in-inclusive-range
+                    (max (- index tss-search-half-range) 0)
+                    (min (+ index tss-search-half-range) (sub1 (df-row-count pmc-data))))]
+              ;; skip index itself, as it was already searched above
+              #:unless (equal? idx index))
+          (match-define (vector ts-midday day tss)
+            (df-ref* pmc-data idx "tsmidday" "day" "tss"))
+          (when (and (> tss 0)  ; only when there's some activity
+                     ;; the check below is redundant
+                     ;; (< (/ (abs (- ts-midday x)) plot-scale-x) 10)
+                     (< (/ (abs (- tss y)) plot-scale-y) 10))
+            (return (list
+                     (points
+                      (list (vector ts-midday tss))
+                      #:color "black"
+                      #:fill-color '(238 51 119)  ; magenta
+                      #:size 14
+                      #:line-width 0.5
+                      #:sym 'fullcircle4)
+                     (let ([b (get-session-badge ts-midday day)])
+                       (if b (hover-label x y b) null))))))
+
+        #f                              ; nothing found
+        ))
+
     (define (plot-hover-callback snip event x y)
       (define renderers
         (if (good-hover? snip x y event)
-            (let ([entry (get-pmc-data-for-timestamp pmc-data x)])
-              (if entry
+            (let-values ([(entry index) (get-pmc-data-for-timestamp pmc-data x)])
+              (if (and entry params)
                   (match-let ([(vector ts day ctl atl tsb tss) entry])
-                    (define params (send this get-chart-settings))
-                    (if (and (> tss 0)  ; only when there's some activity
-                             (hash-ref params 'show-tss? #f)
-                             (< (/ (abs (- ts x)) plot-scale-x) 10)
-                             (< (/ (abs (- tss y)) plot-scale-y) 10))
-                        ;; Mouse cursor is close to one of the TSS points, and
-                        ;; they are shown on the plot.  Display the session(s)
-                        ;; associated with that TSS point
+                    (cond
+                      ((and (hash-ref params 'show-tss? #f)
+                            (hover-over-tss-point x y entry index pmc-data))
+                       => values)
+                      (else
+                       ;; Otherwise, highlight the entire day -- while the
+                       ;; plot is linear, values are only computed for an
+                       ;; entire day.
                         (list
-                         (points
-                          (list (vector ts tss))
-                          #:color "black"
-                          #:fill-color '(238 51 119)  ; magenta
-                          #:size 14
-                          #:line-width 0.5
-                          #:sym 'fullcircle4)
-                         (let ([b (get-session-badge ts day)])
-                           (if b (hover-label x y b) null)))
-
-                        ;; Otherwise, highlight the entire day -- while the
-                        ;; plot is linear, values are only computed for an
-                        ;; entire day.
-                        (list
-                          (hover-vrange ts (+ ts (* 24 3600)) *sea-green-hl*)
-                          (let ([b (get-day-badge ts day ctl atl tsb tss params)])
-                            (if b (hover-label x y b) null)))))
+                         (hover-vrange ts (+ ts (* 24 3600)) *sea-green-hl*)
+                         (let ([b (get-day-badge ts day ctl atl tsb tss params)])
+                           (if b (hover-label x y b) null))))))
                   ;; No entry
                   null))
             ;; Not a good hover
@@ -468,38 +690,57 @@
 
     (define/override (put-plot-snip canvas)
       (maybe-build-pmc-data)
-      (let ((params (send this get-chart-settings)))
-        (if params
-            (let* ([rt (make-renderer-tree params pmc-data session-markers)]
-                   [snip (insert-plot-snip canvas params rt)])
-              (set-mouse-event-callback snip plot-hover-callback)
-              (define-values (sx sy) (compute-plot-dpp snip))
-              (set! plot-scale-x sx)
-              (set! plot-scale-y sy))
-            #f)))
+      (if params
+          (let* ([rt (make-renderer-tree params pmc-data session-markers)]
+                 [snip (insert-plot-snip canvas params rt)])
+            (set-mouse-event-callback snip plot-hover-callback)
+            (define-values (sx sy) (compute-plot-dpp snip))
+            (set! plot-scale-x sx)
+            (set! plot-scale-y sy)
+            (set! tss-search-half-range (exact-ceiling (/ (* sx 8) (* 24 3600))))
+            (let ([saved-location (get-snip-location pmc-today-snip)]
+                  [legend (pmc-plot-legend pmc-data)])
+              (if legend
+                  (begin
+                    (set! pmc-today-snip (new pict-snip% [pict legend]))
+                    (send canvas set-floating-snip pmc-today-snip 0 0)
+                    (move-snip-to pmc-today-snip (or saved-location saved-pmc-today-snip-location)))
+                  (set! pmc-today-snip #f))))
+          #f))
 
     (define/override (save-plot-image file-name width height)
       (when data-valid?
-        (let ((params (send this get-chart-settings)))
-          (when params
-            (let ((rt (make-renderer-tree params pmc-data session-markers)))
-              (save-plot-to-file file-name width height params rt))))))
+        (let ((rt (make-renderer-tree params pmc-data session-markers)))
+          (save-plot-to-file file-name width height params rt))))
 
     (define/private (maybe-build-pmc-data)
       (unless data-valid?
-        (let ((params (send this get-chart-settings)))
-          (when params
-            (match-define
-              (cons start-date end-date)
-              (hash-ref params 'timestamps))
-            ;; NOTE: we extend the range so ATL CTL at the start of the range
-            ;; is correctly computed (w/ exponential averaging, all past TSS
-            ;; values have a contribution to the present)
-            (let ((start (max 0 (- start-date (* 4 default-ctl-range 24 3600))))
-                  (end end-date))
-              (set! pmc-data (prepare-pmc database start end))
-              (set! pmc-sessions (read-pmc-sessions database start end)))
-            (set! session-markers (read-session-markers database params))
-            (set! data-valid? #t)))))
+        (set! params (send this get-chart-settings))
+        (when params
+          (match-define
+            (cons start-date end-date)
+            (hash-ref params 'timestamps))
+          ;; NOTE: we extend the range so ATL CTL at the start of the range is
+          ;; correctly computed (w/ exponential averaging, all past TSS values
+          ;; have a contribution to the present)
+          (let ((start (max 0 (- start-date (* 4 default-ctl-range 24 3600))))
+                (end end-date))
+            (set! pmc-data (prepare-pmc database start end))
+            (set! pmc-sessions (fetch-pmc-sessions database start end)))
+          (set! session-markers (read-session-markers database params))
+          (set! data-valid? #t))))
+
+    (define/override (get-chart-settings)
+      (define sdata (super get-chart-settings))
+      (let ([location (or (get-snip-location pmc-today-snip)
+                          saved-pmc-today-snip-location)])
+        (if location
+            (hash-set sdata 'pmc-today-location location)
+            sdata)))
+
+    (define/override (put-chart-settings data)
+      (set! saved-pmc-today-snip-location
+            (hash-ref data 'pmc-today-location #f))
+      (super put-chart-settings data))
 
     ))

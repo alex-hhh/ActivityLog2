@@ -161,10 +161,10 @@
       (let ((entry (lookup-closest-entry df x y)))
         (when entry
           (add-renderer (points (list entry)
-                                #:sym 'fullcircle
-                                #:size (* (point-size) 3.0)
+                                #:sym 'fullcircle4
+                                #:size 14
+                                #:line-width 0.5
                                 #:fill-color *trendline-color*
-                                #:color *trendline-color*
                                 #:alpha 1.0))
           ;; (add-renderer (hover-vrule x))
           (match-define (vector ts bw) entry)
@@ -192,9 +192,9 @@
 
   (define pts (points (df-select* df "timestamp" "body_weight")
                       #:sym 'fullcircle
-                      #:size (* (point-size) 2)
+                      #:size 9
                       #:fill-color *bw-color*
-                      #:color *bw-color*
+                      #:line-width 0.5
                       #:alpha 0.8
                       #:x-min xmin
                       #:x-max xmax

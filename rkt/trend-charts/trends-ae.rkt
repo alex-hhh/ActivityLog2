@@ -192,10 +192,10 @@
       (let ((entry (lookup-closest-entry df x y)))
         (when entry
           (add-renderer (points (list entry)
-                                #:sym 'fullcircle
-                                #:size (* (point-size) 3.0)
+                                #:sym 'fullcircle4
+                                #:size 14
+                                #:line-width 0.5
                                 #:fill-color trendline-color
-                                #:color trendline-color
                                 #:alpha 1.0))
           ;; (add-renderer (hover-vrule x))
           (match-define (vector ts ae) entry)
@@ -243,11 +243,10 @@
   (define ymax (+ (df-get-property df 'aemax 0) yadjust))
 
   (define pts (points (df-select* df "timestamp" "ae")
-                      #:sym 'fullcircle
-                      #:size (* (point-size) 2)
+                      #:sym 'fullcircle4
+                      #:size 9
                       #:fill-color color
-                      #:color color
-                      #:alpha 0.8
+                      #:line-width 0.5
                       #:x-min xmin
                       #:x-max xmax
                       #:y-min ymin
