@@ -21,24 +21,26 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/math
-         racket/gui/base
+(require colormaps
          data-frame
-         math/statistics
-         racket/list
-         racket/class
-         racket/match
-         racket/format
-         plot
-         plot/utils
-         plot-container
-         plot-container/hover-util
          gui-widget-mixins
          map-widget
-         colormaps
-         (only-in framework panel:vertical-dragable%)
-         (only-in "../../rkt/utilities.rkt" get-pref put-pref)
-         "../fmt-util.rkt")
+         math/statistics
+         plot
+         plot-container
+         plot-container/hover-util
+         plot/utils
+         racket/class
+         racket/format
+         racket/gui/base
+         racket/list
+         racket/match
+         racket/math
+         (only-in "../../rkt/utilities.rkt"
+                  get-pref
+                  put-pref)
+         "../fmt-util.rkt"
+         "../widgets/dragable-split-panel.rkt")
 
 (define *color-map* 'cb-rdbu-11)        ; 'cb-rdylgn-11 is also a nice one
 
@@ -170,7 +172,7 @@
     (define gui-prefs (get-pref pref-tag (lambda () (hash))))
 
     (define map-and-plot-panel
-      (new panel:vertical-dragable%
+      (new vertical-dragable-split-panel%
            [parent parent]))
 
     (define map-pane

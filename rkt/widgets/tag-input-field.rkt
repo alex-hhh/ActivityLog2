@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -12,8 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require embedded-gui
-         pict
+(require pict
          racket/class
          racket/gui/base
          racket/string)
@@ -84,18 +83,21 @@
 
     ))
 
-;; This could be defined in embedded-gui...
-(define (snip-x snip)
-  (let ((pasteboard (snip-parent snip))
-        (left (box 0)))
-    (send pasteboard get-snip-location snip left (box 0) #f)
-    (unbox left)))
-
-(define (snip-y snip)
-  (let ((pasteboard (snip-parent snip))
-        (right (box 0)))
-    (send pasteboard get-snip-location snip (box 0) right #f)
-    (unbox right)))
+;; return the location of SNIP as a (cons X Y), or return #f if SNIP is not
+;; shown inside an editor.
+(define (get-snip-extent snip)
+  (let* ((left (box 0))
+         (right (box 0))
+         (top (box 0))
+         (bottom (box 0))
+         (a (send snip get-admin))
+         (e (if a (send a get-editor) #f)))
+    (when e
+      (send e get-snip-location snip left top #f)
+      (send e get-snip-location snip right bottom #t))
+    (values (unbox left) (unbox top)
+            (- (unbox right) (unbox left))
+            (- (unbox bottom) (unbox top)))))
 
 ;; Pasteboard for holding and arraging tags
 (define tag-pasteboard%
@@ -226,17 +228,17 @@
                                         (cons snip snip-list)))
                               snip-list))))
         ;; NOTE: we sort on greater-than and reverse the list
-        (let* ((sort-key (lambda (s1 s2)
-                           (let* ((y1 (snip-y s1))
-                                  (y2 (snip-y s2))
-                                  (y-diff (- y1 y2)))
+        (let* ([sort-key (lambda (s1 s2)
+                           (define-values (x1 y1 _w1 _h1)
+                             (get-snip-extent s1))
+                           (define-values (x2 y2 _w2 _h2)
+                             (get-snip-extent s2))
+                           (let ([y-diff (- y1 y2)])
                              (cond ((< y-diff -0.5) #f)
                                    ((> y-diff 0.5) #t)
                                    (#t
-                                    (let ((x1 (snip-x s1))
-                                          (x2 (snip-x s2)))
-                                      (> x1 x2)))))))
-               (sorted (sort snip-list sort-key)))
+                                    (> x1 x2)))))]
+               [sorted (sort snip-list sort-key)])
 
           ;; (let ((fn (lambda (s) (list (send s get-tag-text) (snip-x s) (snip-y s)))))
           ;;   (display (format "max x :  ~a max y:~a~%" max-x max-y))
@@ -250,9 +252,11 @@
     (define (get-max-snip-height snip-list)
       (set! max-snip-height
             (foldl (lambda (snip h)
+                     (define-values (_sx _sy _sw sh)
+                       (get-snip-extent snip))
                      ;; (when (> (snip-height snip) 16)
                      ;;   (printf "sh: ~a~%" snip))
-                     (max h (snip-height snip)))
+                     (max h sh))
                    0 snip-list))
       max-snip-height)
 
@@ -266,7 +270,9 @@
              (snips (get-snip-list))
              (row-height (get-max-snip-height snips))
              (get-target-y (lambda (snip)
-                             (+ spacing (/ (- row-height (snip-height snip)) 2)))))
+                             (define-values (_sx _sy _sw sh)
+                               (get-snip-extent snip))
+                             (+ spacing (/ (- row-height sh) 2)))))
         (unless display-width
           (let ((canvas (get-canvas)))
             (when canvas
@@ -277,13 +283,15 @@
            (set! arranging-snips #t)
            (let ((x 0) (y 0))
              (for-each (lambda (snip)
-                         (let ((new-x (+ x (snip-width snip) spacing)))
+                         (define-values (_sx _sy sw _sh)
+                           (get-snip-extent snip))
+                         (let ((new-x (+ x sw spacing)))
                            (when (> new-x display-width)
                              (set! y (+ y row-height spacing))
                              (set! x 0))
                            (unless (eq? snip snip-to-ignore)
                              (move-to snip x (+ y (get-target-y snip))))
-                           (set! x (+ x (snip-width snip) spacing))))
+                           (set! x (+ x sw spacing))))
                        snips)
              (set! max-x (+ x 1))
              (set! max-y (+ y row-height)))

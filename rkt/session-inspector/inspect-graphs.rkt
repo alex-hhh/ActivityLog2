@@ -17,7 +17,6 @@
 (require data-frame
          data-frame/private/bsearch
          data-frame/slr
-         framework
          math/statistics
          plot-container
          plot-container/hover-util
@@ -43,6 +42,7 @@
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
+         "../widgets/dragable-split-panel.rkt"
          "../models/aerobic-decoupling.rkt")
 
 (provide graph-panel%)
@@ -1943,8 +1943,8 @@
 
     (define graphs '())      ; the list of graphs we are currently  displaying
 
-    ;; The initial split of the panel:horizontal-dragable% used between the
-    ;; lap list and the charts.
+    ;; The initial split of the horizontal-dragable-split-panel% used between
+    ;; the lap list and the charts.
     (define initial-panel-split '(1/5 4/5))
 
     ;; Restore the preferences now.
@@ -2039,10 +2039,9 @@
       (for ([g (in-list graphs)])
         (send g set-filter-amount a)))
 
-    (define panel (new panel:horizontal-dragable%
+    (define panel (new horizontal-dragable-split-panel%
                        [parent parent]
                        [border 0]
-                       [spacing 1]
                        [alignment '(center top)]))
 
     (define interval-view-panel (new vertical-pane%
@@ -2050,7 +2049,7 @@
                                      [border 0]
                                      [spacing 1]
                                      [min-width 220]
-                                     [stretchable-width #f]
+                                     [stretchable-width #t]
                                      [alignment '(left top)]))
 
     (define interval-choice #f)

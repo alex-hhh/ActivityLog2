@@ -15,7 +15,6 @@
 ;; more details.
 
 (require data-frame
-         framework
          map-widget
          map-widget/utils
          racket/class
@@ -24,6 +23,7 @@
          racket/gui/base
          racket/match
          "../al-widgets.rkt"
+         "../widgets/dragable-split-panel.rkt"
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
          "../utilities.rkt"
@@ -134,14 +134,13 @@
     ;; track-current-location method
     (define track-location? #t)
 
-    (define panel (new (class panel:horizontal-dragable%
+    (define panel (new (class horizontal-dragable-split-panel%
                          (init)
                          (super-new)
                          (define/public (interactive-export-image)
                            (on-interactive-export-image)))
                        [parent parent]
                        [border 0]
-                       [spacing 1]
                        [alignment '(center top)]))
 
     (define interval-view-panel (new vertical-pane%
@@ -149,7 +148,7 @@
                                      [border 0]
                                      [spacing 1]
                                      [min-width 220]
-                                     [stretchable-width #f]
+                                     [stretchable-width #t]
                                      [alignment '(left top)]))
     (define interval-coice #f)
     (let ((p (new horizontal-pane%
@@ -170,10 +169,9 @@
                            (unhighlight-lap)))]))
     (send interval-coice set-interval-view interval-view)
 
-    (define map-panel (new panel:vertical-dragable%
+    (define map-panel (new vertical-dragable-split-panel%
                            [parent panel]
                            [border 0]
-                           [spacing 1]
                            [alignment '(left top)]))
 
     (define zoom-slider #f)
@@ -228,7 +226,7 @@
     (send map-view track-current-location track-location?)
 
     (define elevation-graph-pane
-      (new horizontal-panel% [parent map-panel] [stretchable-height #f]))
+      (new horizontal-panel% [parent map-panel] [stretchable-height #t]))
 
     (define the-elevation-graph #f)
 

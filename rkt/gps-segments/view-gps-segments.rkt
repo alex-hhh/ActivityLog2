@@ -22,9 +22,6 @@
 (require data-frame
          data-frame/gpx
          db/base
-         (only-in framework
-                  panel:vertical-dragable%
-                  panel:horizontal-dragable%)
          racket/class
          racket/dict
          racket/format
@@ -43,6 +40,7 @@
          "../models/fiets-score.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
+         "../widgets/dragable-split-panel.rkt"
          "../widgets/icon-resources.rkt"
          "../widgets/qresults-list.rkt"
          "../widgets/widget-utilities.rkt"
@@ -180,11 +178,11 @@
       (new message% [parent sel-pane] [label (waypoints-icon)]))
 
     (define hcontents
-      (new panel:horizontal-dragable%
+      (new horizontal-dragable-split-panel%
            [parent the-toplevel]))
 
     (define left-panel
-      (new panel:vertical-dragable%
+      (new vertical-dragable-split-panel%
            [parent hcontents]))
 
     (define segments-panel (make-vertical-pane left-panel))

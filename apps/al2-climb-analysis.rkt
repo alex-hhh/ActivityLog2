@@ -24,7 +24,7 @@
          data-frame
          data-frame/gpx
          data-frame/private/rdp-simplify
-         framework
+         "../rkt/widgets/dragable-split-panel.rkt"
          gui-widget-mixins
          map-widget
          math/statistics
@@ -469,7 +469,7 @@
                        (on-load-course path))))]))
 
 (define p0
-  (new panel:horizontal-dragable%
+  (new horizontal-dragable-split-panel%
        [parent toplevel]))
 
 (define climb-pane
@@ -602,7 +602,7 @@
        [callback (lambda (b e) (on-athlete-weight-changed))]))
 
 (define map-and-plot-panel
-  (new panel:vertical-dragable%
+  (new vertical-dragable-split-panel%
        [parent p0]))
 
 (define map-pane

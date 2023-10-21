@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -12,8 +12,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require embedded-gui
-         racket/class
+(require racket/class
          racket/gui/base
          racket/list
          racket/match
@@ -23,23 +22,21 @@
 
 (provide workout-pasteboard%)
 
-(define (snip-position snip)
-  (let ((pasteboard (snip-parent snip))
-        (x (box 0))
-        (y (box 0)))
-    (if pasteboard
-        (begin
-          (send pasteboard get-snip-location snip x y #f)
-          (values (unbox x) (unbox y)))
-        (values 0 0))))
-
-(define (snip-x snip)
-  (define-values (x y) (snip-position snip))
-  x)
-
-(define (snip-y snip)
-  (define-values (x y) (snip-position snip))
-  y)
+;; return the location of SNIP as a (cons X Y), or return #f if SNIP is not
+;; shown inside an editor.
+(define (get-snip-extent snip)
+  (let* ((left (box 0))
+         (right (box 0))
+         (top (box 0))
+         (bottom (box 0))
+         (a (send snip get-admin))
+         (e (if a (send a get-editor) #f)))
+    (when e
+      (send e get-snip-location snip left top #f)
+      (send e get-snip-location snip right bottom #t))
+    (values (unbox left) (unbox top)
+            (- (unbox right) (unbox left))
+            (- (unbox bottom) (unbox top)))))
 
 (define (with-edit-sequence pasteboard thunk)
   (dynamic-wind
@@ -152,18 +149,18 @@
       (unless (null? dragged-snips)
         (if reverse-dragged-snips?
             (let* ((nsnips (reverse dragged-snips))
-                   (anchor (car nsnips))
-                   (anchor-x (snip-x anchor))
-                   (anchor-y (snip-y anchor)))
+                   (anchor (car nsnips)))
+              (define-values (anchor-x anchor-y _w _h)
+                (get-snip-extent anchor))
               (let loop ((remaining (cdr nsnips))
                          (y (- anchor-y spacing)))
                 (unless (null? remaining)
                   (target-position (car remaining) anchor-x (- y (send (car remaining) get-height)))
                   (loop (cdr remaining) (- y (send (car remaining) get-height) spacing)))))
             (let* ((snips dragged-snips)
-                   (anchor (car snips))
-                   (anchor-x (snip-x anchor))
-                   (anchor-y (snip-y anchor)))
+                   (anchor (car snips)))
+              (define-values (anchor-x anchor-y _w _h)
+                (get-snip-extent anchor))
               (let loop ((remaining (cdr snips))
                          (y (+ anchor-y (send anchor get-height) spacing)))
                 (unless (null? remaining)
@@ -172,7 +169,8 @@
       (define drag-y
         (if (null? dragged-snips)
             0
-            (snip-y (car dragged-snips))))
+            (let-values ([(_x y _w _h) (get-snip-extent (car dragged-snips))])
+              y)))
 
       (let loop ((snip (send this find-first-snip))
                  (y spacing))
@@ -202,7 +200,7 @@
         (lambda ()
           (for ([target (in-list target-positions)])
             (match-define (vector snip tx ty) target)
-            (define-values (sx sy) (snip-position snip))
+            (define-values (sx sy _w _h) (get-snip-extent snip))
             (unless (and (eqv? tx sx) (eqv? ty sy))
               (if animating?
                   (let ((nx (+ sx (* 0.2 (- tx sx))))

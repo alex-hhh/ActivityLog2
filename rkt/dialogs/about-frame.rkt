@@ -14,16 +14,16 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require browser/external
+(require db/private/sqlite3/ffi
+         net/sendurl
          racket/class
          racket/gui/base
-         racket/runtime-path
          racket/math
-         "../dbapp.rkt"
-         "../app-info.rkt")
+         racket/runtime-path
+         "../app-info.rkt"
+         "../dbapp.rkt")
 
-(require db/private/sqlite3/ffi)        ; SQLite Version Number
-
+; SQLite Version Number
 (define-runtime-path logo-file "../../img/logo/ActivityLog2.png")
 
 (define (sqlite-version-as-string)

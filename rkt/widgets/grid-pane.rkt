@@ -57,9 +57,8 @@
     ;; row/column) and CELL-WIDTH CELL-HEIGHT are the dimensions of a cell.
     ;;
     ;; Returns a list giving the position of the child and its dimensions.
-    (define/private (child-placement info index x y cell-width cell-height)
+    (define/private (child-placement info x y cell-width cell-height)
       (match-define (list min-width min-height hstretch? vstretch?) info)
-      (define-values (row col) (quotient/remainder index the-column-count))
       (define-values (halign valign) (get-alignment))
 
       (define-values (cx cw)
@@ -78,8 +77,8 @@
 
       (define-values (cy ch)
         (cond (vstretch? (values y cell-height))
-              ((eq? halign 'top) (values y min-height))
-              ((eq? halign 'bottom)
+              ((eq? valign 'top) (values y min-height))
+              ((eq? valign 'bottom)
                (let ((pad (- cell-height min-height)))
                  (if (>= pad 0)
                      (values (+ y pad) min-height)
@@ -189,6 +188,6 @@
                               (for/sum ((y (in-vector row-heights 0 row)))
                                 (+ y (spacing)))
                               0)))
-        (child-placement item index cell-x cell-y cell-width cell-height)))
+        (child-placement item cell-x cell-y cell-width cell-height)))
 
     ))
