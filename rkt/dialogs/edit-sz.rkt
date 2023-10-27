@@ -554,7 +554,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
     ;; dialog, so we return #t even if we don't ask for confirmation.
     ;; Regardless of outcome, we will always update the TIZ if we have any
     ;; sessions in the list.
-    (define (maybe-show-confirmation-dialog num-sessions)
+    (define/private (show-confirmation-dialog num-sessions)
       (and (> (abs (- num-sessions original-modified-session-count)) 10)
            (eq? (message-box
                  "Confirmation"
@@ -567,20 +567,25 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                 'yes)))
 
     (define/override (on-finish-edit result)
-      ;; NOTE: we need to return #t if we want to close the dialog, #t
-      ;; otherwise
-      (if result
+      (if result                      ; user clicked "Save"
           (let* ((sessions (get-tiz-outdated-sessions database))
                  (num-sessions (length sessions)))
-            (cond ((= num-sessions 0) #t)
-                  ((maybe-show-confirmation-dialog num-sessions)
+            (cond ((= num-sessions 0)
+                   ; OK, nothing to update
+                   #t)
+                  ((or (< (abs (- num-sessions original-modified-session-count)) 10)
+                       (show-confirmation-dialog num-sessions))
+                   ;; Either a small number of sessions need updating, or the
+                   ;; user confirmed they want to update the sessions
                    (maybe-start-transaction)
                    (update-tiz-for-sessions/interactive
                     sessions
                     database
                     (send this get-top-level-window))
                    #t)
-                  (#t #f)))
+                  (else
+                   ;; No update
+                   #f)))
           #t            ; user clicked "Cancel", return #t to close the dialog
           ))
 
