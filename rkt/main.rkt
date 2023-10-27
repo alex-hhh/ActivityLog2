@@ -47,10 +47,10 @@
   (thread do-logging)
   (void))
 
-(define (main start-timestamp)
+(define (main start-timestamp cmdline-db-file)
   ;; notifications from our loggers go do the dbglog sink
   (make-dbglog-sink map-widget-logger user-notification-logger)
-  (dbglog "main started, version ~a, ~a, ~a"
+  (dbglog "ActivityLog2 started, version ~a, ~a, ~a"
           (app-version) (app-commit-id) (app-build-timestamp))
   (let ([d (exact-round (- (current-inexact-monotonic-milliseconds) start-timestamp))])
     (dbglog "startup duration ~a ms" d))
@@ -64,7 +64,8 @@
         ;; Don't attempt to shut down workers here, as we might make a bad
         ;; problem worse...
         (exit 1))))
-    (define database-file (get-pref dbfile-key (lambda () #f)))
+    (define database-file
+      (or cmdline-db-file (get-pref dbfile-key (lambda () #f))))
     (cond ((not database-file)
            (dbglog "no database file stored in preferences"))
           ((and database-file (not (file-exists? database-file)))
@@ -83,10 +84,13 @@
           (maybe-backup-database database-file)
           (let ((tl (new toplevel-window% [database-path database-file])))
             ;; Toplevel window was successfully created, save the database
-            ;; file as the new default to open next time.
-            (put-pref dbfile-key
-                         (if (path? database-file)
-                             (path->string database-file)
-                             database-file))
+            ;; file as the new default to open next time.  Unless the database
+            ;; file was specified on the command line, in which case we don't
+            ;; save it.
+            (unless cmdline-db-file
+              (put-pref dbfile-key
+                        (if (path? database-file)
+                            (path->string database-file)
+                            database-file)))
             (send tl run)))
         (dbglog "no database file, exiting application"))))

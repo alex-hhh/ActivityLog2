@@ -2,7 +2,7 @@
 ;; build.rkt -- utilities for building the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -73,6 +73,9 @@
      #:modules '((#f "run.rkt"))
      #:mred? #t
      #:configure-via-first-module? #t
+     ;; NOTE: these command line options are processed by racket, the "--"
+     ;; flag allows the application to see its own command line options.
+     #:cmdline '("--no-user-path" "--no-init-file" "--")
      #:expand-namespace (make-base-namespace)
      #:literal-expression
      (parameterize ([current-namespace (make-base-namespace)])
@@ -86,6 +89,9 @@
        #:modules '((#f "apps/al2-climb-analysis.rkt"))
        #:mred? #t
        #:configure-via-first-module? #t
+       ;; NOTE: these command line options are processed by racket, the "--"
+       ;; flag allows the application to see its own command line options.
+       #:cmdline '("--no-user-path" "--no-init-file" "--")
        #:expand-namespace (make-base-namespace)
        #:literal-expression
        (parameterize ([current-namespace (make-base-namespace)])

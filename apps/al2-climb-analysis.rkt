@@ -33,6 +33,7 @@
          plot-container
          plot-container/hover-util
          plot/utils
+         racket/cmdline
          racket/path
          "../rkt/widgets/qresults-list.rkt"
          "../rkt/utilities.rkt"         ; put-preferences replacement
@@ -980,3 +981,21 @@
     (send join-nearby-checkbox get-value)
     (send nearby-distance-field get-value/validated)
     (send athlete-weight get-value/validated))))
+
+;; Allow the user to specify a filename on the command line.  If present, we
+;; load that file.
+(command-line
+ #:program "Al2-Climb-Analysis"
+ #:args filenames
+ (cond ((null? filenames)
+        ;; Start the application with no course selected
+        (void))
+       ((> (length filenames) 1)
+        (fprintf (current-error-port) "Only one file can be specified in on the command line~%")
+        (exit 1))
+       (else
+       (let ([course-file (car filenames)])
+         (unless (file-exists? course-file)
+           (fprintf (current-error-port) "File ~a does not exist~%" course-file)
+           (exit 1))
+         (on-load-course course-file)))))

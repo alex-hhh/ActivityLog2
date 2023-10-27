@@ -16,6 +16,7 @@
 
 (require framework/splash
          racket/class
+         racket/cmdline
          racket/draw
          racket/lazy-require
          "rkt/check-missing-modules.rkt"
@@ -65,6 +66,25 @@
           (send dc set-font small-font)
           (send dc draw-text version msg-x msg-y))))))
 
+;; Allow the user to specify an optional file on the command line.  If
+;; present, we use it as the initial database file.
+(define cmdline-db-file
+  (command-line
+   #:program "ActivityLog2"
+   #:args filenames
+   (cond ((null? filenames)
+          ;; Start the application with no course selected
+          #f)
+         ((> (length filenames) 1)
+          (fprintf (current-error-port) "Only one database file can be specified in on the command line~%")
+          (exit 1))
+         (else
+          (let ([db-file (car filenames)])
+            (unless (file-exists? db-file)
+              (fprintf (current-error-port) "Database file ~a does not exist~%" db-file)
+              (exit 1))
+            db-file)))))
+
 ;; Remove the progress bar.  The progress works fine while running the
 ;; application using racket, but does not work (shows no progress) when the
 ;; application is compiled into an executable...
@@ -74,4 +94,4 @@
 (collect-garbage 'incremental)
 
 (lazy-require ("rkt/main.rkt" (main)))
-(main early-start-timestamp)
+(main early-start-timestamp cmdline-db-file)
