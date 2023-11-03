@@ -31,6 +31,7 @@
          racket/match
          racket/math
          racket/vector
+         map-widget
          colormaps                      ; needed to register the color maps
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
@@ -860,8 +861,33 @@
                  (not (equal? (ps-avg? new-ps) (ps-avg? old-ps)))
                  (and (ps-zoom? new-ps) new-hlivl?))))))
 
+;; Interface of the graphs objects as used by the graph-panel%, contains all
+;; the methods that the graph-panel% will invoke on graph objects in order to
+;; manage them.
+(define graph-view-interface<%>
+  (interface
+      ()
+    get-headline
+    get-preferences-tag
+    get-graph-canvas
+    begin-edit-sequence
+    end-edit-sequence
+    draw-marker-at
+    is-valid-for?
+    set-data-frame
+    zoom-to-lap
+    color-by-zone
+    set-filter-amount
+    show-average-line
+    set-x-axis
+    highlight-interval
+    on-interactive-export-image))
+
+;; Base class for all graphs.  Defines all behavior and data management for
+;; graphs.  Derived classes just configure functionality in this one, such as
+;; setting the axes or customizing small amounts of behavior.
 (define graph-view%
-  (class object%
+  (class* object% (graph-view-interface<%>)
     (init parent)
     (init-field
      primary-y-axis
@@ -921,7 +947,7 @@
                                "unknown")))
             (string->symbol (string-append "al2-graphs:" tag)))))
 
-    (define (put-plot output-fn pd ps)
+    (define/private (put-plot output-fn pd ps)
       ;; (-> (-> (treeof renderer2d?) any/c) pd? ps? any/c)
 
       (define x-axis (ps-x-axis ps))
@@ -983,10 +1009,10 @@
                           (send y-axis plot-ticks))])
         (output-fn (full-render-tree))))
 
-    (define (put-plot/canvas canvas pd ps)
+    (define/private (put-plot/canvas canvas pd ps)
       (put-plot (lambda (rt) (plot-to-canvas rt canvas)) pd ps))
 
-    (define (put-plot/file file-name width height pd ps)
+    (define/private (put-plot/file file-name width height pd ps)
       ;; (-> path-string? exact-positive-integer? exact-positive-integer? pd? ps? any/c)
       (put-plot
        (lambda (renderer-tree)
@@ -1016,7 +1042,7 @@
         (unless (= (ps-token plot-state) (ps-token previous-plot-state))
           (refresh-plot))))
 
-    (define/public (in-edit-sequence?)
+    (define/private (in-edit-sequence?)
       (> edit-sequence-count 0))
 
     (define the-plot-snip #f)
@@ -1052,7 +1078,7 @@
           (hover-callback x)
           (hover-callback #f)))
 
-    (define (refresh-plot)
+    (define/private (refresh-plot)
       (let ((pstate plot-state)
             (ppstate previous-plot-state)
             (pdata plot-data)
@@ -1094,7 +1120,7 @@
                 (set! plot-data npdata)
                 (set! find-y-values (make-y-values-finder plot-state)))))))))
 
-    (define (update-state new-state)
+    (define/private (update-state new-state)
       (set! plot-state new-state)
 
       (unless (in-edit-sequence?)
@@ -1157,11 +1183,6 @@
       (or (and primary (df-contains? df (send primary series-name)))
           (and secondary (df-contains? df (send secondary series-name)))))
 
-    (define/public (save-visual-layout)
-      (put-pref
-       (get-preferences-tag)
-       (list #t #t (hash))))
-
     (define/public (set-data-frame df)
       (begin-edit-sequence)
       (set! plot-state (struct-copy ps plot-state [df df] [ivl #f]))
@@ -1204,13 +1225,13 @@
 
     (define/public (get-data-frame) (ps-df plot-state))
 
-    (define/public (export-image-to-file file-name)
+    (define/private (export-image-to-file file-name)
       (put-plot/file file-name 800 300 plot-data plot-state))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
     ;; name from the session id and axis names of the plot.
-    (define (get-default-export-file-name)
+    (define/private (get-default-export-file-name)
       (or export-file-name
           (let* ((df (ps-df plot-state))
                  (y (ps-y-axis plot-state))
@@ -1234,6 +1255,136 @@
           (export-image-to-file file))))
 
     ))
+
+;; Displays a map as a graph, with the track and selected track.  Useful, if
+;; the user wants to have a map next to the graphs to locate a data point
+;; geographically.
+(define map-graph%
+  (class* object% (graph-view-interface<%>)
+    (init parent)
+    (init-field
+     [style '()]
+     [hover-callback (lambda (x) (void))]
+     [min-height 10])
+    (super-new)
+
+    (define the-session #f)
+    (define the-x-axis #f)
+    (define zoom-to-lap? #f)
+    (define main-track-pen
+      (send the-pen-list find-or-create-pen
+            (make-object color% 226 34 62) 3 'solid 'round 'round))
+    (define lap-track-pen
+      (send the-pen-list find-or-create-pen
+            (make-object color% 24 60 165)
+            7
+            'solid 'round 'round))
+    (define have-selected-lap? #f)
+
+    (define map-container
+      (new plot-container%
+           [parent parent]
+           [columns 1]
+           [min-height min-height]
+           [style '()]))
+
+    (define the-map
+      (new
+       (class map-snip%
+         (init)
+         (super-new)
+         ;; Hack to intercept a resize operation on the snip and
+         ;; re-center/re-size the track or selected lap when this happens.
+         ;; This is needed, since the snip does not have a size when
+         ;; `set-data-frame` is called.
+         (define/override (resize w h)
+           (super resize w h)
+           (define group (if (and zoom-to-lap? have-selected-lap?) 'lap 'main))
+           (send this resize-to-fit group)))))
+
+    (send map-container set-snip the-map)
+
+    (define/public (get-headline)
+      "Map (GPS Track)")
+
+    (define/public (get-preferences-tag)
+      'al2-graphs:map-graph)
+
+    (define/public (get-graph-canvas)
+      map-container)
+
+    (define/public (begin-edit-sequence)
+      (void))
+
+    (define/public (end-edit-sequence)
+      (void))
+
+    (define/public (draw-marker-at x)
+      (when (and the-x-axis the-session)
+        (define series (send the-x-axis series-name))
+        (when (df-contains? the-session series)
+          (define l (and x (df-lookup the-session series '("lat" "lon") x)))
+          (send the-map current-location l))))
+
+    (define/public (is-valid-for? df)
+      (df-contains? df "lat" "lon"))
+
+    (define/public (set-data-frame df)
+      (set! the-session df)
+      (define track (df-select* the-session "lat" "lon" #:filter valid-only))
+      (set! have-selected-lap? #f)
+      (send the-map begin-edit-sequence)
+      (send the-map clear)
+      (send the-map add-track track 'main)
+      (send the-map set-group-pen 'main main-track-pen)
+      (send the-map resize-to-fit)
+      (send the-map end-edit-sequence))
+
+    (define/public (zoom-to-lap flag)
+      (set! zoom-to-lap? flag)
+      (define group (if (and zoom-to-lap? have-selected-lap?) 'lap 'main))
+      (send the-map resize-to-fit group))
+
+    (define/public (color-by-zone flag) ; not applicable
+      (void))
+
+    (define/public (set-filter-amount a) ; not applicable
+      (void))
+
+    (define/public (show-average-line flag) ; not applicable
+      (void))
+
+    (define/public (set-x-axis axis)
+      (set! the-x-axis axis))
+
+    (define/public (highlight-interval start end)
+      (if (and start end)
+          (match-let ([(list start-idx end-idx)
+                       (df-index-of* the-session "timestamp" start end)])
+            (define track
+              (df-select* the-session "lat" "lon"
+                          #:filter valid-only
+                          #:start start-idx
+                          #:stop (add1 end-idx)))
+            (set! have-selected-lap? #t)
+            (send the-map begin-edit-sequence)
+            (send the-map delete-group 'lap)
+            (send the-map add-track track 'lap)
+            (send the-map set-group-pen 'lap lap-track-pen)
+            (send the-map set-group-zorder 'lap 0.1)
+            (send the-map resize-to-fit (if zoom-to-lap? 'lap 'main))
+            (send the-map end-edit-sequence))
+          (begin
+            (send the-map delete-group 'lap)
+            (set! have-selected-lap? #f)
+            (send the-map resize-to-fit))))
+
+    (define/public (on-interactive-export-image)
+      ;; TODO: would be nice to implement this, once supported by the map widget
+      (void))
+
+    ))
+
 
 
 ;;........................................................ series graphs ....
@@ -1869,7 +2020,8 @@
                                 ppp-angle-graph%
                                 pwr-hr-reserve-graph%
                                 spd-hr-reserve-graph%
-                                adecl-graph%))])
+                                adecl-graph%
+                                map-graph%))])
     (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
 
 (define (make-swim-graphs parent hover-callback)
@@ -2193,10 +2345,6 @@
     (define/public (save-visual-layout)
       (send interval-view save-visual-layout)
       (send interval-choice save-visual-layout)
-      (for-each (lambda (g) (send g save-visual-layout)) (default-graphs))
-      (for-each (lambda (g) (send g save-visual-layout)) (swim-graphs))
-      (for-each (lambda (g) (send g save-visual-layout)) (owswim-graphs))
-      (for-each (lambda (g) (send g save-visual-layout)) (xdata-graphs))
       (put-pref
        the-pref-tag
        (hash
