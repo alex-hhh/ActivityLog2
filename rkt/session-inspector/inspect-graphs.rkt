@@ -166,7 +166,7 @@
   (for/list ((item fdata))
     (match-define (cons factor data) item)
     (define color (cdr (assoc factor factor-colors)))
-    (make-plot-renderer data yr #:color color #:width 3.0)))
+    (make-plot-renderer data yr #:color color #:width 2.0)))
 
 
 ;; Construct a function which converts a grade value into an index for a color

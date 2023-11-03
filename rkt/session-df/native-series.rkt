@@ -203,7 +203,8 @@
            (define sz
              (if sid
                  (sport-zones-for-session sid 'pace)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
            (and sz
                 ;; NOTE: value passed in is in km/h or mi/h, we need to
                 ;; convert it back to meters/sec before we can find the zone.
@@ -245,7 +246,8 @@
       (define sz
              (if sid
                  (sport-zones-for-session sid 'pace)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
       (and sz
            ;; NOTE: value passed in is in sec/km or sec/mi (NOT
            ;; minutes), we need to convert it back to meters/sec before
@@ -302,17 +304,26 @@
 
       (define picts
         (list (text "CV" pd-label-face)
-              (text (pace->string cp) pd-item-face)
+              (text (if (rational? cp)
+                        (pace->string cp)
+                        (~a cp))
+                    pd-item-face)
               (text (if metric? "min/km" "min/mile") pd-label-face)
               (text "D'" pd-label-face)
-              (text (short-distance->string (round wprime)) pd-item-face)
+              (text (if (rational? wprime)
+                        (short-distance->string (round wprime))
+                        (~a wprime))
+                    pd-item-face)
               (text (if metric? "meters" "yards") pd-label-face)))
 
       (when pmax
         (set! picts
               (append picts
                       (list (text "Vmax" pd-label-face)
-                            (text (pace->string pmax) pd-item-face)
+                            (text (if (rational? pmax)
+                                      (pace->string pmax)
+                                      (~a pmax))
+                                  pd-item-face)
                             (text (if metric? "min/km" "min/mile") pd-label-face)))))
       (when k
         (set! picts
@@ -330,8 +341,9 @@
             (append picts
                     (list (text "τ" pd-label-face)
                           (text (let ([tau (round (/ wprime cp))])
-                                  (~r tau #:precision 0)
-                                  (~a tau))
+                                  (if (rational? tau)
+                                      (~r tau #:precision 0)
+                                      (~a tau)))
                                 pd-item-face)
                           (text "seconds" pd-label-face))))
 
@@ -427,7 +439,8 @@
            (define sz
              (if sid
                  (sport-zones-for-session sid 'pace)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
@@ -535,7 +548,8 @@
            (define sz
              (if sid
                  (sport-zones-for-session sid 'heart-rate)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate))))
            (and sz
                 (lambda (val)
                   (let ((zone (value->zone sz val)))
@@ -582,7 +596,8 @@
            (define sz
              (if sid
                  (sport-zones-for-session sid 'heart-rate)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
@@ -778,7 +793,8 @@
       (define sz
         (if sid
             (sport-zones-for-session sid 'power)
-            (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))
+            (and (sport-id sport)
+                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power))))
       (and sz
            (lambda (val)
              (let ((zone (value->zone sz val)))
@@ -866,7 +882,11 @@
                          ("20 min" . 1200))])
            (list (text (car t) pd-label-face)
                  (text (~r (fn (cdr t)) #:precision 0) pd-item-face)
-                 (text (~r (bavgfn (cdr t)) #:precision 0) pd-item-face)))))
+                 (text (let ([val (bavgfn (cdr t))])
+                         (if (rational? val)
+                             (~r val #:precision 0)
+                             (~a val)))
+                       pd-item-face)))))
 
       (define interval-estimates
         (append
@@ -951,7 +971,8 @@
            (define sz
              (if sid
                  (sport-zones-for-session sid 'power)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))
+                 (and (sport-id sport)
+                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))

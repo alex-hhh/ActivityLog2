@@ -535,7 +535,11 @@
     (output-fn renderer-tree)))
 
 (define (insert-plot-snip canvas axis rt min-x max-x min-y max-y)
-  (if rt
+  (if (and rt
+           (rational? min-x)
+           (rational? max-x)
+           (rational? min-y)
+           (rational? max-y))
       (generate-plot
        (lambda (renderer-tree)
          (plot-to-canvas renderer-tree canvas
@@ -547,12 +551,17 @@
         #f)))
 
 (define (save-plot-to-file file-name width height axis rt min-x max-x min-y max-y)
-  (generate-plot
-   (lambda (renderer-tree)
-     (plot-file renderer-tree file-name
-                #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y
-                #:width width #:height height))
-   axis rt))
+  (when (and rt
+           (rational? min-x)
+           (rational? max-x)
+           (rational? min-y)
+           (rational? max-y))
+    (generate-plot
+     (lambda (renderer-tree)
+       (plot-file renderer-tree file-name
+                  #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y
+                  #:width width #:height height))
+     axis rt)))
 
 (provide mmax-trends-chart%)
 (define mmax-trends-chart%

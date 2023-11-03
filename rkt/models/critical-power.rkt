@@ -348,11 +348,11 @@
             (define k (/ (- delta-w31 (* delta-t delta-w21))
                          (- delta-p31 (* delta-t delta-p21))))
 
-            (if (< k -1.0) ; limit k to 1 second, there is no instantaneous Pmax!
+            (if (< -30.0 k -1.0) ; limit k to 1 second, there is no instantaneous Pmax!
                 (let* ([cp (/ (- delta-w21 (* k delta-p21)) delta-t21)]
                        [wprime (+ (- w1 (* cp t1) (* k p1)) (* cp k))]
                        [cost (evaluate-cost/cp3 cp wprime k test-time-points test-data-points)])
-                  (if (< cost best-cost)
+                  (if (and (> cp 0.0) (> wprime 0) (< cost best-cost))
                       (values cp wprime k t1 t2 t3 cost)
                       (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost)))
                 (values best-cp best-wprime best-k best-t1 best-t2 best-t3 best-cost)))))
