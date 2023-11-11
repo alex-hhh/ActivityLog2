@@ -263,19 +263,25 @@
                   (send valid-from-field get-converted-value)
                   (send cv-field get-converted-value)
                   (send dprime-field get-converted-value)
-                  (send vmax-field get-converted-value)))
+                  ;; vmax can be 'empty, which is valid
+                  (let ([vmax (send vmax-field get-converted-value)])
+                    (if (rational? vmax) vmax #f))))
                 ((eq? mode 'swim)
                  (list
                   (send valid-from-field get-converted-value)
                   (send swim-cv-field get-converted-value)
                   (send dprime-field get-converted-value)
-                  (send swim-vmax-field get-converted-value)))
+                  ;; vmax can be 'empty, which is valid
+                  (let ([vmax (send swim-vmax-field get-converted-value)])
+                    (if (rational? vmax) vmax #f))))
                 ((eq? mode 'bike)
                  (list
                   (send valid-from-field get-converted-value)
                   (send cp-field get-converted-value)
                   (send wprime-field get-converted-value)
-                  (send pmax-field get-converted-value)))
+                  ;; pmax can be 'empty, which is valid
+                  (let ([pmax (send pmax-field get-converted-value)])
+                    (if (rational? pmax) pmax #f))))
                 (#t #f))
           #f))
 
