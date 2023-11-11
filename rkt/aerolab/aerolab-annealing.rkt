@@ -302,6 +302,7 @@
   (define-values (state cost)
     (annealing
      #:initial (make-aparam "ialt" #:min (- a 20) #:max (+ a 20))
+     #:temperature (lambda (r) (expt (- 1.0 r) 2.0))
      #:neighbour transition-aparam
      #:goal goal
      #:iterations 100))
@@ -348,16 +349,16 @@
   (define initial-state
     (list
      +inf.0                               ; initial cost
-     0                                    ; initial altidude
-     (for/hash ([v (list wind-speed wind-direction crr cda)]
+     0                                    ; initial altitude
+     (for/list ([v (list wind-speed wind-direction crr cda)]
                 [n (list "wind-speed" "wind-direction" "crr" "cda")]
                 #:when (pair? v))
-       (values n (make-aparam n #:min (car v) #:max (cdr v))))))
+       (make-aparam n #:min (car v) #:max (cdr v)))))
 
   (define (ppstate state)
     (match-define (list cost initial-alt group) state)
     (define h
-      (for/hash ([v (in-hash-values group)])
+      (for/hash ([v (in-list group)])
         (define m (aparam-meta v))
         (values (ameta-name m) (aparam-value v))))
     (hash-set*
@@ -368,12 +369,21 @@
   (define (goal state)
     (list-ref state 0))
 
+  (define (transition g t)
+    (for/list ([v (in-list g)])
+      (transition-aparam v t)))
+
   (define (neighbour state t)
-    (match-define (list cost initial-alt group) state)
-    (define tgroup (transition-aparam-group group t))
+
+    (define group
+      (match-let ([(list _cost _initial-alt group) state])
+        (transition group t)))
 
     (define (ref n)
-      (define v (hash-ref tgroup n (lambda () #f)))
+      (define v
+        (for/first ([v (in-list group)]
+                    #:when (equal? n (ameta-name (aparam-meta v))))
+          v))
       (and v (aparam-value v)))
 
     (unless skip-air-speed-calculation?
@@ -402,15 +412,16 @@
 
     (if (< net-elevation-gain max-net-elevation-gain)
         (let-values ([(initial-altitude icost) (find-best-initial-altitude alt valt0)])
-          (list icost initial-altitude tgroup))
+          (list icost initial-altitude group))
         ;; Reject states with large virtual elevation gains, avoid calculating a
         ;; meaningless initial altitude for them.  Also +inf.0 ensures that
         ;; these states are always rejected.
-        (list +inf.0 0 tgroup)))
+        (list +inf.0 0 group)))
 
   (define-values (state cost)
     (annealing
      #:initial initial-state
+     #:temperature (lambda (r) (expt (- 1.0 r) 2.0))
      #:neighbour neighbour
      #:progress-callback progress-callback
      #:goal goal
@@ -441,7 +452,7 @@
              (define exit-request? (sync/timeout 0 i/o))
              (when exit-request?
                (return #f)))))
-        ;; Report the final state, note that the cost is addded as the "cost"
+        ;; Report the final state, note that the cost is added as the "cost"
         ;; key to the state.
         (place-channel-put i/o state)))))
 

@@ -28,6 +28,13 @@
 
 (define max-progress-bar-range 1000)
 
+(define ~r*
+  (make-keyword-procedure
+   (lambda (kws kw-args . rest)
+     (if (or (null? rest) (rational? (car rest)))
+         (keyword-apply ~r kws kw-args rest)
+         (~a (car rest))))))
+
 (define aerolab-annealing-dialog%
   (class object%
     (super-new)
@@ -351,36 +358,36 @@
       (let ([cda (hash-ref state "cda" #f)])
         (when cda
           (put-value 'cda-message
-                     (format "~a m²" (~r (statistics-mean cda) #:precision '(= 4))))
-          (put-value 'cda-stddev-message (~r (statistics-stddev cda) #:precision '(= 4)))))
+                     (format "~a m²" (~r* (statistics-mean cda) #:precision '(= 4))))
+          (put-value 'cda-stddev-message (~r* (statistics-stddev cda) #:precision '(= 4)))))
       (let ([crr (hash-ref state "crr" #f)])
         (when crr
-          (put-value 'crr-message (~r (statistics-mean crr) #:precision '(= 5)))
-          (put-value 'crr-stddev-message (~r (statistics-stddev crr) #:precision '(= 5)))))
+          (put-value 'crr-message (~r* (statistics-mean crr) #:precision '(= 5)))
+          (put-value 'crr-stddev-message (~r* (statistics-stddev crr) #:precision '(= 5)))))
       (let ([initial-altitude (hash-ref state "initial-altitude" #f)])
         (when initial-altitude
           (put-value 'initial-altitude-message
                      (vertical-distance->string (statistics-mean initial-altitude) #t))
           (put-value 'initial-altitude-stddev-message
-                     (~r (statistics-stddev initial-altitude) #:precision '(= 1)))))
+                     (~r* (statistics-stddev initial-altitude) #:precision '(= 1)))))
       (let ([wind-speed (hash-ref state "wind-speed" #f)])
         (when wind-speed
           (put-value 'wind-speed-message
-                     (format "~a km/h" (~r (m/s->km/h (statistics-mean wind-speed)) #:precision '(= 1))))
+                     (format "~a km/h" (~r* (m/s->km/h (statistics-mean wind-speed)) #:precision '(= 1))))
           (put-value 'wind-speed-stddev-message
-                     (~r (m/s->km/h (statistics-stddev wind-speed)) #:precision '(= 1)))))
+                     (~r* (m/s->km/h (statistics-stddev wind-speed)) #:precision '(= 1)))))
       (let ([wind-direction (hash-ref state "wind-direction" #f)])
         (when wind-direction
           (put-value 'wind-direction-message
                      (wind-direction->string (statistics-mean wind-direction)))
           (put-value 'wind-direction-stddev-message
-                     (~r (statistics-stddev wind-direction) #:precision '(= 1)))))
+                     (~r* (statistics-stddev wind-direction) #:precision '(= 1)))))
       (let ([cost (hash-ref state "cost" #f)])
         (when cost
           (put-value 'cost-message
-                     (~r (statistics-mean cost) #:precision '(= 1)))
+                     (~r* (statistics-mean cost) #:precision '(= 1)))
           (put-value 'cost-stddev-message
-                     (~r (statistics-stddev cost) #:precision '(= 1))))))
+                     (~r* (statistics-stddev cost) #:precision '(= 1))))))
 
     (define/private (on-close-dialog)
       (set! terminate-requested? #t)
