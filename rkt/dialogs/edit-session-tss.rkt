@@ -25,122 +25,20 @@
          "../fmt-util.rkt"
          "../session-df/session-df.rkt"
          "../models/sport-zone.rkt"
+         "../models/tss.rkt"
+         "../models/coggan.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt")
 
 (provide get-edit-session-tss-dialog)
-(provide maybe-update-session-tss)
 
-(define message-font
-  (send the-font-list find-or-create-font 12 'default 'normal 'normal))
-
-;; Return information used to calculate TSS for a session
-(define (get-session-effort session-id db)
-  (query-maybe-row
-   db
-   "select S.sport_id, S.sub_sport_id,
-       SS.total_timer_time,
-       S.rpe_scale,
-       SS.avg_heart_rate,
-       SS.normalized_power,
-       S.training_stress_score,
-       S.start_time,
-       SS.avg_speed,
-       SS.total_distance,
-       (select ETZ.name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone,
-       S.name
- from A_SESSION S, SECTION_SUMMARY SS
- where S.summary_id = SS.id
- and S.id = ?" session-id))
-
-(define (effort-np effort-data)
-  (sql-column-ref effort-data 5 #f))
-
-(define (effort-avg-hr effort-data)
-  (sql-column-ref effort-data 4 #f))
-
-(define (effort-rpe effort-data)
-  (sql-column-ref effort-data 3 #f))
-
-(define (effort-duration effort-data)
-  (sql-column-ref effort-data 2 #f))
-
-(define (effort-avg-speed effort-data)
-  (sql-column-ref effort-data 8 #f))
-
-(define (effort-tss effort-data)
-  (sql-column-ref effort-data 6 #f))
-
-(define (effort-distance effort-data)
-  (sql-column-ref effort-data 9 #f))
-
-;; Convert a "Rating of Perceived Extertion" value into a TSS/hour value, the
-;; result can be multiplied by the activity duration to get the TSS of the
-;; activity.
-(define (rpe->tss/hour rpe)
-  (cond ((<= rpe 1) 20)
-        ((<= rpe 2) 30)
-        ((<= rpe 3) 40)
-        ((<= rpe 4) 50)
-        ((<= rpe 5) 60)
-        ((<= rpe 6) 70)
-        ((<= rpe 7) 80)
-        ((<= rpe 8) 100)
-        ((<= rpe 9) 120)
-        ((<= rpe 10) 140)
-        (#t 140)))
-
-;; Convert a (heart rate) zone into a TSS/hour value, the result can be
-;; multiplied by the activity duration to get the TSS of the activity.
-(define (zone->tss/hour zone)
-  (cond ((<= zone 1) 20)
-        ((<= zone 2) (+ 20 (* (- zone 1) 30)))
-        ((<= zone 3) (+ 50 (* (- zone 2) 20)))
-        ((<= zone 4) (+ 70 (* (- zone 3) 10)))
-        ((<= zone 5) (+ 80 (* (- zone 4) 20)))
-        ((<= zone 6) (+ 100 (* (- zone 5) 40)))
-        (#t 140)))
-
-;; Compute TSS based on RPE and duration
-(define (rpe->tss rpe duration)
-  (* (rpe->tss/hour rpe) (/ duration 3600.0)))
-
-;; Compute TSS based on zone and duration
-(define (zone->tss zone duration)
-  (* (zone->tss/hour zone) (/  duration 3600.0)))
-
-;; Compute TSS based on NP (normalized power) and duration
-(define (np->tss ftp np duration)
-  (let ((intensity-factor (/ np ftp)))
-    (* intensity-factor intensity-factor (/ duration 3600.0) 100.0)))
-
-;; Compute TSS based on swim FTP pace and duration
-(define (swim-speed->tss tpace speed duration)
-  (let ((intensity-factor (/ speed tpace)))
-    (* intensity-factor intensity-factor intensity-factor (/ duration 3600.0) 100)))
-
-;; Compute the TSS of a session based on heart rate zones using the data-frame
-;; DF.  This is done by computing a fractional TSS for each track point and
-;; should provide a better TSS value than simply taking the average HR for the
-;; entire session (it is also slower).
-(define (compute-session-tss/hr df)
-  ;; NOTE: we use the timer series, so we don't count TSS while the recording
-  ;; is stopped.  We could use the elapsed series to count TSS while stopped
-  ;; as well.
-  (if (df-contains? df "hr-zone" "timer")
-      (df-fold
-       df
-       '("timer" "hr-zone")
-       0
-       (lambda (tss prev next)
-         (if prev
-             (match-let (((list t0 z0) prev)
-                         ((list t1 z1) next))
-               (if (and (number? t0) (number? z0) (number? t1) (number? z1))
-                   (+ tss (zone->tss (/ (+ z0 z1) 2) (- t1 t0)))
-                   tss))
-             tss)))
-      #f))
+(define calculation-methods
+  '(("RPE" . rpe)
+    ("Swim T-Pace" . swim-tpace)
+    ;; ("HR Zone" . hr-zone)  ; rough hr based TSS calculation, not in use
+    ("HR Zone" . hr-zone-2)
+    ("ISO Power" . normalized-power)
+    ("Manual" . manual)))
 
 (define edit-session-tss-dialog%
   (class edit-dialog-base%
@@ -152,13 +50,10 @@
     (define df #f)
     (define effort #f)                  ; as received by `get-session-effort'
 
-    (define calculation-methods
-      '(("RPE" . rpe)
-        ("Swim T-Pace" . swim-tpace)
-        ;; ("HR Zone" . hr-zone)  ; rough hr based TSS calculation, not in use
-        ("HR Zone" . hr-zone-2)
-        ("ISO Power" . normalized-power)
-        ("Manual" . manual)))
+    ;; When a session has power data, but no Normalized Power (ISO Power), we
+    ;; calculate it here (if the user wants TSS based on ISO Power).  In that
+    ;; case, we also save these parameters to the database for the session...
+    (define calculated-cg-metrics #f)
 
     ;; selected method to calculate TSS, one of the symbols in
     ;; `calculation-methods'
@@ -183,7 +78,9 @@
     (define updated-tss #f)             ; a message% to display the computed TSS
     (define notice #f)                  ; a message% to display any errors
 
-    (let ((p (send this get-client-pane)))
+
+    (let ((p (send this get-client-pane))
+          (message-font (send the-font-list find-or-create-font 12 'default 'normal 'normal)))
       (let ((hp (make-horizontal-pane p #f)))
         (new message% [parent hp] [label "Activity: "]
              [stretchable-width #f])
@@ -319,10 +216,23 @@
                (let ((np (effort-np effort))
                      (ftp (send threshold-power get-converted-value))
                      (duration (effort-duration effort)))
-                 (cond ((not np)
-                        (send notice set-label "No Normalized Power available"))
-                       ((not (number? ftp))
+                 (cond ((not (number? ftp))
                         (send notice set-label "FTP value is invalid/not set"))
+                       ((not np)
+                        ;; If we don't have normalized power, try to calculate
+                        ;; it from the power data series in the data frame (if
+                        ;; available)
+                        (unless df
+                          (set! df (session-df database session-id)))
+                        (if (df-contains? df "pwr" "timer")
+                            (begin
+                              (set! calculated-cg-metrics
+                                    (cg-metrics df
+                                                #:ftp ftp
+                                                #:series "pwr"
+                                                #:weight-series "timer"))
+                              (set! computed-tss (cg-tss calculated-cg-metrics)))
+                            (send notice set-label "No power data available")))
                        (#t
                         (set! computed-tss (np->tss ftp np duration))))))
               ((manual)
@@ -381,6 +291,12 @@
              (when (number? tpace)
                (put-athlete-swim-tpace tpace db))))
           ((normalized-power)
+           (when calculated-cg-metrics
+             ;; NOTE: TSS might have changed if FTP has changed, so we need to
+             ;; update the cg metrics we have, since `put-session-cg-metrics`
+             ;; will write TSS again...
+             (define umetrics (struct-copy cg calculated-cg-metrics (tss computed-tss)))
+             (put-session-cg-metrics sid umetrics #:database db))
            (let ((ftp (send threshold-power get-converted-value)))
              (when ftp
                (put-athlete-ftp ftp db)))))))
@@ -410,33 +326,3 @@
   (unless the-edit-session-tss-dialog
     (set! the-edit-session-tss-dialog (new edit-session-tss-dialog%)))
   the-edit-session-tss-dialog)
-
-(define (calculate-session-tss effort df sid db)
-  (let ((duration (effort-duration  effort)))
-    (if duration
-        (or (let ((np (effort-np effort))
-                  (ftp (get-athlete-ftp db)))
-              (and np ftp (np->tss ftp np duration)))
-            (let ((sport (sql-column-ref effort 0 #f))
-                  (dist (effort-distance effort))
-                  (tpace (get-athlete-swim-tpace db)))
-              (and sport (eq? sport 5) dist tpace
-                   ;; For swim sessions, we use the normalized speed (total
-                   ;; distance/total time), which includes pauses.  The
-                   ;; AVG_SPEED stored in the session summary only counts
-                   ;; moving time.
-                   (swim-speed->tss tpace (/ dist duration) duration)))
-            (compute-session-tss/hr df)
-            (let ((rpe (effort-rpe effort)))
-              (and rpe (rpe->tss rpe duration))))
-        #f)))
-
-(define (maybe-update-session-tss session-id df db [force? #f])
-  (let ((effort (get-session-effort session-id db)))
-    (when (or force? (not (effort-tss effort)))
-      (let ((tss (calculate-session-tss effort df session-id db)))
-        (when tss
-          (query-exec
-           db
-           "update A_SESSION set training_stress_score = ? where id = ?"
-           tss session-id))))))

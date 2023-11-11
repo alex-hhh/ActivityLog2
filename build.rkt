@@ -42,6 +42,11 @@
       "AL2-Climb-Analysis.exe"
       "AL2-Climb-Analysis"))
 
+(define app-exe-file-ai
+  (if (eq? (system-type 'os) 'windows)
+      "AL2-Activity-Import.exe"
+      "AL2-Activity-Import"))
+
 (define (app-revision)
   (parameterize ((current-error-port (open-output-bytes)))
     (let ((rev (string-trim (with-output-to-string
@@ -96,12 +101,27 @@
        #:literal-expression
        (parameterize ([current-namespace (make-base-namespace)])
          (compile `(namespace-require ''al2-climb-analysis)))
-       #:aux (build-aux-from-path app-icon-file-ca)))))
+       #:aux (build-aux-from-path app-icon-file-ca)))
+
+    (parameterize
+        ([use-compiled-file-paths (list "compiled")])
+      (create-embedding-executable
+       app-exe-file-ai
+       #:modules '((#f "apps/al2-activity-import.rkt"))
+       #:mred? #f
+       #:configure-via-first-module? #t
+       ;; NOTE: these command line options are processed by racket, the "--"
+       ;; flag allows the application to see its own command line options.
+       #:cmdline '("--no-user-path" "--no-init-file" "--")
+       #:expand-namespace (make-base-namespace)
+       #:literal-expression
+       (parameterize ([current-namespace (make-base-namespace)])
+         (compile `(namespace-require ''al2-activity-import)))))))
 
 (define (mkdist)
   (assemble-distribution
    "dist"
-   (list app-exe-file app-exe-file-ca)))
+   (list app-exe-file app-exe-file-ca app-exe-file-ai)))
 
 (define issc-program "C:/Program Files (x86)/Inno Setup 6/iscc.exe")
 

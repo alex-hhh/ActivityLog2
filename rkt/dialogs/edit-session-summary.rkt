@@ -25,7 +25,7 @@
          "../sport-charms.rkt"
          "../widgets/main.rkt"
          "../fmt-util.rkt"
-         "edit-session-tss.rkt")
+         "../models/tss.rkt")
 
 (provide get-edit-session-summary-dialog)
 

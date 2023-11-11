@@ -16,19 +16,19 @@
 
 (require data-frame
          db/base
+         geoid
          racket/class
          racket/dict
          racket/match
          racket/math
          tzgeolookup
-         geoid
          "database.rkt"
-         "models/ec-util.rkt"
-         "session-df/session-df.rkt"
-         "time-in-zone.rkt"
-         "utilities.rkt"
+         "fit-file/activity-util.rkt"
          "gps-segments/gps-segments.rkt"
-         "fit-file/activity-util.rkt")
+         "models/ec-util.rkt"
+         "models/time-in-zone.rkt"
+         "session-df/session-df.rkt"
+         "utilities.rkt")
 
 (provide import-new-activities-from-directory do-post-import-tasks)
 

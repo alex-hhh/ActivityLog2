@@ -63,6 +63,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\AL2-Climb-Analysis.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\AL2-Activity-Import.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
 Source: "..\..\docs\CHANGES.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme

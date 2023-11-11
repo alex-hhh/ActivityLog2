@@ -27,10 +27,10 @@
          racket/list
          racket/math
          racket/runtime-path
-         (only-in "../dbutil.rkt" define-sql-statement)
+         (only-in "../dbutil.rkt"
+                  define-sql-statement)
          "../gps-segments/gps-segments.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt"
          "elevation-correction.rkt")
 
 ;; Elevation correction does not produce good results when there are small
@@ -245,38 +245,6 @@ where id = (select summary_id from A_SESSION S where S.id = ?)")))
     (send progress-monitor finished))
   (dbglog "fixup-elevation-for-all-sessions completed"))
 
-(define (interactive-fixup-elevation database session-id [parent-window #f])
-
-  (define progress-dialog
-    (new progress-dialog%
-         [title "Update elevation data"]
-         [icon (sql-export-icon)]))
-
-  (define progress-monitor
-    (class object% (init-field progress-dialog) (super-new)
-
-      (define num-items 100)
-
-      (define/public (begin-stage msg max-items)
-        (send progress-dialog set-message msg)
-        (send progress-dialog set-progress 0)
-        (set! num-items max-items))
-
-      (define/public (set-progress n)
-        (let ((pct (exact-round (* 100.0 (if (> num-items 0) (/ n num-items) 1.0)))))
-          (send progress-dialog set-progress pct)))
-
-      (define/public (finished)
-        (send progress-dialog set-progress 100))))
-
-  (define (task progress-dialog)
-    (let ((m (new progress-monitor [progress-dialog progress-dialog])))
-      (if session-id
-          (fixup-elevation-for-session database session-id m)
-          (fixup-elevation-for-all-sessions database m))))
-
-  (send progress-dialog run parent-window task))
-
 ;; Remove the corrected elevation information for SESSION-ID.  Trackpoint and
 ;; section summary altitudes are removed.  This will cause all grade and
 ;; summary information displays to use the recorded elevation.
@@ -431,40 +399,6 @@ update SECTION_SUMMARY
   (when progress-monitor
     (send progress-monitor finished)))
 
-;; Same as `interactive-fixup-elevation-for-session`, except for GPS segments
-;; instead of sessions
-(define (interactive-fixup-elevation-for-segment database segment-id [parent-window #f])
-
-  (define progress-dialog
-    (new progress-dialog%
-         [title "Update elevation data for segment"]
-         [icon (sql-export-icon)]))
-
-  (define progress-monitor
-    (class object% (init-field progress-dialog) (super-new)
-
-      (define num-items 100)
-
-      (define/public (begin-stage msg max-items)
-        (send progress-dialog set-message msg)
-        (send progress-dialog set-progress 0)
-        (set! num-items max-items))
-
-      (define/public (set-progress n)
-        (let ((pct (exact-round (* 100.0 (if (> num-items 0) (/ n num-items) 1.0)))))
-          (send progress-dialog set-progress pct)))
-
-      (define/public (finished)
-        (send progress-dialog set-progress 100))))
-
-  (define (task progress-dialog)
-    (let ((m (new progress-monitor [progress-dialog progress-dialog])))
-      (when segment-id
-        (fixup-elevation-for-segment database segment-id m))))
-
-  (send progress-dialog run parent-window task))
-
-
 
 ;;............................................................. provides ....
 
@@ -479,20 +413,8 @@ update SECTION_SUMMARY
  (fixup-elevation-for-all-sessions (->* (connection?)
                                         (any/c) ; the progress monitor
                                         any/c))
- (interactive-fixup-elevation (->* (connection?
-                                    (or/c #f
-                                          exact-nonnegative-integer?
-                                          (listof exact-nonnegative-integer?)))
-                                   (any/c) ; the parent window
-                                   any/c))
  (clear-corrected-elevation-for-session (-> connection? exact-nonnegative-integer? any/c))
 
  (fixup-elevation-for-segment (->* (connection? exact-nonnegative-integer?)
                                    (any/c) ; the progress monitor
-                                   any/c))
- (interactive-fixup-elevation-for-segment (->* (connection?
-                                                (or/c #f
-                                                      exact-nonnegative-integer?
-                                                      (listof exact-nonnegative-integer?)))
-                                               (any/c) ; the parent window
-                                               any/c)))
+                                   any/c)))

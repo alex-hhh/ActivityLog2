@@ -25,16 +25,14 @@
          geoid
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
-         "../rkt/dbutil.rkt"
          "../rkt/fit-file/activity-util.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/models/sport-zone.rkt"
-         "../rkt/sport-charms.rkt"
          "../rkt/workout-editor/wk-db.rkt"
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/time-in-zone.rkt"
+         "../rkt/models/time-in-zone.rkt"
          "test-util.rkt")
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!

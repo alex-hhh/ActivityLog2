@@ -36,7 +36,7 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../models/ec-util.rkt"
+         "../models/ec-util-gui.rkt"
          "../models/fiets-score.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"

@@ -22,31 +22,21 @@
          racket/port
          "../al-widgets.rkt"
          "../database.rkt"
+         "../models/ec-util-gui.rkt"
+         "../models/ec-util.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../widgets/widget-utilities.rkt")
+         "../widgets/widget-utilities.rkt"
+         "edit-lap-swim.rkt"
+         "edit-session-summary.rkt"
+         "edit-session-tss.rkt"
+         "edit-session-weather.rkt"
+         "fthr-analysis.rkt"
+         "power-spikes.rkt")
 
-;; (lazy-require
-;;  ("edit-session-summary.rkt" (get-edit-session-summary-dialog))
-;;  ("edit-session-tss.rkt" (get-edit-session-tss-dialog))
-;;  ("edit-session-weather.rkt" (get-weather-editor))
-;;  ("edit-lap-swim.rkt" (get-lap-swim-editor))
-;;  ("gpx.rkt" (df-write/gpx))
-;;  ("elevation-correction.rkt" (interactive-fixup-elevation
-;;                               clear-corrected-elevation-for-session)))
-
-(require
- "edit-session-summary.rkt"
- "edit-session-tss.rkt"
- "edit-session-weather.rkt"
- "edit-lap-swim.rkt"
- "../models/ec-util.rkt"
- "fthr-analysis.rkt"
- "power-spikes.rkt")
-
-(provide activity-operations<%>)
-(provide activity-operations-menu%)
+(provide activity-operations<%>
+         activity-operations-menu%)
 
 
 ;;............................................ activity-operations-menu% ....

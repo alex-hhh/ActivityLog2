@@ -25,9 +25,10 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../models/sport-zone.rkt"
-         "../time-in-zone.rkt"
+         "../models/time-in-zone-gui.rkt"
+         "../models/time-in-zone.rkt"
+         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 

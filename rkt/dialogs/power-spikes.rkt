@@ -33,10 +33,11 @@
          racket/math
          "../fmt-util.rkt"
          "../models/coggan.rkt"
+         "../models/time-in-zone-gui.rkt"
+         "../models/time-in-zone.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
-         "../time-in-zone.rkt"
          "../utilities.rkt"
          "../widgets/box-and-whiskers.rkt"
          "../widgets/main.rkt"
