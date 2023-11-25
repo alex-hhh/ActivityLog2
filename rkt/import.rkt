@@ -36,7 +36,7 @@
   (query-exec db "delete from LAST_IMPORT")
   (dbglog "importing activities from ~a" dir)
   (when global-callback
-    (global-callback (format "Importing activities from ~a~%" dir)))
+    (global-callback (format "Importing activities from ~a" dir)))
   (db-import-activities-from-directory dir db file-callback)
   (let ((num-imported (query-value db "select count(*) from LAST_IMPORT")))
     (when (> num-imported 0)

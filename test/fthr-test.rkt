@@ -45,7 +45,7 @@
   (test-suite
    "FTHR Analysis"
    (test-case "fthr-duration"
-     (check-equal? (fthr-duration "running" "heart rate") 1200)
+     (check-equal? (fthr-duration "running" "heart rate") 1800)
      (check-equal? (fthr-duration "running" "speed") 1800)
      (check-equal? (fthr-duration "cycling" "heart rate") 1200)
      (check-equal? (fthr-duration "cycling" "power") 1200)

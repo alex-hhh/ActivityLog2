@@ -475,7 +475,11 @@
         (let ([n1 (devinfo-name d1)]
               [n2 (devinfo-name d2)])
           (cond ((equal? n1 n2) n1)
-                ((and n1 n2) (format "~a; ~a" n1 n2))
+                ((and n1 n2)
+                 ;; this can produce really large strings, since devinfo
+                 ;; appear many times in the FIT file, so use n1 for now.
+                 n1
+                 #;(format "~a; ~a" n1 n2))
                 (n1 n1)
                 (n2 n2)
                 (#t #f)))

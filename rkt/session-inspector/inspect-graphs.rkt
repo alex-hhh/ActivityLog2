@@ -1324,7 +1324,10 @@
         (define series (send the-x-axis series-name))
         (when (df-contains? the-session series)
           (define l (and x (df-lookup the-session series '("lat" "lon") x)))
-          (send the-map current-location l))))
+          (when (and l
+                     (rational? (vector-ref l 0))
+                     (rational? (vector-ref l 1)))
+            (send the-map current-location l)))))
 
     (define/public (is-valid-for? df)
       (df-contains? df "lat" "lon"))

@@ -20,13 +20,8 @@
 (require compiler/cm
          compiler/distribute
          compiler/embed
-         file/ico
-         images/icons/stickman
          launcher/launcher
-         racket/class
-         racket/draw
          racket/file
-         racket/math
          racket/port
          racket/string
          racket/system)

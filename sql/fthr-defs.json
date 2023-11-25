@@ -3,7 +3,7 @@
         "sport" : "running",
         "metric" : "heart rate",
         "source" : "https://www.trainingpeaks.com/blog/joe-friel-s-quick-guide-to-setting-zones/",
-        "duration" : 1200,
+        "duration" : 1800,
         "threshold" : 1.0,
         "zone_definition" : [
             { "name" : "Zone 1", "absolute" : 55 },
@@ -39,7 +39,7 @@
         "metric" : "heart rate",
         "source" : "https://www.trainingpeaks.com/blog/joe-friel-s-quick-guide-to-setting-zones/",
         "duration" : 1200,
-        "threshold" : 1.0,
+        "threshold" : 0.95,
         "zone_definition" : [
             { "name" : "Zone 1", "absolute" : 55 },
             { "name" : "Zone 2", "percent" : 0.81 },
