@@ -365,10 +365,10 @@
       ;; at the end of the activity).  We don't support loading HR data from
       ;; such FIT files yet, but at least we can load the swimming part.
       (unless (>= actual expected)
-        (raise-error "bad data-length: ~a, expecting ~a" actual expected)))
-
-    (unless (= (compute-crc buffer) 0)
-      (raise-error "bad file CRC"))
+        (raise-error "bad data-length: ~a, expecting ~a" actual expected))
+      ;; Calculate CRC only on the actual chunk used by the header
+      (unless (= (compute-crc buffer 0 expected) 0)
+        (raise-error "bad file CRC")))
 
     ;; Now that we have read the header, update crtpos and limit to match the
     ;; actual data content of the buffer.
