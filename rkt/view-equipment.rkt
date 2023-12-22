@@ -981,6 +981,6 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
             (notify-user 'info "~a: ~a" equipment description))))
       (for ([item (get-low-battery-devices the-database)])
         (match-define (vector name status voltage status-name) item)
-        (define msg (format "~a: battery status is ~a (~a V)" name status-name (~r voltage #:precision 2)))
+        (define msg (format "~a: battery status is ~a" name status-name))
         (notify-user (if (> status 4) 'error 'warning) msg)))
     ))
