@@ -9,6 +9,55 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2024.01 (January 2024)
+
+* More improvements to PMC trend chart: legend entry now shows data for today,
+  if today's date is covered by the PMC chart range; added Ramping Rate, the
+  average increase in CTL over the past 4 weeks; Hovering over TSS "dots" on
+  the plot shows the activity, or activities, on that day.
+
+* New al2-activity-import command line import utility allows setting up
+  scripts to automatically import activities.
+
+* The ActivityLog2 application now accepts the database on the command line
+  and AL2-Climb-Analysis to accept the GPX route file on the command line.
+  This allows setting up scripts to open separate activity databases.
+
+* A map can be added to the charts view, this allows showing the map next to
+  all the other data series (#66)
+
+* Update FTHR settings for percentage and duration, after re-reading Friel's
+  book.  Threshold Heart Rate is 95% of the highest average 20 minute HR.  For
+  running use 100% of the 30 minute highest HR.
+
+* Update Aerolab parameter estimation: use an exponential "temperature" drop
+  instead of a linear one and also transition all parameters between states
+  instead of just one of them.  This seems to find better matches for CdA and
+  Crr.
+
+* Fix a bug with reading FIT files containing extra data after the FIT file
+  information (#96), as well as FIT files which have bad developer field
+  definitions.
+
+* Fix a bug that where very long device names were created on activity import,
+  in some degenerate cases, causing the application to fail to start.
+
+* Fix a bug that prevented the user from saving CP2 parameters in the
+  "Athlete/Edit Critical Power..."  dialog. (AB#53)
+
+* Fix a bug preventing saving of sport zones in the "Athlete/Edit Sport
+  Zones..." dialog (AB#52)
+
+* "Sensor Battery low" don't include voltage -- some sensors don't report the
+  voltage when reporting battery low condition and this caused an application
+  crash.
+
+* Add extra checks to prevent crashes and errors when data is missing...
+  graphs used to expect that data such as heart rate or power is always
+  available, or that sport zones always exist for an activity.  This caused
+  errors and crashes when such data was missing.  Attempted to fix the cases I
+  found.
+
 # Release 2023.09 (September 2023)
 
 * Fix a bug where session inspector would fail to load when there were no
@@ -50,7 +99,7 @@ the application.
 
 * Fix Swimming MMAX plot range by converting between a m/s value into an
   appropriate min/km, min/100m, etc values, so the numeric limits for the plot
-  are appropiate.
+  are appropriate.
 
 * New graphs for the session inspector: heart rate, power/speed reserve and
   aerobic decoupling graphs.  The "reserve" graphs show a 30second rolling
