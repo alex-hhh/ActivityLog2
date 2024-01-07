@@ -5,7 +5,7 @@
 ;; see https://alex-hhh.github.io/2021/04/climb-analysis-tool.html
 ;;
 ;; This file is part of AL2-Climb-Analysis
-;; Copyright (c) 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -919,7 +919,8 @@
         (values (string-append "ascent " (~r a #:precision 0) " meters")
                 (string-append "descent " (~r a #:precision 0) " meters"))))
     (send activity-name-message set-label
-          (format "~a -- ~a, ~a, ~a" name distance ascent descent))))
+          (format "~a -- ~a, ~a, ~a" name distance ascent descent))
+    (send toplevel set-label (format "~a -- Climb Analysis Tool" name))))
 
 ;; Called when a new climb is selected in the climbs-view.  Selects the climb
 ;; on the map and plot and zooms to selection if needed.

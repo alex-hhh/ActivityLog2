@@ -2,7 +2,7 @@
 ;; build.rkt -- utilities for building the ActivityLog2 application
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -80,7 +80,9 @@
      #:literal-expression
      (parameterize ([current-namespace (make-base-namespace)])
        (compile `(namespace-require ''run)))
-     #:aux (build-aux-from-path app-icon-file))
+     #:aux
+     (cons (cons 'single-instance? #f)
+           (build-aux-from-path app-icon-file))))
 
     (parameterize
         ([use-compiled-file-paths (list "compiled")])
@@ -96,7 +98,9 @@
        #:literal-expression
        (parameterize ([current-namespace (make-base-namespace)])
          (compile `(namespace-require ''al2-climb-analysis)))
-       #:aux (build-aux-from-path app-icon-file-ca)))
+       #:aux
+       (cons (cons 'single-instance? #f)
+             (build-aux-from-path app-icon-file-ca))))
 
     (parameterize
         ([use-compiled-file-paths (list "compiled")])
@@ -111,7 +115,7 @@
        #:expand-namespace (make-base-namespace)
        #:literal-expression
        (parameterize ([current-namespace (make-base-namespace)])
-         (compile `(namespace-require ''al2-activity-import)))))))
+         (compile `(namespace-require ''al2-activity-import))))))
 
 (define (mkdist)
   (assemble-distribution
