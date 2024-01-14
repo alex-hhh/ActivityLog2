@@ -335,7 +335,8 @@
                     3388,
                     3389,
                     3446,
-                    3473
+                    3473,
+                    4426
                 ],
                 "name": "Garmin Vivoactive"
             },
@@ -469,7 +470,8 @@
                     2262,
                     2547,
                     2819,
-                    4125
+                    4125,
+                    4556
                 ],
                 "name": "Garmin D2"
             },
@@ -496,6 +498,10 @@
             {
                 "product_id": 2226,
                 "name": "Garmin Varia Radar Display"
+            },
+            {
+                "product_id": 3808,
+                "name": "Garmin Varia RCT715"
             },
             {
                 "product_id": [
@@ -786,6 +792,14 @@
                 "name": "Venu"
             },
             {
+                "product_id": 4260,
+                "name" : "Venu 3"
+            },
+            {
+                "product_id": 4261,
+                "name" : "Venu 3S"
+            },
+            {
                 "product_id": [
                     3246,
                     3247,
@@ -804,7 +818,8 @@
                     3739,
                     3850,
                     4105,
-                    4124
+                    4124,
+                    4472
                 ],
                 "name": "Garmin Marq"
             },
@@ -832,6 +847,14 @@
                     3516
                 ],
                 "name": "Garmin Fenix 6x"
+            },
+            {
+                "product_id": 4374,
+                "name": "Garmin Fenix 7s Pro Solar" 
+            },
+            {
+                "product_id": 4376,
+                "name": "Garmin Fenix 7x Pro Solar"
             },
             {
                 "product_id": 3299,
@@ -1319,6 +1342,14 @@
             {
                 "product_id": 31,
                 "name": "Wahoo ELEMNT BOLT"
+            },
+            {
+                "product_id": 41,
+                "name": "Wahoo PowrLink"
+            },
+            {
+                "product_id": 43,
+                "name": "Wahoo ELEMNT BOLT V2"
             }
         ]
     },
@@ -2011,6 +2042,16 @@
         "products": []
     },
     {
+        "manufacturer_id" : 149,
+        "name" : "Laisi",
+        "products" : []
+    },
+    {
+        "manufacturer_id" : 150,
+        "name" : "MyZone",
+        "products" : []
+    },
+    {
         "manufacturer_id": 255,
         "name": "Development",
         "products": []
@@ -2380,6 +2421,21 @@
     {
         "manufacturer_id": 324,
         "name": "Hilldating",
+        "products": []
+    },
+    {
+        "manufacturer_id": 325,
+        "name": "Aero Sensor",
+        "products": []
+    },
+    {
+        "manufacturer_id": 326,
+        "name": "Nike",
+        "products": []
+    },
+    {
+        "manufacturer_id": 327,
+        "name": "MagicShine",
         "products": []
     },
     {
