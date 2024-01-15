@@ -533,10 +533,50 @@
           from EQUIPMENT E1
          where (E1.serial_number % 65536) = ?)")))
 
-;; Get the EQUIPMENT.id for a serial number, SN, or #f if not found.
-(define (dev-id-from-sn db sn)
+(define stmt-get-device-id-extended
+  (virtual-statement
+   (lambda (dbsys)
+     "select id from EQUIPMENT where serial_number = ? and manufacturer_id = ? and device_id = ?")))
+
+;; There's a bug in (AB#56), at least, Wahoo ELEMNT BOLT v2 where the unit
+;; uses a signed 32 bit value to hold unsigned 32 bit serial numbers.  For
+;; serial numbers with the top bit set , that is greater than, or equal to
+;; 0x80000000, this erases the top bit, reporting a different serial number.
+;;
+;; This can create a problem when you have some equipment (e.g. power meter),
+;; used with a Garmin unit , than use it with a Wahoo unit -- since Wahoo
+;; reports the serial number incorrectly, the same device will show up twice.
+;;
+;; There is no way to detect this problem in a general sense, since all
+;; numbers are valid serial numbers.  However, if we didn't find a device
+;; serial number in the database (see `dev-id-from-sn`), AND we find a device
+;; with the same serial number, but the top bit set, we treat this as more
+;; than just a coincidence and assume that Wahoo clipped the bit off..
+;;
+;;
+;; LIMITATIONS: This fix works if the device is detected and inserted in the
+;; database from a Garmin unit first, otherwise we'll create a new device with
+;; the Wahoo reported serial number and Wahoo activities will link to that
+;; device from than on, and there is no corresponding workaround if the device
+;; is later detected by a Garmin unit.
+;; 
+(define (get-device-id-from-sn/wahoo-hack db di)
+  (define sn (devinfo-sn di))
+  (and (< sn #x7FFFFFFF)
+       (let ([alternate-sn (modulo (- sn) #x100000000)])
+         ;; For extra "safety" the manufacturer and product have to match as
+         ;; well here...
+         (query-maybe-value db stmt-get-device-id-extended
+                            alternate-sn
+                            (or (devinfo-manufacturer di) sql-null)
+                            (or (devinfo-product di) sql-null)))))
+
+;; Get the EQUIPMENT.id for a device-info instance, DI, or #f if not found.
+(define (dev-id-from-sn db di)
+  (define sn (devinfo-sn di))
   (or (query-maybe-value db stmt-get-device-id sn)
-      (query-maybe-value db stmt-get-device-id-16bit sn)))
+      (query-maybe-value db stmt-get-device-id-16bit sn)
+      (get-device-id-from-sn/wahoo-hack db di)))
 
 (define stmt-put-equipment
   (virtual-statement
@@ -573,7 +613,7 @@
 ;; Put a device info strucure in the database: add entries to EQUIPMENT,
 ;; EQUIPMENT_VER and EQUIPMENT_USE as needed.
 (define (put-devinfo db di sid)
-  (let ((id (dev-id-from-sn db (devinfo-sn di))))
+  (let ((id (dev-id-from-sn db di)))
     (unless id                 ; if it is already there, don't put a new entry
       (let ((manufacturer (let ((m (devinfo-manufacturer di)))
                             (cond ((number? m) m)
