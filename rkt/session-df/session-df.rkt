@@ -1,10 +1,11 @@
+
 #lang racket/base
 
 ;; session-df.rkt --create a data-frame% from a session's trackpoints, plus
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -804,7 +805,9 @@
              (if (< v cp)
                  (let ((rate (/ (- wprime wbal) wprime))
                        (delta (- cp v)))
-                   (set! wbal (+ wbal (* delta dt rate))))
+                   ;; MIN prevents a large DT (such as a pause in the ride) to
+                   ;; get WBAL above its maximum.  AB#55
+                   (set! wbal (min wprime (+ wbal (* delta dt rate)))))
                  (let ((delta (- v cp)))
                    (set! wbal (- wbal (* delta dt))))))))
        wbal))))
