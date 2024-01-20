@@ -1,0 +1,11 @@
+{
+    "app_key" : "abc",
+    "port" : 8080,
+    "log_file" : "./Al2-Naming-Service.log",
+    "courses_directory" : "./Courses",
+    "track_simplification_threshold" : 10,
+    "cities_file" : "./worldcities.csv",
+    "city_threshold" : 50000,
+    "user_locations_file" : "./user_locations.csv",
+    "user_location_threshold" : 500
+}
