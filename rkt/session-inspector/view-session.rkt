@@ -395,7 +395,6 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
         (error "view-session%/set-session-df: expecting a data-frame"))
       (set! data-frame sdf)
       (set! aerolab-parameters ap)
-      (define is-lap-swim? (df-get-property data-frame 'is-lap-swim?))
       (define sport (df-get-property data-frame 'sport))
 
       ;; The overview panel also uses the data frame, so tell it that it is

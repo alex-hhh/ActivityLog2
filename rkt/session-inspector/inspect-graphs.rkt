@@ -1301,6 +1301,9 @@
            (super resize w h)
            (define group (if (and zoom-to-lap? have-selected-lap?) 'lap 'main))
            (send this resize-to-fit group)))))
+    (define the-cll
+      (current-location-layer 'current-location #:track-current-location? #t))
+    (send the-map add-layer the-cll)
 
     (send map-container set-snip the-map)
 
@@ -1324,29 +1327,32 @@
         (define series (send the-x-axis series-name))
         (when (df-contains? the-session series)
           (define l (and x (df-lookup the-session series '("lat" "lon") x)))
-          (when (and l
-                     (rational? (vector-ref l 0))
-                     (rational? (vector-ref l 1)))
-            (send the-map current-location l)))))
+          (if (and l
+                   (rational? (vector-ref l 0))
+                   (rational? (vector-ref l 1)))
+              (send the-cll current-location l)
+              (send the-cll current-location #f)))))
 
     (define/public (is-valid-for? df)
       (df-contains? df "lat" "lon"))
 
     (define/public (set-data-frame df)
       (set! the-session df)
-      (define track (df-select* the-session "lat" "lon" #:filter valid-only))
+      ;; TODO: instead of adding the entire track as a single line, we should
+      ;; add individual segments based on "teleport" locations, as it is done
+      ;; in inspect-map.rkt...
+      (define waypoints (df-select* the-session "lat" "lon" #:filter valid-only))
       (set! have-selected-lap? #f)
-      (send the-map begin-edit-sequence)
-      (send the-map clear)
-      (send the-map add-track track 'main)
-      (send the-map set-group-pen 'main main-track-pen)
-      (send the-map resize-to-fit)
-      (send the-map end-edit-sequence))
+      (send* the-map
+        (begin-edit-sequence)
+        (add-layer (line-layer 'main waypoints #:pen main-track-pen))
+        (resize-to-fit)
+        (end-edit-sequence)))
 
     (define/public (zoom-to-lap flag)
       (set! zoom-to-lap? flag)
-      (define group (if (and zoom-to-lap? have-selected-lap?) 'lap 'main))
-      (send the-map resize-to-fit group))
+      (define layer (if (and zoom-to-lap? have-selected-lap?) 'lap 'main))
+      (send the-map resize-to-fit layer))
 
     (define/public (color-by-zone flag) ; not applicable
       (void))
@@ -1364,23 +1370,26 @@
       (if (and start end)
           (match-let ([(list start-idx end-idx)
                        (df-index-of* the-session "timestamp" start end)])
-            (define track
+            (define waypoints
               (df-select* the-session "lat" "lon"
                           #:filter valid-only
                           #:start start-idx
                           #:stop (add1 end-idx)))
             (set! have-selected-lap? #t)
-            (send the-map begin-edit-sequence)
-            (send the-map delete-group 'lap)
-            (send the-map add-track track 'lap)
-            (send the-map set-group-pen 'lap lap-track-pen)
-            (send the-map set-group-zorder 'lap 0.1)
-            (send the-map resize-to-fit (if zoom-to-lap? 'lap 'main))
-            (send the-map end-edit-sequence))
+            (send* the-map
+              (begin-edit-sequence)
+              (add-layer (line-layer 'lap waypoints
+                                     #:pen lap-track-pen
+                                     #:zorder 0.1))
+              (resize-to-fit (if zoom-to-lap? 'lap 'main))
+              (end-edit-sequence)))
           (begin
-            (send the-map delete-group 'lap)
             (set! have-selected-lap? #f)
-            (send the-map resize-to-fit))))
+            (send* the-map
+              (begin-edit-sequence)
+              (remove-layer 'lap)
+              (resize-to-fit)
+              (end-edit-sequence)))))
 
     (define/public (on-interactive-export-image)
       ;; TODO: would be nice to implement this, once supported by the map widget

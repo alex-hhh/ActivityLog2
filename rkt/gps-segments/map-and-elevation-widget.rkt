@@ -127,19 +127,19 @@
          (define grade (car v))
          (and grade (grade->color-index grade)))))))
 
-(define (make-plot-callback df map)
+(define (make-plot-callback df cll)
   ;; NOTE: _alt is the altitude at mouse position, which is irrelevant for us.
   (lambda (snip event dst _alt)
     (let/ec return
       (unless (good-hover? snip dst _alt event)
         (send snip set-overlay-renderers #f)
-        (send map current-location #f)
+        (send cll current-location #f)
         (return (void)))
 
       (define location (df-lookup df "dst" '("lat" "lon") dst))
       (if (and (vector-ref location 0) (vector-ref location 1))
-          (send map current-location location)
-          (send map current-location #f))
+          (send cll current-location location)
+          (send cll current-location #f))
 
       (match-define (vector alt grade) (df-lookup df "dst" '("alt" "grade") dst))
 
@@ -235,6 +235,12 @@
                (send zoom-slider set-value zl)))
            [parent map-pane]))
 
+    (define the-cll
+      (current-location-layer
+       'current-location
+       #:track-current-location? (send track-location-check-box get-value)))
+    (send the-map add-layer the-cll)
+
     (define the-plot-container
       (new plot-container%
            [parent map-and-plot-panel]
@@ -248,28 +254,24 @@
                     zoom-slider
                     fit-to-window-button))))
 
-    (send the-map set-group-pen 'segment
-          (send the-pen-list find-or-create-pen
-                (make-object color% 238 51 119)
-                6
-                'solid))
-    (send the-map set-group-zorder 'segment 0.5)
-
-    (send the-map set-group-pen 'match
-          (send the-pen-list find-or-create-pen
+    (define segment-pen
+      (send the-pen-list find-or-create-pen
+            (make-object color% 238 51 119)
+            6
+            'solid))
+    (define segment-zorder 0.5)
+    (define match-pen
+      (send the-pen-list find-or-create-pen
                 (make-object color% 204 51 17)
                 4
                 'solid))
-    (send the-map set-group-zorder 'match 0.25)
-
-    (send the-map set-group-pen 'session
-          (send the-pen-list find-or-create-pen
+    (define match-zorder 0.25)
+    (define session-pen
+      (send the-pen-list find-or-create-pen
                 (make-object color% 0 119 187)
                 3
                 'solid))
-    (send the-map set-group-zorder 'session 0.75)
-
-    (send the-map track-current-location (send track-location-check-box get-value))
+    (define session-zorder 0.75)
 
     ;; Needs to be done after the panel has all the children added
     (send map-and-plot-panel set-percentages
@@ -293,14 +295,14 @@
                        [plot-brush-color-map colormap])
           (plot-snip (make-grade-color-renderers segment-df) #:width w #:height h
                      #:y-min plot-min #:y-max plot-max)))
-      (send the-plot set-mouse-event-callback (make-plot-callback segment-df the-map))
+      (send the-plot set-mouse-event-callback (make-plot-callback segment-df the-cll))
       (send the-plot set-overlay-renderers #f)
       (send the-plot-container set-snips the-plot))
 
     ;; Called when the user checks/unchecks the track-location-check-box
     ;; widget, sends the information to the map widget.
     (define (on-track-location track?)
-      (send the-map track-current-location track?))
+      (send the-cll track-current-location track?))
 
     ;; Called then the user checks/unchecks the show-map-layer-check-box
     ;; widget, sends the information to the map widget
@@ -310,24 +312,25 @@
     ;; Called when the user checks/unchecks the show-session-track-check-box
     ;; widget, shows/hides the session (if one is present)
     (define (on-show-session-track show?)
-      (if show?
-          (when (and session-df match-start match-end)
-            (send the-map begin-edit-sequence)
-            (send the-map delete-group 'session)
-            (match-define (list begin end)
-              (df-index-of* session-df "timestamp" match-start match-end))
-            ;; NOTE: route simplification in the map widget means that the
-            ;; full track and the segment might not align.  Just show the path
-            ;; outside the matched segment for the full track, to work around
-            ;; this limitation.
-            (define full-track-before
-              (df-select* session-df "lat" "lon" #:filter valid-only #:stop (add1 begin)))
-            (send the-map add-track full-track-before 'session)
-            (define full-track-after
-              (df-select* session-df "lat" "lon" #:filter valid-only #:start (sub1 end)))
-            (send the-map add-track full-track-after 'session)
-            (send the-map end-edit-sequence))
-          (send the-map delete-group 'session)))
+      (send the-map begin-edit-sequence)
+      (send the-map remove-layer 'session)
+      (when (and show? session-df match-start match-end)
+        (match-define (list begin end)
+          (df-index-of* session-df "timestamp" match-start match-end))
+        ;; NOTE: route simplification in the map widget means that the full
+        ;; track and the segment might not align.  Just show the path outside
+        ;; the matched segment for the full track, to work around this
+        ;; limitation.
+        (define full-track-before
+          (df-select* session-df "lat" "lon" #:filter valid-only #:stop (add1 begin)))
+        (define full-track-after
+          (df-select* session-df "lat" "lon" #:filter valid-only #:start (sub1 end)))
+        (send the-map add-layer
+              (lines-layer 'session
+                           (list full-track-before full-track-after)
+                           #:pen session-pen
+                           #:zorder session-zorder)))
+      (send the-map end-edit-sequence))
 
     ;; Called when the user changes the zoom level using the zoom-slider.
     ;; Sends the new zoom level to the map widget.
@@ -363,14 +366,25 @@
             (if (df-contains? df "alt" "grade" "grade-color")
                 (construct-the-plot)
                 (send the-plot-container clear-all))
-            (send the-map begin-edit-sequence)
-            (send the-map clear)
-            (send the-map add-track (df-select* df "lat" "lon" #:filter valid-only) 'segment)
-            (send the-map resize-to-fit)
-            (send the-map center-map)
-            (send the-map end-edit-sequence))
+            (send* the-map
+              (begin-edit-sequence)
+              (remove-layer 'segment)
+              (remove-layer 'session)
+              (remove-layer 'match)
+              (add-layer
+               (line-layer
+                'segment
+                (df-select* df "lat" "lon" #:filter valid-only)
+                #:pen segment-pen
+                #:zorder segment-zorder))
+              (resize-to-fit)
+              (center-map)
+              (end-edit-sequence)))
           (begin
-            (send the-map clear)
+            (send* the-map
+              (remove-layer 'segment)
+              (remove-layer 'session)
+              (remove-layer 'match))
             (send the-plot-container clear-all)))
       (set-session-match #f #f #f))
 
@@ -382,24 +396,31 @@
       (set! match-end end)
       (when (and session-df match-start match-end)
         (send the-map begin-edit-sequence)
-        (send the-map delete-group 'session)
-        (send the-map delete-group 'match)
-        (match-define (list begin end)
+        (send the-map remove-layer 'session)
+        (send the-map remove-layer 'match)
+        (match-define (list start stop)
           (df-index-of* session-df "timestamp" match-start match-end))
         (when (send show-session-track-check-box get-value)
           ;; NOTE: route simplification in the map widget means that the
           ;; full track and the segment might not align.  Just show the path
           ;; outside the matched segment for the full track, to fix this.
           (define full-track-before
-            (df-select* session-df "lat" "lon" #:filter valid-only #:stop (add1 begin)))
-          (send the-map add-track full-track-before 'session)
+            (df-select* session-df "lat" "lon" #:filter valid-only #:stop (add1 start)))
           (define full-track-after
-            (df-select* session-df "lat" "lon" #:filter valid-only #:start (sub1 end)))
-          (send the-map add-track full-track-after 'session))
-        (define match-track
+            (df-select* session-df "lat" "lon" #:filter valid-only #:start (sub1 stop)))
+          (send the-map add-layer
+                (lines-layer
+                 'session
+                 (list full-track-before full-track-after)
+                 #:pen session-pen
+                 #:zorder session-zorder)))
+        (define match-waypoints
           (df-select* session-df "lat" "lon" #:filter valid-only
-                      #:start begin #:stop end))
-        (send the-map add-track match-track 'match)
+                      #:start start #:stop stop))
+        (send the-map add-layer
+              (line-layer 'match match-waypoints
+                          #:pen match-pen
+                          #:zorder match-zorder))
         (send the-map end-edit-sequence)))
 
     ))

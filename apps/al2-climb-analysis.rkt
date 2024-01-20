@@ -24,7 +24,6 @@
          data-frame
          data-frame/gpx
          data-frame/private/rdp-simplify
-         "../rkt/widgets/dragable-split-panel.rkt"
          gui-widget-mixins
          map-widget
          math/statistics
@@ -34,12 +33,13 @@
          plot-container/hover-util
          plot/utils
          racket/cmdline
+         racket/draw
          racket/path
-         "../rkt/widgets/qresults-list.rkt"
-         "../rkt/utilities.rkt"         ; put-preferences replacement
-         "../rkt/models/fiets-score.rkt"
          "../rkt/fit-file/course.rkt"
-         racket/draw)
+         "../rkt/models/fiets-score.rkt"
+         "../rkt/utilities.rkt"
+         "../rkt/widgets/dragable-split-panel.rkt"
+         "../rkt/widgets/qresults-list.rkt")
 
 ;; Install colormaps for showing the gradient on the elevation plot.  See the
 ;; colormaps package for additional colormaps that can be used
@@ -377,21 +377,21 @@
 ;; Return a function suitable as a plot call back (to be passed to
 ;; `set-mouse-event-callback`).  The function will display information about
 ;; the current location on the plot as well as highlight the current location
-;; on the map.  `df` is the data frame which is used for lookups, while `map`
-;; is a `map-widget%` instance on which the location is updated.
-(define (make-plot-callback df map)
+;; on the map.  `df` is the data frame which is used for lookups, while `cll`
+;; is a `current-location-layer%` instance on which the location is updated.
+(define (make-plot-callback df cll)
   (define the-climbs (or (df-get-property df 'climbs) '()))
   (lambda (snip event dst _alt)
     (let/ec return
       (unless (good-hover? snip dst _alt event)
         (send snip set-overlay-renderers additional-renderers)
-        (send map current-location #f)
+        (send cll current-location #f)
         (return (void)))
 
       (define location (df-lookup df "dst/km" '("lat" "lon") dst))
       (if (and (vector-ref location 0) (vector-ref location 1))
-          (send map current-location location)
-          (send map current-location #f))
+          (send cll current-location location)
+          (send cll current-location #f))
 
       (match-define (vector alt grade) (df-lookup df "dst/km" '("alt" "grade") dst))
 
@@ -713,9 +713,11 @@
 ;; track is setup here.  The ZORDER of the selected track is also set up so it
 ;; is drawn on top of the main track.
 
-(send the-map track-current-location (send track-location-check-box get-value))
-(send the-map set-group-pen 'selected-track selected-track-pen)
-(send the-map set-group-zorder 'selected-track 0.4)
+(define the-cll
+  (current-location-layer
+   'curent-location
+   #:track-current-location? (send track-location-check-box get-value)))
+(send the-map add-layer the-cll)
 
 ;; Sync the value of the zoom slider with the current map zoom level.
 (send zoom-slider set-value (send the-map zoom-level))
@@ -762,7 +764,7 @@
           (plot-snip (list (make-climb-renderers df)
                            (make-grade-color-renderers df))
                      #:width w #:height h)))
-  (send the-plot set-mouse-event-callback (make-plot-callback df the-map))
+  (send the-plot set-mouse-event-callback (make-plot-callback df the-cll))
   (send the-plot set-overlay-renderers additional-renderers)
   (send the-plot-container set-snips the-plot))
 
@@ -831,7 +833,7 @@
 ;; Called when the user checks/unchecks the track-location-check-box widget,
 ;; sends the information to the map widget.
 (define (on-track-location track?)
-  (send the-map track-current-location track?))
+  (send the-cll track-current-location track?))
 
 ;; Called when the user changes the zoom level using the zoom-slider.  Sends
 ;; the new zoom level to the map widget.
@@ -893,14 +895,16 @@
 ;; Called when the user presses the load-gpx-button.  Loads a new data frame
 ;; from the specified GPX file and creates the climbs + plot.
 (define (on-load-course file-name)
-  (send the-map clear)                  ; remove any previous tracks
+  (send the-map remove-layer 'main-track)
+  (send the-map remove-layer 'selected-track)
   (set! df (load-course file-name))
   (when df
     (let ([rdp-epsilon (/ (send climb-detection-slider get-value) 100)])
       (add-raw-climbs df #:epsilon rdp-epsilon))
     (on-climb-parameters-changed)
 
-    (send the-map add-track (df-select* df "lat" "lon" #:filter valid-only) 'main-track)
+    (let ([waypoints (df-select* df "lat" "lon" #:filter valid-only)])
+      (send the-map add-layer (line-layer 'main-track waypoints)))
     (send the-map center-map)
     (send the-map resize-to-fit)
 
@@ -930,8 +934,9 @@
     (df-index-of* df "dst/km" (climb-start c) (climb-end c)))
   (set! stop (min (add1 stop) (df-row-count df)))
   (define track (df-select* df "lat" "lon" #:filter valid-only #:start start #:stop stop))
-  (send the-map delete-group 'selected-track)
-  (send the-map add-track track 'selected-track)
+  (send the-map add-layer (line-layer 'selected-track track
+                                      #:pen selected-track-pen
+                                      #:zorder 0.4))
   (when zoom?
     (send the-map resize-to-fit 'selected-track))
   (define alt (df-select* df "dst/km" "alt" #:filter valid-only #:start start #:stop stop))

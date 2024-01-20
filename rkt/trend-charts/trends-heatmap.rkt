@@ -380,6 +380,7 @@
     (define cached-data #f)
     (define generation 0)
     (define map-snip #f)
+    (define point-cloud #f)             ; the point-cloud layer
     (define map-control-snip #f)
 
     (define (get-generation) generation)
@@ -389,7 +390,8 @@
 
     (define/override (invalidate-data)
       (set! cached-data #f)
-      (set! map-snip #f))
+      (set! map-snip #f)
+      (set! point-cloud #f))
 
     (define/override (is-invalidated-by-events? events)
       (or (hash-ref events 'database-opened #f)
@@ -407,6 +409,7 @@
     (define/private (add-points params saved-generation)
       (let* ([candidates (candidate-sessions database params)]
              [map-snip map-snip]
+             [point-cloud point-cloud]
              [total (length candidates)]
              [total-points 0]
              [last-progress 0.0])
@@ -416,7 +419,7 @@
           (for ([c (in-list candidates)]
                 [index (in-naturals)])
             (define geoids (fetch-session-geoids database c))
-            (send map-snip add-to-point-cloud geoids #:format 'ordered-geoids)
+            (send point-cloud add-points geoids #:format 'ordered-geoids)
             (define progress (/ (add1 index) total))
             (set! total-points (+ total-points (length geoids)))
             (when (> (- progress last-progress) 0.02)
@@ -425,7 +428,7 @@
               (queue-callback
                (lambda ()
                  (when (and (equal? saved-generation generation) map-control-snip)
-                   (define-values (c t) (send map-snip get-point-count))
+                   (define-values (c _t) (send point-cloud get-point-count))
                    (send map-control-snip set-load-progress
                          (if (> total-points 0) (/ c total-points) 0))
                    (send map-control-snip set-point-count c))))
@@ -434,7 +437,7 @@
           (send map-snip end-edit-sequence)
           ;; Wait for all points to be processed, while updating the progress bar
           (let loop ([last-c 0])
-            (define-values (c t) (send map-snip get-point-count))
+            (define-values (c t) (send point-cloud get-point-count))
             (unless (or (>= c t) (> generation saved-generation))
               ;; only queue callback if the processed point count changed
               (when (> c last-c)
@@ -459,6 +462,7 @@
                (iw (exact-round (- w (* 2 hinset))))
                (ih (exact-round (- h (* 2 vinset))))
                (snip (new map-snip% [width iw] [height ih]))
+               (pcl (point-cloud-layer 'heatmap))
                (ctl (new map-control-snip%
                          [on-zoom-in (lambda ()
                                        (when map-snip
@@ -474,7 +478,9 @@
                          [on-show-map-layer (lambda (flag)
                                               (when map-snip
                                                 (send map-snip show-map-layer flag)))])))
+          (send snip add-layer pcl)
           (set! map-snip snip)
+          (set! point-cloud pcl)
           (set! map-control-snip ctl)
           (send map-control-snip set-show-map-layer #t)
           (send map-snip show-map-layer #t)
