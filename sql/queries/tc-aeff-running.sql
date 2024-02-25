@@ -1,7 +1,7 @@
 -- tc-aeff-running.sql -- running aerobic efficiency query
 -- 
 -- This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
--- Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (c) 2018, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 -- 
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -28,5 +28,7 @@ select VAL.session_id as id,
  where VAL.start_time between ? and ?
    and VAL.sport = 1                    -- running
    and VAL.speed is not null
+   and VAL.speed > 0
    and VAL.hr is not null
+   and VAL.hr > 0
  order by timestamp;

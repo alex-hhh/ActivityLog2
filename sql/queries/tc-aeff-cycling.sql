@@ -1,7 +1,7 @@
 -- tc-aeff-cycling.sql -- cycling aerobic efficiency SQL query
 -- 
 -- This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
--- Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (c) 2018, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 -- 
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -30,5 +30,7 @@ select datetime(VAL.start_time, 'unixepoch', 'localtime') as date,
  where VAL.start_time between ? and ?
    and VAL.sport = 2                    -- cycling
    and VAL.power is not null
+   and VAL.power > 0
    and VAL.hr is not null
+   and VAL.hr > 0
  order by timestamp;
