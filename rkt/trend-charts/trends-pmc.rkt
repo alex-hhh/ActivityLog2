@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -50,7 +50,7 @@
 
 ;; Colors and line width of the plot elements
 (define form-renderer-color '(0 119 187)) ; blue
-(define form-renderer-line-width 2.0)
+(define form-renderer-line-width 1.0)
 (define tss-renderer-color '(51 187 238)) ; cyan
 (define tss-point-size 9)
 (define fitness-renderer-color '(0 153 136)) ; teal
@@ -364,6 +364,9 @@
                           (text "Form" pd-label-face)
                           (text (fmt tsb) pd-item-face)
                           (text "TSB" pd-label-face)
+                          (text "" pd-label-face)
+                          (text (tsb-factor-label (tsb->label tsb)) pd-label-face)
+                          (text "" pd-label-face)
                           (text "Ramping Rate" pd-label-face)
                           (text (fmt rr) pd-item-face)
                           (text "CTL points/week" pd-label-face)
@@ -390,28 +393,164 @@
      #:color pd-background)
     p))
 
+
+;;........................................................ tsb-factoring ....
+
+;; We colorize the FORM (Training Stress Balance) graph using guidelines from
+;; https://www.trainingpeaks.com/coach-blog/a-coachs-guide-to-atl-ctl-tsb/
+
+;; Key positions in the TSB balance when things "change" (see labels bellow)
+(define tsb-key-points '(20 5 -10 -30))
+
+;; Convert a TSB value into a label (a small positive number).  This is done
+;; according to the tsb-key-points above (e.g. a TSB greater than the first
+;; value in that list has a label, or index of 0
+(define (tsb->label tsb)
+  (or 
+   (for/first ([kp (in-list tsb-key-points)]
+               [index (in-naturals)]
+               #:when (> tsb kp))
+     index)
+   (length tsb-key-points)))
+
+;; Give names to the TSB factor labels
+(define tsb-factor-labels
+  (vector "Transition"
+          "Fresh"
+          "Grey Zone"
+          "Optimal"
+          "High Risk"))
+
+;; Return the label corresponding to the TSB label F
+(define (tsb-factor-label f)
+  (vector-ref tsb-factor-labels f))
+
+;; Associate a color with each TSB factor label
+#;(define tsb-factor-colors
+  ;; Bright qualitative
+  (vector '(204 187 68)                 ; Transition
+          '(68 119 170)                 ; Fresh
+          '(187 187 187)                ; Grey Zone
+          '(34 136 51)                  ; Optimal
+          '(238 102 119)))              ; High Risk
+
+(define tsb-factor-colors
+  ;; Vibrant Qualitative
+  (vector '(238 119 51)                 ; Transition
+          '(0 119 187)                  ; Fresh
+          '(187 187 187)                ; Grey Zone
+          '(0 153 136)                  ; Optimal
+          '(204 51 17)))                ; High Risk
+
+;; Return the color corresponding to the TSB label F
+(define (tsb-factor-color f)
+  (vector-ref tsb-factor-colors f))
+
+;; Return the TSB value that represents the transition point between LABEL and
+;; DIRECTION (another label).  E.g. the transition point between "Fresh" (1)
+;; and "Transition" (0) is 20, the transition point between "Fresh" (1) and
+;; Gray Zone (2) is 5
+(define (tsb-transition-point label direction)
+  (cond
+    ((= label direction)
+     (error "cannot transition to same label"))
+    ((< label direction)
+     (for/first ([kp (in-list tsb-key-points)]
+                 [index (in-naturals)]
+                 #:when (= index label))
+       kp))
+    (else ; (> label direction)
+     (define slabel (sub1 label))
+     (for/first ([kp (in-list tsb-key-points)]
+                 [index (in-naturals)]
+                 #:when (= index slabel))
+       kp))))
+
+;; Make a renderer for the FORM (Training Stress Balance) -- this is a
+;; complicated one, since we split the "form" data series into segments
+;; according to the TSB label and colorize them differently.
 (define (make-form-renderer data start-index today-index)
-  (list
-   (let* ((fdata (df-select* data "tsmidday" "form" #:start start-index #:stop today-index))
-          (zeroes (for/list ((e (in-vector fdata)))
-                    (vector (vector-ref e 0) 0))))
-     (lines-interval
-      fdata zeroes
-      #:color form-renderer-color
-      #:line1-width form-renderer-line-width
-      #:line2-width 0
-      #:alpha 0.2))
-   ;; This part represents future form, show it differently.
-   (let* ((fdata (df-select* data "tsmidday" "form" #:start (sub1 today-index)))
-          (zeroes (for/list ((e (in-vector fdata)))
-                    (vector (vector-ref e 0) 0))))
-     (lines-interval
-      fdata zeroes
-      #:color form-renderer-color
-      #:line1-width form-renderer-line-width
-      #:line1-style 'short-dash
-      #:line2-width 0
-      #:alpha 0.1))))
+  (for/list ([start (list start-index (sub1 today-index))]
+             [stop (list today-index (df-row-count data))]
+             [line-style '(solid short-dash)]
+             [alpha '(1.0 0.5)])
+    (for/fold ([current-data-set '()]
+               [current-zeroes '()]
+               [current-label #f]
+               [renderers '()]
+               #:result
+               (if (null? current-data-set)
+                   (reverse renderers)
+                   (let ([renderer (lines-interval
+                                    (reverse current-data-set) (reverse current-zeroes)
+                                    #:color (tsb-factor-color current-label)
+                                    #:line1-color (tsb-factor-color current-label)
+                                    #:line1-width form-renderer-line-width
+                                    #:line2-width 0
+                                    #:line1-style line-style
+                                    #:alpha alpha)])
+                     (reverse (cons renderer renderers)))))
+              ([(tsmidday form) (in-data-frame data "tsmidday" "form" #:start start #:stop stop)])
+      (define label (tsb->label form))
+      (cond
+        ((equal? label current-label)
+         (values (cons (vector tsmidday form) current-data-set)
+                 (cons (vector tsmidday 0) current-zeroes)
+                 current-label
+                 renderers))
+        ((null? current-data-set)
+         (values
+          (cons (vector tsmidday form) current-data-set)
+          (cons (vector tsmidday 0) current-zeroes)
+          label
+          renderers))
+        (else
+         ;; LABEL and CURRENT-LABEL are different, but we need to find the
+         ;; split point (possible multiple split points), so the graph is
+         ;; colored correctly -- if we don't do this, segments where the label
+         ;; changes will use the wrong color.  To see what the problem is, you
+         ;; can replace the for/fold below with a simple (values
+         ;; current-data-set current-zeroes)
+         (for/fold ([cds current-data-set]
+                    [cz current-zeroes]
+                    [renderers renderers]
+                    #:result (values cds cz label (reverse renderers)))
+                   ([l (in-inclusive-range current-label label (if (> current-label label) -1 1))])
+           (if (= l label)
+               ;; last entry
+               (let ([cds^ (cons (vector tsmidday form) cds)]
+                     [cz^ (cons (vector tsmidday 0) cz)])
+                 (values (list (car cds^))
+                         (list (car cz^))
+                         (cons (lines-interval
+                                      (reverse cds^) (reverse cz^)
+                                      #:color (tsb-factor-color l)
+                                      #:line1-color (tsb-factor-color l)
+                                      #:line1-width form-renderer-line-width
+                                      #:line2-width 0
+                                      #:line1-style line-style
+                                      #:alpha alpha)
+                                     renderers)))
+               (let* ([tp (tsb-transition-point l label)]
+                      [a (let ([prev-form (vector-ref (car cds) 1)])
+                           (/ (- tp prev-form) (- form prev-form)))]
+                      [tt
+                       (let ([prev-ts (vector-ref (car cds) 0)])
+                         (+ prev-ts (* a (- tsmidday prev-ts))))]
+                      [cds^ (cons (vector tt tp) current-data-set)]
+                      [cz^ (cons (vector tt 0) current-zeroes)])
+                 (values (list (car cds^))
+                         (list (car cz^))
+                         (cons (lines-interval
+                                (reverse cds^) (reverse cz^)
+                                #:color (tsb-factor-color l)
+                                #:line1-color (tsb-factor-color l)
+                                #:line1-width form-renderer-line-width
+                                #:line2-width 0
+                                #:line1-style line-style
+                                #:alpha alpha)
+                               renderers))))))))))
+
 
 ;; Return true if the entry V have a TSS value.  We fill our data set with
 ;; zeroes for days with no activities.  We use this function to filter out
@@ -599,6 +738,8 @@
                       (list "Fatigue" (~r atl #:precision 1)))
                  (and (hash-ref params 'show-fitness? #t)
                       (list "Fitness" (~r ctl #:precision 1)))
+                 (and (hash-ref params 'show-form? #t)
+                      (list "" (tsb-factor-label (tsb->label tsb))))
                  (and (hash-ref params 'show-form? #t)
                       (list "Form" (~r tsb #:precision 1)))
                  (list "Date" (calendar-date->string ts)))))
