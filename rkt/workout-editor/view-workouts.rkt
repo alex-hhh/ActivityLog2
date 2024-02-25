@@ -20,6 +20,7 @@
          racket/match
          "../dbutil.rkt"
          "../sport-charms.rkt"
+         "../utilities.rkt"
          "../widgets/main.rkt"
          "wk-db.rkt"
          "wk-fit.rkt"
@@ -350,7 +351,13 @@ select id, name, sport_id, sub_sport_id, serial, library_id
              (define/override (on-select index data)
                (on-workout-selected index data)))
            [parent workouts-pane]
-           [pref-tag 'activity-log:view-workouts-qresults]))
+           [pref-tag 'activity-log:view-workouts-qresults]
+           [get-preference
+            (lambda (name fail-thunk)
+              (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+           [put-preference
+            (lambda (name value)
+              (db-put-pref database name value))]))
 
     (define workout-editor
       (new workout-editor%

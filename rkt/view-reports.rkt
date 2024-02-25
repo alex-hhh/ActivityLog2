@@ -1255,8 +1255,15 @@
       (make-spacer sel-pane))
     
 
-    (define the-list-box (new qresults-list% [parent the-pane]
-                              [pref-tag 'activity-log:reports-view]))
+    (define the-list-box (new qresults-list%
+                              [parent the-pane]
+                              [pref-tag 'activity-log:reports-view]
+                              [get-preference
+                               (lambda (name fail-thunk)
+                                 (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                              [put-preference
+                               (lambda (name value)
+                                 (db-put-pref database name value))]))
 
     (define (on-filter-changed)
       (when selected-report

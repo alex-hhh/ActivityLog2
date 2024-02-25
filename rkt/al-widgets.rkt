@@ -18,21 +18,22 @@
          db/base
          racket/class
          racket/dict
+         racket/format
          racket/gui/base
          racket/match
          racket/math
-         racket/format
          tzinfo
+         "database.rkt"
          "dbapp.rkt"
+         "dbutil.rkt"
          "fit-file/activity-util.rkt"
          "fmt-util-ut.rkt"
          "fmt-util.rkt"
          "intervals.rkt"
+         "models/fiets-score.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "widgets/main.rkt"
-         "database.rkt"
-         "models/fiets-score.rkt")
+         "widgets/main.rkt")
 
 (provide sport-selector%)
 (provide label-input-field%)
@@ -313,7 +314,7 @@ values (?, ?)" session-id id))
     (define interval-type-by-sport (make-hash))
 
     ;; Restore preferences
-    (let ((pref (get-pref tag (lambda () #f))))
+    (let ((pref (db-get-pref database tag (lambda () (get-pref tag (lambda () #f))))))
       (when (and pref (eq? (car pref) 'gen1))
         (match-define (list 'gen1 ltbs) pref)
         (set! interval-type-by-sport (hash-copy ltbs))))
@@ -435,7 +436,7 @@ values (?, ?)" session-id id))
               ((split-fn (car split-kinds)))))))
 
     (define/public (save-visual-layout)
-      (put-pref tag (list 'gen1 interval-type-by-sport)))
+      (db-put-pref database tag (list 'gen1 interval-type-by-sport)))
 
     (define/public (set-session s df)
       (set! session s)

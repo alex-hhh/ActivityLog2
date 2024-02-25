@@ -243,6 +243,8 @@
           ;; A popup-menu% to be popped up when the user right-clicks on a
           ;; row.
           [right-click-menu #f])
+    (init-field [get-preference get-pref]
+                [put-preference put-pref])
 
     (super-new)
 
@@ -449,11 +451,10 @@
       ;; NOTE: we only save the preferences for the current pref key.  Saving
       ;; for previous ones (when the columns are changes) is done as part of
       ;; `setup-column-defs'.
-      ;; (printf "put-pref ~a -- ~a~%" pref-key (get-visual-layout the-list-box))
       (when pref-key
-        (put-pref pref-key
-                     (cons visible-columns
-                           (lb-get-visual-layout the-list-box)))))
+        (put-preference pref-key
+                        (cons visible-columns
+                              (lb-get-visual-layout the-list-box)))))
 
     ;; Setup the columns of the list box to FD, which is a list of QCOLUMN
     ;; struct instances.  The previous visual layout will be saved and the
@@ -464,7 +465,7 @@
       (set! column-defs fd)
       (set! pref-key (make-pref-key pref-tag column-defs))
       (set! sort-column #f)
-      (let ((visual-layout (get-pref pref-key (lambda () #f))))
+      (let ((visual-layout (get-preference pref-key (lambda () #f))))
         (let ((visible-fields (if visual-layout
                                   (car visual-layout)
                                   (for/list ([c (in-list column-defs)] #:when (qcol-default-visible? c))

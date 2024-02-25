@@ -811,7 +811,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
     (define show-retired-equipment? #f)
     (define show-service-reminders 'active)
 
-    (let ((prefs (get-pref tag (lambda () (list #f 'active)))))
+    (let ((prefs (db-get-pref database tag (lambda () (get-pref tag (lambda () (list #f 'active)))))))
       (set! show-retired-equipment? (list-ref prefs 0))
       (when (> (length prefs) 1)
         (set! show-service-reminders (list-ref prefs 1))))
@@ -915,6 +915,12 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
 
     (define lb (new qresults-list% [parent pane]
                     [pref-tag 'activity-log:equipment-list]
+                    [get-preference
+                     (lambda (name fail-thunk)
+                       (db-get-pref the-database name (lambda () (get-pref name fail-thunk))))]
+                    [put-preference
+                     (lambda (name value)
+                       (db-put-pref the-database name value))]
                     [right-click-menu
                      (send (new equipment-operations-menu% [target eqop-target]) get-popup-menu)]))
 
@@ -971,7 +977,7 @@ from EQUIPMENT EQ, EQUIPMENT_SERVICE_LOG ESL, V_EQUIPMENT_SLOG_CURRENT VESL
     (define/public (save-visual-layout)
       (send lb save-visual-layout)
       (send service-log-lb save-visual-layout)
-      (put-pref tag (list show-retired-equipment? show-service-reminders)))
+      (db-put-pref the-database tag (list show-retired-equipment? show-service-reminders)))
 
     (define/public (log-due-items)
       (let ((items (get-service-log-list the-database 'due)))

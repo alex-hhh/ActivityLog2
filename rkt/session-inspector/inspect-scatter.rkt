@@ -275,7 +275,12 @@
       (spstate ds bounds qbounds (if slr (list renderer (slr-renderer slr)) renderer)))))
 
 (define scatter-plot-panel%
-  (class object% (init parent) (super-new)
+  (class object%
+    (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
+    (super-new)
     (define pref-tag 'activity-log:scatter-plot)
 
     ;; Variables that control the look of the plot
@@ -297,7 +302,7 @@
 
     ;; Restore the preferences now, we do it so the controls can be
     ;; initialized with the correct values.
-    (let ((pref (get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-preference pref-tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 2))
         (match-define (list abs dba) pref)
         (set! axis-by-sport (hash-copy abs))
@@ -663,7 +668,7 @@
     (define/public (save-visual-layout)
       (save-params-for-sport)
       (let ((data (list axis-by-sport params-by-axis)))
-        (put-pref pref-tag data)))
+        (put-preference pref-tag data)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

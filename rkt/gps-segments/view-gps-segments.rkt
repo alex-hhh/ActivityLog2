@@ -29,7 +29,6 @@
          racket/match
          (only-in "../../rkt/utilities.rkt"
                   get-pref
-                  put-pref
                   log-event
                   collect-events
                   make-log-event-source)
@@ -163,7 +162,7 @@
     (super-new)
 
     (define pref-tag 'al2-view-gps-segments)
-    (define gui-prefs (get-pref pref-tag (lambda () (hash))))
+    (define gui-prefs (db-get-pref database pref-tag (lambda () (get-pref pref-tag (lambda () (hash))))))
     (define the-toplevel (new vertical-pane% [parent parent]))
 
     (define change-notification-source (make-log-event-source))
@@ -201,7 +200,13 @@
              (define/override (on-select row row-data)
                (on-segment-selected row-data)))
            [parent segments-panel]
-           [pref-tag 'al2-view-gps-segments:segment-list]))
+           [pref-tag 'al2-view-gps-segments:segment-list]
+           [get-preference
+            (lambda (name fail-thunk)
+              (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+           [put-preference
+            (lambda (name value)
+              (db-put-pref database name value))]))
 
     (define matches-panel (make-vertical-pane left-panel))
     (let ((p (make-horizontal-pane matches-panel #f)))
@@ -222,7 +227,13 @@
              (define/override (on-select row row-data)
                (on-match-selected row-data)))
            [parent matches-panel]
-           [pref-tag 'al2-view-gps-segments:match-list]))
+           [pref-tag 'al2-view-gps-segments:match-list]
+           [get-preference
+            (lambda (name fail-thunk)
+              (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+           [put-preference
+            (lambda (name value)
+              (db-put-pref database name value))]))
 
     (define the-map-and-elevation
       (new map-and-elevation-widget%
@@ -611,7 +622,7 @@
          (let* ([index (send match-lv get-selected-row-index)]
                 [data (and index (send match-lv get-data-for-row index))])
            (and data (column-ref-by-name data "match_id" #f)))))
-      (put-pref pref-tag prefs)
+      (db-put-pref database pref-tag prefs)
       (send segment-lv save-visual-layout)
       (send match-lv save-visual-layout)
       (send the-map-and-elevation save-visual-layout))

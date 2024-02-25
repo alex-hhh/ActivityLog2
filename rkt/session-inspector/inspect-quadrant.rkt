@@ -135,7 +135,12 @@
       '()))
 
 (define quadrant-plot-panel%
-  (class object% (init parent) (super-new)
+  (class object%
+    (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
+    (super-new)
     (define pref-tag 'activity-log:quadrant-plot)
 
     ;; Variables that control the look of the plot
@@ -146,7 +151,7 @@
     (define params-by-sport (make-hash))
 
     ;; Restore the preferences now.
-    (let ((pref (get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-preference pref-tag (lambda () #f))))
       (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
         (match-define (list tag pbs sz?) pref)
         (set! params-by-sport (hash-copy pbs))
@@ -438,7 +443,7 @@
     (define/public (save-visual-layout)
       (save-params-for-sport)
       (let ((data (list 'gen2 params-by-sport show-zones?)))
-        (put-pref pref-tag data)))
+        (put-preference pref-tag data)))
 
     ;; Return #t if the quadrant plot can be displayed for a data-frame% (DF).
     ;; It can display if the data frame contains the required series

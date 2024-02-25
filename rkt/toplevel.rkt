@@ -1406,8 +1406,11 @@
       ;; downloaded using the browser, while still keeping the original import
       ;; directory unchanged.
       (define last-dir
-        (or (get-pref 'activity-log:last-activity-import-dir (lambda () #f))
-            (get-pref 'activity-log:last-import-dir (lambda () #f))))
+        (or
+         (let ([tag 'activity-log:last-activity-import-dir])
+           (db-get-pref database tag (lambda () (get-pref tag (lambda () #f)))))
+         (let ([tag 'activity-log:last-import-dir])
+           (db-get-pref database tag (lambda () (get-pref tag (lambda () #f)))))))
       (let ((file (get-file "Select activity..." tl-frame last-dir)))
         (when file
           ;; Save the new directory before we attempt to load the file -- even
@@ -1415,7 +1418,7 @@
           ;; the same location.
           (define-values (base _name _must-be-dir?) (split-path file))
           (when (path-for-some-system? base)
-            (put-pref 'activity-log:last-activity-import-dir (path->string base)))
+            (db-put-pref database 'activity-log:last-activity-import-dir (path->string base)))
 
           (query-exec database "delete from LAST_IMPORT")
           (let* ((iresult (db-import-activity-from-file file database))
@@ -1484,7 +1487,8 @@
           (retract-user-notification 'empty-database))))
 
     (define/public (on-import-from-directory)
-      (let* ((last-import-dir (get-pref 'activity-log:last-import-dir (lambda () #f)))
+      (let* ([tag 'activity-log:last-import-dir]
+             (last-import-dir (db-get-pref database tag (lambda () (get-pref tag (lambda () #f)))))
              ;; NOTE: we use the platform independent directory selection
              ;; dialog, because on Windows, the OS one does not accept our
              ;; `last-import-dir' value.
@@ -1493,7 +1497,7 @@
         (when dir
           (if (directory-exists? dir)
               (begin
-                (put-pref 'activity-log:last-import-dir (path->string dir))
+                (db-put-pref database 'activity-log:last-import-dir (path->string dir))
                 (send (new import-dialog%) run tl-frame database dir)
                 (refresh-current-view)
                 (let ((equipment (get-section-by-tag 'equipment)))

@@ -23,7 +23,9 @@
          racket/contract
          racket/file
          racket/format
+         racket/port
          racket/runtime-path
+         racket/serialize
          "utilities.rkt")
 
 ;; Contract for the progress callback passed to db-open
@@ -60,6 +62,9 @@
  ;; expensive as a contract, especially since we use it in metrics.rkt
  [jsexpr->compressed-string (-> jsexpr? bytes?)]
  [compressed-string->jsexpr (-> bytes? jsexpr?)]
+
+ [db-put-pref (-> connection? symbol? any/c any/c)]
+ [db-get-pref (-> connection? symbol? any/c any/c)]
 
  )
 
@@ -389,3 +394,21 @@
     (gunzip-through-ports in out)
     (let ((str (bytes->string/utf-8 (get-output-bytes out))))
       (string->jsexpr str))))
+
+(define (db-put-pref db name value)
+  (define sname (symbol->string name))
+  (call-with-transaction
+   db
+   (lambda ()
+     (let ([payload (call-with-output-bytes (lambda (o) (write (serialize value) o)))]
+           [pref-id (query-maybe-value db "select id from SEXPR_PREFERENCES where name = ?" sname)])
+       (if pref-id
+           (query-exec db "update SEXPR_PREFERENCES set value = ? where id = ?" payload pref-id)
+           (query-exec db "insert into SEXPR_PREFERENCES(name, value) VALUES(?, ?)" sname payload))))))
+
+(define (db-get-pref db name fail-thunk)
+  (define sname (symbol->string name))
+  (cond ((query-maybe-value db "select value from SEXPR_PREFERENCES where name = ?" sname)
+         => (lambda (payload) (call-with-input-bytes payload (lambda (i) (deserialize (read i))))))
+        ((procedure? fail-thunk) (fail-thunk))
+        (else fail-thunk)))

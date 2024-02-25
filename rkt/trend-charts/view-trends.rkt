@@ -14,12 +14,13 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require racket/class
+(require plot-container
+         racket/class
          racket/gui/base
          racket/list
          racket/match
          racket/runtime-path
-         plot-container
+         "../dbutil.rkt"
          "../utilities.rkt"
          "../widgets/icon-resources.rkt"
          "../widgets/main.rkt"
@@ -28,13 +29,13 @@
          "trends-bw.rkt"
          "trends-heatmap.rkt"
          "trends-hist.rkt"
+         "trends-irisk.rkt"
          "trends-pmc.rkt"
          "trends-scatter.rkt"
          "trends-tiz.rkt"
          "trends-trivol.rkt"
          "trends-tt.rkt"
-         "trends-vol.rkt"
-         "trends-irisk.rkt")
+         "trends-vol.rkt")
 
 (provide view-trends%)
 
@@ -261,7 +262,7 @@
     (init-field parent database)
     (super-new)
 
-    (define tag 'activity-log:view-trends)
+    (define preferences-tag 'activity-log:view-trends)
 
     (define pane
       (new (class vertical-panel%
@@ -337,7 +338,8 @@
             ;; charts...
             (dbglog "make-trends-chart: unknown trends chart tag: ~a" chart-tag)))
 
-      (let ((data (get-pref tag (lambda () '()))))
+      (let ((data (db-get-pref database preferences-tag
+                               (lambda () (get-pref preferences-tag (lambda () '()))))))
         (when (> (length data) 0)
           (for ([chart-data (in-list data)])
             (match-define (list chart-tag restore-data) chart-data)
@@ -478,6 +480,6 @@
       ;; erase all our charts.
       (unless first-activation
         (let ((data (for/list ([tc trend-charts]) (send tc get-restore-data))))
-          (put-pref tag data))))
+          (db-put-pref database preferences-tag data))))
 
     ))

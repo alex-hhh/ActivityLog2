@@ -120,7 +120,12 @@
    axis-stride))
 
 (define histogram-plot-panel%
-  (class object% (init parent) (super-new)
+  (class object%
+    (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
+    (super-new)
     (define pref-tag 'activity-log:histogram-plot)
 
     ;; Variables that control the look of the plot
@@ -142,7 +147,7 @@
     (define params-by-axis (make-hash))
 
     ;; Restore the preferences now.
-    (let ((pref (get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-preference pref-tag (lambda () #f))))
       (when (and pref (> (length pref) 0) (eq? (car pref) 'gen2))
         (match-define (list tag abs pba as-pct?) pref)
         (set! axis-by-sport (hash-copy abs))
@@ -496,7 +501,7 @@
       (when (> (length axis-choices) 0)
         (save-params-for-sport)
         (let ((data (list 'gen2 axis-by-sport params-by-axis show-as-percentage?)))
-          (put-pref pref-tag data))))
+          (put-preference pref-tag data))))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

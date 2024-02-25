@@ -293,7 +293,7 @@
     (define tag 'activity-log:athlete-metrics-prefs)
     (define date-range '(#f . #f))
 
-    (define visual-layout (get-pref tag (lambda () (hash))))
+    (define visual-layout (db-get-pref database tag (lambda () (get-pref tag (lambda () (hash))))))
 
     (define pane (new (class vertical-panel%
                         (init)(super-new)
@@ -332,9 +332,14 @@
 
     (define lb (new qresults-list% [parent pane]
                     [pref-tag 'activity-log:athlete-metrics]
+                    [get-preference
+                     (lambda (name fail-thunk)
+                       (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                    [put-preference
+                     (lambda (name value)
+                       (db-put-pref database name value))]
                     [right-click-menu
-                     (send (new athlete-metrics-operations-menu% [target this]) get-popup-menu)]
-                    ))
+                     (send (new athlete-metrics-operations-menu% [target this]) get-popup-menu)]))
 
     (send lb set-default-export-file-name "athlete-metrics.csv")
 
@@ -397,7 +402,7 @@
     (define/public (save-visual-layout)
       (define layout
         (hash 'date (send date-range-selector get-restore-data)))
-      (put-pref tag layout)
+      (db-put-pref database tag layout)
       (send lb save-visual-layout))
 
     ;; Target

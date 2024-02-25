@@ -212,7 +212,12 @@
   (values min-x-2 max-x-2 (if zero-base? 0 min-y-2) max-y-2))
 
 (define mean-max-plot-panel%
-  (class object% (init parent) (super-new)
+  (class object%
+    (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
+    (super-new)
     (define pref-tag 'activity-log:mean-max-plot)
 
     (define axis-choices '())
@@ -238,7 +243,7 @@
     (define params-by-series (make-hash))
 
     ;; Restore the saved preferences now.
-    (let ((pref (get-pref pref-tag (lambda () #f))))
+    (let ((pref (get-preference pref-tag (lambda () #f))))
       (when (and pref (eqv? (length pref) 1))
         (set! params-by-sport (hash-copy (first pref)))))
 
@@ -685,7 +690,7 @@
     (define/public (save-visual-layout)
       (when (> (length axis-choices) 0)
         (save-params-for-sport)
-        (put-pref pref-tag (list params-by-sport))))
+        (put-preference pref-tag (list params-by-sport))))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file

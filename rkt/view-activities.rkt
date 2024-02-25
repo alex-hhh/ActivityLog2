@@ -22,12 +22,13 @@
          racket/string
          "al-widgets.rkt"
          "database.rkt"
+         "dbutil.rkt"
          "dialogs/activity-edit.rkt"
          "fmt-util-ut.rkt"
          "fmt-util.rkt"
+         "models/humidex.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
-         "models/humidex.rkt"
          "widgets/main.rkt")
 
 (provide view-activities%)
@@ -257,6 +258,10 @@ select X.session_id
                   (db-row-ref row-data "session_id" headers "")))))
            [parent pane]
            [pref-tag 'activity-log:activity-list]
+           [get-preference (lambda (name fail-thunk)
+                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+           [put-preference (lambda (name value)
+                             (db-put-pref database name value))]
            [right-click-menu
             (send (new activity-operations-menu% [target this]) get-popup-menu)]))
 
@@ -271,7 +276,7 @@ select X.session_id
       (send equipment-input setup-for-session database #f)
       (send date-range-selector set-seasons (db-get-seasons database))
 
-      (let ((data (get-pref tag (lambda () #f))))
+      (let ((data (db-get-pref database tag (lambda () (get-pref tag (lambda () #f))))))
         (when (hash? data)
           (let ((text (hash-ref data 'text-search "")))
             (send text-search-input set-value text))
@@ -866,7 +871,7 @@ select X.session_id
                    'labels (send label-input get-contents-as-tag-ids)
                    'equipment (send equipment-input get-contents-as-tag-ids)
                    'text-search (send text-search-input get-value))))
-        (put-pref tag data))
+        (db-put-pref database tag data))
       (send lb save-visual-layout))
 
     (define/public (on-interactive-export-sql-query)

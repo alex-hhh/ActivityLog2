@@ -2075,6 +2075,9 @@
 (define graph-panel%
   (class object%
     (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
     (super-new)
 
     (define the-pref-tag 'activity-log:graph-panel)
@@ -2112,7 +2115,7 @@
     (define initial-panel-split '(1/5 4/5))
 
     ;; Restore the preferences now.
-    (let ((pref (get-pref the-pref-tag (lambda () #f))))
+    (let ((pref (get-preference the-pref-tag (lambda () #f))))
       (when (and pref (hash? pref))
         (set! initial-panel-split (hash-ref pref 'panel-split '(1/5 4/5)))
         (set! show-avg? (hash-ref pref 'show-avg? #f))
@@ -2357,7 +2360,7 @@
     (define/public (save-visual-layout)
       (send interval-view save-visual-layout)
       (send interval-choice save-visual-layout)
-      (put-pref
+      (put-preference
        the-pref-tag
        (hash
         'panel-split (send panel get-percentages)

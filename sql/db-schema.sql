@@ -1,7 +1,7 @@
 -- db-schema.sql -- database schema for ActivityLog2
 --
 -- This file is part of ActivityLog2, an fitness activity tracker
--- Copyright (C) 2015, 2018 Alex Hars√°nyi <AlexHarsanyi@gmail.com>
+-- Copyright (C) 2015 - 2024 Alex Hars·nyi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(49);
+insert into SCHEMA_VERSION(version) values(50);
 
 
 --........................................................ Enumerations ....
@@ -1385,6 +1385,21 @@ create table SCATTER_CACHE (
 create unique index IX0_SCATTER_CACHE on SCATTER_CACHE(series1, series2, session_id);
 
 create index IX1_SCATTER_CACHE on SCATTER_CACHE(series2);
+
+
+--............................................. application preferences ....
+
+-- Store ActivityLog2 application preferences in the database.  preferences
+-- have a "tag" (a name) and a value which is a serialized SEXPR.  This table
+-- is meant for application data only (e.g. layout of various GUI views).  It
+-- is stored in the database, so each database can have its own associated GUI
+-- data.
+create table SEXPR_PREFERENCES (
+  id integer not null primary key autoincrement,
+  name text not null,
+  value blob not null);
+
+create unique index IX0_SEXPR_PREFERENCES on SEXPR_PREFERENCES(name);
 
 
 --......................................................... Other views ....

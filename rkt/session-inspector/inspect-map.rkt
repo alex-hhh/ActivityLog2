@@ -163,6 +163,9 @@
 (define map-panel%
   (class object%
     (init parent)
+    (init-field
+     [get-preference get-pref]
+     [put-preference put-pref])
     (super-new)
 
     ;; Tag used to save preferences for this panel
@@ -437,7 +440,7 @@
       (set! track-location? flag)
       (send the-cll track-current-location track-location?))
 
-    (let ([pref (get-pref the-pref-tag #f)])
+    (let ([pref (get-preference the-pref-tag #f)])
       ;; Restore the panel splits for the interval and map panels, or set
       ;; default ones.
       (let-values
@@ -466,7 +469,7 @@
           (if (= (length mps) 2)
               mps
               saved-map-panel-split)))
-      (put-pref
+      (put-preference
        the-pref-tag
        (hash
         'interval-panel-split ips

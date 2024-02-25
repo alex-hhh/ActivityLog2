@@ -21,16 +21,19 @@
          racket/dict
          racket/gui/base
          racket/match
+         "../aerolab/aerolab-storage.rkt"
          "../al-widgets.rkt"
          "../database.rkt"
+         "../dbutil.rkt"
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util-ut.rkt"
+         "../fmt-util.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
-         "../fmt-util.rkt"
+         "inspect-aerolab.rkt"
          "inspect-best-avg.rkt"
          "inspect-graphs.rkt"
          "inspect-histogram.rkt"
@@ -39,9 +42,7 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
-         "inspect-scatter.rkt"
-         "inspect-aerolab.rkt"
-         "../aerolab/aerolab-storage.rkt")
+         "inspect-scatter.rkt")
 
 (provide view-session%)
 
@@ -331,28 +332,80 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
     (define overview
       (make-tdata "Overview" detail-panel
                   (lambda (panel)
-                    (new inspect-overview-panel% [parent panel] [database database]))))
+                    (new inspect-overview-panel%
+                         [parent panel]
+                         [database database]))))
     (define laps
       (make-tdata "Laps" detail-panel
-                  (lambda (panel) (new laps-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new laps-panel%
+                         [parent panel]))))
     (define charts
       (make-tdata "Charts" detail-panel
-                  (lambda (panel) (new graph-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new graph-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define scatter
       (make-tdata "Scatter" detail-panel
-                  (lambda (panel) (new scatter-plot-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new scatter-plot-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define histogram
       (make-tdata "Histogram" detail-panel
-                  (lambda (panel) (new histogram-plot-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new histogram-plot-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define mean-max
       (make-tdata "Mean Max" detail-panel
-                  (lambda (panel) (new mean-max-plot-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new mean-max-plot-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define quadrant
       (make-tdata "Quadrant" detail-panel
-                  (lambda (panel) (new quadrant-plot-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new quadrant-plot-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define maps
       (make-tdata "Map" detail-panel
-                  (lambda (panel) (new map-panel% [parent panel]))))
+                  (lambda (panel)
+                    (new map-panel%
+                         [parent panel]
+                         [get-preference
+                          (lambda (name fail-thunk)
+                            (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
+                         [put-preference
+                          (lambda (name value)
+                            (db-put-pref database name value))]))))
     (define model-params
       (make-tdata "Model Params" detail-panel
                   (lambda (panel) (new model-parameters-panel% [parent panel]))))
