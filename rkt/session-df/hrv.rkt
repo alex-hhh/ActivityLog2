@@ -4,7 +4,7 @@
 ;; files.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020, 2021, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -75,9 +75,9 @@
     ;; end-timestamp are not present, TS is always valid.
     (define (valid-timestamp? ts)
       (and
-       (real? ts)
-       (or (not (real? start-timestamp)) (<= start-timestamp ts))
-       (or (not (real? end-timestamp)) (<= ts end-timestamp))))
+       (rational? ts)
+       (or (not (rational? start-timestamp)) (<= start-timestamp ts))
+       (or (not (rational? end-timestamp)) (<= ts end-timestamp))))
 
     (define/override (on-record data)
       (let ((bpm (dict-ref data 'heart-rate #f)))
@@ -213,13 +213,13 @@
                                  (lambda (val)
                                    (match-define (list bpm hrv) val)
                                    (if (good-hrv? bpm hrv) hrv #f)))))
-                (vector-filter (lambda (x) (real? x)) hrv)))
+                (vector-filter (lambda (x) (rational? x)) hrv)))
          (dhrv (let ((dhrv (df-map df '("bpm" "hrv" "delta-hrv")
                                    #:start start #:stop end
                                    (lambda (val)
                                      (match-define (list bpm hrv delta-hrv) val)
                                      (if (good-hrv? bpm hrv) delta-hrv #f)))))
-                 (vector-filter (lambda (x) (real? x)) dhrv)))
+                 (vector-filter (lambda (x) (rational? x)) dhrv)))
          (nsamples (df-row-count df))
          (good-samples (vector-length hrv))
          (bad-samples (- (df-row-count df) good-samples)))
@@ -234,18 +234,20 @@
         (set! dhrv-sq (+ dhrv-sq (* dhrv dhrv)))
         (when (>= dhrv 50) (set! nn50 (+ nn50 1)))
         (when (>= dhrv 20) (set! nn20 (+ nn20 1))))
-      (hrv-metrics
-       ;; Round the values, they are already in milliseconds, we won't get
-       ;; extra accuracy by keeping them floating point.
-       (exact-round sdnn)
-       (exact-round (sqrt (/ dhrv-sq nitems)))
-       (exact-round sdsd)
-       nn50
-       (exact->inexact (/ nn50 nitems))
-       nn20
-       (exact->inexact (/ nn20 nitems))
-       good-samples
-       bad-samples))))
+      (if (and (rational? sdnn) (rational? sdsd) (> nitems 0))
+          (hrv-metrics
+           ;; Round the values, they are already in milliseconds, we won't get
+           ;; extra accuracy by keeping them floating point.
+           (exact-round sdnn)
+           (exact-round (sqrt (/ dhrv-sq nitems)))
+           (exact-round sdsd)
+           nn50
+           (exact->inexact (/ nn50 nitems))
+           nn20
+           (exact->inexact (/ nn20 nitems))
+           good-samples
+           bad-samples)
+          #f))))
 
 
 ;;...................................................... put-hrv-metrics ....
