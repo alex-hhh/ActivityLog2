@@ -3,7 +3,7 @@
 ;; xdata.rkt --
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018-2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -123,7 +123,7 @@
          pace-series-metadata%)
         (#t
          series-metadata%))))
-  
+
   ;; Construct a new metadata class.  The parent of our metadata class is
   ;; `series-metadata%` by default, but we also look at the native field value
   ;; and choose a better parent in some cases -- currently we choose

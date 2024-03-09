@@ -92,20 +92,23 @@
             {
                 "name" : "passing_speedabs",
                 "headline" : "Vehicle Speed, Absolute (km/h)",
-                "axis_label" : "Overtaking Speed Absolute (km/h)",
-                "series" : "mbrt_absolute_speed"
+                "axis_label" : "Vehicle Speed, Absolute (km/h)",
+                "series" : "mbrt_absolute_speed",
+                "should_filter" : false
             },
             {
                 "name" : "passing_speed",
-                "headline" : "Approach Speed, Relative (km/h)",
-                "axis_label" : "Approach Speed Relative (km/h)",
-                "series" : "mbrt_approach_speed"
+                "headline" : "Vehicle Speed, Relative (km/h)",
+                "axis_label" : "Vehicle Speed, Relative (km/h)",
+                "series" : "mbrt_approach_speed",
+                "should_filter" : false
             },
             {
                 "name" : "radar_current",
                 "headline" : "Vehicle Count",
                 "axis_label" : "Vehicle Count",
-                "series" : "mbrt_vehicle_count"
+                "series" : "mbrt_vehicle_count",
+                "should_filter" : false
             }
         ]
     }

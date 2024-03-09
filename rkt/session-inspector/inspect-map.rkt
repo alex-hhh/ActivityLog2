@@ -22,14 +22,33 @@
          racket/dict
          racket/gui/base
          racket/match
+         racket/format
+         racket/math
+         pict
+         plot
          "../al-widgets.rkt"
          "../widgets/dragable-split-panel.rkt"
          "../fit-file/activity-util.rkt"
          "../session-df/native-series.rkt"
          "../utilities.rkt"
-         "inspect-graphs.rkt")
+         "../fmt-util.rkt"
+         "../fmt-util-ut.rkt"
+         "inspect-graphs.rkt"
+         "../session-df/traffic.rkt")
 
 (provide map-panel%)
+
+;; TODO: copied from native-series.rkt, really need to normalize these
+;; overlay colors, fonts and faces
+(define pd-background (make-object color% #xff #xf8 #xdc 0.95))
+(define pd-item-color (make-object color% #x2f #x4f #x4f))
+(define pd-label-color (make-object color% #x77 #x88 #x99))
+(define pd-title-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-item-font (send the-font-list find-or-create-font 12 'default 'normal 'normal))
+(define pd-label-font (send the-font-list find-or-create-font 10 'default 'normal 'normal))
+(define pd-title-face (cons pd-item-color pd-title-font))
+(define pd-item-face (cons pd-item-color pd-item-font))
+(define pd-label-face (cons pd-label-color pd-label-font))
 
 (define (get-index df timestamp)
   (if timestamp
@@ -103,10 +122,112 @@
                          (layer-loop (cons l layers) remaining-teleports (add1 lap-number))))))))
         (reverse layers))))
 
+;; Create a layer (named 'traffic) to show traffic data from the data frame,
+;; or return #f if there is no traffic data in the data frame.  The traffic
+;; layer is a points layer with a hover callback showing traffic information
+;; about each overtaking.
+;;
+;; Traffic data is recorded by a Garmin Varia radar using the MyBikeTraffic IQ
+;; field, see https://www.mybiketraffic.com/about/ for more details.
+(define (make-traffic-layer df)
+  (define traffic (maybe-get-traffic-data! df))
+  (if traffic
+      (let ([hover-picts (make-vector (length traffic) #f)])
+
+        (define (hover-callback pindex)
+          (unless (vector-ref hover-picts pindex)
+            (define tentry (list-ref traffic pindex))
+
+            (define data-table
+              (let* ([vnum (hash-ref tentry 'total-vehicles #f)]
+                     [tod (hash-ref tentry 'timestamp #f)]
+                     [vspeed (hash-ref tentry 'vehicle-speed #f)]
+                     [rspeed (hash-ref tentry 'rider-speed #f)]
+                     [ospeed (hash-ref tentry 'overtaking-speed)]
+                     [odist (hash-ref tentry 'overtaking-distance #f)]
+                     [oduration (hash-ref tentry 'overtaking-duration #f)]
+                     [entries
+                      (list
+                       (text "Vehicle #" pd-label-face)
+                       (text (if (rational? vnum) (~a (exact-truncate vnum)) "N/A") pd-item-face)
+                       (text "Time Of Day" pd-label-face)
+                       (text (if (rational? tod) (time-of-day->string tod) "N/A") pd-item-face)
+                       (text "Vehicle Speed" pd-label-face)
+                       (text (if (rational? vspeed) (speed->string vspeed #t) "N/A") pd-item-face)
+                       (text "Rider Speed" pd-label-face)
+                       (text (if (rational? rspeed) (speed->string rspeed #t) "N/A") pd-item-face)
+                       (text "Overtaking Speed" pd-label-face)
+                       (text (if (rational? ospeed) (speed->string ospeed #t) "N/A") pd-item-face)
+                       (text "Overtaking Distance" pd-label-face)
+                       (text (if (rational? odist) (short-distance->string odist #t) "N/A") pd-item-face)
+                       (text "Overtaking Duration" pd-label-face)
+                       (text (if (rational? oduration) (string-append (~a (exact-truncate oduration) " seconds")) "N/A") pd-item-face))])
+                (table 2 entries
+                       (list lc-superimpose rc-superimpose lc-superimpose)
+                       cc-superimpose 15 3)))
+
+            (define speed-plot
+              (match-let ([(vector start stop) (hash-ref tentry'df-index)])
+                (if (and (rational? start)
+                         (rational? stop)
+                         (< start stop)
+                         (< stop (df-row-count df)))
+                    (let ([speed-data (df-select* df "elapsed" "mbrt_absolute_speed"
+                                                  #:start start
+                                                  #:stop stop
+                                                  #:filter valid-only)])
+                      (define-values (y-min y-max)
+                        (for/fold ([y-min +inf.0]
+                                   [y-max -inf.0]
+                                   #:result (values (max 0 (* 10 (exact-floor (/ (- y-min 1) 10))))
+                                                    (* 10 (exact-ceiling (/ (+ y-max 1) 10)))))
+                                  ([d (in-vector speed-data)])
+                          (define y (vector-ref d 1))
+                          (values (min y-min y) (max y-max y))))
+                      (parameterize ([plot-x-tick-labels? #f]
+                                     ;;[plot-y-tick-labels? #f]
+                                     [plot-x-label #f]
+                                     [plot-y-label #f]
+                                     [plot-line-width 0.3]
+                                     [plot-background-alpha 0.0]
+                                     [plot-font-size 7])
+                        (plot-pict (list (tick-grid)
+                                         (lines speed-data #:width 2 #:color '(238 51 119)))
+                                   #:y-min y-min
+                                   #:y-max y-max
+                                   #:width (* 0.8 (pict-width data-table))
+                                   #:height 70)))
+                    #f)))
+
+            (define data-pict
+              (if speed-plot (vc-append 5 data-table speed-plot) data-table))
+
+            (define final-pict
+              (cc-superimpose
+               (filled-rounded-rectangle
+                (+ (pict-width data-pict) 20) (+ (pict-height data-pict) 20) -0.01
+                #:draw-border? #t
+                #:border-width 0.5
+                #:color pd-background)
+               data-pict))
+            (vector-set! hover-picts pindex final-pict))
+
+          (vector-ref hover-picts pindex))
+
+        (points-layer
+         'traffic
+         (for/list ([t (in-list traffic)])
+           (hash-ref t 'location))
+         #:hover-callback hover-callback))
+
+      ;; No traffic layer can be added
+      #f))
+
+
 ;; Add a map-point data series to the data frame DF.  map-points represent a
 ;; location in normalized coordinates (0..1).  These are used to interpolate a
 ;; position by `lookup-position`
-(define/contract (add-map-points df)
+(define/contract (add-map-point-series! df)
   (-> data-frame? any/c)
   (df-add-derived!
    df
@@ -129,7 +250,7 @@
   (-> data-frame? real? (or/c (vector/c real? real?) #f))
 
   (unless (df-contains? df "map-point")
-    (add-map-points df))
+    (add-map-point-series! df))
 
   (define index (df-index-of df "distance" dst))
 
@@ -192,7 +313,7 @@
 
     ;; The map layers representing tracks in this session, one lines-layer for
     ;; each lap...
-    (define map-layers null)
+    (define track-map-layers null)
 
     ;; The name of the file used by 'on-interactive-export-image'. This is
     ;; remembered between subsequent exports, but reset when the session
@@ -212,13 +333,11 @@
     ;; the track overlaps onto itself several times.
     (define show-selected-lap-only? #f)
 
+    ;; When #t, and if traffic data is available, show it on the map.
+    (define show-traffic-layer? #t)
+
     (define selected-lap #f)
     (define selected-lap-data #f)
-
-    ;; When #t, the map will scroll so that the selected location from the
-    ;; elevation graph is in view, uses the map-widget's
-    ;; track-current-location method
-    (define track-location? #t)
 
     (define panel (new (class horizontal-dragable-split-panel%
                          (init)
@@ -229,21 +348,29 @@
                        [border 0]
                        [alignment '(center top)]))
 
-    (define interval-view-panel (new vertical-pane%
-                                     [parent panel]
-                                     [border 0]
-                                     [spacing 1]
-                                     [min-width 220]
-                                     [stretchable-width #t]
-                                     [alignment '(left top)]))
-    (define interval-coice #f)
-    (let ((p (new horizontal-pane%
-                  [parent interval-view-panel]
-                  [spacing 10]
-                  [stretchable-height #f]
-                  [alignment '(left center)])))
-      (new message% [parent p] [label "Laps"] [font header-font])
-      (set! interval-coice (new interval-choice% [tag 'interval-choice-map] [parent p] [label ""])))
+    (define interval-view-panel
+      (new vertical-pane%
+           [parent panel]
+           [border 0]
+           [spacing 1]
+           [min-width 220]
+           [stretchable-width #t]
+           [alignment '(left top)]))
+    
+    (define interval-coice
+      (let ((p (new horizontal-pane%
+                    [parent interval-view-panel]
+                    [spacing 10]
+                    [stretchable-height #f]
+                    [alignment '(left center)])))
+        (new message%
+             [parent p]
+             [label "Laps"]
+             [font header-font])
+        (new interval-choice%
+             [parent p]
+             [tag 'interval-choice-map]
+             [label ""])))
 
     (define interval-view
       (new mini-interval-view%
@@ -263,7 +390,9 @@
     (define zoom-slider #f)
     (define info-message #f)
     (define the-map #f)
+    (define traffic-layer #f)
     (define track-location-checkbox #f)
+    (define show-traffic-checkbox #f)
 
     (let ([p0 (new vertical-pane% [parent map-panel] [border 0] [spacing 1])])
       (let ((p (new horizontal-pane%
@@ -284,6 +413,12 @@
                    [label "Track Location"]
                    [callback (lambda (c e)
                                (on-track-location (send c get-value)))]))
+        (set! show-traffic-checkbox
+              (new check-box%
+                   [parent p]
+                   [label "Show Traffic"]
+                   [callback (lambda (c e)
+                               (on-show-traffic (send c get-value)))]))
         (set! zoom-slider
               (new slider% [parent p] [label "Zoom Level "]
                    [min-value (min-zoom-level)]
@@ -373,12 +508,17 @@
     (define/private (remove-all-layers)
       (send the-map remove-layer 'markers)
       (send the-map remove-layer 'custom)
-      (for ([l (in-list map-layers)])
+      (send the-map remove-layer 'traffic)
+      (for ([l (in-list track-map-layers)])
+        (send the-map remove-layer (send l get-name))))
+
+    (define/private (remove-track-layers)
+      (for ([l (in-list track-map-layers)])
         (send the-map remove-layer (send l get-name))))
 
     (define/private (highlight-lap lap)
       (send the-map begin-edit-sequence)
-      (remove-all-layers)
+      (remove-track-layers)
 
       (let ((lap-num (dict-ref lap 'lap-num #f))
             (custom-lap? (dict-ref lap 'custom-lap #f))
@@ -395,25 +535,25 @@
             ;; Extract the track data for the current lap and add it to the map.
             (begin
               (unless show-selected-lap-only?
-                (for ([l (in-list map-layers)])
+                (for ([l (in-list track-map-layers)])
                   (send* l
                     (set-pen main-track-pen)
-                    (set-zorder 0.5))
+                    (set-zorder 0.8))
                   (send the-map add-layer l)))
               (match-let (((list start-idx end-idx)
                            (df-index-of* data-frame "timestamp" start (+ start elapsed))))
                 (let ((track (extract-track* data-frame start-idx (add1 end-idx))))
                   (send the-map add-layer (line-layer 'custom track #:pen selected-track-pen #:zorder 0.1)))))
-            (for ([l (in-list map-layers)])
+            (for ([l (in-list track-map-layers)])
               (cond ((equal? (send l get-name) selected-lap)
                      (send* l
                        (set-pen selected-track-pen)
-                       (set-zorder 0.1))
+                       (set-zorder 0.75))
                      (send the-map add-layer l))
                     ((not show-selected-lap-only?)
                      (send* l
                        (set-pen main-track-pen)
-                       (set-zorder 0.5))
+                       (set-zorder 0.8))
                      (send the-map add-layer l)))))
 
         ;; Zoom canvas to current lap (if needed)
@@ -427,18 +567,24 @@
       (when the-elevation-graph
         (send the-elevation-graph highlight-interval #f #f))
       (send the-map begin-edit-sequence)
-      (remove-all-layers)
-      (for ([l (in-list map-layers)])
+      (remove-track-layers)
+      (for ([l (in-list track-map-layers)])
         (send* l
           (set-pen main-track-pen)
-          (set-zorder 0.5))
+          (set-zorder 0.8))
         (send the-map add-layer l))
       (send the-map end-edit-sequence)
       (set! selected-lap-data #f))
 
     (define/private (on-track-location flag)
-      (set! track-location? flag)
-      (send the-cll track-current-location track-location?))
+      (send the-cll track-current-location flag))
+
+    (define/private (on-show-traffic flag)
+      (set! show-traffic-layer? flag)
+      (when traffic-layer
+        (if show-traffic-layer?
+            (send the-map add-layer traffic-layer)
+            (send the-map remove-layer 'traffic))))
 
     (let ([pref (get-preference the-pref-tag #f)])
       ;; Restore the panel splits for the interval and map panels, or set
@@ -458,7 +604,12 @@
                       (hash-ref pref 'track-location #t)
                       #t)])
         (send track-location-checkbox set-value flag)
-        (on-track-location flag)))
+        (on-track-location flag))
+      (let ([flag (if (hash? pref)
+                      (hash-ref pref 'show-traffic #t)
+                      #t)])
+        (send show-traffic-checkbox set-value flag)
+        (on-show-traffic flag)))
 
     (define/public (save-visual-layout)
       (send interval-coice save-visual-layout)
@@ -474,7 +625,8 @@
        (hash
         'interval-panel-split ips
         'map-panel-split mps
-        'track-location track-location?)))
+        'track-location (send the-cll track-current-location)
+        'show-traffic show-traffic-layer?)))
 
     ;; Return a suitable file name for use by 'on-interactive-export-image'.
     ;; If 'export-file-name' is set, we use that, otherwise we compose a file
@@ -491,6 +643,12 @@
         (when file
           (set! export-file-name file)
           (send the-map export-image-to-file file))))
+
+    (define/private (maybe-setup-traffic)
+      (set! traffic-layer (make-traffic-layer data-frame))
+      (send show-traffic-checkbox enable (if traffic-layer #t #f))
+      (when (and traffic-layer show-traffic-layer?)
+        (send the-map add-layer traffic-layer)))
 
     (define/public (set-session session df)
 
@@ -552,8 +710,8 @@
 
       (send the-map begin-edit-sequence)
       (remove-all-layers)
-      (set! map-layers (make-map-layers df main-track-pen 0.5))
-      (for ([l (in-list map-layers)])
+      (set! track-map-layers (make-map-layers df main-track-pen 0.8))
+      (for ([l (in-list track-map-layers)])
         (send the-map add-layer l))
       ;; Add flags for the first and last valid GPS points on the route.  We
       ;; search the first valid point from both ends, rather than just
@@ -575,6 +733,8 @@
                  (list
                   (list first-position "Start" 1 (make-color 0 135 36))
                   (list last-position "End" -1 (make-color 150 33 33)))))))
+
+      (maybe-setup-traffic)
       (send the-map end-edit-sequence)
 
       ;; NOTE: the `resize-to-fit` event must be queued with a low priority --
@@ -588,7 +748,9 @@
       ;; correct results when we change the size of the map via the
       ;; `change-children` calls above.
       (queue-callback
-       (lambda () (send the-map resize-to-fit))
+       (lambda ()
+         (send the-map resize-to-fit)
+         (send zoom-slider set-value (send the-map zoom-level)))
        #f))
 
     ))

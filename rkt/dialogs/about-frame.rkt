@@ -142,6 +142,8 @@
   (insert-reference editor "Maps from Thunderforest" "http://www.thunderforest.com/")
   (insert-newline editor)
   (insert-reference editor "Map data from OpenStreetMap" "https://www.openstreetmap.org")
+  (insert-newline editor)
+  (insert-reference editor "Traffic Data from MyBikeTraffic.com" "https://www.mybiketraffic.com/")
   (send editor move-position 'home))
 
 (define (make-about-frame)

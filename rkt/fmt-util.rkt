@@ -2,7 +2,7 @@
 ;; fmt-util.rkt -- formatting utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -153,7 +153,7 @@
 (define m/s->swim-pace m/s->sec/100m)
 (define swim-pace->m/s sec/100m->m/s)
 (define swim-pace-label "min/100m")
-(define celsius->temperature celsius->fahrenheit) ; !!! 
+(define celsius->temperature celsius->fahrenheit) ; !!!
 (define temperature-label "℃")
 (define m->distance m->km)
 (define distance-label "km")
@@ -214,7 +214,7 @@
         (set! m->weight kg->lb)
         (set! weight-label "lb")
         (set! vertical-distance->m ft->m))
-      
+
       (begin
         (set! m/s->speed m/s->km/h)
         (set! speed->m/s km/h->m/s)
@@ -275,7 +275,7 @@
 (define (degrees->wind-rose deg)
   (let* ((nslices (vector-length wind-rose))
          (slice (/ 360.0 nslices))
-         (adjusted-deg 
+         (adjusted-deg
           (modulo (exact-round (- deg (/ slice 2))) 360)))
     (vector-ref wind-rose (exact-truncate (/ adjusted-deg slice)))))
 
@@ -319,7 +319,7 @@
 (define (speed->string speed/mps [unit-label #f])
   (let ((speed (m/s->speed speed/mps)))
     (string-append
-     (~r speed #:precision 2)
+     (~r speed #:precision '(= 1))
      (if unit-label (string-append " " speed-label) ""))))
 
 ;; (: pace->string (->* (Real) (Boolean) String))
@@ -580,4 +580,3 @@
     (if (and (real? seconds) (positive? seconds))
         (swim-pace->m/s seconds)
         #f)))
-

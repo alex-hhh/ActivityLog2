@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -42,6 +42,7 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
+         "inspect-traffic.rkt"
          "inspect-scatter.rkt")
 
 (provide view-session%)
@@ -422,6 +423,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
                (lambda (p)
                  (set! aerolab-parameters p)
                  (store-aerolab-parameters the-database session-id p))]))))
+    (define traffic
+      (make-tdata
+       "Traffic"
+       detail-panel
+       (lambda (panel) (new traffic-panel% [parent panel]))))
 
     (define installed-tabs '())
 
@@ -482,7 +488,10 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
           ;; which exist only if the user enabled them from the Activities
           ;; menu.
           (when aerolab-parameters
-            (set! tabs (cons aerolab tabs))))
+            (set! tabs (cons aerolab tabs)))
+
+          (when (df-contains? data-frame "mbrt_vehicle_count" "mbrt_absolute_speed")
+            (set! tabs (cons traffic tabs))))
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs))))
@@ -580,7 +589,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
       (send (tdata-contents mean-max) save-visual-layout)
       (send (tdata-contents quadrant) save-visual-layout)
       (send (tdata-contents maps) save-visual-layout)
-      (send (tdata-contents aerolab) save-visual-layout))
+      (send (tdata-contents aerolab) save-visual-layout)
+      (send (tdata-contents traffic) save-visual-layout))
 
     (define/public (unsaved-edits?)
       (or (send (tdata-contents overview) unsaved-edits?)
