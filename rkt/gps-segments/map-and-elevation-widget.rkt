@@ -6,7 +6,7 @@
 ;; an elevation plot for a data frame
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -141,7 +141,10 @@
           (send cll current-location location)
           (send cll current-location #f))
 
-      (match-define (vector alt grade) (df-lookup df "dst" '("alt" "grade") dst))
+      ;; Use interpolated lookup -- there might be a large distance between
+      ;; adjacent points in GPX segments...
+      (match-define (vector alt grade)
+        (df-lookup/interpolated df "dst" '("alt" "grade") dst))
 
       (define renderers
         (if (and alt grade)
