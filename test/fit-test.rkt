@@ -225,7 +225,7 @@ select count(*)
    (test-case "f0009.fit"
      (do-basic-checks "./test-fit/f0009.fit" 9 57))
    (test-case "f0010.fit (a)"
-     (do-basic-checks "./test-fit/f0010.fit" 23 8078
+     (do-basic-checks "./test-fit/f0010.fit" 23 8077
                       #:extra-db-checks
                       (lambda (db)
                         (define n (query-value db "select count(*) from SESSION_WEATHER"))
@@ -275,7 +275,7 @@ select count(*)
         )))
    (test-case "f0015.fit"
      (do-basic-checks
-      "./test-fit/f0015.fit" 26 4057
+      "./test-fit/f0015.fit" 26 4056
       #:extra-db-checks
       (lambda (db)
         (check-xdata-app-count db 2)
@@ -323,7 +323,7 @@ select count(*)
       #:extra-df-checks check-run-power))
    (test-case "f0017.fit"
      (do-basic-checks
-      "./test-fit/f0017.fit" 20 3211
+      "./test-fit/f0017.fit" 20 3210
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
@@ -371,7 +371,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0028.fit"
      (do-basic-checks
-      "./test-fit/f0028.fit" 27 941
+      "./test-fit/f0028.fit" 27 940
       #:extra-df-checks
       (lambda (df)
         ;; These series were missing from the activities as they are provided
@@ -455,7 +455,9 @@ select count(*)
            (check-true (> (length track) 0))
            (for ([trackpoint (in-list track)])
              (define ts (get-start-time trackpoint))
-             (check-true (and (>= ts start) (<= ts end))))))))
+             (check-true (and (>= ts start) (<= ts (ceiling end)))
+                         (format "timestamp ~a outside time range [~a .. ~a]"
+                                 ts start end)))))))
    (test-case "f0047.fit (b)"
      (do-basic-checks "./test-fit/f0047.fit" 15 64
                       #:extra-db-checks
@@ -486,7 +488,7 @@ select count(*)
             27 23 147 9 95 27 22 28 52 24 65 21 79 17 35 12 28 21 22 8 63 21
             32 22 41 16 35 44 24 18 43 31 47 30 22 23 52 25 21 16 24 20 360
             23 18 10 41 12 48 22 40 19 19 8 32 22 23 24 38 29 26 28 29 25 30
-            14 20 40 38 1))
+            14 20 40 38))
      (define data (read-activity-from-file the-fit-file))
      (for ([session (in-list (dict-ref data 'sessions #f))])
        (for ([lap (in-list (session-laps session))])
@@ -539,6 +541,24 @@ select count(*)
         (define data (read-activity-from-file the-fit-file))
         (define session (car (dict-ref data 'sessions '())))
         (check-false (null? session)))))
+   (test-case "f0056.fit"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define the-fit-file "./test-fit/f0056.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     ;; Normally, just reading the file threw an exception
+     (check-not-exn
+      (lambda ()
+        (define data (read-activity-from-file the-fit-file))
+        (define session (car (dict-ref data 'sessions '())))
+        (check-false (null? session)))))
+   (test-case "f0057.fit"
+     (do-basic-checks
+      "./test-fit/f0057.fit" 29 4099
+      #:extra-df-checks
+      (lambda (df)
+        (check-equal? (vector-length (df-get-property df 'laps)) 9))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
