@@ -1,7 +1,6 @@
 #lang racket/base
-
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -559,6 +558,21 @@ select count(*)
       #:extra-df-checks
       (lambda (df)
         (check-equal? (vector-length (df-get-property df 'laps)) 9))))
+   (test-case "f0058.fit"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define the-fit-file "./test-fit/f0058.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     ;; Normally, just reading the file threw an exception
+     (check-not-exn
+      (lambda ()
+        (define data (read-activity-from-file the-fit-file))
+        (define sessions (dict-ref data 'sessions '()))
+        (check-false (null? sessions))
+        (for ([session (in-list sessions)])
+          (define devices (dict-ref session 'devices '()))
+          (check-false (null? devices))))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application

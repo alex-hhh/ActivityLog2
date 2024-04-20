@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1321,12 +1321,37 @@
                 (set! sessions (reverse (cons updated-last-session (cdr rsessions)))))))
 
         (unless (null? devices)
-          ;; extra devices found (Garmin Swim does this), add them to the last
-          ;; session.  NOTE: this is a hack, we don't check if there are other
-          ;; devices attached to the last session.
-          (let ((last-session (car sessions)))
-            (set! sessions (cons (cons (cons 'devices devices) last-session)
-                                 (cdr sessions)))))
+          (cond ((= 1 (length sessions))
+                 ;; Quick case when we have one session in the FIT file, add
+                 ;; devices to it
+                 (define s (car sessions))
+                 (define sdevices (dict-ref s 'devices null))
+                 (define ndevices (append sdevices devices))
+                 (define r (dict-remove s 'devices))
+                 (set! sessions (list (cons (cons 'devices ndevices) r))))
+                (else
+                 ;; Assign each device to the corresponding session based on
+                 ;; the timestamp of the device entry.
+                 (define session-devices (make-vector (length sessions) null))
+                 (define last-session-index (sub1 (length sessions)))
+                 (for ([device (in-list devices)])
+                   (define timestamp (get-start-time device))
+                   (define sindex
+                     (or (for/first ([s (in-list sessions)]
+                                     [n (in-naturals)]
+                                     #:when
+                                     (let ([t (session-start-time s)]
+                                           [e (session-elapsed-time s)])
+                                       (and (>= timestamp t) (<= timestamp (+ t e)))))
+                           n)
+                         last-session-index))
+                   (vector-set! session-devices sindex (cons device (vector-ref session-devices sindex))))
+                 (set! sessions
+                       (for/list ([s (in-list sessions)]
+                                  [d (in-vector session-devices)])
+                         (define sdevices (dict-ref s 'devices null))
+                         (define r (dict-remove s 'devices))
+                         (cons (cons 'devices (append sdevices d)) r))))))
 
         (list
          (cons 'start-time (or activity-timestamp (get-start-timestamp)))
