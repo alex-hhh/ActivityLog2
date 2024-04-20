@@ -2,7 +2,7 @@
 ;; view-equipment.rkt -- equipment and service log management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,6 +21,7 @@
          racket/match
          racket/string
          "dbutil.rkt"
+         "fit-file/fit-file.rkt"
          "fmt-util-ut.rkt"
          "fmt-util.rkt"
          "utilities.rkt"
@@ -46,12 +47,12 @@
 
     (let ((p (send this get-client-pane)))
       (set! name-text-field (new text-field% [parent p] [label "Name: "]))
-      (let ((p2 (make-horizontal-pane p #f)))
+      (let ((p2 (make-horizontal-pane p #t)))
         (set! type-text-field (new text-field% [parent p2] [label "Type: "]))
         (set! retired-check-box
               (new check-box% [parent p2] [label "Retired?"]
                    [value #f])))
-      (let ((p3 (make-horizontal-pane p #f)))
+      (let ((p3 (make-horizontal-pane p #t)))
         (set! part-of-choice (new choice% [parent p3]
                                   [label "Part of: "]
                                   [choices '("None")]
@@ -62,34 +63,42 @@
                    [style '(multiple)]))))
 
     (define (setup-part-of-choice db exclude)
-      (let ((ids (list sql-null))
-            (names (list "None")))
-        (for (((id name) (in-query db "
-select E.id, ifnull(E.name, E.device_name) as ename
+      (define-values (ids names)
+        (for/fold ([ids (list sql-null)]
+                   [names '("None")]
+                   #:result (values (reverse ids) (reverse names)))
+                  ([(id name device-id manufacturer-id) (in-query db "
+select E.id, ifnull(E.name, E.device_name) as ename, E.device_id, E.manufacturer_id
   from EQUIPMENT E
  where e.retired = 0 and e.id != ?
- order by ename" (or exclude -1))))
-          (set! ids (cons id ids))
-          (set! names (cons name names)))
-        (set! part-of-eqids (reverse ids))
-        (send part-of-choice clear)
-        (for ((name (in-list (reverse names))))
-          (send part-of-choice append name))))
+ order by ename" (or exclude -1))])
+          (values
+           (cons id ids)
+           (cons
+            (if (or (sql-null? device-id) (sql-null? manufacturer-id))
+                name
+                (fit-device-name manufacturer-id device-id #f))
+            names))))
+      (set! part-of-eqids ids)
+      (send part-of-choice clear)
+      (for ([name (in-list names)])
+        (send part-of-choice append name)))
 
     (define/override (has-valid-data?)
-      ;; The only restriction we have is for a non empty name, although we
-      ;; could possibly check for non-duplicate names (in that case we have to
-      ;; flag the user that the name is duplicate, otherwise he will not know
-      ;; why the save button is disabled.
-      (not (equal? (send name-text-field get-value) "")))
+      #t)
 
     (define (setup-for-equipment db equipment-id)
       (let ((row (query-row db "
-select E.name, E.device_name, E.description, E.retired, E.serial_number, E.part_of
+select E.name, E.device_name, E.description, E.retired, E.serial_number, E.part_of, E.device_id, E.manufacturer_id
 from EQUIPMENT E
 where E.id = ?" equipment-id)))
         (send name-text-field set-value (sql-column-ref row 0 ""))
-        (send type-text-field set-value (sql-column-ref row 1 ""))
+        (send type-text-field set-value
+              (let ([device-id (sql-column-ref row 6 #f)]
+                    [manufacturer-id (sql-column-ref row 7 #f)])
+                (if (and device-id manufacturer-id)
+                    (fit-device-name manufacturer-id device-id #f)
+                    (sql-column-ref row 1 ""))))
         (send desc-text-field set-value (sql-column-ref row 2 ""))
         (send retired-check-box set-value (equal? (sql-column-ref row 3 0) 1))
         ;; Don't allow changing the type for FIT type equipment (that have
@@ -101,7 +110,8 @@ where E.id = ?" equipment-id)))
           (for ((i (in-range (length part-of-eqids)))
                 (e (in-list part-of-eqids)))
             (when (equal? e part-of)
-              (send part-of-choice set-selection i))))))
+              (send part-of-choice set-selection i)))))
+      (send (send this get-client-pane) reflow-container))
 
     (define (setup-for-new-equipment)
       (send name-text-field set-value "")
@@ -121,14 +131,29 @@ where E.id = ?" equipment-id)))
         (if equipment-id
             (begin
               (query-exec db "
-update EQUIPMENT set name = ?, device_name = ?, description = ?, retired = ?, part_of = ?
-where id = ?" name type desc (if retired? 1 0) part-of equipment-id)
+update EQUIPMENT
+   set name = ?,
+       device_name = ?,
+       description = ?,
+       retired = ?,
+       part_of = ?
+where id = ?"
+                          (if (string=? name "") sql-null name)
+                          type
+                          desc
+                          (if retired? 1 0)
+                          part-of
+                          equipment-id)
               equipment-id)
             (begin
-              (query-exec db "
+              (db-insert db "
 insert into EQUIPMENT(name, device_name, description, retired, part_of)
-values (?, ?, ?, ?, ?)"  name type desc (if retired? 1 0) part-of)
-              (query-value db "select max(id) from EQUIPMENT")))))
+values (?, ?, ?, ?, ?)"
+                          (if (string=? name "") sql-null name)
+                          type
+                          desc
+                          (if retired? 1 0)
+                          part-of)))))
 
     (define/public (begin-edit parent database equipment-id)
       (setup-part-of-choice database equipment-id)
@@ -582,7 +607,9 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
        (select EV.software_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as software_version,
        (select EV.hardware_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as hardware_version,
        (select EV.battery_voltage from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as battery_voltage,
-       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status
+       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status,
+       EQ.device_id as device_id,
+       EQ.manufacturer_id as manufacturer_id
   from EQUIPMENT EQ
   where retired < ?" (if include-retired? 2 1)))
 
@@ -604,7 +631,9 @@ delete from EQUIPMENT_SERVICE_LOG where id = ?" svid))
        (select EV.software_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as software_version,
        (select EV.hardware_version from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as hardware_version,
        (select EV.battery_voltage from EQUIPMENT_VER EV where EV.equipment_id = EQ.id) as battery_voltage,
-       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status
+       (select EBS.name from EQUIPMENT_VER EV, E_BATTERY_STATUS EBS where EV.equipment_id = EQ.id and EV.battery_status = EBS.id) as battery_status,
+       EQ.device_id as device_id,
+       EQ.manufacturer_id as manufacturer_id
   from EQUIPMENT EQ
 where EQ.id = ?" eqid))
 
@@ -612,7 +641,12 @@ where EQ.id = ?" eqid))
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
      (qcolumn "Name" fn fn))
-   (let ((fn (lambda (row) (vector-ref row 2))))
+   (let ((fn (lambda (row)
+               (let ([device-id (vector-ref row 15)]
+                     [manufacturer-id (vector-ref row 16)])
+                 (if (or (sql-null? device-id) (sql-null? manufacturer-id))
+                     (vector-ref row 2)
+                     (fit-device-name manufacturer-id device-id #f))))))
      (qcolumn "Device Name" fn fn))
    (let ((fn (lambda (row) (vector-ref row 3))))
      (qcolumn "Serial Number"

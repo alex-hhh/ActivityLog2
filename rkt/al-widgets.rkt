@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2019, 2021-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,6 +27,7 @@
          "dbapp.rkt"
          "dbutil.rkt"
          "fit-file/activity-util.rkt"
+         "fit-file/fit-file.rkt"
          "fmt-util-ut.rkt"
          "fmt-util.rkt"
          "intervals.rkt"
@@ -241,20 +242,41 @@ values (?, ?)" session-id id))
 
 ;;............................................... equipment-input-field% ....
 
+(define (->equipment-names dbrows)
+  (define result
+    (for/list ([r (in-list dbrows)])
+      (match-define (vector id name dname device-id manufacturer-id) r)
+      (vector id
+              (cond ((not (sql-null? name))
+                     name)
+                    ((not (or (sql-null? device-id) (sql-null? manufacturer-id)))
+                     (fit-device-name manufacturer-id device-id #f))
+                    ((not (sql-null? dname))
+                     dname)
+                    (else
+                     "*unnamed*")))))
+  (sort result (lambda (a b) (string<? (vector-ref a 1) (vector-ref b 1)))))
+
 (define (get-available-equipment db retired?)
-  (query-rows db "
+  (define rows
+    (query-rows db "
 select E.id,
-       ifnull(E.name, E.device_name) as ename
+       E.name,
+       E.device_name,
+       E.device_id,
+       E.manufacturer_id
   from EQUIPMENT E
- where E.retired < ?
- order by ename" (if retired? 2 1)))
+ where E.retired < ?" (if retired? 2 1)))
+  (->equipment-names rows))
 
 (define (get-session-equipment db session-id)
-  (query-rows db "
-select distinct E.id, ifnull(E.name, E.device_name) as name
+  (define rows
+    (query-rows db "
+select distinct E.id, E.name, E.device_name, E.device_id, E.manufacturer_id
   from EQUIPMENT E, EQUIPMENT_USE EU
  where EU.equipment_id = E.id
    and EU.session_id = ?" session-id))
+  (->equipment-names rows))
 
 (define (set-session-equipment db session-id equipment-ids)
   ;; NOTE: it is simpler to just remove all the existing equipment for the

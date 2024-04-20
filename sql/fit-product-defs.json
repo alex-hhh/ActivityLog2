@@ -12,6 +12,7 @@
                     12,
                     13,
                     18,
+                    22,
                     4130
                 ],
                 "name": "Garmin HRM"
@@ -500,10 +501,6 @@
                 "name": "Garmin Varia Radar Display"
             },
             {
-                "product_id": 3808,
-                "name": "Garmin Varia RCT715"
-            },
-            {
                 "product_id": [
                     2238,
                     2290
@@ -792,14 +789,6 @@
                 "name": "Venu"
             },
             {
-                "product_id": 4260,
-                "name" : "Venu 3"
-            },
-            {
-                "product_id": 4261,
-                "name" : "Venu 3S"
-            },
-            {
                 "product_id": [
                     3246,
                     3247,
@@ -847,14 +836,6 @@
                     3516
                 ],
                 "name": "Garmin Fenix 6x"
-            },
-            {
-                "product_id": 4374,
-                "name": "Garmin Fenix 7s Pro Solar" 
-            },
-            {
-                "product_id": 4376,
-                "name": "Garmin Fenix 7x Pro Solar"
             },
             {
                 "product_id": 3299,
@@ -934,6 +915,10 @@
                 "name": "Garmin Enduro"
             },
             {
+                "product_id": 3808,
+                "name": "Garmin Varia RCT715"
+            },
+            {
                 "product_id": [
                     3843,
                     4305
@@ -1010,11 +995,27 @@
                 "name": "Edge Explore2"
             },
             {
+                "product_id": 4222,
+                "name": "Garmin Descent Mk3"
+            },
+            {
+                "product_id": 4223,
+                "name": "Garmin Descent Mk3"
+            },
+            {
                 "product_id": [
                     4257,
                     4258
                 ],
                 "name": "Garmin FR265"
+            },
+            {
+                "product_id": 4260,
+                "name": "Venu 3"
+            },
+            {
+                "product_id": 4261,
+                "name": "Venu 3S"
             },
             {
                 "product_id": [
@@ -1065,6 +1066,22 @@
             {
                 "product_id": 4315,
                 "name": "Garmin FR965"
+            },
+            {
+                "product_id": 4374,
+                "name": "Garmin Fenix 7s Pro Solar"
+            },
+            {
+                "product_id": 4376,
+                "name": "Garmin Fenix 7x Pro Solar"
+            },
+            {
+                "product_id": 4380,
+                "name": "Garmin Lily2"
+            },
+            {
+                "product_id": 4446,
+                "name": "Garmin HRM Fit"
             },
             {
                 "product_id": 10007,
@@ -1333,6 +1350,10 @@
             },
             {
                 "product_id": 6,
+                "name": "Wahoo Cadence"
+            },
+            {
+                "product_id": 8,
                 "name": "Wahoo HRM"
             },
             {
@@ -1815,7 +1836,12 @@
     {
         "manufacturer_id": 106,
         "name": "Fitcare",
-        "products": []
+        "products": [
+            {
+                "product_id" : 4,
+                "name" : "Fitcare HRM"
+            }
+        ]
     },
     {
         "manufacturer_id": 107,
@@ -2042,14 +2068,14 @@
         "products": []
     },
     {
-        "manufacturer_id" : 149,
-        "name" : "Laisi",
-        "products" : []
+        "manufacturer_id": 149,
+        "name": "Laisi",
+        "products": []
     },
     {
-        "manufacturer_id" : 150,
-        "name" : "MyZone",
-        "products" : []
+        "manufacturer_id": 150,
+        "name": "MyZone",
+        "products": []
     },
     {
         "manufacturer_id": 255,
