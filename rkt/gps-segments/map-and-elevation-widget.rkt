@@ -142,9 +142,18 @@
           (send cll current-location #f))
 
       ;; Use interpolated lookup -- there might be a large distance between
-      ;; adjacent points in GPX segments...
+      ;; adjacent points in GPX segments...  also we use our own interpolate
+      ;; function, to handle missing values
       (match-define (vector alt grade)
-        (df-lookup/interpolated df "dst" '("alt" "grade") dst))
+        (let ([ifn (lambda (t v1 v2)
+                     (cond ((and (rational? v1) (rational? v2))
+                            (+ (* (- 1 t) v1) (* t v2)))
+                           ((rational? v1) v1)
+                           ((rational? v2) v2)
+                           (else #f)))])
+          (df-lookup/interpolated
+           df "dst" '("alt" "grade") dst
+           #:interpolate ifn)))
 
       (define renderers
         (if (and alt grade)
