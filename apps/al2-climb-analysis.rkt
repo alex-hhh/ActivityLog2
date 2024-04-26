@@ -41,6 +41,14 @@
          "../rkt/widgets/dragable-split-panel.rkt"
          "../rkt/widgets/qresults-list.rkt")
 
+;; like ~r but uses ~a for non-rational numbers
+(define ~r*
+  (make-keyword-procedure
+   (lambda (kws kw-args . rest)
+     (if (or (null? rest) (rational? (car rest)))
+         (keyword-apply ~r kws kw-args rest)
+         (~a (car rest))))))
+
 ;; Install colormaps for showing the gradient on the elevation plot.  See the
 ;; colormaps package for additional colormaps that can be used
 (plot-pen-color-map 'cb-rdbu-11)        ; 'cb-rdylgn-11 is also a nice one
@@ -369,7 +377,7 @@
 ;; climb category -- this string is intended to be displayed to the user.
 (define (f->s v)
   (let ([cat (fiets-score->climb-category v)]
-        [f (~r v #:precision 2)])
+        [f (~r* v #:precision 2)])
     (if (equal? cat "")
         f
         (string-append f " (" cat ")"))))
@@ -401,13 +409,13 @@
                    [climb-badge (and c
                                      (make-hover-badge
                                       `(("Score"  ,(f->s (climb-score c)))
-                                        ("Ascent" ,(~r (climb-elevation c) #:precision 0) "meters")
-                                        ("Length" ,(~r (climb-distance c) #:precision 1) "km")
+                                        ("Ascent" ,(~r* (climb-elevation c) #:precision 0) "meters")
+                                        ("Length" ,(~r* (climb-distance c) #:precision 1) "km")
                                         ("Climb"))))]
                    [main-badge (make-hover-badge
-                                `(("Distance" ,(~r dst #:precision 2) "km")
-                                  ("Altitude" ,(~r alt #:precision 1) "meters")
-                                  ("Grade" ,(~r grade #:precision 1) "%")))])
+                                `(("Distance" ,(~r* dst #:precision 2) "km")
+                                  ("Altitude" ,(~r* alt #:precision 1) "meters")
+                                  ("Grade" ,(~r* grade #:precision 1) "%")))])
             (list (vrule dst #:style 'long-dash)
                   (point-pict
                    (vector dst _alt)
@@ -536,28 +544,28 @@
         (decorate-with " %" #:validate string->number)
         (validate-mixin
          string->number
-          (lambda (v) (~r v #:precision 1))
+          (lambda (v) (~r* v #:precision 1))
           (tooltip-mixin text-field%)
           #:allow-empty? #f))
        [parent climb-controls-pane]
        [label "Min Climb Grade "]
        [init-value
         (let [(v (get-pref 'al2-climb-analysis-tool:min-grade *min-climb-grade*))]
-          (~r (if (rational? v) v *min-climb-grade*) #:precision 1))]
+          (~r* (if (rational? v) v *min-climb-grade*) #:precision 1))]
        [tooltip "Minimum Grade for a Segment to be considered a climb"]
        [callback (lambda (b e) (on-climb-parameters-changed))]))
 
 (define min-climb-score-field
   (new (validate-mixin
          string->number
-         (lambda (v) (~r v #:precision 0))
+         (lambda (v) (~r* v #:precision 0))
          (tooltip-mixin text-field%)
          #:allow-empty? #f)
        [parent climb-controls-pane]
        [label "Min Climb Score "]
        [init-value
         (let [(v (get-pref 'al2-climb-analysis-tool:min-score *min-climb-score*))]
-          (~r (if (rational? v) v *min-climb-score*) #:precision 2))]
+          (~r* (if (rational? v) v *min-climb-score*) #:precision 2))]
        [tooltip "Climbs with scores less than this are discarded"]
        [callback (lambda (b e) (on-climb-parameters-changed))]))
 
@@ -574,14 +582,14 @@
         (decorate-with " km" #:validate string->number)
         (validate-mixin
          string->number
-         (lambda (v) (~r v #:precision 0))
+         (lambda (v) (~r* v #:precision 0))
          (tooltip-mixin text-field%)
          #:allow-empty? #f))
        [parent climb-controls-pane]
        [label "Nearby Distance "]
        [init-value
         (let [(v (get-pref 'al2-climb-analysis-tool:nearby-distance *max-climb-separation*))]
-          (~r (if (rational? v) v *max-climb-separation*) #:precision 2))]
+          (~r* (if (rational? v) v *max-climb-separation*) #:precision 2))]
        [enabled (send join-nearby-checkbox get-value)]
        [tooltip "Maximum distance for joining nearby climbs"]
        [callback (lambda (b e) (on-climb-parameters-changed))]))
@@ -591,14 +599,14 @@
         (decorate-with " kg" #:validate string->number)
         (validate-mixin
          string->number
-         (lambda (v) (~r v #:precision 1))
+         (lambda (v) (~r* v #:precision 1))
          (tooltip-mixin text-field%)
          #:allow-empty? #f))
        [parent climb-controls-pane]
        [label "Athlete + Bike Weight "]
        [init-value
         (let [(v (get-pref 'al2-climb-analysis-tool:athlete-weight *athlete-weight*))]
-          (~r (if (rational? v) v *athlete-weight*) #:precision 1))]
+          (~r* (if (rational? v) v *athlete-weight*) #:precision 1))]
        [tooltip "Athlete + Bike Weight (total weight)"]
        [callback (lambda (b e) (on-athlete-weight-changed))]))
 
@@ -671,27 +679,27 @@
       (list
        (qcolumn
         "Start (km)"
-        (lambda (c) (~r (climb-start c) #:precision 1))
+        (lambda (c) (~r* (climb-start c) #:precision 1))
         climb-start)
        (qcolumn
         "End (km)"
-        (lambda (c) (~r (climb-end c) #:precision 1))
+        (lambda (c) (~r* (climb-end c) #:precision 1))
         climb-end)
        (qcolumn
         "Length (km)"
-        (lambda (c) (~r (climb-distance c) #:precision 1))
+        (lambda (c) (~r* (climb-distance c) #:precision 1))
         climb-distance)
        (qcolumn
         "Ascent (m)"
-        (lambda (c) (~r (climb-elevation c) #:precision 0))
+        (lambda (c) (~r* (climb-elevation c) #:precision 0))
         climb-elevation)
        (qcolumn
         "Avg Grade (%)"
-        (lambda (c) (~r (climb-grade c) #:precision 1))
+        (lambda (c) (~r* (climb-grade c) #:precision 1))
         climb-grade)
        (qcolumn
         "Max Grade (%)"
-        (lambda (c) (~r (climb-max-grade c) #:precision 1))
+        (lambda (c) (~r* (climb-max-grade c) #:precision 1))
         climb-max-grade)
        (qcolumn
         "Score"
@@ -705,7 +713,7 @@
                     ""))])
          (qcolumn
           "Energy (kJ)"
-          (lambda (c) (~r (energy c) #:precision 2))
+          (lambda (c) (~r* (energy c) #:precision 2))
           energy))))
 
 ;; Setup the defaults for the map: track location is synchronized with the
@@ -916,12 +924,12 @@
     (define distance
       (let ([dst (df-ref df (sub1 (df-row-count df)) "dst")])
         (if (rational? dst)
-            (string-append (~r (/ dst 1000.0) #:precision 1) " km")
+            (string-append (~r* (/ dst 1000.0) #:precision 1) " km")
             "")))
     (define-values (ascent descent)
       (let-values ([(a d) (total-ascent-descent df "alt" 0 (df-row-count df))])
-        (values (string-append "ascent " (~r a #:precision 0) " meters")
-                (string-append "descent " (~r a #:precision 0) " meters"))))
+        (values (string-append "ascent " (~r* a #:precision 0) " meters")
+                (string-append "descent " (~r* a #:precision 0) " meters"))))
     (send activity-name-message set-label
           (format "~a -- ~a, ~a, ~a" name distance ascent descent))
     (send toplevel set-label (format "~a -- Climb Analysis Tool" name))))
