@@ -356,7 +356,7 @@
            [min-width 220]
            [stretchable-width #t]
            [alignment '(left top)]))
-    
+
     (define interval-coice
       (let ((p (new horizontal-pane%
                     [parent interval-view-panel]
@@ -370,7 +370,8 @@
         (new interval-choice%
              [parent p]
              [tag 'interval-choice-map]
-             [label ""])))
+             [label ""]
+             [callback (lambda () (unhighlight-lap))])))
 
     (define interval-view
       (new mini-interval-view%
@@ -490,7 +491,7 @@
       (set! zoom-to-lap? flag)
       (when the-elevation-graph
         (send the-elevation-graph zoom-to-lap flag))
-      (when zoom-to-lap?
+      (when (and zoom-to-lap? selected-lap)
         (send the-map resize-to-fit selected-lap)))
 
     (define/private (show-selected-lap-only flag)
@@ -514,7 +515,8 @@
 
     (define/private (remove-track-layers)
       (for ([l (in-list track-map-layers)])
-        (send the-map remove-layer (send l get-name))))
+        (send the-map remove-layer (send l get-name)))
+      (send the-map remove-layer 'custom))
 
     (define/private (highlight-lap lap)
       (send the-map begin-edit-sequence)
@@ -564,6 +566,8 @@
         (send the-map end-edit-sequence)))
 
     (define/private (unhighlight-lap)
+      (set! selected-lap #f)
+      (set! selected-lap-data #f)
       (when the-elevation-graph
         (send the-elevation-graph highlight-interval #f #f))
       (send the-map begin-edit-sequence)
@@ -573,8 +577,7 @@
           (set-pen main-track-pen)
           (set-zorder 0.8))
         (send the-map add-layer l))
-      (send the-map end-edit-sequence)
-      (set! selected-lap-data #f))
+      (send the-map end-edit-sequence))
 
     (define/private (on-track-location flag)
       (send the-cll track-current-location flag))
@@ -655,6 +658,8 @@
       (set! the-session session)
       (set! data-frame df)
       (set! export-file-name #f)
+      (set! selected-lap-data #f)
+      (set! selected-lap #f)
 
       (set! the-elevation-graph
             (cond ((df-contains? df "calt") grade+calt-graph)

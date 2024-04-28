@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -2219,27 +2219,29 @@
                                      [stretchable-width #t]
                                      [alignment '(left top)]))
 
-    (define interval-choice #f)
-    (let ((p (new horizontal-pane%
-                  [parent interval-view-panel]
-                  [spacing 10]
-                  [stretchable-height #f]
-                  [alignment '(left center)])))
-      (new message% [parent p] [label "Laps"] [font *header-font*])
-      (set! interval-choice (new interval-choice%
-                                 [tag 'interval-choice-graphs]
-                                 [parent p]
-                                 [label ""])))
+    (define interval-choice
+      (let ((p (new horizontal-pane%
+                    [parent interval-view-panel]
+                    [spacing 10]
+                    [stretchable-height #f]
+                    [alignment '(left center)])))
+        (new message% [parent p] [label "Laps"] [font *header-font*])
+        (new interval-choice%
+             [tag 'interval-choice-graphs]
+             [parent p]
+             [label ""]
+             [callback (lambda () (unhighlight-lap))])))
 
-    (define interval-view (new mini-interval-view%
-                               [parent interval-view-panel]
-                               [tag 'activity-log:charts-mini-lap-view]
-                               [callback (lambda (n lap selected?)
-                                           (if selected?
-                                               (let ((lap-num (dict-ref lap 'lap-num #f)))
-                                                 (when lap-num
-                                                   (highlight-lap (- lap-num 1) lap)))
-                                               (unhighlight-lap)))]))
+    (define interval-view
+      (new mini-interval-view%
+           [parent interval-view-panel]
+           [tag 'activity-log:charts-mini-lap-view]
+           [callback (lambda (n lap selected?)
+                       (if selected?
+                           (let ((lap-num (dict-ref lap 'lap-num #f)))
+                             (when lap-num
+                               (highlight-lap (- lap-num 1) lap)))
+                           (unhighlight-lap)))]))
 
     (send interval-choice set-interval-view interval-view)
 

@@ -322,7 +322,8 @@ values (?, ?)" session-id id))
     (init-field parent
                 [database (current-database)] ; !!! FIXME
                 [tag 'lap-type-selector]
-                [label "Show Split Types: "])
+                [label "Show Split Types: "]
+                [callback (lambda () (void))])
     (super-new)
 
     (define interval-view #f)           ; the view we are controlling
@@ -436,13 +437,14 @@ values (?, ?)" session-id id))
            [choices (map split-name split-kinds)]
            [callback (lambda (c e) (on-select-split-kind (send c get-selection)))]))
 
-    (define (on-select-split-kind index)
+    (define/private (on-select-split-kind index)
       ;; NOTE: we check here if the widgets are valid, so the "on-*" don't
       ;; have to to any validity checking.
       (when (and data-frame session interval-view)
         (let ((split (list-ref split-kinds index)))
           (hash-set! interval-type-by-sport sport (split-tag split))
-          ((split-fn split)))))
+          ((split-fn split)))
+        (callback)))
 
     ;; Setup the interval kind that was used when a session for the same sport
     ;; as the current one was last selected.
