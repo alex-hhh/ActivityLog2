@@ -3,7 +3,7 @@
 ;; gps-segment.rkt -- GPS Segments implementation
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,18 +23,17 @@
          db/base
          geoid
          geoid/waypoint-alignment
-         geoid/geodesy
          math/statistics
+         racket/async-channel
          racket/contract
          racket/match
          racket/port
-         racket/async-channel
-         "../utilities.rkt"
+         "../database.rkt"
          "../dbutil.rkt"
-         "../database.rkt"              ; for db-insert-section-summary
-         "../models/grade-series.rkt"
+         "../intervals.rkt"  ; for total-ascent-descent, make-interval-summary
          "../models/fiets-score.rkt"
-         "../intervals.rkt")            ; for total-ascent-descent, make-interval-summary
+         "../models/grade-series.rkt"
+         "../utilities.rkt")
 
 ;; Add all necessary data series and properties to a segment -- the segment
 ;; must have latitude and longitude data, and this function will construct all
@@ -502,12 +501,34 @@ where T.length_id = L.id
                                  segment-length (vector-length waypoints)))
       (list start-index
             end-index
+            (- end-index start-index)
             good?
             dtw-cost)))
 
-  (for/list ([m (in-list candidate-matches)] #:when (list-ref m 2))
-    (match-define (list start-index end-index good? dtw-cost) m)
-    (list df start-index end-index dtw-cost)))
+  ;; sort candidate matches based on their length (in terms of number of
+  ;; points).
+  (define sorted (sort candidate-matches
+                       (lambda (a b) (< (list-ref a 2) (list-ref b 2)))))
+
+  ;; Filter out and keep only the good matches: a match is good if its "good?"
+  ;; flag is #t and we haven't found a shorter match starting or ending at the
+  ;; same index (since we sorted them, shorter matches are in RESULT already).
+  ;; See also AB#61, this prevents matching the segment twice in the same
+  ;; location under certain conditions.
+  (let loop ([result '()]
+             [remaining sorted])
+    (if (null? remaining)
+        result
+        (match-let ([(list start-index end-index _l good? dtw-cost) (car remaining)])
+          (loop
+           (if (and good?
+                    (not (findf (lambda (e)
+                                  (or (= (list-ref e 1) start-index)
+                                      (= (list-ref e 2) end-index)))
+                                result)))
+               (cons (list df start-index end-index dtw-cost) result)
+               result)
+           (cdr remaining))))))
 
 ;; Return #t if the DTW cost is acceptable and the selected interval is a
 ;; match for the segment.
