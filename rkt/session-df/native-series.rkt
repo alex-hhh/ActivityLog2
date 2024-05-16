@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1007,6 +1007,9 @@
            (if (or (is-runnig? sport) (is-cycling? sport))
                lrbal-factors
                #f))
+
+         ;; If there is no value for balance assume neutral, that is, 50%.
+         (define/override (missing-value) 50.0)
 
          )))
 (register-series-metadata axis-left-right-balance)
