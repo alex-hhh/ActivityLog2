@@ -9,6 +9,72 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2024.05 (May 2024)
+
+* Show traffic information (other vehicles overtaking the rider) on the map.
+  This feature uses data collected by the MyBikeTraffic Garmin IQ application,
+  see https://www.mybiketraffic.com/about/ from a Garmin Varia bike radar.
+  Data is overlaid on the map for each session where it is available.
+
+* Allow multiple instances of the ActivityLog2 and AL2-Climb-Analysis
+  applications to run simultaneously.  This allows databases for two or more
+  athletes to be opened at the same time.
+
+* Application settings and preferences are now stored in the database,
+  allowing separate settings for charts and displayed fields for different
+  user databases.
+
+* Update FIT file reader to handle lap records at the start. New Garmin
+  firmware generates FIT files which have out-of-time-order lap messages
+  before the track points.  This update will correctly assign track points to
+  the correct lap, instead of creating an additional lap to hold these
+  points. (AB#57)
+
+* Show equipment names from fit-product-defs file, so product names are
+  up-to-date when fit-product-defs itself is updated.  If the user names their
+  devices explicitly, they will still show with the user-specified name.  Also
+  updated fit-product-defs to include latest devices.
+
+* Graph for "Left-Right Balance" series uses 50% when values are missing from
+  the data -- if a value is missing, it is better to assume neutral balance
+  instead of an "all the way to the left", which 0% would produce.
+
+* Use interpolated lookup in GPS Segments view.  Usually there is a large
+  distance between adjacent data points in GPX segment files, and the point
+  might show up in the wrong place on the plot if we always use an exact data
+  point.
+
+## Bugfixes
+
+* Fix segment matching so a single match is found on a particular route
+  segment.  If there is a U-Turn on a route, the segment could be matched
+  twice: both before and after the U turn.  (AB#61)
+
+* In the session view, a previously highlighted lap is removed from the graphs
+  and map view when switching segment types, to avoid showing misleading data
+  in these views.  (AB#60)
+
+* Make al2-climb-analysis tool more resilient to printing bad values.  Wrap ~r
+  so it does not throw an exception if it has to print a non-rational number,
+  such as +inf.0
+
+* Ensure the calculated HRV metrics have valid values and return #f if they
+  don't.  This avoids returning +nan.0 or other values which throw exceptions
+  later on. (#98)
+
+* Workaround incorrect device serial produced by ELEMNT Bolt which uses signed
+  32 bit numbers for device serials, causing truncation for some serial
+  numbers, so they were not found in the database -- this caused creation of
+  duplicate entries.  (AB#56)
+
+* Fix W'Bal series going above max value.  Maximum value should be WPrime, but
+  on longer stops the calculation could produce a value larger than
+  that. (AB#55)
+
+* Make data for AE trend chart more resilient to bad values.  Some devices
+  import speed, power or HR as 0 when they don't have data, instead of using
+  the "not available" flag
+
 # Release 2024.01 (January 2024)
 
 * More improvements to PMC trend chart: legend entry now shows data for today,
