@@ -208,8 +208,8 @@
                   ([g (in-list (cons area-geoid (adjacent-geoids area-geoid)))])
           (define avg-alt (average-altitude g))
           (if avg-alt
-              (let* [(distance (distance-between-geoids geoid g))
-                     [weight (flmax 0.0 (fl/ hw-distance (fl+ distance hw-distance)))]]
+              (let* ([distance (distance-between-geoids geoid g)]
+                     [weight (flmax 0.0 (fl/ hw-distance (fl+ distance hw-distance)))])
                 (values (fl+ (fl* weight avg-alt) sum) (fl+ div weight)))
               (values sum div))))
 
@@ -243,7 +243,10 @@
     ;; the g and h factors.  Also, smooths the points in both directions and
     ;; merges the result -- this works since the elevation profile works both
     ;; ways...
-    (define/private (smooth-altitude trackpoints)
+    ;;
+    ;; interpolate-missing-data? controls whether to interpolate altitude
+    ;; where data is missing, or leave those values as #f.
+    (define/private (smooth-altitude trackpoints interpolate-missing-data?)
       ;; The filter with determines the distance at which we have a 50% split
       ;; between measurement and prediction.  For distances greater than this,
       ;; we trust the measurement more, for distances less than this, we trust
@@ -274,12 +277,18 @@
                                               (* (- 1.0 alpha) slope))])
                        (vector-set! forward n updated)
                        (values dst updated updated-slope)))
+                    (interpolate-missing-data?
+                     ;; use the slope prediction to create some "best guess"
+                     ;; values.
+                     (vector-set! forward n predicted)
+                     (values dst predicted slope))
                     (#t
                      ;; we had no measurement and this is a separate point
-                     ;; (delta > 0), so we reset the filter, but don't update
-                     ;; the data, leaving the #f in there -- the caller can
-                     ;; back-fill them if they so choose, but it is risky to
-                     ;; make up new values without reference measurements.
+                     ;; (delta > 0), and we were asked not to interpolate.
+                     ;; Reset the filter, and don't update the data, leaving
+                     ;; the #f in there -- the caller could back-fill them if
+                     ;; they so choose, as it is risky to make up new values
+                     ;; without reference measurements.
                      (values dst #f 0.0))))
             (begin
               (vector-set! forward n measured)
@@ -306,12 +315,18 @@
                                               (* (- 1.0 alpha) slope))])
                        (vector-set! backward (- point-count n 1) updated)
                        (values dst updated updated-slope)))
+                    (interpolate-missing-data?
+                     ;; use the slope prediction to create some "best guess"
+                     ;; values.
+                     (vector-set! backward (- point-count n 1) predicted)
+                     (values dst predicted slope))
                     (#t
                      ;; we had no measurement and this is a separate point
-                     ;; (delta > 0), so we reset the filter, but don't update
-                     ;; the data, leaving the #f in there -- the caller can
-                     ;; back-fill them if they so choose, but it is risky to
-                     ;; make up new values without reference measurements.
+                     ;; (delta > 0), and the user asked not to interpolate.
+                     ;; Reset the filter, and don't update the data, leaving
+                     ;; the #f in there -- the caller could back-fill them if
+                     ;; they so choose, as it is risky to make up new values
+                     ;; without reference measurements.
                      (values dst #f 0.0))))
             (begin
               (vector-set! backward (- point-count n 1) measured)
@@ -329,11 +344,12 @@
     ;; one is a GEOID representing the location.
     (define/public (elevation-correction/geoid
                     trackpoints
+                    #:interpolate-missing-data? [interpolate-missing-data? #f]
                     #:progress-monitor [progress-monitor #f]
                     #:progress-step [progress-step 100])
       (define tp (weighted-altitude-for-trackpoints
                   trackpoints progress-monitor progress-step))
-      (smooth-altitude tp)
+      (smooth-altitude tp interpolate-missing-data?)
       tp)
 
     ))
@@ -346,9 +362,12 @@
 ;; trackpoints is a list of vectors, each vector has at least 2 slots: the
 ;; first one is an ID (copied in the returned ecpoint vector and the second
 ;; one is a GEOID representing the location.
-(define (elevation-correction/geoid db trackpoints)
+(define (elevation-correction/geoid
+         db trackpoints
+         #:interpolate-missing-data? (interpolate-missing-data? #f))
   (define helper (new ec-helper% [database db]))
-  (send helper elevation-correction/geoid trackpoints))
+  (send helper elevation-correction/geoid trackpoints
+        #:interpolate-missing-data? interpolate-missing-data?))
 
 
 ;;............................................................. provides ....
@@ -360,13 +379,15 @@
    (init [database connection?])
    (elevation-correction/geoid
     (->*m ((listof (vector/c any/c valid-geoid?)))
-          (#:progress-monitor (or/c #f object?)
+          (#:interpolate-missing-data? boolean?
+           #:progress-monitor (or/c #f object?)
            #:progress-step positive-integer?)
           (vectorof ecpoint?)))))
 
 (provide/contract
  [elevation-correction/geoid
-  (-> connection?
-      (listof (vector/c any/c valid-geoid?))
-      (vectorof ecpoint?))]
+  (->* (connection?
+        (listof (vector/c any/c valid-geoid?)))
+       (#:interpolate-missing-data? boolean?)
+       (vectorof ecpoint?))]
  [ec-helper% ec-helper%/c])

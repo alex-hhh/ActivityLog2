@@ -396,12 +396,12 @@
         (send cll current-location #f)
         (return (void)))
 
-      (define location (df-lookup df "dst/km" '("lat" "lon") dst))
+      (define location (df-lookup/interpolated df "dst/km" '("lat" "lon") dst))
       (if (and (vector-ref location 0) (vector-ref location 1))
           (send cll current-location location)
           (send cll current-location #f))
 
-      (match-define (vector alt grade) (df-lookup df "dst/km" '("alt" "grade") dst))
+      (match-define (vector alt grade) (df-lookup/interpolated df "dst/km" '("alt" "grade") dst))
 
       (define renderers
         (if (and alt grade)
@@ -418,7 +418,7 @@
                                   ("Grade" ,(~r* grade #:precision 1) "%")))])
             (list (vrule dst #:style 'long-dash)
                   (point-pict
-                   (vector dst _alt)
+                   (vector dst alt)
                    (if climb-badge
                        (hc-append 3 main-badge climb-badge)
                        main-badge)
