@@ -17,13 +17,13 @@
 ;; function requires a value to be present at that slot.
 (define (upsample-locations df max-step-distance)
   (for/list
-    (((lat1 lon1) (in-data-frame df "lat" "lon" #:start 0))
-     ((lat2 lon2) (in-sequences
-                   (in-data-frame df "lat" "lon" #:start 1)
-                   ;; add an extra element to the end of the sequence, so the
-                   ;; last element in the data frame is included in the
-                   ;; interpolation.
-                   (in-generator #:arity 2 (yield #f #f))))
+    (((lat1 lon1 alt1) (in-data-frame df "lat" "lon" "alt" #:start 0))
+     ((lat2 lon2 alt2) (in-sequences
+                        (in-data-frame df "lat" "lon" "alt" #:start 1)
+                        ;; add an extra element to the end of the sequence, so the
+                        ;; last element in the data frame is included in the
+                        ;; interpolation.
+                        (in-generator #:arity 3 (yield #f #f #f))))
      #:do ((define-values (lat1^ lon1^ lat2^ lon2^)
              (values (degrees->radians lat1)
                      (degrees->radians lon1)
@@ -34,12 +34,17 @@
                  (vincenty-inverse lon1^ lat1^ lon2^ lat2^ #:ellipsoid (geodesy-ellipsoid))
                  (values max-step-distance 0.0 0.0)))
            (define step-count (exact-ceiling (/ distance max-step-distance)))
-           (define step-length (if (zero? step-count) 0 (/ distance step-count))))
+           (define step-length (if (zero? step-count) 0 (/ distance step-count)))
+           (define alt-delta (if (or (zero? step-count)
+                                     (not (rational? alt1))
+                                     (not (rational? alt2)))
+                                 0
+                                 (/ (- alt2 alt1) step-count))))
      (step (in-range step-count)))
     (define-values (nlon nlat _new-bearing)
       (vincenty-direct lon1^ lat1^ bearing (* step step-length)))
     (define-values (lat lon) (values (radians->degrees nlat) (radians->degrees nlon)))
-    (vector #f (lat-lng->geoid lat lon))))
+    (vector (and alt1 (+ alt1 (* step-count alt-delta)))  (lat-lng->geoid lat lon))))
 
 ;; Return a list of segments (indices in the ECPOINTS vector), that represent
 ;; a linear altitude change. ECPOINTS is a vector of ECPOINT structures, as
@@ -127,21 +132,22 @@
                         #:max-step-distance (msd 25)
                         #:elevation-threshold (et 1.0)
                         #:distance-threshold (dt 3.0))
-  (define ul (upsample-locations c 25))
-  (define ce (elevation-correction/geoid
-              edb
-              ul
-              #:interpolate-missing-data? #t))
-  (define bad-altitude?
-  (for/first ([e (in-vector ce)] #:unless (ecpoint-calt e))
-    #t))
-  (when bad-altitude?
-    (error "*** Elevation correction failed (no data in the database?"))
-  (define ls (linear-altitude-segments ce et))
-  (define s (downsample-locations ce ls dt))
-  (ecpoints->df s))
+  (define upsampled (upsample-locations c 25))
+  (define corrected
+    (elevation-correction/geoid edb upsampled #:smooth-altitude? #f))
+  ;; Fill in missing altitude values where the elevation correction algorithm
+  ;; did not have any data with original (interpolated) altitudes from the
+  ;; course file.
+  (for ([c (in-vector corrected)]
+        [u (in-list upsampled)]
+        #:unless (ecpoint-calt c))
+    (set-ecpoint-calt! c (vector-ref u 0)))
+  (smooth-altitude! corrected #t)
+  (define ls (linear-altitude-segments corrected et))
+  (define downsampled (downsample-locations corrected ls dt))
+  (ecpoints->df downsampled))
 
-(define database-file "C:/Users/alexh/AppData/Local/ActivityLog/Alex-AL.db")
+(define database-file "/home/alex/Alex-AL.db")
 
 (define db
   (open-activity-log
@@ -151,7 +157,7 @@
    (lambda (text n total)
      (log "~a (~a of ~a)" text n total))))
 
-(define c (df-read/gpx "C:/Users/alexh/OneDrive/AL2/Courses/BY70-08 Serpentine Dam.gpx"))
+(define c (df-read/gpx "C:/Users/alexh/OneDrive/AL2/Courses/CL50-10 Canning Mills Rd.gpx"))
 (define optimized
   (optimise-route c
                   #:elevation-database db
@@ -161,5 +167,5 @@
 
 (df-write/gpx
  optimized
- "O-BY70-08 Serpentine Dam.gpx"
- #:name "O-BY70-08 Serpentine Dam")
+ "O-CL50-10 Canning Mills Rd.gpx"
+ #:name "CL50-10 Canning Mills Rd")
