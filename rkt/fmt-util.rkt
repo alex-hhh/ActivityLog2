@@ -386,7 +386,7 @@
          (h (exact-truncate (/ seconds 3600.0)))
          (m (exact-truncate (/ (- seconds (* h 3600.0)) 60.0)))
          (s (exact-truncate (- seconds (* h 3600.0) (* m 60.0))))
-         (ms (exact-truncate (* 10 (- seconds s (* h 3600.0) (* m 60.0))))))
+         (ms (exact-round (* 10 (- seconds s (* h 3600.0) (* m 60.0))))))
     (if high-precision?
         (if (> h 0)
             (string-append
