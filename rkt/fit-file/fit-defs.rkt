@@ -373,6 +373,7 @@
     (42 . avg-stroke-distance)
     (43 . swim-stroke)
     (44 . pool-length)
+    (45 . threshold-power)
     (46 . pool-length-unit)
     (47 . num-active-lengths)
     (48 . total-work)

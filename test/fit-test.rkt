@@ -210,7 +210,7 @@ select count(*)
    (test-case "f0002.fit"
      (do-basic-checks "./test-fit/f0002.fit" 21 500))
    (test-case "f0003.fit"
-     (do-basic-checks "./test-fit/f0003.fit" 15 48))
+     (do-basic-checks "./test-fit/f0003.fit" 15 47))
    (test-case "f0004.fit"
      (do-basic-checks "./test-fit/f0004.fit" 22 138294))
    (test-case "f0005.fit"
@@ -224,11 +224,11 @@ select count(*)
    (test-case "f0009.fit"
      (do-basic-checks "./test-fit/f0009.fit" 9 57))
    (test-case "f0010.fit (a)"
-     (do-basic-checks "./test-fit/f0010.fit" 23 8077
+     (do-basic-checks "./test-fit/f0010.fit" 23 8078
                       #:extra-db-checks
                       (lambda (db)
                         (define n (query-value db "select count(*) from SESSION_WEATHER"))
-                        (check = n 9 "Expecting Some Weather Records"))))
+                        (check = n 10 "Expecting Some Weather Records"))))
    (test-case "f0010.fit (b)"
      ;; This test is different than the others as this checks that the FIT
      ;; file reader itself behaves correctly.
@@ -238,10 +238,8 @@ select count(*)
      (define data (read-activity-from-file the-fit-file))
      ;; There should be 4 weather records in the file
      (define session (car (dict-ref data 'sessions '())))
-     ;; 1 Orphan record
-     (check = (length (dict-ref data 'weather-conditions '())) 1)
-     ;; 9 Attached to the session
-     (check = (length (dict-ref session 'weather-conditions '())) 9))
+     ;; 10 weather records attached to the session
+     (check = (length (dict-ref session 'weather-conditions '())) 10))
    (test-case "f0011.fit"
      (do-basic-checks "./test-fit/f0011.fit" 12 39
                       #:extra-df-checks
@@ -259,7 +257,7 @@ select count(*)
                         (define data2 (extract-data df axis-timer-time axis-speed 0 #f))
                         (check = (vector-length data2) (df-row-count df)))))
    (test-case "f0012.fit"
-     (do-basic-checks "./test-fit/f0012.fit" 5 48))
+     (do-basic-checks "./test-fit/f0012.fit" 5 54))
    (test-case "f0013.fit"
      (do-basic-checks "./test-fit/f0013.fit" 22 8253))
    (test-case "f0014.fit"
@@ -274,7 +272,7 @@ select count(*)
         )))
    (test-case "f0015.fit"
      (do-basic-checks
-      "./test-fit/f0015.fit" 26 4056
+      "./test-fit/f0015.fit" 26 4057
       #:extra-db-checks
       (lambda (db)
         (check-xdata-app-count db 2)
@@ -322,13 +320,13 @@ select count(*)
       #:extra-df-checks check-run-power))
    (test-case "f0017.fit"
      (do-basic-checks
-      "./test-fit/f0017.fit" 20 3210
+      "./test-fit/f0017.fit" 20 3211
       #:extra-db-checks check-outdoorsports-xdata))
    (test-case "f0018.fit"
      (do-basic-checks
       ;; This file has a single 0 value inside the series cpsmth, for combined
       ;; pedal smoothness.  It also has l/r smoothness values...
-      "./test-fit/f0018.fit" '(18 20 42 20 34) '(583 29 10218 10 8612)
+      "./test-fit/f0018.fit" '(15 20 42 22 34) '(582 30 10217 10 8613)
       #:extra-db-checks check-stryd-xdata
       #:expected-session-count 5))
    (test-case "f0019.fit"
@@ -370,7 +368,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0028.fit"
      (do-basic-checks
-      "./test-fit/f0028.fit" 27 940
+      "./test-fit/f0028.fit" 27 941
       #:extra-df-checks
       (lambda (df)
         ;; These series were missing from the activities as they are provided
@@ -379,7 +377,7 @@ select count(*)
         (check-true (df-contains? df "alt")))))
    (test-case "f0029.fit"
      (do-basic-checks
-      "./test-fit/f0029.fit" '(20 22 35 20 34) '(943 814 24062 330 19656)
+      "./test-fit/f0029.fit" '(18 20 35 20 34) '(942 814 24062 330 19657)
       #:expected-session-count 5
       #:extra-db-checks
       (lambda (db)
@@ -444,21 +442,45 @@ select count(*)
      (unless (file-exists? the-fit-file)
        (skip-test))
      (define data (read-activity-from-file the-fit-file))
-     (for ([session (in-list (dict-ref data 'sessions #f))])
-       (for ([lap (in-list (session-laps session))])
-         (for ([len (in-list (lap-lengths lap))])
-           (define-values (start end) (get-start-end-times len))
-           ;; We should do better here, for now we just check we have some
-           ;; records...
-           (define track (length-track len))
-           (check-true (> (length track) 0))
-           (for ([trackpoint (in-list track)])
-             (define ts (get-start-time trackpoint))
-             (check-true (and (>= ts start) (<= ts (ceiling end)))
-                         (format "timestamp ~a outside time range [~a .. ~a]"
-                                 ts start end)))))))
+
+     (let session-loop ([sessions (dict-ref data 'sessions #f)])
+       (unless (null? sessions)
+         (define-values (session last-session?)
+           (values (car sessions) (null? (cdr sessions))))
+         (let lap-loop ([laps (session-laps session)])
+           (unless (null? laps)
+             (define-values (lap last-lap?)
+               (values (car laps) (and last-session? (null? (cdr laps)))))
+             (let length-loop ([lengths (lap-lengths lap)])
+               (unless (null? lengths)
+                 (define-values (len last-len?)
+                   (values (car lengths) (and last-lap? (null? (cdr lengths)))))
+                 (define-values (start end) (get-start-end-times len))
+                 ;; We should do better here, for now we just check we have
+                 ;; some records...
+                 (define track (length-track len))
+                 (check-true (> (length track) 0))
+
+                 (let trackpoint-loop ([trackpoints track])
+                   (unless (null? trackpoints)
+                     (define-values (trackpoint last-trackpoint?)
+                       (values (car trackpoints) (and last-len? (null? (cdr trackpoints)))))
+                     (define ts (get-start-time trackpoint))
+                     ;; Last trackpoint can be recorded after the session ended...
+                     (if last-trackpoint?
+                         (check-true (>= ts start)
+                                     (format "timestamp ~a before length start ~a"
+                                             ts start))
+                         (check-true (and (>= ts start) (<= ts (ceiling end)))
+                                     (format "timestamp ~a outside time range [~a .. ~a]"
+                                             ts start end)))
+                     (trackpoint-loop (cdr trackpoints))))
+                 (length-loop (cdr lengths))))
+             (lap-loop (cdr laps))))
+         (session-loop (cdr sessions)))))
+
    (test-case "f0047.fit (b)"
-     (do-basic-checks "./test-fit/f0047.fit" 15 64
+     (do-basic-checks "./test-fit/f0047.fit" 15 63
                       #:extra-db-checks
                       (lambda (db)
                         ;; Expected HR data for all length records to be
@@ -483,13 +505,15 @@ select count(*)
      ;; This test is different than the others as this checks that the FIT
      ;; file reader itself behaves correctly.
      (define expected-track-lengths
-       '(25 20 41 23 22 30 14 14 23 24 13 19 16 29 22 56 28 63 31 216 30 296
-            27 23 147 9 95 27 22 28 52 24 65 21 79 17 35 12 28 21 22 8 63 21
-            32 22 41 16 35 44 24 18 43 31 47 30 22 23 52 25 21 16 24 20 360
-            23 18 10 41 12 48 22 40 19 19 8 32 22 23 24 38 29 26 28 29 25 30
-            14 20 40 38))
+       '(24 21 40 23 23 29 15 14 23 23 14 18 17 28 23 56 27 63 32 215 31 295
+            28 23 146 9 96 26 23 27 53 24 64 22 78 18 34 12 29 20 23 8 62 21
+            33 22 40 16 36 43 24 18 43 32 46 31 22 22 53 24 21 16 25 19 361
+            22 19 9 42 12 47 23 39 19 19 9 32 21 24 23 38 30 25 28 30 24 30
+            15 19 41 39))
+
      (define data (read-activity-from-file the-fit-file))
      (for ([session (in-list (dict-ref data 'sessions #f))])
+
        (for ([lap (in-list (session-laps session))])
          (for ([len (in-list (lap-lengths lap))])
            (check-false (null? expected-track-lengths) "expected-track-lengths too short")
@@ -498,17 +522,18 @@ select count(*)
            ;; We should do better here, for now we just check we have some
            ;; records...
            (define-values (start end) (get-start-end-times len))
+           (define cend (ceiling end))
            (define track (length-track len))
-           (check-equal? (length track) clen "track length mismatch")
+           (check-equal? clen (length track) "track length mismatch")
            (for ([trackpoint (in-list track)])
              (define ts (get-start-time trackpoint))
-             (check-true (and (>= ts start) (<= ts end))
+             (check-true (and (>= ts start) (<= ts cend))
                          (format "timestamp ~a outside time range [~a .. ~a]"
-                                 ts start end))))))
+                                 ts start cend))))))
      (check-true (null? expected-track-lengths) "expected-track-lengths too long"))
    (test-case "f0051.fit"
      (do-basic-checks
-      "./test-fit/f0051.fit" '(20 18 15 18 20) '(85 41 21 70 86)
+      "./test-fit/f0051.fit" '(20 18 16 18 20) '(84 41 21 69 86)
       #:expected-session-count 5))
    (test-case "f0052.fit"
      (do-basic-checks
@@ -518,7 +543,7 @@ select count(*)
         (check-true (df-contains? df "cpsmth")))))
    (test-case "f0053.fit"
      (do-basic-checks
-      "./test-fit/f0053.fit" 14 1399
+      "./test-fit/f0053.fit" 14 1396
       #:extra-df-checks
       (lambda (df)
         (define limit (df-row-count df))
@@ -554,7 +579,7 @@ select count(*)
         (check-false (null? session)))))
    (test-case "f0057.fit"
      (do-basic-checks
-      "./test-fit/f0057.fit" 29 4099
+      "./test-fit/f0057.fit" 29 4100
       #:extra-df-checks
       (lambda (df)
         (check-equal? (vector-length (df-get-property df 'laps)) 9))))
@@ -573,6 +598,23 @@ select count(*)
         (for ([session (in-list sessions)])
           (define devices (dict-ref session 'devices '()))
           (check-false (null? devices))))))
+   (test-case "f0059.fit"
+     ;; This test is different than the others as this checks that the FIT
+     ;; file reader itself behaves correctly.
+     (define the-fit-file "./test-fit/f0059.fit")
+     (unless (file-exists? the-fit-file)
+       (skip-test))
+     (define data (read-activity-from-file the-fit-file))
+     (define sessions (dict-ref data 'sessions '()))
+     (check-equal? 1 (length sessions))
+     (define laps (session-laps (car sessions)))
+     (check-equal? 6 (length laps))
+     (for ([lap (in-list laps)]
+           [llen '(6 1 34 1 9 1)])
+       (define lengths (lap-lengths lap))
+       (check-equal? (length lengths) llen)
+       (for ([len (in-list lengths)])
+         (check-true (> (length (length-track len)) 0)))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -600,5 +642,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0055.fit"))
+             ;; #:only '(("FIT file reading" "f0059.fit"))
              fit-files-test-suite))

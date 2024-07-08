@@ -758,6 +758,113 @@
 
 ;;..................................................... activity-builder ....
 
+;; Multiplier to convert angles from the FIT representation to degrees.
+(define angle-mult (/ 360 256))
+
+(define (extract-angle record field index)
+  (let ((pp (dict-ref record field #f)))
+    (if (and pp (vector-ref pp index))
+        (* (vector-ref pp index) angle-mult)
+        #f)))
+
+;; Some fields in FIT records are inconvenient to use so we process them
+;; somewhat.  This is a table containing a field name and a function to obtain
+;; a value for that field.
+(define mappings
+  `(;; Ensure the record has a start-time timestamp, borrow it from the
+    ;; 'timestamp' value if needed.
+    (start-time . ,(lambda (t) (or (dict-ref t 'start-time #f) (dict-ref t 'timestamp #f))))
+
+    ;; cadences (including AVG and MAX) are stored as an integer plus an
+    ;; optional fractional part.  We store it as a real number internally.
+    ;; Also swimming candence has a different field name.
+    (cadence . ,(lambda (t)
+                  (let ((c (dict-ref t 'cadence #f))
+                        (f (dict-ref t 'fractional-cadence #f)))
+                    (if (and (number? c) (number? f))
+                        (+ c f)
+                        c))))
+    (avg-cadence . ,(lambda (t)
+                      (or (dict-ref t 'avg-swimming-cadence #f)
+                          (let ((c (dict-ref t 'avg-cadence #f))
+                                (f (dict-ref t 'avg-fractional-cadence #f)))
+                            (if (and (number? c) (number? f))
+                                (+ c f)
+                                c)))))
+    (max-cadence . ,(lambda (t)
+                      (or (dict-ref t 'max-swimming-cadence #f)
+                          (let ((c (dict-ref t 'max-cadence #f))
+                                (f (dict-ref t 'max-fractional-cadence #f)))
+                            (if (and (number? c) (number? f))
+                                (+ c f)
+                                c)))))
+
+    ;; Swimming activites have a different name for total cycles.
+    (total-cycles . ,(lambda (t)
+                       (or (dict-ref t 'total-cycles #f) (dict-ref t 'total-strokes #f))))
+
+    ;; Gen2 Running Dynamics introduces GCT balance, we roll it into
+    ;; left-right-balance
+    (left-right-balance . ,(lambda (t)
+                             (or (dict-ref t 'left-right-balance #f)
+                                 (dict-ref t 'stance-time-balance #f))))
+
+    ;; Power phase start and end values are stored as a vector of values,
+    ;; we store each individual value separately.  Same for peak power
+    ;; phase.
+    (left-pp-start . ,(lambda (t) (extract-angle t 'left-pp 0)))
+    (left-pp-end . ,(lambda (t) (extract-angle t 'left-pp 1)))
+
+    (right-pp-start . ,(lambda (t) (extract-angle t 'right-pp 0)))
+    (right-pp-end . ,(lambda (t) (extract-angle t 'right-pp 1)))
+
+    (left-ppp-start . ,(lambda (t) (extract-angle t 'left-peak-pp 0)))
+    (left-ppp-end . ,(lambda (t) (extract-angle t 'left-peak-pp 1)))
+
+    (right-ppp-start . ,(lambda (t) (extract-angle t 'right-peak-pp 0)))
+    (right-ppp-end . ,(lambda (t) (extract-angle t 'right-peak-pp 1)))
+
+    (avg-left-pp-start . ,(lambda (t) (extract-angle t 'avg-left-pp 0)))
+    (avg-left-pp-end . ,(lambda (t) (extract-angle t 'avg-left-pp 1)))
+
+    (avg-right-pp-start . ,(lambda (t) (extract-angle t 'avg-right-pp 0)))
+    (avg-right-pp-end . ,(lambda (t) (extract-angle t 'avg-right-pp 1)))
+
+    (avg-left-ppp-start . ,(lambda (t) (extract-angle t 'avg-left-peak-pp 0)))
+    (avg-left-ppp-end . ,(lambda (t)(extract-angle t 'avg-left-peak-pp 1)))
+
+    (avg-right-ppp-start . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 0)))
+    (avg-right-ppp-end . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 1)))
+
+    ;; Enhanced speed and altitude are just higher resolution fields in
+    ;; the FIT file, since we are not constrained by integer sizes, we use
+    ;; the highest resolution available
+    (speed . ,(lambda (t) (or (dict-ref t 'enhanced-speed #f) (dict-ref t 'speed #f))))
+    (max-speed . ,(lambda (t) (or (dict-ref t 'enhanced-max-speed #f) (dict-ref t 'max-speed #f))))
+    (avg-speed . ,(lambda (t) (or (dict-ref t 'enhanced-avg-speed #f) (dict-ref t 'avg-speed #f))))
+    (altitude . ,(lambda (t) (or (dict-ref t 'enhanced-altitude #f) (dict-ref t 'altitude #f))))
+    (max-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-max-altitude #f) (dict-ref t 'max-altitude #f))))
+    (min-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-min-altitude #f) (dict-ref t 'min-altitude #f))))
+
+    ))
+
+(define (process-fields record)
+  ;; Convert some fields inside RECORD from the FIT representation to the more
+  ;; convenient internal representation.
+  (define new-fields
+    (for/list ([m (in-list mappings)]
+               #:do ((define processed ((cdr m) record)))
+               #:when processed)
+      (cons (car m) processed)))
+
+  ;; Remove fields from RECORD which are already in NEW-FIELDS
+  (define record-w/o-new-fields
+    (filter
+     (lambda (t)
+       (not (dict-ref new-fields (car t) #f)))
+     record))
+
+  (append new-fields record-w/o-new-fields))
 
 (define activity-builder%
   ;; Build an activity from a FIT file.  An instance of this class can be used
@@ -786,113 +893,8 @@
     (define developer-data-ids '())
     (define field-descriptions '())
 
-    (define display-next-record #f)
     (define timer-stopped #f)
     (define timer-stop-timestamp 0)
-
-    ;; Multiplier to convert angles from the FIT representation to degrees.
-    (define angle-mult (/ 360 256))
-
-    (define (extract-angle record field index)
-      (let ((pp (dict-ref record field #f)))
-        (if (and pp (vector-ref pp index))
-            (* (vector-ref pp index) angle-mult)
-            #f)))
-
-    ;; Some fields in FIT records are inconvenient to use so we process them
-    ;; somwehat.  This is a table containing a field name and a function to
-    ;; obtain a value for that field.
-    (define mappings
-      `(;; Ensure the record has a start-time timestamp, borrow it from the
-        ;; 'timestamp' value if needed.
-        (start-time . ,(lambda (t) (or (dict-ref t 'start-time #f) (dict-ref t 'timestamp #f))))
-
-        ;; cadences (including AVG and MAX) are stored as an integer plus an
-        ;; optional fractional part.  We store it as a real number internally.
-        ;; Also swimming candence has a different field name.
-        (cadence . ,(lambda (t)
-                      (let ((c (dict-ref t 'cadence #f))
-                            (f (dict-ref t 'fractional-cadence #f)))
-                        (if (and (number? c) (number? f))
-                            (+ c f)
-                            c))))
-        (avg-cadence . ,(lambda (t)
-                          (or (dict-ref t 'avg-swimming-cadence #f)
-                              (let ((c (dict-ref t 'avg-cadence #f))
-                                    (f (dict-ref t 'avg-fractional-cadence #f)))
-                                (if (and (number? c) (number? f))
-                                    (+ c f)
-                                    c)))))
-        (max-cadence . ,(lambda (t)
-                          (or (dict-ref t 'max-swimming-cadence #f)
-                              (let ((c (dict-ref t 'max-cadence #f))
-                                    (f (dict-ref t 'max-fractional-cadence #f)))
-                                (if (and (number? c) (number? f))
-                                    (+ c f)
-                                    c)))))
-
-        ;; Swimming activites have a different name for total cycles.
-        (total-cycles . ,(lambda (t)
-                           (or (dict-ref t 'total-cycles #f) (dict-ref t 'total-strokes #f))))
-
-        ;; Gen2 Running Dynamics introduces GCT balance, we roll it into
-        ;; left-right-balance
-        (left-right-balance . ,(lambda (t)
-                                 (or (dict-ref t 'left-right-balance #f)
-                                     (dict-ref t 'stance-time-balance #f))))
-
-        ;; Power phase start and end values are stored as a vector of values,
-        ;; we store each individual value separately.  Same for peak power
-        ;; phase.
-        (left-pp-start . ,(lambda (t) (extract-angle t 'left-pp 0)))
-        (left-pp-end . ,(lambda (t) (extract-angle t 'left-pp 1)))
-
-        (right-pp-start . ,(lambda (t) (extract-angle t 'right-pp 0)))
-        (right-pp-end . ,(lambda (t) (extract-angle t 'right-pp 1)))
-
-        (left-ppp-start . ,(lambda (t) (extract-angle t 'left-peak-pp 0)))
-        (left-ppp-end . ,(lambda (t) (extract-angle t 'left-peak-pp 1)))
-
-        (right-ppp-start . ,(lambda (t) (extract-angle t 'right-peak-pp 0)))
-        (right-ppp-end . ,(lambda (t) (extract-angle t 'right-peak-pp 1)))
-
-        (avg-left-pp-start . ,(lambda (t) (extract-angle t 'avg-left-pp 0)))
-        (avg-left-pp-end . ,(lambda (t) (extract-angle t 'avg-left-pp 1)))
-
-        (avg-right-pp-start . ,(lambda (t) (extract-angle t 'avg-right-pp 0)))
-        (avg-right-pp-end . ,(lambda (t) (extract-angle t 'avg-right-pp 1)))
-
-        (avg-left-ppp-start . ,(lambda (t) (extract-angle t 'avg-left-peak-pp 0)))
-        (avg-left-ppp-end . ,(lambda (t)(extract-angle t 'avg-left-peak-pp 1)))
-
-        (avg-right-ppp-start . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 0)))
-        (avg-right-ppp-end . ,(lambda (t) (extract-angle t 'avg-right-peak-pp 1)))
-
-        ;; Enhanced speed and altitude are just higher resolution fields in
-        ;; the FIT file, since we are not constrained by integer sizes, we use
-        ;; the highest resolution available
-        (speed . ,(lambda (t) (or (dict-ref t 'enhanced-speed #f) (dict-ref t 'speed #f))))
-        (max-speed . ,(lambda (t) (or (dict-ref t 'enhanced-max-speed #f) (dict-ref t 'max-speed #f))))
-        (avg-speed . ,(lambda (t) (or (dict-ref t 'enhanced-avg-speed #f) (dict-ref t 'avg-speed #f))))
-        (altitude . ,(lambda (t) (or (dict-ref t 'enhanced-altitude #f) (dict-ref t 'altitude #f))))
-        (max-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-max-altitude #f) (dict-ref t 'max-altitude #f))))
-        (min-altitude . ,(lambda (t) (or (dict-ref t 'enhanced-min-altitude #f) (dict-ref t 'min-altitude #f))))
-
-        ))
-
-    (define (process-fields record)
-      ;; Convert some fields inside RECORD from the FIT representation to the
-      ;; more convenient internal representation.
-
-      (define new-fields
-        (filter cdr (for/list ([m mappings]) (cons (car m) ((cdr m) record)))))
-
-      (append new-fields
-              (filter
-               ;; Remove fields from RECORD which are already in NEW-FIELDS
-               (lambda (t)
-                 (not (dict-ref new-fields (car t) #f)))
-               record)))
 
     (define/override (on-file-id file-id)
       (unless activity-guid
@@ -905,8 +907,7 @@
             (raise-error (format "not an activity: ~a" file-type)))
           ;; We use the device serial and time-created as a unique identifier
           ;; for the activity.
-          (set! activity-guid (format "~a-~a" serial-number time-created))))
-      #t)
+          (set! activity-guid (format "~a-~a" serial-number time-created)))))
 
     (define/public (get-guid) activity-guid)
 
@@ -914,163 +915,50 @@
       (set! activity-timestamp (dict-ref activity 'timestamp #f))
       ;; nothing more to do with this one.  the activity-guid comes from the
       ;; file-id message.
-      #t)
+      )
 
     (define/override (on-session session)
-      ;; Session records can come before the lap records (Garmin Swim),
-      ;; combined with the fact that laps in a new session can start before
-      ;; the previous session ended in a multi-sport activity, this can make
-      ;; it challenging to assign laps to session.  Here we assign all laps
-      ;; that we already have (since they came before this session record) and
-      ;; additional laps are added in collect-activity if the session record
-      ;; came before any laps.
-
-      (let ((data (process-fields session)))
-        (set! data (cons (cons 'devices devices) data))
-        (cond ((or (dict-ref sport 'sport #f)
-                   (dict-ref session 'sport #f))
+      (define psession (process-fields session))
+      ;; Copy sport/sub-sport values from a sport record, if the session does
+      ;; not already have them
+      (unless (dict-ref session 'sport #f)
+        (cond ((dict-ref sport 'sport #f)
                => (lambda (v)
-                    (set! data (cons (cons 'sport v) data)))))
-        (cond ((or (dict-ref sport 'sub-sport #f)
-                   (dict-ref session 'sub-sport #f))
+                    (set! psession (cons (cons 'sport v) psession))))))
+      (unless (dict-ref session 'sub-sport #f)
+        (cond ((dict-ref sport 'sub-sport #f)
                => (lambda (v)
-                    (set! data (cons (cons 'sub-sport v) data)))))
-        (cond ((dict-ref session 'pool-length #f) =>
-               (lambda (v)
-                 (set! data (cons (cons 'pool-length v) data)))))
-        (cond ((dict-ref session 'pool-length-unit #f) =>
-               (lambda (v)
-                 (set! data (cons (cons 'pool-length-unit v) data)))))
-        (set! data (cons (cons 'laps (reverse laps)) data))
-        (set! devices '())
-        (set! sport '())
-        (set! laps '())
-        (set! sessions (cons data sessions)))
-      #t)
+                    (set! psession (cons (cons 'sub-sport v) psession))))))
+      (set! sport '())
+      (set! sessions (cons psession sessions)))
 
     (define/override (on-record record)
       (define precord (process-fields record))
       (if (null? records)
           (set! records (cons precord records))
-          ;; Check if this record has the same timestamp as the last one.
-          ;; Some devices record several data points in different records with
-          ;; the same timestamp.
+          ;; Merge records that have the same timestamp
+          ;;
+          ;; Bryton uses records with the same timestamp, but different
+          ;; content (f0001), but Wattbike uses sub-second data sampling and
+          ;; has distinct records with the same timestamp (f0053).
+          ;;
+          ;; TODO: we should probably identify Bryton devices the same way as
+          ;; we use use-coros2-hack?, and only merge records in that case,
+          ;; however, unclear what the bigger impact would be of keeping
+          ;; records with the same timestamp.
           (let ((last-record (car records)))
             (if (equal? (dict-ref precord 'timestamp #f)
                         (dict-ref last-record 'timestamp #t))
                 ;; Merge the records, as they share timestamps
                 (set! records (cons (append precord last-record) (cdr records)))
-                (set! records (cons precord records)))))
-      #t)
+                (set! records (cons precord records))))))
 
-
-    (define/override (on-length length)
-      ;; (display (format "*** LENGTH ~a~%" (dict-ref length 'timestamp #f)))
-      (let ((data (process-fields length)))
-        (cond ((dict-ref length 'length-type #f) =>
-               (lambda (v)
-                 (set! data (cons (cons 'length-type v) data)))))
-        (set! lengths (cons data lengths)))
-      #t)
-
-    ;; The Coros2 watch writes the timestamp in the start-time field and
-    ;; start-time in the timestamp field, however, other FIT files, which use
-    ;; these fields correctly, might use a later timestamp from the start time
-    ;; causing problems with associating records to fit files, so we only
-    ;; apply the "fix" it if we detect a file generated by a Coros2 watch.
-    (define use-coros2-hack? #f)
-
-    (define (get-start-time record)
-      ;; NOTE: start-time is the time when an event occurred, while timestamp
-      ;; is the time time when the record of the event was written to the FIT
-      ;; file and the two might be unrelated.
-      (define st (dict-ref record 'start-time #f))
-      (define ts (dict-ref record 'timestamp #f))
-      (if (and use-coros2-hack? st ts)
-          (min st ts)
-          (or st ts)))
-
-    ;; Returns the start and end times that correspond to RECORD (which can be
-    ;; a session, a lap or a length.
-    (define/private (get-start-end-times record)
-      (define start-time (get-start-time record))
-      ;; The FIT specification mentions that timer-time EXCLUDES pauses and
-      ;; elapsed-time INCLUDES pauses, so we should have elapsed-time greater
-      ;; or equal to timer-time, however some FIT files have the two swapped,
-      ;; so we select the larger of the two as the session duration.
-      (define duration
-        (let ([timer (dict-ref record 'total-timer-time #f)]
-              [elapsed (dict-ref record 'total-elapsed-time #f)])
-          (cond ((and timer elapsed) (max timer elapsed))
-                (timer)
-                (elapsed)
-                (#t #f))))
-      (define end-time
-        (or
-         ;; If we have a start time and an elapsed time, we use that.
-         ;; NOTE: the truncate is essential here!!
-         (and start-time duration (+ start-time duration))
-         ;; Otherwise we use the timestamp...
-         (dict-ref record 'timestamp #f)
-         ;; Or the last timestamp seen in any type of record.
-         (get-current-timestamp)))
-      (values start-time end-time))
-
-    ;; Add the records that correspond to a LENGTH definition -- these are the
-    ;; records whose timestamp falls between the start and end time of the
-    ;; LENGTH itself.
-    (define/private (add-records-to-length l records)
-      (define-values (start-time end-time) (get-start-end-times l))
-      (if (and start-time end-time)
-          (let loop ([pre-records '()]
-                     [our-records '()]
-                     [records records])
-            (if (null? records)
-                ;; pre-records are records whose timestamp is before our start
-                ;; time, this can happen when a device does not store a
-                ;; "start-time" in a length record and writes the length
-                ;; record a few seconds after then length has completed, so it
-                ;; has a later timestamp...
-                (begin
-                  (when (> (length pre-records) 0)
-                    (dbglog "fit-file: recovered ~a orphan records (A)" (length pre-records)))
-                  (values (cons (cons 'track (append
-                                              (reverse pre-records)
-                                              (reverse our-records)))
-                                l) records))
-                (let ()
-                  (define current (car records))
-                  (define ts (get-start-time current))
-                  (cond ((< ts start-time)
-                         (loop (cons current pre-records)
-                               our-records
-                               (cdr records)))
-                        ((> ts end-time)
-                         (begin
-                           (when (> (length pre-records) 0)
-                             (dbglog "fit-file: recovered ~a orphan records (B)" (length pre-records)))
-                           (values (cons (cons 'track (append
-                                                       (reverse pre-records)
-                                                       (reverse our-records)))
-                                         l) records)))
-                        (#t
-                         (loop pre-records
-                               (cons current our-records)
-                               (cdr records)))))))
-          (begin
-            (values l records))))
+    (define/override (on-length len)
+      (define plen (process-fields len))
+      (set! lengths (cons plen lengths)))
 
     (define/override (on-lap lap)
-      ;; Reconstructing the track points of the lap is a bit tricky and seems
-      ;; to be device specific.  The Garmin Swim FIT file is contrary to the
-      ;; FIT file specification.
-
-      ;; WARNING: The FIT file specification indicates that sessions, laps and
-      ;; lengths can be grouped separately from the records.  Neither the
-      ;; 310XT nor the Garmin Swim do that, so assume that the `lengths' and
-      ;; `records' are already present when we see the lap message.
-
-      (define p (process-fields lap))
+      (define plap (process-fields lap))
 
       ;; Wattbike lap start time adjustment.  Wattbike's start-time is
       ;; "seconds since the start of the activitiy", plus they subtract the
@@ -1082,7 +970,7 @@
       ;;
       ;; All these adjustments result in a completely unrealistic timestamp
       ;; and here we attempt to undo this damage...
-      (let ([st (dict-ref p 'start-time #f)])
+      (let ([st (dict-ref plap 'start-time #f)])
 
         ;; If we have a timestamp and it is a negative value in signed-32-bit
         ;; representation...
@@ -1102,45 +990,9 @@
                 ;; All this simplifies to: (- st #x100000001), since we
                 ;; subtract than add fit-epoch.
                 (let ([ast (+ (- st #x100000001) activity-start)])
-                  (set! p (dict-set (dict-remove p 'start-time) 'start-time ast))))))))
+                  (set! plap (dict-set (dict-remove plap 'start-time) 'start-time ast))))))))
 
-      (define-values (lap-with-records remaining-lengths remaining-records)
-        (cond ((and (null? lengths) (null? records))
-               ;; Easy case (we hope), just a lap with no additional data and
-               ;; no remaining lengths or records.
-               (values p null null))
-              ((null? lengths)
-               ;; Easy case, there were no lengths.  Construct a synthetic
-               ;; length and assign records to it.  The length will have the
-               ;; same data fields (total-timer-time, etc) as the lap.
-               (define-values (synthetic-length remaining-records)
-                 (add-records-to-length
-                  `((timestamp . ,(dict-ref p 'timestamp #f))
-                    (start-time . ,(dict-ref p 'start-time #f))
-                    (total-timer-time . ,(dict-ref p 'total-timer-time #f))
-                    (total-elapsed-time . ,(dict-ref p 'total-elapsed-time #f)))
-                  (reverse records)))
-               (values
-                (cons (cons 'lengths (list synthetic-length)) p)
-                null
-                remaining-records))
-              (#t
-               (define-values (lengths-with-records remaining-records)
-                 (for/fold ([updated-legths '()]
-                            [remaining-records (reverse records)]
-                            #:result (values (reverse updated-legths) remaining-records))
-                           ([current (in-list (reverse lengths))])
-                   (define-values (updated-legth remaining)
-                     (add-records-to-length current remaining-records))
-                   (values (cons updated-legth updated-legths) remaining)))
-               (values (cons (cons 'lengths lengths-with-records) p)
-                       null
-                       remaining-records))))
-
-      (set! records (reverse remaining-records))
-      (set! lengths (reverse remaining-lengths))
-      (set! laps (cons lap-with-records laps))
-      #t)
+      (set! laps (cons plap laps)))
 
     (define/override (on-device-info device-info)
       ;; (display (format "*** DEVICE-INFO ~a~%" device-info))
@@ -1179,7 +1031,6 @@
                   (set! timer-stop-timestamp timestamp))
                  ((eq? type 'start)
                   (when timer-stopped
-                    (set! display-next-record #t)
                     ;; (display (format "*** PAUSE ~a seconds~%" (- timestamp timer-stop-timestamp)))
                     (set! timer-stopped #f)))
                  (#t
@@ -1198,174 +1049,162 @@
     (define/override (on-field-description data)
       (set! field-descriptions (cons data field-descriptions)))
 
+    ;; The Coros2 watch writes the timestamp in the start-time field and
+    ;; start-time in the timestamp field, however, other FIT files, which use
+    ;; these fields correctly, might use a later timestamp from the start time
+    ;; causing problems with associating records to fit files, so we only
+    ;; apply the "fix" it if we detect a file generated by a Coros2 watch.
+    (define use-coros2-hack? #f)
+
+    (define/private (get-start-time record)
+      ;; NOTE: start-time is the time when an event occurred, while timestamp
+      ;; is the time time when the record of the event was written to the FIT
+      ;; file and the two might be unrelated.
+      (define st (dict-ref record 'start-time #f))
+      (define ts (dict-ref record 'timestamp #f))
+      (if (and use-coros2-hack? st ts)
+          (min st ts)
+          (or st ts)))
+
     (define/public (display-devices)
       (for ((v (in-list (reverse devices))))
         (display "*** ")(display v)(newline)))
 
-
     (define/public (collect-activity)
-      ;; File has one session which has the same timestamp as start-time --
-      ;; this means that no records/laps will be collected in it (timestamp is
-      ;; supposed to mark the end of the session).  We patch the session in
-      ;; this case.
-      (when (= (length sessions) 1)
-        (let ((the-session (car sessions)))
-          (when (equal? (dict-ref the-session 'timestamp #f)
-                        (dict-ref the-session 'start-time #f))
-            (set! sessions (list (cons (cons 'timestamp (get-current-timestamp))
-                                       the-session))))))
-      (define (add-session-laps session)
-        (define-values (start-time end-time) (get-start-end-times session))
-        ;; There is no clear way in the FIT file of which laps belong to a
-        ;; session, since session records can come either at the start or the
-        ;; end of the FIT file.  We try to be clever here: we grab all laps
-        ;; which have their start time before the end time of the session.
-        (let-values ([(our-laps remaining-laps)
-                      (splitf-at laps
-                                 (lambda (v)
-                                   (define ts (or (dict-ref v 'start-time #f)
-                                                  (dict-ref v 'timestamp #f)
-                                                  0))
-                                   (and (>= ts start-time) (< ts end-time))))])
-          (set! laps remaining-laps)    ; will be used by the next session
-          (if (null? our-laps)
-              session
-              (let ([l (append (dict-ref session 'laps '()) our-laps)]
-                    [s (dict-remove session 'laps)])
-                (cons (cons 'laps l) s)))))
 
-      (define (add-session-weather-records session)
-        (define-values (start-time end-time) (get-start-end-times session))
-        (define-values (our-weather-records other)
-          (for/fold ([our '()]
-                     [other '()])
-                    ([w (in-list weather-conditions)])
-            (define ts (dict-ref w 'timestamp 0))
-            (if (and (>= ts start-time) (<= ts end-time))
-                (values (cons w our) other)
-                (values our (cons w other)))))
-        (set! weather-conditions other)
-        (define sorted
-          (sort our-weather-records
-                (lambda (a b)
-                  (< (dict-ref a 'timestamp 0)
-                     (dict-ref b 'timestamp 0)))))
-        (cons (cons 'weather-conditions sorted) session))
+      #;(printf "*** collect-activity: ~a records, ~a lengths, ~a laps, ~a sessions~%"
+              (length records)
+              (length lengths)
+              (length laps)
+              (length sessions))
 
-      ;; Discard remaining lengths, just in case, otherwise we might have
-      ;; other stray records after the `on-lap` call below, since on-lap will
-      ;; just associate records with existing lengths...
-      (set! lengths '())
+      (define ((make-start-time-checker start-time) record)
+        (define record-timestamp (get-start-time record))
+        ;; If the record has no start time (yes it happens), consider it part
+        ;; of this selection (i.e. preserve record order as they appear in the
+        ;; FIT file)
+        (if (real? record-timestamp)
+            (>= record-timestamp start-time)
+            #t))
 
-      (when (and (not (null? records))
-                 (for/and ([l (in-list laps)])
-                   (= 0 (length (lap-lengths l)))))
-        (define slaps (sort laps (lambda (a b) (< (lap-start-time a) (lap-start-time b)))))
-        (set! laps null)
-        (for-each (lambda (l) (on-lap l)) slaps))
+      ;; NOTE: session, lap and length and record items can appear in any
+      ;; order with respect to each other (e.g. all lap records can be before
+      ;; the length records).  However, we assume that for a certain item
+      ;; type, those items are in order (e.g. all laps records are in order
+      ;; with respect to each other).  Furthermore, since we use `cons`, these
+      ;; items are in reverse time order (i.e most recent first).
 
-      (define remaining (length records))
-
-      (when (> remaining 0)
-
-        ;; Discard any records that are recorded after the timer stopped
-        (define remaining-records
-          (if timer-stopped
-              (filter (lambda (r) (< (get-start-time r) timer-stop-timestamp)) records)
-              records))
-
-        (when (> remaining (length remaining-records))
-          (dbglog "fit-file: discarding ~a records after stop"
-                  (- remaining (length remaining-records))))
-
-        (unless (null? remaining-records)
-          (dbglog "fit-file: recovered ~a orphan records (C)" (length remaining-records))
-          ;; the records are in reverse order, so most recent is first
-          (set! records remaining-records)   ; so on-lap picks them up
-          (define end-time (get-start-time (first remaining-records)))
-          (define start-time (get-start-time (last remaining-records)))
-          (define duration (- end-time start-time))
-          (on-lap `((timestamp . ,(dict-ref (first remaining-records) 'timestamp #f))
-                    (start-time . ,start-time)
-                    (total-timer-time . ,duration)
-                    (total-elapsed-time . ,duration)))
-          ;; Compute the summary data for the newly added lap
-          (define new-lap
-            (append (compute-summary-data '() '() (list (car laps)) '()) (car laps)))
-          (set! laps (cons new-lap (cdr laps)))))
-
-      (set! laps (reverse laps))        ; put them in chronological order
-
-      (let* ([sw (map add-session-weather-records (reverse sessions))]
-             [sessions (map add-session-laps sw)])
-        (when (> (length laps) 0)
-          (dbglog "fit-file: recovered ~a laps outside a session" (length laps))
-          ;; We add the remaining laps to the last session, or create a new
-          ;; session to hold them, if there are no session records.
+      (define rsessions
+        (let session-loop ([sessions sessions]
+                           [laps laps]
+                           [lengths lengths]
+                           [records records]
+                           [devices devices]
+                           [weather weather-conditions]
+                           [rsessions '()])
           (if (null? sessions)
-              (let ((new-session (add-session-laps
-                                  `((timestamp . ,(get-current-timestamp))
-                                    ('sport . 'generic)))))
-                (set! new-session
-                      (append
-                       (compute-summary-data '() '() '() (list new-session))
-                       new-session))
-                (set! sessions (list new-session)))
-              (let* ([rsessions (reverse sessions)]
-                     [updated-last-session
-                      (dict-update
-                       (car rsessions)
-                       'laps
-                       (lambda (olaps) (append olaps laps))
-                       '())])
-                (set! sessions (reverse (cons updated-last-session (cdr rsessions)))))))
+              (begin
+                (unless (null? laps)
+                  (printf "*** leftover laps (~a items)~%" (length laps)))
+                (unless (null? lengths)
+                  (printf "*** leftover lengths (~a items)~%" (length lengths)))
+                (unless (null? records)
+                  (printf "*** leftover records (1) (~a items)~%" (length records)))
+                (unless (null? devices)
+                  (printf "*** leftover devices (~a items)~%" (length devices)))
+                (unless (null? weather)
+                  (printf "*** leftover weather conditions (~a items)~%" (length weather)))
+                rsessions)
+              (let* ([s (car sessions)]
+                     [session-stc (make-start-time-checker (get-start-time s))])
 
-        (unless (null? devices)
-          (cond ((= 1 (length sessions))
-                 ;; Quick case when we have one session in the FIT file, add
-                 ;; devices to it
-                 (define s (car sessions))
-                 (define sdevices (dict-ref s 'devices null))
-                 (define ndevices (append sdevices devices))
-                 (define r (dict-remove s 'devices))
-                 (set! sessions (list (cons (cons 'devices ndevices) r))))
-                (else
-                 ;; Assign each device to the corresponding session based on
-                 ;; the timestamp of the device entry.
-                 (define session-devices (make-vector (length sessions) null))
-                 (define last-session-index (sub1 (length sessions)))
-                 (for ([device (in-list devices)])
-                   (define timestamp (get-start-time device))
-                   (define sindex
-                     (or (for/first ([s (in-list sessions)]
-                                     [n (in-naturals)]
-                                     #:when
-                                     (let ([t (session-start-time s)]
-                                           [e (session-elapsed-time s)])
-                                       (and (>= timestamp t) (<= timestamp (+ t e)))))
-                           n)
-                         last-session-index))
-                   (vector-set! session-devices sindex (cons device (vector-ref session-devices sindex))))
-                 (set! sessions
-                       (for/list ([s (in-list sessions)]
-                                  [d (in-vector session-devices)])
-                         (define sdevices (dict-ref s 'devices null))
-                         (define r (dict-remove s 'devices))
-                         (cons (cons 'devices (append sdevices d)) r))))))
+                (define-values (this-session-laps remaining-laps)
+                  (splitf-at laps session-stc))
+                (define-values (this-session-devices remaining-devices)
+                  (splitf-at devices session-stc))
+                (define-values (this-session-weather remaining-weather)
+                  (splitf-at weather session-stc))
 
-        (list
-         (cons 'start-time (or activity-timestamp (get-start-timestamp)))
-         (cons 'guid activity-guid)
-         (cons 'developer-data-ids developer-data-ids)
-         (cons 'field-descriptions field-descriptions)
-         (cons 'training-file training-file)
-         ;; NOTE: Garmin devices will write another weather conditions record
-         ;; a few seconds after the end of the activity -- currently we attach
-         ;; it to the activity itself, and it is likely to be skipped from
-         ;; import and therefore lost...
-         (cons 'weather-conditions weather-conditions) ; unclaimed ones only
-         (cons 'weather-reports weather-reports)       ; all of them
-         (cons 'sessions sessions))))
+                ;; We maybe create a lap for the entire session -- at least
+                ;; GoldenCheetah exports FIT files with no lap records...
+                (define-values (rlaps remaining-lengths remaining-records)
+                  (let laps-loop ([laps (if (null? this-session-laps)
+                                            `(((timestamp . ,(dict-ref s 'timestamp #f))
+                                               (start-time . ,(dict-ref s 'start-time #f))))
+                                            this-session-laps)]
+                                  [lengths lengths]
+                                  [records records]
+                                  [rlaps '()])
+                    (if (null? laps)
+                        (values
+                         ;; Hack: create summary values for the lap we just created
+                         (if (and (= 1 (length rlaps)) (null? this-session-laps))
+                             (let ([summary (compute-summary-data '() '() rlaps '())])
+                               (list (append summary (car rlaps))))
+                             rlaps)
+                         lengths
+                         records)
+                        (let* ([l (car laps)]
+                               [lap-stc (make-start-time-checker (get-start-time l))])
+                          (define-values (this-lap-lengths remaining-lengths)
+                            (splitf-at lengths lap-stc))
+                          (define-values (this-lap-records remaining-records)
+                            (splitf-at records lap-stc))
+
+                          (define rlengths
+                            ;; We maybe create a length for the entire lap.
+                            ;; Length records are not present, except in lap
+                            ;; swim activities, but we always require them, so
+                            ;; we first create them if they are not present.
+                            (let lengths-loop ([lengths (if (null? this-lap-lengths)
+                                                            `(((timestamp . ,(dict-ref l 'timestamp #f))
+                                                              (start-time . ,(dict-ref l 'start-time #f))
+                                                              (total-timer-time . ,(dict-ref l 'total-timer-time #f))
+                                                              (total-elapsed-time . ,(dict-ref l 'total-elapsed-time #f))))
+                                                            this-lap-lengths)]
+                                               [records this-lap-records]
+                                               [rlengths '()])
+                              (if (null? lengths)
+                                  (begin
+                                    (unless (null? records)
+                                      (printf "*** leftover records (~a items)~%" (length records)))
+                                    rlengths)
+                                  (let* ([g (car lengths)]
+                                         [length-stc (make-start-time-checker (get-start-time g))])
+                                    (define-values (this-length-records remaining-records)
+                                      (splitf-at records length-stc))
+                                    ;; (printf "~%trackpoints: ~a" (length this-length-records))
+                                    (lengths-loop (cdr lengths)
+                                                  remaining-records
+                                                  (cons `((track ,@(reverse this-length-records)) ,@g) rlengths))))))
+
+                          ;;(printf "~%lengths: ~a" (length rlengths))
+                          (laps-loop (cdr laps)
+                                     remaining-lengths
+                                     remaining-records
+                                     (cons `((lengths ,@rlengths) ,@l) rlaps))))))
+
+                (session-loop (cdr sessions)
+                              remaining-laps
+                              remaining-lengths
+                              remaining-records
+                              remaining-devices
+                              remaining-weather
+                              (cons `((laps ,@rlaps)
+                                      (devices ,@(reverse this-session-devices))
+                                      (weather-conditions ,@(reverse this-session-weather))
+                                      ,@s)
+                                    rsessions))))))
+              
+      
+      (list
+       (cons 'start-time (or activity-timestamp (get-start-timestamp)))
+       (cons 'guid activity-guid)
+       (cons 'developer-data-ids developer-data-ids)
+       (cons 'field-descriptions field-descriptions)
+       (cons 'training-file training-file)
+       (cons 'weather-reports weather-reports)       ; all of them
+       (cons 'sessions rsessions)))
 
     ))
 
