@@ -381,39 +381,45 @@
       (~a speed/m)))
 
 ;; (: duration->string (->* (Real) (Boolean) String))
-(define (duration->string seconds [high-precision? #f])
-  (let* ((seconds (if high-precision? seconds (round seconds)))
-         (h (exact-truncate (/ seconds 3600.0)))
-         (m (exact-truncate (/ (- seconds (* h 3600.0)) 60.0)))
-         (s (exact-truncate (- seconds (* h 3600.0) (* m 60.0))))
-         (ms (exact-round (* 10 (- seconds s (* h 3600.0) (* m 60.0))))))
-    (if high-precision?
-        (if (> h 0)
-            (string-append
-             (~r h #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r s #:precision 0 #:min-width 2 #:pad-string "0")
-             "."
-             (~r ms #:precision 0))
-            (string-append
-             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r s #:precision 0 #:min-width 2 #:pad-string "0")
-             "."
-             (~r ms #:precision 0)))
-        (if (> h 0)
-            (string-append
-             (~r h #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r s #:precision 0 #:min-width 2 #:pad-string "0"))
-            (string-append
-             (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-             ":"
-             (~r s #:precision 0 #:min-width 2 #:pad-string "0"))))))
+(define (duration->string duration [high-precision? #f])
+  (define-values (h m s ms)
+    (let ([seconds (exact-round (* duration 10))])
+      (let-values ([(h m+s) (quotient/remainder seconds 36000)])
+        (let-values ([(m s+ms) (quotient/remainder m+s 600)])
+          (let-values ([(s ms) (quotient/remainder s+ms 10)])
+            (values h
+                    m
+                    (cond (high-precision? s)
+                          ((>= ms 5) (add1 s))
+                          (else s))
+                    (if high-precision? ms 0)))))))
+  (if high-precision?
+      (if (> h 0)
+          (string-append
+           (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+           "."
+           (~r ms #:precision 0))
+          (string-append
+           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+           "."
+           (~r ms #:precision 0)))
+      (if (> h 0)
+          (string-append
+           (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r s #:precision 0 #:min-width 2 #:pad-string "0"))
+          (string-append
+           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+           ":"
+           (~r s #:precision 0 #:min-width 2 #:pad-string "0")))))
 
 
 ;;................................................... cadence and stride ....
