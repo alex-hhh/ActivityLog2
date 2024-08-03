@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2020, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -357,11 +357,17 @@
 (define (generate-plot output-fn axis params renderer-tree)
   (let* ((aspct? (hash-ref params 'show-as-pct?))
          (lap-swim? (is-lap-swimming? (hash-ref params 'sport)))
-         (label (if aspct? "pct %" (if lap-swim? "# of lengths" "time"))))
-    (parameterize ([plot-y-label label]
-                   [plot-y-ticks (if (or aspct? lap-swim?)
-                                     (linear-ticks)
-                                     (time-ticks))]
+         [y-axis (let ([ws (send axis weight-series)])
+                   (and ws (find-series-metadata ws)))]
+         [y-label (cond (aspct? "pct %")
+                        (lap-swim? "# of lengths")
+                        (y-axis (send y-axis axis-label))
+                        (else "time"))]
+         [y-ticks (if (or aspct? lap-swim? y-axis)
+                      (linear-ticks)
+                      (time-ticks))])
+    (parameterize ([plot-y-label y-label]
+                   [plot-y-ticks y-ticks]
                    [plot-x-ticks (send axis plot-ticks)]
                    [plot-x-label (send axis axis-label)])
       (output-fn renderer-tree))))
@@ -391,6 +397,7 @@
     (define histogram-data #f)
     (define generation 0)
     (define value-formatter #f)
+    (define y-value-formatter #f)
 
     (define (get-generation) generation)
 
@@ -464,8 +471,10 @@
                                 (format "~a % @ ~a" (~r value #:precision 1) label))
                                ((is-lap-swimming? (hash-ref params 'sport))
                                 (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
+                               (y-value-formatter
+                                (format "~a @ ~a" (y-value-formatter value) label))
                                (#t
-                                (format "~a @ ~a" (duration->string value) label)))))
+                                (format "~a @ ~a" (~a value) label)))))
                 (add-renderer (hover-label x y tag)))))))
 
       (set-overlay-renderers snip renderers))
@@ -493,12 +502,19 @@
                (define vf (send (list-ref (hist-axis data) 0)
                                 value-formatter
                                 (hash-ref params 'sport)))
+               (define ws (or (send (list-ref (hist-axis data) 0) weight-series)
+                              "timer"))
+               (define yvf (let ([y-axis (and ws (find-series-metadata ws))])
+                             (and y-axis (send y-axis value-formatter 
+                                               (hash-ref params 'sport)
+                                               #:show-unit-label? #t))))
                (queue-callback
                 (lambda ()
                   (when (= saved-generation (get-generation))
                     (set! cached-data data) ; put it back, or put the fresh one here
                     (set! histogram-data hist)
                     (set! value-formatter vf)
+                    (set! y-value-formatter yvf)
                     (define snip (insert-plot-snip canvas (first (hist-axis data)) params rt))
                     (when snip (set-mouse-event-callback snip plot-hover-callback)))))))
             (begin

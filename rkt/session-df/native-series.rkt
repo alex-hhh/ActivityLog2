@@ -459,6 +459,7 @@
          (define/override (should-filter?) #f)
          (define/override (series-name) "altitude")
          (define/override (name) "Elevation")
+         (define/override (weight-series) "distance")
          (define/override (fractional-digits) 1)
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
@@ -482,6 +483,7 @@
          (define/override (should-filter?) #f)
          (define/override (series-name) "corrected-altitude")
          (define/override (name) "Elevation")
+         (define/override (weight-series) "distance")
          (define/override (fractional-digits) 1)
          ;; Don't replace missing values with anything, strip them out.
          (define/override (missing-value) #f)
@@ -503,6 +505,7 @@
          (define/override (axis-label) "Grade (%)")
          (define/override (series-name) "grade")
          (define/override (histogram-bucket-slot) 0.01)
+         (define/override (weight-series) "distance")
          (define/override (name) "Slope")
          (define/override (fractional-digits) 2)
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))

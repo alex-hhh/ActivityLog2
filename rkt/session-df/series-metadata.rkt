@@ -3,7 +3,7 @@
 ;; series-metadata.rkt --meta data about data series in session data frames
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018-2022, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -49,6 +49,11 @@
     ;; significant, as actual bucket sizes have 1 as the default and minimum
     ;; value.
     (define/public (histogram-bucket-slot) 1.0)
+
+    ;; Return the weight series to use for calculating histogram data for this
+    ;; series.  When #f is returned, the default weight series on the data
+    ;; frame will be used, as returned by df-get-default-weight-series
+    (define/public (weight-series) #f)
 
     ;; Returns #t if BEST-AVG values for this series are "better" when they
     ;; are smaller.  This is used for series like pace, where a smaller value

@@ -2,7 +2,7 @@
 ;;; metrics.rkt -- calculate aggregate metrics for activities
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -242,7 +242,9 @@
   (let* ((lap-swim? (df-get-property df 'is-lap-swim?))
          (meta (find-series-metadata series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
-         (hist (df-histogram df series #:bucket-width bw)))
+         (ws (let ([default (df-get-default-weight-series df)])
+               (or (and meta (send meta weight-series)) default)))
+         (hist (df-histogram df series #:bucket-width bw #:weight-series ws)))
     (if hist
         (for/list ([item (in-vector hist)] #:when (> (vector-ref item 1) 0))
           (match-define (vector value rank) item)

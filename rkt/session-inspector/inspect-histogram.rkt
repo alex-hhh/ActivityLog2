@@ -2,7 +2,7 @@
 ;; inspect-histogram.rkt -- histogram plot view for a session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@
          racket/string
          "../fmt-util.rkt"
          "../session-df/native-series.rkt"
+         "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
@@ -137,6 +138,7 @@
     (define bucket-width 1)
     (define outlier-trim 0)
     (define value-formatter #f)
+    (define y-value-formatter #f)
 
     ;; Map a sport to an Y axis selection, to be restored when a similar sport
     ;; is selected.
@@ -314,8 +316,10 @@
                                 (format "~a % @ ~a" (~r value #:precision 1) label))
                                ((lap-swimming?)
                                 (format "~a pool lengths @ ~a" (~r value #:precision 1) label))
+                               (y-value-formatter
+                                (format "~a @ ~a" (y-value-formatter value) label))
                                (#t
-                                (format "~a @ ~a" (duration->string value) label)))))
+                                (format "~a @ ~a" (~a value) label)))))
                 (set! renderer (list (hover-label x y tag))))))))
       (set-overlay-renderers snip renderer))
 
@@ -325,15 +329,21 @@
       (when plot-rt
         (let ((rt plot-rt))
           (set! rt (cons (tick-grid) rt))
-          (let ((y-axis (list-ref axis-choices y-axis-index)))
-            (when (list? y-axis) (set! y-axis (second y-axis)))
-            (parameterize ([plot-y-label (if show-as-percentage? "pct %"
-                                             (if (lap-swimming?) "# of lengths" "time"))]
-                           [plot-y-ticks (if (or show-as-percentage? (lap-swimming?))
-                                             (linear-ticks)
-                                             (time-ticks))]
-                           [plot-x-ticks (send y-axis plot-ticks)]
-                           [plot-x-label (send y-axis axis-label)])
+          (let* ([x-axis (let ([a (list-ref axis-choices y-axis-index)])
+                           (if (list? a) (second y-axis) a))]
+                 [y-axis (let ([ws (send x-axis weight-series)])
+                           (and ws (find-series-metadata ws)))]
+                 [y-label (cond (show-as-percentage? "pct %")
+                                ((lap-swimming?) "# of lengths")
+                                (y-axis (send y-axis axis-label))
+                                (else "time"))]
+                 [y-ticks (if (or show-as-percentage? (lap-swimming?) y-axis)
+                              (linear-ticks)
+                              (time-ticks))])
+            (parameterize ([plot-y-label y-label]
+                           [plot-y-ticks y-ticks]
+                           [plot-x-ticks (send x-axis plot-ticks)]
+                           [plot-x-label (send x-axis axis-label)])
               (define snip (plot-to-canvas rt plot-pb))
               (set-mouse-event-callback snip plot-hover-callback))))))
 
@@ -373,13 +383,23 @@
                     (sname1 (send axis1 series-name))
                     (sname2 (if axis2 (send axis2 series-name) #f))
                     (bw (* bw (send axis1 histogram-bucket-slot)))
+                    (ws1 (or (send axis1 weight-series)
+                             (df-get-default-weight-series df)))
+                    (ws2 (and axis2 (or (send axis2 weight-series)
+                                        (df-get-default-weight-series df))))
                     (h1 (df-histogram df sname1
-                                      #:bucket-width bw #:include-zeroes? zeroes?
-                                      #:as-percentage? as-pct? #:trim-outliers trim))
+                                      #:bucket-width bw
+                                      #:weight-series ws1
+                                      #:include-zeroes? zeroes?
+                                      #:as-percentage? as-pct?
+                                      #:trim-outliers trim))
                     (h2 (if sname2
                             (df-histogram df sname2
-                                          #:bucket-width bw #:include-zeroes? zeroes?
-                                          #:as-percentage? as-pct? #:trim-outliers trim)
+                                          #:bucket-width bw
+                                          #:weight-series ws2
+                                          #:include-zeroes? zeroes?
+                                          #:as-percentage? as-pct?
+                                          #:trim-outliers trim)
                             #f))
                     (combined-histograms (if h2 (combine-histograms h1 h2) h1))
                     (rt (cond
@@ -410,7 +430,12 @@
                     (vf (send axis1 value-formatter
                               (df-get-property df 'sport)
                               (df-get-property df 'session-id)
-                              #:show-unit-label? #t)))
+                              #:show-unit-label? #t))
+                    (yvf (let ([y-axis (and ws1 (find-series-metadata ws1))])
+                           (and y-axis (send y-axis value-formatter 
+                                             (df-get-property df 'sport)
+                                             (df-get-property df 'session-id)
+                                             #:show-unit-label? #t)))))
                (queue-callback
                 (lambda ()
                   ;; Discard this snip if a new refresh was started after we
@@ -423,11 +448,13 @@
                           (set! plot-rt rt)
                           (set! histogram-data (or combined-histograms h1))
                           (set! value-formatter vf)
+                          (set! y-value-formatter yvf)
                           (put-plot-snip))
                         (begin
                           (set! plot-rt #f)
                           (set! histogram-data #f)
                           (set! value-formatter #f)
+                          (set! y-value-formatter #f)
                           (send plot-pb set-background-message "No data to plot"))))))))))))
 
     ;; Save the axis specific plot parameters for the current axis
