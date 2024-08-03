@@ -1699,7 +1699,7 @@
 
     (define/override (get-redline-renderer)
       (let ((avg (get-avg-swolf)))
-	(if (and avg (> avg 0))
+        (if (and avg (> avg 0))
             (function (lambda (x) avg)
                       #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
@@ -1730,7 +1730,7 @@
 
     (define/override (get-redline-renderer)
       (let ((avg (get-avg-stroke-count)))
-	(if (and avg (> avg 0))
+        (if (and avg (> avg 0))
             (function (lambda (x) avg)
                       #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
@@ -1762,7 +1762,7 @@
 
     (define/override (get-redline-renderer)
       (let ((avg (get-avg-cadence)))
-	(if (and avg (> avg 0))
+        (if (and avg (> avg 0))
             (function (lambda (x) avg)
                       #:label (string-append "Avg " (~r avg #:precision 1)))
             #f)))
@@ -2140,6 +2140,10 @@
       (for ([g (in-list graphs)])
         (send g show-average-line show)))
 
+    ;; Save these values here, since we might change the set of graphs after
+    ;; highlight-lap was called...
+    (define-values (highlight-interval-start highlight-interval-end) (values #f #f))
+
     (define (highlight-lap n lap)
       (let ((start (lap-start-time lap))
             (elapsed (lap-elapsed-time lap)))
@@ -2147,14 +2151,20 @@
             ;; use floor because timestamps are at 1 second precision and
             ;; this ensures swim laps are correctly highlighted.
             (let ([end (floor (+ start elapsed))])
-              (for ([g (in-list graphs)])
-                (send g highlight-interval start end)))
-            (for ([g (in-list graphs)])
-              (send g highlight-interval #f #f)))))
+              (set! highlight-interval-start start)
+              (set! highlight-interval-end end))
+            (begin
+              (set! highlight-interval-start #f)
+              (set! highlight-interval-end #f))))
+
+      (for ([g (in-list graphs)])
+        (send g highlight-interval highlight-interval-start highlight-interval-end)))
 
     (define (unhighlight-lap)
+      (set! highlight-interval-start #f)
+      (set! highlight-interval-end #f)
       (for ([g (in-list graphs)])
-        (send g highlight-interval #f #f)))
+        (send g highlight-interval highlight-interval-start highlight-interval-end)))
 
     (define/private (put-x-axis-by-sport index)
       (define sport (session-sport the-session))
@@ -2449,12 +2459,14 @@
                     (send g color-by-zone color-by-zone?)
                     (send g show-average-line show-avg?)
                     (send g set-filter-amount filter-amount)
-                    (send g highlight-interval #f #f)
                     (send g set-data-frame data-frame)
+                    ;; highlight-interval must be called after set-data-frame
+                    (send g highlight-interval highlight-interval-start highlight-interval-end)
                     (send g end-edit-sequence))
                   graphs)))
 
     (define/public (set-session session df)
+      (unhighlight-lap)
       ;; Rebuild xdata graphs, as new series might have been created...
       (set! xdata-graphs-1 #f)
       (set! the-session session)
