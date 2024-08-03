@@ -88,7 +88,7 @@
         (let ([lap-start (vector-ref laps lap-number)]
               [lap-end (if (< (add1 lap-number) lap-count)
                            (vector-ref laps (add1 lap-number))
-                           #f)])
+                           +inf.0)])
           (define start-index (get-index df lap-start))
           (define end-index (get-index df lap-end))
           (if (null? teleports)
