@@ -3,7 +3,7 @@
 ;; aerobic-decoupling.rkt -- Pw:HR and Pa:HR metrics and other related metrics
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -295,7 +295,11 @@
          (define/override (name) "Heart Rate Reserve")
          (define/override (fractional-digits) 1)
          (define/override (missing-value) #f)
-         (define/override (y-range) (cons 0 #f))
+         ;; We use 150% even though HR reserve can go up to 100 only.  This
+         ;; graph will be lined up with the power and speed reserves and those
+         ;; can go above 100% since they are relative to threshold power and
+         ;; speed, rather than maximum ones.  This is a bit of a hack...
+         (define/override (y-range) (cons 0 150))
          )))
 
 (define axis-pwr-reserve
@@ -306,7 +310,7 @@
          (define/override (name) "Power Reserve")
          (define/override (fractional-digits) 1)
          (define/override (missing-value) #f)
-         (define/override (y-range) (cons 0 #f))
+         (define/override (y-range) (cons 0 150))
          )))
 
 (define axis-spd-reserve
@@ -317,7 +321,7 @@
          (define/override (name) "Speed/Pace Reserve")
          (define/override (fractional-digits) 1)
          (define/override (missing-value) #f)
-         (define/override (y-range) (cons 0 #f))
+         (define/override (y-range) (cons 0 150))
          )))
 
 (define axis-adecl
@@ -328,7 +332,7 @@
          (define/override (name) "Percent Power/HR")
          (define/override (fractional-digits) 1)
          (define/override (missing-value) #f)
-         (define/override (y-range) (cons 0 #f))
+         (define/override (y-range) (cons 0 150))
          )))
 
 ;; Register series metadata
