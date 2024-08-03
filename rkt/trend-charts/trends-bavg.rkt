@@ -3,7 +3,7 @@
 ;; trends-bavg.rkt -- aggregate best-average chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2021, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -393,8 +393,6 @@
         (if (number? heat-pct)
             (send heat-percent-input set-numeric-value (* 100 heat-pct))
             (send heat-percent-input set-value "")))
-      (define model (hash-ref data 'model 'none))
-      (send estimate-cp-choice set-selection (case model ((none) 0) ((cp2) 1) ((cp3) 2)))
       (let ((nmstart (hash-ref data 'nm-start 15)))
         (if (number? nmstart)
             (send nm-range-start-input set-numeric-value nmstart)
@@ -422,7 +420,16 @@
 
       (validate-cp-ranges)
       (on-series-selected (send series-selector get-selection))
-      (on-estimate-cp (send estimate-cp-choice get-selection)))
+      (on-estimate-cp (send estimate-cp-choice get-selection))
+
+      ;; This needs to be set last, since on-series-selected will select CP3
+      ;; by default, if the series allows CP estimation...
+      (define model
+        (case (hash-ref data 'model 'none)
+          ((none) 0)
+          ((cp2) 1)
+          ((cp3) 2)))
+      (send estimate-cp-choice set-selection model))
 
     (define/public (show-dialog parent)
       (send session-filter on-before-show-dialog)
