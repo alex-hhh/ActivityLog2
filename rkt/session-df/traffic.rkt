@@ -36,23 +36,35 @@
 (define (extract-overtaking-locations df)
   (for/fold ([last-vcount 0]
              [prev-aspeed 0]
+             [vnum 0]
              [tracking-start 0]
              [traffic-data '()]
              #:result (reverse traffic-data))
             ([(vcount aspeed)
               (in-data-frame df "mbrt_vehicle_count" "mbrt_absolute_speed")]
              [current-index (in-naturals)])
+    (define num-vehicles
+      (if (rational? vcount)
+          ;; AB#66 -- mbrt_vehicle_count rolls over at 310 (which is an odd
+          ;; value).  Handle it gracefully.
+          (if (>= vcount last-vcount)
+              (- vcount last-vcount)
+              (add1 vcount))
+          0))
+    (define uvnum (+ vnum num-vehicles))
     (define utraffic-data
-      (if (or (equal? vcount #f) (= last-vcount vcount))
+      (if (zero? num-vehicles)
           traffic-data
-          (cons (list tracking-start current-index prev-aspeed vcount (- vcount last-vcount))
-                traffic-data)))
+          (cons
+           (list tracking-start current-index prev-aspeed uvnum num-vehicles)
+           traffic-data)))
     (define utracking
       (if (and aspeed (zero? prev-aspeed) (positive? aspeed))
           current-index
           tracking-start))
     (values (or vcount 0)
             (or aspeed 0)
+            uvnum
             utracking
             utraffic-data)))
 
