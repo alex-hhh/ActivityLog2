@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -189,12 +189,12 @@
                             #f)))
                     (lambda (v)
                       (stance->string (car v) (cdr v))))
-   (badge-field-def "Left-Righ Balance: " session-left-right-balance
+   (badge-field-def "Left-Right Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
                         (format "~a% (~a% ~a)"
                                 (~r v #:precision 1)
-                                (~r dev #:precision 1)
+                                (~r (abs dev) #:precision 1)
                                 (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Total Vertical Travel: "
                     session-total-vertical-travel
@@ -241,12 +241,12 @@
    (badge-field-def "Avg Power: " session-avg-power (lambda (v) (power->string v #t)))
    (badge-field-def "Max Power: " session-max-power (lambda (v) (power->string v #t)))
    (badge-field-def "ISO Power: " session-normalized-power (lambda (v) (power->string v #t)))
-   (badge-field-def "Left-Righ Balance: " session-left-right-balance
+   (badge-field-def "Left-Right Balance: " session-left-right-balance
                     (lambda (v)
                       (let ((dev (- v 50.0)))
                         (format "~a% (~a% ~a)"
                                 (~r v #:precision 1)
-                                (~r dev #:precision 1)
+                                (~r (abs dev) #:precision 1)
                                 (if (< dev 0) "Left" "Right")))))
    (badge-field-def "Torque Effectiveness: "
                     (lambda (session)
