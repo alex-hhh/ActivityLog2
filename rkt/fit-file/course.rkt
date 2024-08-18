@@ -2,7 +2,7 @@
 ;; course.rkt -- functions for reading and writing FIT course files
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -104,12 +104,12 @@
       (set! course-sub-sport (dict-ref c 'sub-sport #f)))
 
     (define/override (on-course-point p)
-      (series-push-back timestamp2-series (get-timestamp p))
-      (series-push-back lat2-series (dict-ref p 'position-lat #f))
-      (series-push-back lon2-series (dict-ref p 'position-long #f))
-      (series-push-back dst2-series (dict-ref p 'distance #f))
-      (series-push-back name2-series (dict-ref p 'name #f))
-      (series-push-back type2-series (dict-ref p 'type #f)))
+      (series-push-back! timestamp2-series (get-timestamp p))
+      (series-push-back! lat2-series (dict-ref p 'position-lat #f))
+      (series-push-back! lon2-series (dict-ref p 'position-long #f))
+      (series-push-back! dst2-series (dict-ref p 'distance #f))
+      (series-push-back! name2-series (dict-ref p 'name #f))
+      (series-push-back! type2-series (dict-ref p 'type #f)))
 
     ;; Events in a course file mark the start and end of the course, a "start"
     ;; event at the start and "stop-disable-all" event at the end.  They
@@ -127,11 +127,11 @@
       (void))
 
     (define/override (on-record r)
-      (series-push-back timestamp-series (get-timestamp r))
-      (series-push-back lat-series (dict-ref r 'position-lat #f))
-      (series-push-back lon-series (dict-ref r 'position-long #f))
-      (series-push-back dst-series (dict-ref r 'distance #f))
-      (series-push-back alt-series (dict-ref r 'altitude #f)))
+      (series-push-back! timestamp-series (get-timestamp r))
+      (series-push-back! lat-series (dict-ref r 'position-lat #f))
+      (series-push-back! lon-series (dict-ref r 'position-long #f))
+      (series-push-back! dst-series (dict-ref r 'distance #f))
+      (series-push-back! alt-series (dict-ref r 'altitude #f)))
 
     ;; Construct the data frame from existing series and return it.
     (define/public (get-data-frame)
