@@ -17,21 +17,21 @@
 (require db/base
          file/gunzip
          file/gzip
+         geoid
          racket/async-channel
          racket/class
          racket/contract
          racket/dict
          racket/file
+         racket/format
          racket/list
          racket/match
-         geoid
          racket/runtime-path
          "dbapp.rkt"
          "dbutil.rkt"
          "fit-file/fit-defs.rkt"
          "fit-file/fit-file.rkt"
          "utilities.rkt")
-
 
 (provide/contract
  (get-session-start-time (-> exact-nonnegative-integer? (or/c number? #f)))
@@ -433,6 +433,24 @@
 (struct devinfo (ts sn manufacturer product name swver hwver bv bs)
   #:transparent)
 
+;; Decode device serial numbers -- we support two formats: either it is a
+;; number, in which case we just return it, or it is a vector of bytes, in
+;; which case we construct the serial number from these bytes.
+(define (decode-device-serial sn)
+  (cond
+    ((eq? sn #f) #f)
+    ((rational? sn) sn)
+    ((vector? sn)
+     (define decoded-sn
+       (for/fold ([sn 0])
+                 ([b (in-vector sn)])
+         (define next (arithmetic-shift sn 8))
+         (if (rational? b)
+             (bitwise-ior next (bitwise-and b #xff))
+             next)))
+     (if (zero? decoded-sn) #f decoded-sn))
+    (else (~a sn))))
+
 ;; Parse a device-info ALIST (as produced by the 'read-activity-from-file')
 ;; and construct a devinfo structure from it.
 (define (make-devinfo alist)
@@ -440,6 +458,7 @@
         (ts (assq 'timestamp alist))
         (sn (or (assq 'serial-number alist)
                 (assq 'serial-number-alt alist)
+                (assq 'serial-number-alt2 alist)
                 (assq 'ant-device-number alist)))
         (manufacturer (assq 'manufacturer alist))
         (product (assq 'product alist))
@@ -448,7 +467,7 @@
         (bv (assq 'battery-voltage alist))
         (bs (assq 'battery-status alist)))
     (devinfo (and ts (cdr ts))
-             (and sn (cdr sn))
+             (and sn (decode-device-serial (cdr sn)))
              (and manufacturer (cdr manufacturer))
              (and product (cdr product))
              name
@@ -504,7 +523,7 @@
         ;; Vector power meter pedals that have identical manufacturer and
         ;; product IDs and differ only in their serial number).
         (unless (devinfo-sn di)
-          (dbglog "import: discarding device with no serial number: ~a" d))
+          (dbglog "import: discarding device with no serial number: ~a, ~a" d di))
         (when (devinfo-sn di)
           (hash-update!
            result

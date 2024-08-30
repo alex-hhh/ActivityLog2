@@ -1282,10 +1282,13 @@
   (let ((manufacturer (dict-ref device-info 'manufacturer #f))
         (product (dict-ref device-info 'product #f))
         (antdev (or (dict-ref device-info 'ant-device-type #f)
-                    (dict-ref device-info 'antplus-device-type #f))))
-    (if (not manufacturer)
-        (ant-device-name antdev)
-        (fit-device-name manufacturer product antdev))))
+                    (dict-ref device-info 'antplus-device-type #f)))
+        (source-type (dict-ref device-info 'source-type #f)))
+    (cond
+      (manufacturer (fit-device-name manufacturer product antdev))
+      (antdev (ant-device-name antdev))
+      (source-type (format "~a device" source-type))
+      (else "unknown device"))))
 
 
 ;;..................................................... fit file writing ....

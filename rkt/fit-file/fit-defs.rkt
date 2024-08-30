@@ -504,6 +504,10 @@
     ;; For now the "conversion" table will discard the top 16 bits of this
     ;; value.
     (24 . serial-number-alt)
+    ;; Value 29 is undocumented, but Edge 130 uses this field to put in the
+    ;; serial number for a Quarq Bluetooth-LE power meter, as a vector of 6
+    ;; individual bytes.
+    (29 . serial-number-alt2)
     (25 . source-type)))
 
 (define *location-fields*

@@ -652,7 +652,10 @@ where EQ.id = ?" eqid))
      (qcolumn "Serial Number"
               (lambda (row)
                 (let ((sn (fn row)))
-                  (if (zero? sn) "" (number->string (fn row)))))
+                  (cond ((zero? sn) "")
+                        ((rational? sn)
+                         (format "~x" (fn row)))
+                        (~a sn))))
               fn))
    (let ((fn (lambda (row) (sql-column-ref row 4 0))))
      (qcolumn "Retired?"
