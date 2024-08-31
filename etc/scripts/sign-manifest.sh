@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Script to sign an installer file using GPG secure key downloaded from Azure.
-# The keys are downloaded in the Azure Pipelines file.  This script depends on
-# several environment variables used by the Azure Pipelines build.
+# Script to sign a manifest file file using GPG secure key downloaded from
+# Azure.  The keys are downloaded in the Azure Pipelines file.  This script
+# depends on several environment variables used by the Azure Pipelines build.
 
 # Enable "strict mode", see
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/
@@ -48,24 +48,25 @@ else
 fi
 
 EXIT_CODE=0;
-PKG=`ls ActivityLog2Setup-*.exe 2>/dev/null`
+MANIFEST=./dist/manifest-sha256.txt
+SIGFILE=./dist/manifest-sha256.sig
 
-if [ -z $PKG ]; then
-    echo "Could not find installer file to sign"
-    EXIT_CODE=1
+if [ -z $MANIFEST ]; then
+    echo "Could not manifest to sign, skipping."
+    EXIT_CODE=0
 else
-    echo "Will sign $PKG"
-    SIG=`echo $PKG | sed 's/\\.exe/.sig/'`
-    echo "Signature file will be $SIG"
+    echo "Will sign $MANIFEST, signature will be $SIGFILE"
 
-    if [ -e $SIG ]; then
+    if [ -e $SIGFILE ]; then
         echo "Removing previous signature file..."
         rm "$SIG"
     fi
 
-    gpg --detach-sign --armor --output $SIG $PKG
+    gpg --detach-sign --armor --output $SIGFILE $MANIFEST
 
     if [ $? -ne 0 ]; then
+        # Even though we skip signing if we don't find the manifest, once we
+        # find it, we fail if we fail to sign it.
         echo "Failed to create signature"
         EXIT_CODE=1
     else

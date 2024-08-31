@@ -9,7 +9,7 @@ jobs:
       vmImage: 'ubuntu-22.04'
 
     variables:
-      RACKET_VERSION: 8.12-cs
+      RACKET_VERSION: 8.14-cs
       RACKET_DIR: $(Agent.BuildDirectory)/racket
       runTests: true
 
@@ -28,7 +28,7 @@ jobs:
       vmImage: 'windows-2019'
 
     variables:
-      RACKET_VERSION: 8.12-cs
+      RACKET_VERSION: 8.14-cs
       RACKET_DIR: 'C:/Program Files/Racket'
 
       # The windows build (and especially the tests) take a long time.  The
@@ -72,7 +72,17 @@ jobs:
         set P=ActivityLog2
         etc\scripts\verpatch .\dist\ActivityLog2.exe %V% /s desc "%D%" /s product %P% /pv %PV%
         racket etc\scripts\make-checksums.rkt dist ./dist/manifest-sha256.txt
-        iscc /DMyAppVersion=%V% etc\scripts\install.iss
+      displayName: Preparing Distribution
+
+    - script: |
+    - bash: bash ./etc/scripts/sign-manifest.sh
+      env:
+        SIGNDATAPW: $(SIGNDATAPW)
+      displayName: (Maybe) Sign Manifest File
+
+    - script: |
+        set /p APP_VERSION=<version.txt
+        iscc /DMyAppVersion=%APP_VERSION% etc\scripts\install.iss
       displayName: Creating Installer
 
     - bash: bash ./etc/scripts/sign-release.sh

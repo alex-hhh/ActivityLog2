@@ -1,5 +1,5 @@
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2024 Alex Harsanyi (AlexHarsanyi@gmail.com)
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -68,6 +68,7 @@ Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesu
 Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
 Source: "..\..\docs\CHANGES.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
 Source: "..\..\dist\manifest-sha256.txt"; DestDir: "{app}"
+Source: "..\..\dist\manifest-sha256.sig"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 
 ;; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
