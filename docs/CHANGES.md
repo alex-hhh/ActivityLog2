@@ -9,6 +9,36 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2024.09 (September 2024)
+
+* Update FIT file reader to handle lap records at the start for lap swimming
+  activities
+
+* Line up the Heart Rate and Power/Speed Reserve plot lines by using 0-150%
+  range for the Y axis -- this makes plots easier to interpret. (AB#68)
+
+* Use distance as weight series for Grade and Elevation histograms, instead of
+  time, since these histograms are heavily affected by time (more time would
+  be spent on an ascending slope, where the rider goes slower, than on a
+  descending one, creating skewed histograms) (AB#65)
+
+* Recognize Blue-tooth LE devices in FIT files, allowing them to be tracked in
+  the Equipment tab (AB#63)
+
+## Bugfixes
+
+* Fix a bug in the Critical Power estimation dialog, where the setting would
+  always revert to CP3 regardless of the user choice. (AB#64)
+
+* Handle vehicle count roll over for radar traffic, since the vehicle count
+  seems to roll over at 310 vehicles. (AB#69)
+
+* Keep highlighted the selected lap when series selection changes in the lap
+  view (AB#67)
+
+* Fix handling of the last lap of an activity in the Map view, which could
+  cause an error to be reported (AB#66)
+
 # Release 2024.05 (May 2024)
 
 * Show traffic information (other vehicles overtaking the rider) on the map.
