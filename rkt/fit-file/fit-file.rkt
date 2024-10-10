@@ -866,6 +866,33 @@
 
   (append new-fields record-w/o-new-fields))
 
+;; Decode a 32 bit word which contains gear change information into 4 values:
+;; rear / front gear number (1 is innermost) and front / rear tooth count.
+;;
+;; Note that the tooth count is likely incorrect.  It needs to be configured
+;; explicitly by the user in their Garmin device.  Garmin seems to default to
+;; 11-23 for the rear and 53-39 for the front, which will probably be wrong
+;; for most modern bikes.
+(define (decode-gear-change-data data)
+  (let ([rear-gear-num (bitwise-and data #xff)]
+        [rear-gear (arithmetic-shift (bitwise-and data #xff00) -8)]
+        [front-gear-num (arithmetic-shift (bitwise-and data #xff0000) -16)]
+        [front-gear (arithmetic-shift (bitwise-and data #xff000000) -24)])
+    (values rear-gear-num rear-gear front-gear-num front-gear)))
+
+;; Create a activity entry from a gear change event -- note that we don't
+;; store the event type (front or rear gear change), since we can determine
+;; that from what has changed between the last event and the current one.
+(define (convert-gear-change-event e)
+  (unless (member (dict-ref e 'event #f) '(front-gear-change rear-gear-change))
+    (error (format "not a gear change event: ~a" e)))
+  (define-values (rgn rg fgn fg) (decode-gear-change-data (dict-ref e 'data 0)))
+  `((timestamp . ,(dict-ref e 'timestamp #f))
+    (rear-gear-num . ,rgn)
+    (rear-gear . ,rg)
+    (front-gear-num . ,fgn)
+    (front-gear . ,fg)))
+
 (define activity-builder%
   ;; Build an activity from a FIT file.  An instance of this class can be used
   ;; as an event dispatcher to `read-fit-records' and the activity can be
@@ -887,6 +914,7 @@
     (define training-file '())
     (define weather-conditions '())
     (define weather-reports '())
+    (define gear-change-events '())
 
     ;; FIT 2.0 allows "developer" fields, these hold the definitions, for
     ;; referencing the dev fields in trackpoint data.
@@ -1038,10 +1066,15 @@
                   #t)))
           ((eq? e 'session)              ; not interested in these ones
            #t)
+          ((member e '(front-gear-change rear-gear-change))
+           (set! gear-change-events (cons event gear-change-events)))
           (#t
            ;; (display (format "*** EVENT: ~a~%" event))
            )))
       #t)
+
+    #;(define/override (on-other type data)
+      (printf "*** on-other type = ~a, data = ~a~%" type data))
 
     (define/override (on-developer-data-id data)
       (set! developer-data-ids (cons data developer-data-ids)))
@@ -1101,6 +1134,7 @@
                            [records records]
                            [devices devices]
                            [weather weather-conditions]
+                           [gear-change gear-change-events]
                            [rsessions '()])
           (if (null? sessions)
               (begin
@@ -1114,6 +1148,8 @@
                   (printf "*** leftover devices (~a items)~%" (length devices)))
                 (unless (null? weather)
                   (printf "*** leftover weather conditions (~a items)~%" (length weather)))
+                (unless (null? gear-change)
+                  (printf "*** leftover gear change events (~a items)~%" (length gear-change)))
                 rsessions)
               (let* ([s (car sessions)]
                      [session-stc (make-start-time-checker (get-start-time s))])
@@ -1124,6 +1160,8 @@
                   (splitf-at devices session-stc))
                 (define-values (this-session-weather remaining-weather)
                   (splitf-at weather session-stc))
+                (define-values (this-session-gear-changes remaining-gear-changes)
+                  (splitf-at gear-change session-stc))
 
                 ;; We maybe create a lap for the entire session -- at least
                 ;; GoldenCheetah exports FIT files with no lap records...
@@ -1190,12 +1228,13 @@
                               remaining-records
                               remaining-devices
                               remaining-weather
+                              remaining-gear-changes
                               (cons `((laps ,@rlaps)
                                       (devices ,@(reverse this-session-devices))
                                       (weather-conditions ,@(reverse this-session-weather))
+                                      (gear-changes ,@(reverse (map convert-gear-change-event this-session-gear-changes)))
                                       ,@s)
                                     rsessions))))))
-              
       
       (list
        (cons 'start-time (or activity-timestamp (get-start-timestamp)))
@@ -1203,7 +1242,7 @@
        (cons 'developer-data-ids developer-data-ids)
        (cons 'field-descriptions field-descriptions)
        (cons 'training-file training-file)
-       (cons 'weather-reports weather-reports)       ; all of them
+       (cons 'weather-reports weather-reports) ; all of them
        (cons 'sessions rsessions)))
 
     ))

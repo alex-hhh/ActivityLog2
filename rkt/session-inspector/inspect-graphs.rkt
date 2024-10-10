@@ -1585,6 +1585,20 @@
     (super-new [primary-y-axis axis-left-peak-power-phase-angle]
                [secondary-y-axis axis-right-peak-power-phase-angle])))
 
+(define gear-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-front-gear]
+               [secondary-y-axis axis-rear-gear])))
+
+(define gear-index-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-front-gear-index]
+               [secondary-y-axis axis-rear-gear-index])))
+
+(define gear-ratio-graph%
+  (class graph-view%
+    (super-new [primary-y-axis axis-gear-ratio])))
+
 (define pwr-hr-reserve-graph%
   (class graph-view%
     (super-new [primary-y-axis axis-pwr-reserve]
@@ -2030,6 +2044,9 @@
                                 ppp-start-graph%
                                 ppp-end-graph%
                                 ppp-angle-graph%
+                                gear-graph%
+                                gear-index-graph%
+                                gear-ratio-graph%
                                 pwr-hr-reserve-graph%
                                 spd-hr-reserve-graph%
                                 adecl-graph%

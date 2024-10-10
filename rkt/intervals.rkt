@@ -19,7 +19,6 @@
          math/statistics
          racket/dict
          racket/match
-         "session-df/session-df.rkt"
          "sport-charms.rkt"
          "models/aerobic-decoupling.rkt"
          "models/coggan.rkt"

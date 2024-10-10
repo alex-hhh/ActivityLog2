@@ -97,6 +97,9 @@
    (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
    (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
    (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
+   (list "Gears" axis-front-gear axis-rear-gear)
+   (list "Gear Indices" axis-front-gear-index axis-rear-gear-index)
+   axis-gear-ratio
    ))
 
 ;; Axis choices for lap swimming

@@ -94,7 +94,9 @@
    (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
    (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
    (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
-   ))
+   (list "Gears" axis-front-gear axis-rear-gear)
+   (list "Gear Indices" axis-front-gear-index axis-rear-gear-index)
+   axis-gear-ratio))
 
 ;; Axis choices for lap swimming
 (define swim-axis-choices
@@ -330,7 +332,7 @@
         (let ((rt plot-rt))
           (set! rt (cons (tick-grid) rt))
           (let* ([x-axis (let ([a (list-ref axis-choices y-axis-index)])
-                           (if (list? a) (second y-axis) a))]
+                           (if (list? a) (second a) a))]
                  [y-axis (let ([ws (send x-axis weight-series)])
                            (and ws (find-series-metadata ws)))]
                  [y-label (cond (show-as-percentage? "pct %")

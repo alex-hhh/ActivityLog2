@@ -227,6 +227,27 @@
                      feels-like dew-point humidity precipitation-probability wind-speed
                      wind-gusts wind-direction pressure position-lat position-long))))))
 
+(define db-insert-gear-change
+  (let ([stmt (virtual-statement
+               (lambda (dbsys)
+                 "insert into GEAR_CHANGE(
+                    session_id, timestamp, front_gear_index, front_gear_teeth, rear_gear_index, rear_gear_teeth)
+                  values(?, ?, ?, ?, ?, ?)"))])
+    (lambda (gear-change session-id db)
+      (let ([timestamp (dict-ref gear-change 'timestamp #f)]
+            [front-gear-index (dict-ref gear-change 'front-gear-num #f)]
+            [front-gear-teeth (dict-ref gear-change 'front-gear #f)]
+            [rear-gear-index (dict-ref gear-change 'rear-gear-num #f)]
+            [rear-gear-teeth (dict-ref gear-change 'rear-gear)])
+        (and timestamp
+             (db-insert db stmt
+                        session-id
+                        timestamp
+                        (or front-gear-index sql-null)
+                        (or front-gear-teeth sql-null)
+                        (or rear-gear-index sql-null)
+                        (or rear-gear-teeth sql-null)))))))
+
 (define db-insert-session
   (let ((stmt (virtual-statement
                (lambda (dbsys)
@@ -267,7 +288,9 @@
         (for ([di (make-devinfo-list (dict-ref session 'devices '()))])
           (put-devinfo db di session-id))
         (for ([w (in-list (dict-ref session 'weather-conditions '()))])
-          (db-insert-weather-conditions w session-id db))))))
+          (db-insert-weather-conditions w session-id db))
+        (for ([gc (in-list (dict-ref session 'gear-changes '()))])
+          (db-insert-gear-change gc session-id db))))))
 
 (define db-insert-lap
   (let ((stmt (virtual-statement

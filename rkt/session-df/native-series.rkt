@@ -1302,6 +1302,66 @@
 (provide axis-right-peak-power-phase-angle)
 
 
+;;................................................... gear change series ....
+
+(define axis-front-gear-index
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Front Gear Index")
+         (define/override (axis-label) "Front Gear Index")
+         (define/override (should-filter?) #f)
+         (define/override (plot-label) "Front Gear Index")
+         (define/override (name) "Front Gear Index")
+         (define/override (series-name) "fgi"))))
+(register-series-metadata axis-front-gear-index)
+(provide axis-front-gear-index)
+
+(define axis-rear-gear-index
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Rear Gear Index")
+         (define/override (axis-label) "Rear Gear Index")
+         (define/override (should-filter?) #f)
+         (define/override (plot-label) "Rear Gear Index")
+         (define/override (name) "Rear Gear Index")
+         (define/override (series-name) "rgi"))))
+(register-series-metadata axis-rear-gear-index)
+(provide axis-rear-gear-index)
+
+(define axis-front-gear
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Front Gear")
+         (define/override (axis-label) "Front Gear")
+         (define/override (should-filter?) #f)
+         (define/override (plot-label) "Front Gear")
+         (define/override (name) "Front Gear")
+         (define/override (series-name) "fg"))))
+(register-series-metadata axis-front-gear)
+(provide axis-front-gear)
+
+(define axis-rear-gear
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Rear Gear")
+         (define/override (axis-label) "Rear Gear")
+         (define/override (should-filter?) #f)
+         (define/override (plot-label) "Rear Gear")
+         (define/override (name) "Rear Gear")
+         (define/override (series-name) "rg"))))
+(register-series-metadata axis-rear-gear)
+(provide axis-rear-gear)
+
+(define axis-gear-ratio
+  (new (class series-metadata% (init) (super-new)
+         (define/override (headline) "Gear Ratio")
+         (define/override (axis-label) "Gear Ratio")
+         (define/override (should-filter?) #f)
+         (define/override (fractional-digits) 1)
+         (define/override (histogram-bucket-slot) 0.1)
+         (define/override (plot-label) "Gear Ratio")
+         (define/override (name) "Gear Ratio")
+         (define/override (series-name) "gr"))))
+(register-series-metadata axis-gear-ratio)
+(provide axis-gear-ratio)
+
+
 ;;....................................................... axis-swim-pace ....
 
 (define axis-swim-pace
