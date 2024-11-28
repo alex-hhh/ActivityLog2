@@ -2,7 +2,7 @@
 ;; inspect-scatter.rkt -- scatter plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -29,6 +29,7 @@
          plot-container
          "../session-df/native-series.rkt"
          "../session-df/xdata-series.rkt"
+         "../session-df/shifting.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -97,6 +98,9 @@
    (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
    (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
    (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
+   (list "Gears" axis-front-gear axis-rear-gear)
+   (list "Gear Indices" axis-front-gear-index axis-rear-gear-index)
+   axis-gear-ratio
    ))
 
 ;; Axis choices for lap swimming

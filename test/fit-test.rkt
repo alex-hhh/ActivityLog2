@@ -615,6 +615,12 @@ select count(*)
        (check-equal? (length lengths) llen)
        (for ([len (in-list lengths)])
          (check-true (> (length (length-track len)) 0)))))
+   (test-case "f0060.fit"
+     (do-basic-checks
+      "./test-fit/f0060.fit" 30 10413
+      #:extra-df-checks
+      (lambda (df)
+        (check-true (df-contains? df "fg" "fgi" "rg" "rgi" "gr")))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -642,5 +648,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0059.fit"))
+             #:only '(("FIT file reading" "f0060.fit"))
              fit-files-test-suite))

@@ -28,6 +28,7 @@
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
+         "../session-df/shifting.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -94,7 +95,9 @@
    (list "Peak Power Phase Start" axis-left-peak-power-phase-start axis-right-peak-power-phase-start)
    (list "Peak Power Phase End" axis-left-peak-power-phase-end axis-right-peak-power-phase-end)
    (list "Peak Power Phase Angle" axis-left-peak-power-phase-angle axis-right-peak-power-phase-angle)
-   ))
+   (list "Gears" axis-front-gear axis-rear-gear)
+   (list "Gear Indices" axis-front-gear-index axis-rear-gear-index)
+   axis-gear-ratio))
 
 ;; Axis choices for lap swimming
 (define swim-axis-choices
@@ -330,7 +333,7 @@
         (let ((rt plot-rt))
           (set! rt (cons (tick-grid) rt))
           (let* ([x-axis (let ([a (list-ref axis-choices y-axis-index)])
-                           (if (list? a) (second y-axis) a))]
+                           (if (list? a) (second a) a))]
                  [y-axis (let ([ws (send x-axis weight-series)])
                            (and ws (find-series-metadata ws)))]
                  [y-label (cond (show-as-percentage? "pct %")
@@ -383,10 +386,20 @@
                     (sname1 (send axis1 series-name))
                     (sname2 (if axis2 (send axis2 series-name) #f))
                     (bw (* bw (send axis1 histogram-bucket-slot)))
-                    (ws1 (or (send axis1 weight-series)
-                             (df-get-default-weight-series df)))
-                    (ws2 (and axis2 (or (send axis2 weight-series)
-                                        (df-get-default-weight-series df))))
+                    ;; NOTE: if the axis does not allow filtering, also don't
+                    ;; use a weight-series, since this will interpolate
+                    ;; values, which might be undesirable... Not using a
+                    ;; weight series creates slight inaccuracies when
+                    ;; activities have gaps and uneven recording, but this
+                    ;; might be better than interpolating values (e.g. gear
+                    ;; values)
+                    (ws1 (and (send axis1 should-filter?)
+                              (or (send axis1 weight-series)
+                                  (df-get-default-weight-series df))))
+                    (ws2 (and axis2
+                              (send axis2 should-filter?)
+                              (or (send axis2 weight-series)
+                                  (df-get-default-weight-series df))))
                     (h1 (df-histogram df sname1
                                       #:bucket-width bw
                                       #:weight-series ws1

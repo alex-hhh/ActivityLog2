@@ -32,6 +32,7 @@
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/xdata-series.rkt"
+         "../session-df/shifting.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
@@ -77,6 +78,9 @@
    axis-power
    axis-power-zone
    axis-left-right-balance
+   (list "Gears" axis-front-gear axis-rear-gear)
+   (list "Gear Indices" axis-front-gear-index axis-rear-gear-index)
+   axis-gear-ratio
    (list "Torque Effectiveness (%)" axis-left-torque-effectiveness axis-right-torque-effectiveness)
    (list "Pedal Smoothness (%)" axis-left-pedal-smoothness axis-right-pedal-smoothness)
    axis-combined-pedal-smoothness

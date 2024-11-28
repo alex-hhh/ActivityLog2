@@ -242,8 +242,16 @@
   (let* ((lap-swim? (df-get-property df 'is-lap-swim?))
          (meta (find-series-metadata series lap-swim?))
          (bw (if meta (send meta histogram-bucket-slot) 1))
+         ;; NOTE: if the axis does not allow filtering, also don't use a
+         ;; weight-series, since this will interpolate values, which might be
+         ;; undesirable... Not using a weight series creates slight
+         ;; inaccuracies when activities have gaps and uneven recording, but
+         ;; this might be better than interpolating values (e.g. gear values)
          (ws (let ([default (df-get-default-weight-series df)])
-               (or (and meta (send meta weight-series)) default)))
+               (or (and meta
+                        (send meta should-filter?)
+                        (send meta weight-series))
+                   default)))
          (hist (df-histogram df series #:bucket-width bw #:weight-series ws)))
     (if hist
         (for/list ([item (in-vector hist)] #:when (> (vector-ref item 1) 0))

@@ -1301,7 +1301,6 @@
 (register-series-metadata axis-right-peak-power-phase-angle)
 (provide axis-right-peak-power-phase-angle)
 
-
 ;;....................................................... axis-swim-pace ....
 
 (define axis-swim-pace

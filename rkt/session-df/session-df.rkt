@@ -37,16 +37,17 @@
          racket/vector
          "../dbutil.rkt"
          "../fmt-util.rkt"
+         "../models/aerobic-decoupling.rkt"
          "../models/cp-util.rkt"
          "../models/critical-power.rkt"
          "../models/gap.rkt"
-         "../models/sport-zone.rkt"
          "../models/grade-series.rkt"
+         "../models/sport-zone.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
+         "shifting.rkt"
          "series-metadata.rkt"
-         "xdata-series.rkt"
-         "../models/aerobic-decoupling.rkt")
+         "xdata-series.rkt")
 
 ;; Check if R is a valid plot range, as produced by `get-plot-y-range` and
 ;; used by several other functions.  This is used in the `y-range/c` contract.
@@ -269,6 +270,7 @@
              (add-wbald-series df "pwr"))))
 
     (read-xdata-series df db)
+    (maybe-add-gear-change-series! df db)
 
     ;; WARNING: don't check for empty series here (or any operation that
     ;; references all the series) as this will materialize all lazy series and

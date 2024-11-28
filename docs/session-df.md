@@ -163,6 +163,22 @@ Grade Adjusted Pace is calculated using the model described
 * **lpppa**, **rpppa** -- is the peak power angle for the left and right pedal
   respectively.  The angle is in degrees.
 
+### Gear Shifting series
+
+* **fg** front gear teeth count
+* **rg** rear gear teeth count
+* **fgi** front gear index -- 1 denotes the innermost gear and values grow
+  towards the outermost one
+* **rgi** rear gear index -- 1 denotes the innermost gear and values grow
+  towards the outermost one
+* **gr** gear ration -- the ratio between the front gear and the rear gear
+  teeth counts (i.e "fg" divided by "rg")
+
+*NOTE* teeth counts come from the FIT file and must be configured on the
+device that recorded the activity.  The `update-gear-rations-for-session!`
+function is provided to update gear teeth counts, but currently this must be
+called from a Racket script.
+
 ### W' Balance series
 
 * **wbal** is the W' Balance, calculated using the differential method based

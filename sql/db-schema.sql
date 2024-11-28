@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(50);
+insert into SCHEMA_VERSION(version) values(51);
 
 
 --........................................................ Enumerations ....
@@ -472,6 +472,34 @@ create index IX2_A_TRACKPOINT
 create index IX3_A_TRACKPOINT
   on A_TRACKPOINT(length_id, geoid);
 
+
+--........................................................ gear changes ....
+
+-- Stores gear change events that happened during a session (as recorded in
+-- the FIT file).  Note that the "teeth" information, in front_gear_teeth and
+-- rear_gear_teeth, comes from the device configuration itself and the user
+-- must configure their gears on the device that recorded the session.
+--
+-- The `update-gear-rations-for-session!` function is provided to update gear
+-- teeth counts, but currently this must be called from a Racket script.
+--
+-- Unlike the A_TRACKPOINT table, this table records "events", that is moments
+-- in time when a gear change happened.  Each entry contains the gearing after
+-- the change and must be compared with the previous entry (ordered by
+-- timestamp), to determine which gear has changed.
+create table GEAR_CHANGE(
+  id integer not null primary key autoincrement,
+  session_id integer not null,
+  timestamp integer not null,
+  front_gear_index integer,             -- 1 is innermost gear
+  front_gear_teeth integer,
+  rear_gear_index integer,              -- 1 is innermost gear
+  rear_gear_teeth integer,
+  foreign key (session_id) references A_SESSION(id) on delete cascade
+);
+
+create index IX1_GEAR_CHANGE
+  on GEAR_CHANGE(session_id);
 
 
 --............................................................... Xdata ....
