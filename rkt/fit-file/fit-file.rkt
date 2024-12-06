@@ -567,14 +567,30 @@
                         ;; APP-DEFS
                         (let ((devid (dict-ref message-data 'developer-id #f))
                               (appid (dict-ref message-data 'application-id #f))
+                              (manid (dict-ref message-data 'manufacturer-id #f))
                               (ddi (dict-ref message-data 'developer-data-index #f)))
-                          (when appid
-                            (define app-key (make-string-id appid))
-                            (set! message-data
-                                  (cons (cons 'application-id app-key)
-                                        (dict-remove message-data 'application-id)))
-                            (when ddi
-                              (hash-set! app-defs ddi app-key)))
+                          (cond
+                            (appid
+                             (define app-key (make-string-id appid))
+                             (set! message-data
+                                   (cons (cons 'application-id app-key)
+                                         (dict-remove message-data 'application-id)))
+                             (when ddi
+                               (hash-set! app-defs ddi app-key)))
+                            ;; Looks like Wahoo has developer fields in their
+                            ;; files, without a developer-id or
+                            ;; application-id. Instead, they just have a
+                            ;; manufacturer-id and developer-data-index.  We
+                            ;; construct an app-key from this information, but
+                            ;; it is unclear if this will be unique and
+                            ;; unchanging across products...
+                            (manid
+                             (define app-key (format "manufacturer-~a-~a" manid ddi))
+                             (set! message-data
+                                   (cons (cons 'application-id app-key)
+                                         (dict-remove message-data 'application-id)))
+                             (when ddi
+                               (hash-set! app-defs ddi app-key))))
                           (when devid
                             (set! message-data
                                   (cons (cons 'developer-id (make-string-id devid))

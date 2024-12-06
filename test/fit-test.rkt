@@ -621,6 +621,30 @@ select count(*)
       #:extra-df-checks
       (lambda (df)
         (check-true (df-contains? df "fg" "fgi" "rg" "rgi" "gr")))))
+   (test-case "f0061.fit"
+     (do-basic-checks
+      "./test-fit/f0061.fit" 39 15205
+      #:extra-db-checks
+      (lambda (db)
+        ;; This file is from a Wahoo ACE -- they use developer data fields,
+        ;; but don't specify a developer id or application id, so it is a bit
+        ;; unclear how they use them, but this seems to work, at least for
+        ;; now.  As of Dec 2024, Wahoo does not support developer apps writing
+        ;; data fields in their on FIT files, so they are in full control over
+        ;; these...
+        (check-xdata-app-count db 13)
+        (check-xdata-field-count db "manufacturer-32-19" 1)
+        (check-xdata-field-count db "manufacturer-32-18" 1)
+        (check-xdata-field-count db "manufacturer-32-17" 1)
+        (check-xdata-field-count db "manufacturer-32-14" 1)
+        (check-xdata-field-count db "manufacturer-32-13" 1)
+        (check-xdata-field-count db "manufacturer-32-12" 1)
+        (check-xdata-field-count db "manufacturer-32-11" 1)
+        (check-xdata-field-count db "manufacturer-32-10" 1)
+        (check-xdata-field-count db "manufacturer-32-6" 1)
+        (check-xdata-field-count db "manufacturer-32-5" 1)
+        (check-xdata-field-count db "manufacturer-32-2" 1)
+        (check-xdata-field-count db "manufacturer-32-1" 1))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -648,5 +672,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             #:only '(("FIT file reading" "f0060.fit"))
+             ;; #:only '(("FIT file reading" "f0061.fit"))
              fit-files-test-suite))
