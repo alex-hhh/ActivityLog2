@@ -497,8 +497,10 @@ where T.length_id = L.id
                                   #:stop end-index))
 
       (define dtw-cost (waypoint-alignment-cost interval waypoints))
-      (define good? (good-match? dtw-cost interval-length (- end-index start-index)
-                                 segment-length (vector-length waypoints)))
+      (define good? (good-segment-match?
+                     dtw-cost
+                     interval-length (- end-index start-index)
+                     segment-length (vector-length waypoints)))
       (list start-index
             end-index
             (- end-index start-index)
@@ -541,7 +543,10 @@ where T.length_id = L.id
 ;;
 ;; This is experimental, but seems to work OK for the segments I tested so
 ;; far...
-(define (good-match? cost interval-length waypoint-count segment-length segment-waypoint-count)
+(define (good-segment-match?
+         cost
+         interval-length waypoint-count
+         segment-length segment-waypoint-count)
   ;; The normalized cost represents the average distance between each set of
   ;; paired waypoints.
   (define normalized-cost (/ cost (max waypoint-count segment-waypoint-count)))
@@ -646,5 +651,10 @@ where T.length_id = L.id
                            (listof (list/c data-frame? integer? integer? positive?))))
 
  (gps-segment-df (-> connection? exact-nonnegative-integer? data-frame?))
+
+ (good-segment-match? (-> rational?
+                          positive? exact-nonnegative-integer?
+                          positive? exact-nonnegative-integer?
+                          boolean?))
 
  (fixup-segment-data (-> data-frame? any/c)))
