@@ -43,7 +43,8 @@
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
          "inspect-traffic.rkt"
-         "inspect-scatter.rkt")
+         "inspect-scatter.rkt"
+         "inspect-similar-routes.rkt")
 
 (provide view-session%)
 
@@ -428,6 +429,14 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
        "Traffic"
        detail-panel
        (lambda (panel) (new traffic-panel% [parent panel]))))
+    (define similar-routes
+      (make-tdata
+       "Similar Rutes"
+       detail-panel
+       (lambda (panel)
+         (new similar-routes-panel%
+              [parent panel]
+              [database database]))))
 
     (define installed-tabs '())
 
@@ -491,7 +500,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
             (set! tabs (cons aerolab tabs)))
 
           (when (df-contains? data-frame "mbrt_vehicle_count" "mbrt_absolute_speed")
-            (set! tabs (cons traffic tabs))))
+            (set! tabs (cons traffic tabs)))
+
+          (when (df-contains? data-frame "lat" "lon")
+            (set! tabs (cons similar-routes tabs))))
+
 
         (set! installed-tabs (reverse tabs))
         (send detail-panel set (map tdata-name installed-tabs))))
