@@ -23,8 +23,7 @@
          db/base
          geoid
          geoid/waypoint-alignment
-         racket/class
-         racket/format
+         racket/gui
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
@@ -96,7 +95,7 @@
                #:when (and (rational? lat) (rational? lon)))
     (lat-lng->geoid lat lon)))
 
-(define (find-similar-sessions db sid)
+(define (find-similar-sessions db sid #:progress-callback (cb (lambda (n m) (void))))
   (define this-session-df (session-df db sid))
   (define this-session-summary (fetch-session-summary db sid))
   (define this-session-length (vector-ref this-session-summary 5))
@@ -115,8 +114,13 @@
           (find-nearby-sessions db start-geoid #:search-geoid-level 15)
           null)))
 
+  (define candidate-count (length candidate-sessions))
+
   (for/fold ([result '()])
-            ([csid (in-list candidate-sessions)])
+            ([csid (in-list candidate-sessions)]
+             [current-candidate-index (in-naturals)])
+
+    (cb current-candidate-index candidate-count)
 
     (define cached-are-similar? (fetch-similar-status db sid csid))
 
@@ -137,7 +141,8 @@
                (good-segment-match?
                 cost
                 this-session-length (vector-length (this-session-geoids))
-                (vector-ref summary 5) (vector-length geoids)))
+                (vector-ref summary 5) (vector-length geoids)
+                15.0))
              (put-similar-status db sid csid are-similar?)
              (if are-similar?
                  (cons summary result)
@@ -161,8 +166,7 @@
 (define similar-routes-running-columns
   (let ([d->s (lambda (v) (distance->string v #t))]
         [t->s (lambda (v) (duration->string v))]
-        [p->s (lambda (v) (pace->string v #t))]
-        )
+        [p->s (lambda (v) (pace->string v #t))])
     (list
      (qcolumn "Start Time"
               (lambda (row)
@@ -207,9 +211,34 @@
     (init-field parent database)
     (super-new)
 
+    (define panel
+      (new vertical-panel%
+           [parent parent]
+           [border 0]
+           [spacing 0]))
+
+    (define progress-bar-panel
+      (new vertical-panel%
+           [parent panel]
+           [style '(deleted)]
+           [spacing 5]))
+
+    (define progress-bar
+      (new gauge%
+           [parent progress-bar-panel]
+           [label ""]
+           [range 100]
+           [style '(horizontal)]))
+
+    (define data-panel
+      (new vertical-panel%
+           [parent panel]
+           [style '(deleted)]
+           [spacing 5]))
+
     (define sessions-lv
       (new qresults-list%
-           [parent parent]
+           [parent data-panel]
            [pref-tag 'al2-inspect-similar-sessions:similar-sessions]
            [get-preference
             (lambda (name fail-thunk)
@@ -221,12 +250,33 @@
     (define/public (save-visual-layout)
       (send sessions-lv save-visual-layout))
 
+    (define generation 0)
+
     (define/public (set-session session df)
       (define sid (df-get-property df 'session-id))
+      (set! generation (add1 generation))
       (send sessions-lv clear)
       (when sid
-        (define similar-sessions (find-similar-sessions database sid))
-        (send sessions-lv setup-column-defs similar-routes-cycling-columns)
-        (send sessions-lv set-data similar-sessions)))
+        (send progress-bar set-value 0)
+        (send panel change-children (lambda (_old) (list progress-bar-panel)))
+        (let ([this-generation generation])
+          (thread/dbglog
+           (lambda ()
+             (define similar-sessions
+               (find-similar-sessions
+                database sid
+                #:progress-callback
+                (lambda (current total)
+                  (when (equal? this-generation generation)
+                    (define v (exact-round (* 100 (min 1.0 (/ current total)))))
+                    (queue-callback
+                     (lambda ()
+                       (send progress-bar set-value v)))))))
+             (when (equal? this-generation generation)
+               (queue-callback
+                (lambda ()
+                  (send sessions-lv setup-column-defs similar-routes-cycling-columns)
+                  (send sessions-lv set-data similar-sessions)
+                  (send panel change-children (lambda (_old) (list data-panel)))))))))))
 
     ))

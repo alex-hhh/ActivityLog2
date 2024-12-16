@@ -71,25 +71,25 @@
     (define perceived-effort 0)
 
     (define panel0 (new horizontal-panel%
-			[parent parent]
-			[border 0]
-			[spacing 5]
-			[stretchable-height #f]
-			[alignment '(left center)]))
+                        [parent parent]
+                        [border 0]
+                        [spacing 5]
+                        [stretchable-height #f]
+                        [alignment '(left center)]))
 
     (define begining-spacer (make-spacer panel0))
 
     (define sport-icon (new message% [parent panel0]
-			    [label (get-sport-bitmap-colorized 0 0)]
-			    [stretchable-width #f]
-			    [stretchable-height #f]))
+                            [label (get-sport-bitmap-colorized 0 0)]
+                            [stretchable-width #f]
+                            [stretchable-height #f]))
 
     (define panel (new vertical-panel%
-		       [parent panel0]
-		       [border 5]
-		       [spacing 1]
-		       [stretchable-height #f]
-		       [alignment '(left top)]))
+                       [parent panel0]
+                       [border 5]
+                       [spacing 1]
+                       [stretchable-height #f]
+                       [alignment '(left top)]))
 
     (define session-title
       (new message% [parent panel]
@@ -431,7 +431,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
        (lambda (panel) (new traffic-panel% [parent panel]))))
     (define similar-routes
       (make-tdata
-       "Similar Rutes"
+       "Similar Routes"
        detail-panel
        (lambda (panel)
          (new similar-routes-panel%
@@ -484,14 +484,11 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
             (set! tabs (cons quadrant tabs)))
           (set! tabs (cons laps tabs))
           (when (df-contains? data-frame "lat" "lon")
-            (set! tabs (cons maps tabs)))
-          ;; Display the "Model Parameters" tab only for Swim, Bike or Run
-          ;; activities, as these are the ones that we allow defining Sport
-          ;; Zones and Critical Power parameters -- note that the DB schema
-          ;; allows these to be defined for any activity, but the application
-          ;; does not support that.
-          (when (or (is-runnig? sport) (is-cycling? sport) (is-swimming? sport))
-            (set! tabs (cons model-params tabs)))
+            (set! tabs (cons maps tabs))
+            (set! tabs (cons similar-routes tabs)))
+
+          (when (df-contains? data-frame "mbrt_vehicle_count" "mbrt_absolute_speed")
+            (set! tabs (cons traffic tabs)))
 
           ;; Display the "Aerolab" tab only if we have aerolab parameters,
           ;; which exist only if the user enabled them from the Activities
@@ -499,11 +496,13 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
           (when aerolab-parameters
             (set! tabs (cons aerolab tabs)))
 
-          (when (df-contains? data-frame "mbrt_vehicle_count" "mbrt_absolute_speed")
-            (set! tabs (cons traffic tabs)))
-
-          (when (df-contains? data-frame "lat" "lon")
-            (set! tabs (cons similar-routes tabs))))
+          ;; Display the "Model Parameters" tab only for Swim, Bike or Run
+          ;; activities, as these are the ones that we allow defining Sport
+          ;; Zones and Critical Power parameters -- note that the DB schema
+          ;; allows these to be defined for any activity, but the application
+          ;; does not support that.
+          (when (or (is-runnig? sport) (is-cycling? sport) (is-swimming? sport))
+            (set! tabs (cons model-params tabs))))
 
 
         (set! installed-tabs (reverse tabs))

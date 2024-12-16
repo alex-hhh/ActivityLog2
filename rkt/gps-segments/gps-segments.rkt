@@ -502,7 +502,8 @@ where T.length_id = L.id
       (define good? (good-segment-match?
                      dtw-cost
                      interval-length (- end-index start-index)
-                     segment-length (vector-length waypoints)))
+                     segment-length (vector-length waypoints)
+                     6.0))
       (list start-index
             end-index
             (- end-index start-index)
@@ -549,7 +550,8 @@ where T.length_id = L.id
 (define (good-segment-match?
          cost
          interval-length waypoint-count
-         segment-length segment-waypoint-count)
+         segment-length segment-waypoint-count
+         average-allowable-distance)
   ;; The normalized cost represents the average distance, in meters, between
   ;; each set of paired waypoints.
   (define normalized-cost (/ cost (max waypoint-count segment-waypoint-count)))
@@ -564,10 +566,10 @@ where T.length_id = L.id
           interval-length waypoint-count
           segment-length segment-waypoint-count
           normalized-cost benchmark)
-  ;; we have a match if the segment is about 6 meters away from the segment.
-  ;; We add half the benchmark to account for two paths which are exactly the
-  ;; same, except the points are offset along the path.
-  (< normalized-cost (+ 6.0 (* 0.5 benchmark))))
+  ;; we have a match if the segment is about "average-allowable-distance" away
+  ;; from the segment.  We add half the benchmark to account for two paths
+  ;; which are exactly the same, except the points are offset along the path.
+  (< normalized-cost (+ average-allowable-distance (* 0.5 benchmark))))
 
 
 ;;........................................................... segment-df ....
@@ -666,6 +668,7 @@ where T.length_id = L.id
  (good-segment-match? (-> rational?
                           positive? exact-nonnegative-integer?
                           positive? exact-nonnegative-integer?
+                          positive?
                           boolean?))
 
  (fixup-segment-data (-> data-frame? any/c)))
