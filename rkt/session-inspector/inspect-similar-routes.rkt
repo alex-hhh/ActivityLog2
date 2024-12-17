@@ -29,6 +29,7 @@
          "../fmt-util.rkt"
          "../gps-segments/gps-segments.rkt"
          "../session-df/session-df.rkt"
+         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/qresults-list.rkt")
 
@@ -275,8 +276,17 @@
              (when (equal? this-generation generation)
                (queue-callback
                 (lambda ()
-                  (send sessions-lv setup-column-defs similar-routes-cycling-columns)
+                  (define sport (df-get-property df 'sport))
+                  (define column-definitions
+                    (cond
+                      ((is-runnig? sport)
+                       similar-routes-running-columns)
+                      ((is-cycling? sport)
+                       similar-routes-cycling-columns)
+                      (#t
+                       similar-routes-cycling-columns)))
+                  (send sessions-lv setup-column-defs column-definitions)
                   (send sessions-lv set-data similar-sessions)
-                  (send panel change-children (lambda (_old) (list data-panel)))))))))))
-
+                  (send panel change-children (lambda (_old) (list data-panel))))))
+             )))))
     ))

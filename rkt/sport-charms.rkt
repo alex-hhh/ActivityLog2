@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -29,8 +29,7 @@
 
 (define (color? c) (is-a? c color%))
 (define (bitmap? b) (is-a? b bitmap%))
-(define sport-id? (or/c (and/c number? (not/c negative?)) #f))
-(define positive-number? (and/c number? (not/c negative?)))
+(define sport-id? (or/c exact-nonnegative-integer? #f))
 (define zone-metric? (or/c 1 2 3))
 (define swim-stroke? (or/c 0 1 2 3 4 5 6 #f))
 (define sport-zones? (or/c #f (listof number?)))
@@ -46,16 +45,16 @@
  [get-swim-stroke-color (-> swim-stroke? color?)]
  [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
  [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
- [get-athlete-ftp (->* () (connection?) (or/c #f positive-number?))]
- [put-athlete-ftp (->* (positive-number?) (connection?) any/c)]
- [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive-number?))]
- [put-athlete-swim-tpace (->* (positive-number?) (connection?) any/c)]
+ [get-athlete-ftp (->* () (connection?) (or/c #f positive?))]
+ [put-athlete-ftp (->* (positive?) (connection?) any/c)]
+ [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive?))]
+ [put-athlete-swim-tpace (->* (positive?) (connection?) any/c)]
  [get-athlete-gender (->* (connection?) () (or/c #f 0 1))]
  [put-athlete-gender (->* ((or/c 0 1)) (connection?) any/c)]
- [get-athlete-dob (->* (connection?) () (or/c #f positive-number?))]
- [put-athlete-dob (->* (positive-number?) (connection?) any/c)]
- [get-athlete-height (->* (connection?) () (or/c #f positive-number?))]
- [put-athlete-height (->* (positive-number?) (connection?) any/c)]
+ [get-athlete-dob (->* (connection?) () (or/c #f positive?))]
+ [put-athlete-dob (->* (positive?) (connection?) any/c)]
+ [get-athlete-height (->* (connection?) () (or/c #f positive?))]
+ [put-athlete-height (->* (positive?) (connection?) any/c)]
  )
 
 (provide is-runnig?
