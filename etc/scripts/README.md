@@ -50,6 +50,10 @@ building an installer on Windows.  The scripts are:
   were just generated and signed by me, so there is not much trust in them, as
   such, this is more of an exercise in how to sign build artifacts in Azure.
 
+* `sign-manifest.sh` is a script which will sign the manifest file (produced
+  by make-checksums.rkt).  The signature file is added to the installed
+  application.
+
 * `azure-pipelines.yml` and `azure-common.yml`-- these is the Azure Pipelines
   build files for the application.
 
