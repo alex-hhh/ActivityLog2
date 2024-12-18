@@ -96,7 +96,7 @@
                #:when (and (rational? lat) (rational? lon)))
     (lat-lng->geoid lat lon)))
 
-(define (find-similar-sessions db sid #:progress-callback (cb (lambda (n m) (void))))
+(define (find-similar-sessions db sid #:progress-callback (cb (lambda (n m) #t)))
   (define this-session-df (session-df db sid))
   (define this-session-summary (fetch-session-summary db sid))
   (define this-session-length (vector-ref this-session-summary 5))
@@ -117,39 +117,43 @@
 
   (define candidate-count (length candidate-sessions))
 
-  (for/fold ([result '()])
-            ([csid (in-list candidate-sessions)]
-             [current-candidate-index (in-naturals)])
+  (let/ec return
+    (for/fold ([result '()])
+              ([csid (in-list candidate-sessions)]
+               [current-candidate-index (in-naturals)])
 
-    (cb current-candidate-index candidate-count)
+      ;; If the callback returns #f, we interpret it as a request to cancel
+      ;; the processing...
+      (unless (cb (add1 current-candidate-index) candidate-count)
+        (return '()))
 
-    (define cached-are-similar? (fetch-similar-status db sid csid))
+      (define cached-are-similar? (fetch-similar-status db sid csid))
 
-    (if cached-are-similar?
-        (if (> cached-are-similar? 0)
-            (cons (fetch-session-summary db csid) result)
-            result)
-        (let ([summary (fetch-session-summary db csid)])
-          (cond
-            ((equal? sid csid)                ; same session
-             (cons summary result))
-            ((and (equal? this-session-sport (vector-ref summary 4))
-                  (< 0.9 (/ (vector-ref summary 5) this-session-length) 1.1))
-             (define df (session-df db csid))
-             (define geoids (extract-geoids df))
-             (define cost (waypoint-alignment-cost (this-session-geoids) geoids))
-             (define are-similar?
-               (good-segment-match?
-                cost
-                this-session-length (vector-length (this-session-geoids))
-                (vector-ref summary 5) (vector-length geoids)
-                15.0))
-             (put-similar-status db sid csid are-similar?)
-             (if are-similar?
-                 (cons summary result)
-                 result))
-            (#t
-             result))))))
+      (if cached-are-similar?
+          (if (> cached-are-similar? 0)
+              (cons (fetch-session-summary db csid) result)
+              result)
+          (let ([summary (fetch-session-summary db csid)])
+            (cond
+              ((equal? sid csid)                ; same session
+               (cons summary result))
+              ((and (equal? this-session-sport (vector-ref summary 4))
+                    (< 0.9 (/ (vector-ref summary 5) this-session-length) 1.1))
+               (define df (session-df db csid))
+               (define geoids (extract-geoids df))
+               (define cost (waypoint-alignment-cost (this-session-geoids) geoids))
+               (define are-similar?
+                 (good-segment-match?
+                  cost
+                  this-session-length (vector-length (this-session-geoids))
+                  (vector-ref summary 5) (vector-length geoids)
+                  15.0))
+               (put-similar-status db sid csid are-similar?)
+               (if are-similar?
+                   (cons summary result)
+                   result))
+              (#t
+               result)))))))
 
 ;; Convenience function to construct a `qcolumn` entry which picks up values
 ;; from row vectors returned from the data base
@@ -222,7 +226,14 @@
       (new vertical-panel%
            [parent panel]
            [style '(deleted)]
-           [spacing 5]))
+           [spacing 5]
+           [border 10]))
+
+    (define progress-message
+      (new message%
+           [parent progress-bar-panel]
+           [label ""]
+           [auto-resize #t]))
 
     (define progress-bar
       (new gauge%
@@ -230,6 +241,19 @@
            [label ""]
            [range 100]
            [style '(horizontal)]))
+
+    (define no-similar-sessions-panel
+      (new vertical-panel%
+           [parent panel]
+           [style '(deleted)]
+           [spacing 5]
+           [border 10]))
+
+    (define no-similar-sessions-message
+      (new message%
+           [parent no-similar-sessions-panel]
+           [label "No sessions similar to this one were found."]
+           [auto-resize #t]))
 
     (define data-panel
       (new vertical-panel%
@@ -254,39 +278,58 @@
     (define generation 0)
 
     (define/public (set-session session df)
-      (define sid (df-get-property df 'session-id))
+      (define this-session-sid (df-get-property df 'session-id))
       (set! generation (add1 generation))
       (send sessions-lv clear)
-      (when sid
+      (when this-session-sid
         (send progress-bar set-value 0)
+        (send progress-message set-label "Looking for similar sessions...")
         (send panel change-children (lambda (_old) (list progress-bar-panel)))
         (let ([this-generation generation])
           (thread/dbglog
            (lambda ()
              (define similar-sessions
                (find-similar-sessions
-                database sid
+                database this-session-sid
                 #:progress-callback
                 (lambda (current total)
-                  (when (equal? this-generation generation)
-                    (define v (exact-round (* 100 (min 1.0 (/ current total)))))
-                    (queue-callback
-                     (lambda ()
-                       (send progress-bar set-value v)))))))
+                  (if (equal? this-generation generation)
+                      (let ([v (exact-round (* 100 (min 1.0 (/ current total))))])
+                        (queue-callback
+                         (lambda ()
+                           (send progress-message set-label
+                                 (format "Checking session ~a of ~a possible candidates..." current total))
+                           (send progress-bar set-value v)
+                           (send progress-bar-panel reflow-container)))
+                        #t)
+                      #f))))
+             (define have-similar-sessions?
+               (case (length similar-sessions)
+                 ((0) #f)
+                 ((1)
+                  ;; we expect to find at list this session in the "similar
+                  ;; session" list, so one session means there are no similar
+                  ;; sessions, but we still explicitly check...
+                  (let ([sid (vector-ref (car similar-sessions) 0)])
+                    (not (equal? sid this-session-sid))))
+                 (else #t)))
              (when (equal? this-generation generation)
                (queue-callback
                 (lambda ()
-                  (define sport (df-get-property df 'sport))
-                  (define column-definitions
-                    (cond
-                      ((is-runnig? sport)
-                       similar-routes-running-columns)
-                      ((is-cycling? sport)
-                       similar-routes-cycling-columns)
-                      (#t
-                       similar-routes-cycling-columns)))
-                  (send sessions-lv setup-column-defs column-definitions)
-                  (send sessions-lv set-data similar-sessions)
-                  (send panel change-children (lambda (_old) (list data-panel))))))
+                  (if have-similar-sessions?
+                      (let* ([sport (df-get-property df 'sport)]
+                             [column-definitions
+                              (cond
+                                ((is-runnig? sport)
+                                 similar-routes-running-columns)
+                                ((is-cycling? sport)
+                                 similar-routes-cycling-columns)
+                                (#t
+                                 similar-routes-cycling-columns))])
+                        (send sessions-lv setup-column-defs column-definitions)
+                        (send sessions-lv set-data similar-sessions)
+                        (send panel change-children (lambda (_old) (list data-panel))))
+                      (send panel change-children (lambda (_old) (list no-similar-sessions-panel)))))))
+
              )))))
     ))
