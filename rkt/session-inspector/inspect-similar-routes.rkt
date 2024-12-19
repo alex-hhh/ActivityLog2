@@ -23,6 +23,7 @@
          db/base
          geoid
          geoid/waypoint-alignment
+         plot-container
          racket/gui
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
@@ -247,13 +248,12 @@
            [parent panel]
            [style '(deleted)]
            [spacing 5]
-           [border 10]))
+           [border 0]))
 
     (define no-similar-sessions-message
-      (new message%
+      (new plot-container%              ; nicer look than a simple "message%"
            [parent no-similar-sessions-panel]
-           [label "No sessions similar to this one were found."]
-           [auto-resize #t]))
+           [background-message "No sessions similar to this one were found."]))
 
     (define data-panel
       (new vertical-panel%
