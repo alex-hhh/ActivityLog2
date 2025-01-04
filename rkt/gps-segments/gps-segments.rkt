@@ -358,14 +358,15 @@ where T.length_id = L.id
      (write-string ")" out))))
 
 ;; Geoid level used for searching sessions which cross a specific geoid.
-(define *search-geoid-level* 11)        ; Approx 4.4 x 4.4 meters
+(define default-search-geoid-level 11)  ; Approx 4.4 x 4.4 meters
 
 ;; Return a list of session IDs whose path cross (or go nearby) GEOID.
 ;;
 ;; NOTE: the geoid package does not support "caps" yet, so we just get the 9x9
 ;; neighborhood of the geoid after upscaling it to *search-geoid-level*
-(define (find-nearby-sessions database geoid)
-  (let* ([wpt^ (enclosing-geoid geoid *search-geoid-level*)]
+(define (find-nearby-sessions database geoid
+                              #:search-geoid-level (sgl default-search-geoid-level))
+  (let* ([wpt^ (enclosing-geoid geoid sgl)]
          [neighbourhood (adjacent-geoids wpt^)]
          [lss (leaf-span* neighbourhood)]
          [query (make-leaf-span-set-sql-query lss)])
@@ -373,8 +374,9 @@ where T.length_id = L.id
 
 ;; Same as find-nearby-sessions, but only search the sessions from the
 ;; LAST_IMPORT table, that is the sessions which were last imported.
-(define (find-nearby-sessions/last-import database geoid)
-  (let* ([wpt^ (enclosing-geoid geoid *search-geoid-level*)]
+(define (find-nearby-sessions/last-import database geoid
+                                          #:search-geoid-level (sgl default-search-geoid-level))
+  (let* ([wpt^ (enclosing-geoid geoid sgl)]
          [neighbourhood (adjacent-geoids wpt^)]
          [lss (leaf-span* neighbourhood)]
          [query (make-leaf-span-set-sql-query/last-import lss)])
@@ -497,8 +499,11 @@ where T.length_id = L.id
                                   #:stop end-index))
 
       (define dtw-cost (waypoint-alignment-cost interval waypoints))
-      (define good? (good-match? dtw-cost interval-length (- end-index start-index)
-                                 segment-length (vector-length waypoints)))
+      (define good? (good-segment-match?
+                     dtw-cost
+                     interval-length (- end-index start-index)
+                     segment-length (vector-length waypoints)
+                     6.0))
       (list start-index
             end-index
             (- end-index start-index)
@@ -534,16 +539,21 @@ where T.length_id = L.id
 ;; match for the segment.
 ;;
 ;; The DTW algorithm we use to check if a segment matches will return a value
-;; which is larger if the segment is longer, it is also larger if the segments
-;; align poorly.  This means that we cannot simply compare the DTW cost
-;; against a benchmark value to determine if a match is good or not.  Instead
-;; we attempt to normalize the cost and compare it against a benchmark.
+;; which is larger if the segments align poorly, but it is also larger if the
+;; segment is longer.  This means that we cannot simply compare the DTW cost
+;; against a fixed benchmark value to determine if a match is good or not.
+;; Instead we attempt to normalize the cost and compare it against a
+;; benchmark.
 ;;
 ;; This is experimental, but seems to work OK for the segments I tested so
 ;; far...
-(define (good-match? cost interval-length waypoint-count segment-length segment-waypoint-count)
-  ;; The normalized cost represents the average distance between each set of
-  ;; paired waypoints.
+(define (good-segment-match?
+         cost
+         interval-length waypoint-count
+         segment-length segment-waypoint-count
+         average-allowable-distance)
+  ;; The normalized cost represents the average distance, in meters, between
+  ;; each set of paired waypoints.
   (define normalized-cost (/ cost (max waypoint-count segment-waypoint-count)))
   ;; the benchmark is the average distance between the waypoints in either the
   ;; segment or in the matched interval -- i.e. how close are the samples
@@ -552,8 +562,14 @@ where T.length_id = L.id
     (max (/ segment-length segment-waypoint-count)
          (/ interval-length waypoint-count)))
   #;(printf "+++ good-match cost ~a; ilen ~a; wpcount ~a; slen ~a; wpcount ~a; ncost ~a, benchmark ~a~%"
-          cost interval-length waypoint-count segment-length segment-waypoint-count normalized-cost benchmark)
-  (< normalized-cost (* 2.0 benchmark)))
+          cost
+          interval-length waypoint-count
+          segment-length segment-waypoint-count
+          normalized-cost benchmark)
+  ;; we have a match if the segment is about "average-allowable-distance" away
+  ;; from the segment.  We add half the benchmark to account for two paths
+  ;; which are exactly the same, except the points are offset along the path.
+  (< normalized-cost (+ average-allowable-distance (* 0.5 benchmark))))
 
 
 ;;........................................................... segment-df ....
@@ -638,13 +654,21 @@ where T.length_id = L.id
                             positive? exact-nonnegative-integer?))
  (delete-segment-match (-> connection? exact-nonnegative-integer? any/c))
 
- (find-nearby-sessions (-> connection? exact-nonnegative-integer?
-                           (listof exact-nonnegative-integer?)))
- (find-nearby-sessions/last-import (-> connection? exact-nonnegative-integer?
-                                       (listof exact-nonnegative-integer?)))
+ (find-nearby-sessions (->* (connection? exact-nonnegative-integer?)
+                            (#:search-geoid-level exact-nonnegative-integer?)
+                            (listof exact-nonnegative-integer?)))
+ (find-nearby-sessions/last-import (->* (connection? exact-nonnegative-integer?)
+                                        (#:search-geoid-level exact-nonnegative-integer?)
+                                        (listof exact-nonnegative-integer?)))
  (find-segment-matches (-> data-frame? (vectorof exact-nonnegative-integer?) positive?
                            (listof (list/c data-frame? integer? integer? positive?))))
 
  (gps-segment-df (-> connection? exact-nonnegative-integer? data-frame?))
+
+ (good-segment-match? (-> rational?
+                          positive? exact-nonnegative-integer?
+                          positive? exact-nonnegative-integer?
+                          positive?
+                          boolean?))
 
  (fixup-segment-data (-> data-frame? any/c)))
