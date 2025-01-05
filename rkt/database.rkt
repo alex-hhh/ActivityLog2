@@ -2,7 +2,7 @@
 ;; database.rkt -- database access utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1282,6 +1282,9 @@
         (del-scatter-cache
          (virtual-statement
           (lambda (dbsys) "delete from SCATTER_CACHE where session_id = ?")))
+        (del-similar-routes-cache
+         (virtual-statement
+          (lambda (dbsys) "delete from SIMILAR_SESSION_CACHE where first_session_id = ? or second_session_id = ?")))
         (del-section-summary-session
          (virtual-statement
           (lambda (dbsys) "delete from SECTION_SUMMARY where id in (
@@ -1323,6 +1326,7 @@
             (query-exec db del-bavg-cache session-id)
             (query-exec db del-hist-cache session-id)
             (query-exec db del-scatter-cache session-id)
+            (query-exec db del-similar-routes-cache session-id session-id)
             (query-exec db del-section-summary-session session-id)
             (query-exec db del-section-summary-lap session-id)
             (query-exec db del-section-summary-length session-id)

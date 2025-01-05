@@ -1,7 +1,7 @@
 -- db-schema.sql -- database schema for ActivityLog2
 --
 -- This file is part of ActivityLog2, an fitness activity tracker
--- Copyright (C) 2015 - 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (C) 2015 - 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(51);
+insert into SCHEMA_VERSION(version) values(52);
 
 
 --........................................................ Enumerations ....
@@ -1413,6 +1413,27 @@ create table SCATTER_CACHE (
 create unique index IX0_SCATTER_CACHE on SCATTER_CACHE(series1, series2, session_id);
 
 create index IX1_SCATTER_CACHE on SCATTER_CACHE(series2);
+
+-- Store a cache of sessions we have determined to be similar.  Note that we
+-- store the session with the smallest ID first, to avoid having to store
+-- multiple entries or create ambiguities.
+
+create table SIMILAR_SESSION_CACHE(
+  id integer not null primary key autoincrement,
+  first_session_id integer not null,
+  second_session_id integer not null,
+  are_similar integer not null, -- 1 if sessions are similar, 0 if they are not
+  foreign key (first_session_id) references A_SESSION(id),
+  foreign key (second_session_id) references A_SESSION(id),
+  check (first_session_id < second_session_id));
+
+-- this is a covering index, to find if two sessions are similar without
+-- consulting the actual table.
+create unique index IX0_SIMILAR_SESSION_CACHE
+  on SIMILAR_SESSION_CACHE(first_session_id, second_session_id, are_similar);
+
+create index IX1_SIMILAR_SESSION_CACHE
+  on SIMILAR_SESSION_CACHE(second_session_id);
 
 
 --............................................. application preferences ....

@@ -2,7 +2,7 @@
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1326,11 +1326,13 @@
         (dbglog "delete-cached-data started")
         (send progress-dialog set-progress 0)
         (query-exec database "delete from BAVG_CACHE")
-        (send progress-dialog set-progress 25)
+        (send progress-dialog set-progress 20)
         (query-exec database "delete from HIST_CACHE")
-        (send progress-dialog set-progress 50)
+        (send progress-dialog set-progress 40)
         (query-exec database "delete from SCATTER_CACHE")
-        (send progress-dialog set-progress 75)
+        (send progress-dialog set-progress 60)
+        (query-exec database "delete from SIMILAR_SESSION_CACHE")
+        (send progress-dialog set-progress 80)
         (clear-metrics-cache)
         (send progress-dialog set-progress 100)
         (send progress-dialog set-message "Completed.")
