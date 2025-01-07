@@ -276,6 +276,10 @@
            [spacing 5]
            [border 0]))
 
+    (new plot-container%
+         [parent no-similar-sessions-panel]
+         [background-message "No routes similar to this one found"])
+
     (define data-panel
       (new vertical-panel%
            [parent panel]
