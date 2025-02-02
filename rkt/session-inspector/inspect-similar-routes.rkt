@@ -173,7 +173,7 @@
                   cost
                   this-session-length (vector-length (this-session-geoids))
                   (vector-ref summary 5) (vector-length geoids)
-                  15.0))
+                  25.0))
                (put-similar-status db sid csid are-similar?)
                (if are-similar?
                    (cons summary result)
