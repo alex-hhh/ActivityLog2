@@ -231,7 +231,7 @@
              ;; predicts.  `diff` should be positive and we add 1 to it,
              ;; since, for values less than 1, raising them to the power of 4
              ;; produces smaller values than raising them to the power of 2.
-             (expt diff 4))))))
+             (expt (add1 diff) 4))))))
 
 ;; Same as `evaluate-cost/cp3` but for the CP2 model.
 ;;
@@ -246,7 +246,7 @@
          (if (>= model value)
              (sqr diff)
              ;; See note on `evaluate-cost/cp3`
-             (expt diff 4))))))
+             (expt (add1 diff) 4))))))
 
 ;; Precompute the WORK produced by MMAX-FN at 1 second interval between START
 ;; and END and return a flvector of these values.
