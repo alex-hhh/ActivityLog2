@@ -111,6 +111,20 @@
                #:when (and (rational? lat) (rational? lon)))
     (lat-lng->geoid lat lon)))
 
+;; Return #t if TRACK1 and TRACK2 (which are vectors of geoids) start and end
+;; in the same place, that is their start and end locations are within
+;; THRESHOLD meters of each other.
+(define (same-start-and-end? track1 track2 (threshold 100.0))
+  (and
+   (> (vector-length track1) 0)
+   (> (vector-length track2) 0)
+   (let ([g1 (vector-ref track1 0)]
+         [g2 (vector-ref track2 0)])
+     (<= (distance-between-geoids g1 g2) threshold))
+   (let ([g1 (vector-ref track1 (sub1 (vector-length track1)))]
+         [g2 (vector-ref track2 (sub1 (vector-length track2)))])
+     (<= (distance-between-geoids g1 g2) threshold))))
+
 ;; Find sessions similar to SID in the database DB and return a list of them
 ;; (entries returned by `fetch-similar-status` calls).
 ;;
@@ -131,7 +145,9 @@
         geoids)))
 
   ;; First, we locate the sessions which start in the same area as our
-  ;; session.
+  ;; session.  Note that this will find all sessions which cross the start
+  ;; location (geoid) of our session, not just the ones that start in the same
+  ;; place
   (define candidate-sessions
     (let ([start-geoid (get-start-geoid this-session-df)])
       (if start-geoid
@@ -162,22 +178,27 @@
                (cons summary result))
               ((and (equal? this-session-sport (vector-ref summary 4))
                     (< 0.9 (/ (vector-ref summary 5) this-session-length) 1.1))
-               ;; the candidate has the same sport type and approximate
-               ;; session distance, so we do a proper alignment cost in it to
-               ;; find if it is actually similar.
                (define df (session-df db csid))
                (define geoids (extract-geoids df))
-               (define cost (waypoint-alignment-cost (this-session-geoids) geoids))
-               (define are-similar?
-                 (good-segment-match?
-                  cost
-                  this-session-length (vector-length (this-session-geoids))
-                  (vector-ref summary 5) (vector-length geoids)
-                  25.0))
-               (put-similar-status db sid csid are-similar?)
-               (if are-similar?
-                   (cons summary result)
-                   result))
+               (if (same-start-and-end? geoids (this-session-geoids))
+                   ;; the candidate has the same sport type and approximate
+                   ;; session distance, same start and end, so we do a proper
+                   ;; alignment cost (which is expensive) to find if it is
+                   ;; actually similar.
+                   (let ([cost (waypoint-alignment-cost (this-session-geoids) geoids)])
+                     (define are-similar?
+                       (good-segment-match?
+                        cost
+                        this-session-length (vector-length (this-session-geoids))
+                        (vector-ref summary 5) (vector-length geoids)
+                        25.0))
+                     (put-similar-status db sid csid are-similar?)
+                     (if are-similar?
+                         (cons summary result)
+                         result))
+                   (begin
+                     (put-similar-status db sid csid #f)
+                     result)))
               (#t
                (put-similar-status db sid csid #f)
                result)))))))
@@ -240,7 +261,7 @@
 
 (define similar-routes-panel%
   (class object%
-    (init-field parent database)
+    (init-field parent database select-activity-callback)
     (super-new)
 
     (define panel
@@ -287,7 +308,12 @@
            [spacing 5]))
 
     (define sessions-lv
-      (new qresults-list%
+      (new (class qresults-list%
+             (init)
+             (super-new)
+             (define/override (on-double-click row row-data)
+               (and select-activity-callback
+                    (select-activity-callback (vector-ref row-data 0)))))
            [parent data-panel]
            [pref-tag 'al2-inspect-similar-sessions:similar-sessions]
            [get-preference
@@ -295,7 +321,8 @@
               (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
            [put-preference
             (lambda (name value)
-              (db-put-pref database name value))]))
+              (db-put-pref database name value))]
+           ))
 
     (define/public (save-visual-layout)
       (send sessions-lv save-visual-layout))
