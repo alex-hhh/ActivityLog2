@@ -266,9 +266,9 @@
 
     (when cp-data
       (cond ((eqv? (vector-ref sport 0) 1) ; running
-             (add-wbald-series/gap! df))
+             (maybe-add-wbald-series/gap! df))
             ((eqv? (vector-ref sport 0) 2) ; biking
-             (add-wbald-series! df "pwr"))))
+             (maybe-add-wbald-series! df "pwr"))))
 
     (read-xdata-series df db)
     (maybe-add-gear-change-series! df db)
@@ -1226,9 +1226,9 @@
                  (df-del-property! new-df 'dirty-wbal)
                  (df-put-property! new-df 'critical-power new-cp-data)
                  (cond ((eqv? (vector-ref sport 0) 1) ; running
-                        (add-wbald-series/gap! new-df))
+                        (maybe-add-wbald-series/gap! new-df))
                        ((eqv? (vector-ref sport 0) 2) ; biking
-                        (add-wbald-series! new-df "pwr")))
+                        (maybe-add-wbald-series! new-df "pwr")))
                  (hash-set! df-cache sid new-df)
                  new-df)))
           (#t
