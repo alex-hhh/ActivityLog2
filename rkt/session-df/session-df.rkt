@@ -5,7 +5,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -43,10 +43,11 @@
          "../models/gap.rkt"
          "../models/grade-series.rkt"
          "../models/sport-zone.rkt"
+         "../models/wbal-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "shifting.rkt"
          "series-metadata.rkt"
+         "shifting.rkt"
          "xdata-series.rkt")
 
 ;; Check if R is a valid plot range, as produced by `get-plot-y-range` and
@@ -265,9 +266,9 @@
 
     (when cp-data
       (cond ((eqv? (vector-ref sport 0) 1) ; running
-             (add-wbald-series/gap df))
+             (maybe-add-wbald-series/gap! df))
             ((eqv? (vector-ref sport 0) 2) ; biking
-             (add-wbald-series df "pwr"))))
+             (maybe-add-wbald-series! df "pwr"))))
 
     (read-xdata-series df db)
     (maybe-add-gear-change-series! df db)
@@ -775,144 +776,6 @@
        (and spd grade
             (* spd (grade->multiplier grade)))))))
 
-;; Add the W'Bal series to the data frame using the differential method by
-;; Andy Froncioni and Dave Clarke.  This is based off the GoldenCheetah
-;; implementation, I could not find any reference to this formula on the web.
-;;
-;; BASE-SERIES is either "pwr" or "spd"
-(define (add-wbald-series df base-series)
-
-  (define sid (df-get-property df 'session-id))
-  (define-values (cp wprime)
-    (match (df-get-property df 'critical-power)
-      (#f (values #f #f))
-      ((cp2 cp wprime) (values cp wprime))
-      ((cp3 cp wprime k) (values cp wprime))))
-
-  (when (and (df-contains? df "elapsed" base-series) cp wprime)
-
-    (define wbal wprime)
-
-    (df-add-lazy!
-     df
-     "wbal"
-     (list "elapsed" base-series)
-     (lambda (prev current)
-       (when (and prev current)
-         (match-define (list t1 v1) prev)
-         (match-define (list t2 v2) current)
-         (when (and t1 v1 t2 v2)
-           (let ((dt (- t2 t1))
-                 (v (* 0.5 (+ v1 v2))))
-             (if (< v cp)
-                 (let ((rate (/ (- wprime wbal) wprime))
-                       (delta (- cp v)))
-                   ;; MIN prevents a large DT (such as a pause in the ride) to
-                   ;; get WBAL above its maximum.  AB#55
-                   (set! wbal (min wprime (+ wbal (* delta dt rate)))))
-                 (let ((delta (- v cp)))
-                   (set! wbal (- wbal (* delta dt))))))))
-       wbal))))
-
-(define (add-wbald-series/gap df)
-
-  (define sid (df-get-property df 'session-id))
-  (define-values (cp wprime)
-    (match (df-get-property df 'critical-power)
-      (#f (values #f #f))
-      ((cp2 cp wprime) (values cp wprime))
-      ((cp3 cp wprime k) (values cp wprime))))
-
-  (cond
-    ((and (df-contains? df "elapsed" "spd" "grade") cp wprime)
-     (define wbal wprime)
-     (df-add-lazy!
-      df
-      "wbal"
-      '("elapsed" "spd" "grade")
-      (lambda (prev current)
-        (when (and prev current)
-          (match-define (list t1 v1 g1) prev)
-          (match-define (list t2 v2 g2) current)
-          (when (and t1 v1 t2 v2)
-            (let* ((dt (- t2 t1))
-                   (m (if (and g1 g2)
-                          (grade->multiplier (* 0.5 (+ g1 g2)))
-                          1.0))
-                   (v (* m (* 0.5 (+ v1 v2)))))
-              (if (< v cp)
-                  (let ((rate (/ (- wprime wbal) wprime))
-                        (delta (- cp v)))
-                    (set! wbal (+ wbal (* delta dt rate))))
-                  (let ((delta (- v cp)))
-                    (set! wbal (- wbal (* delta dt))))))))
-        wbal)))
-    (#t
-     (add-wbald-series df "spd"))))
-
-;; Add the W'Bal series to the data frame using the integral method by
-;; Dr. Phil Skiba.  This is based off the GoldenCheetah implementation, see
-;; also
-;;
-;; http://markliversedge.blogspot.com.au/2014/07/wbal-its-implementation-and-optimisation.html
-;;
-;; and
-;;
-;; http://markliversedge.blogspot.com.au/2014/10/wbal-optimisation-by-mathematician.html
-;;
-;; BASE-SERIES is either "pwr" or "spd"
-(define (add-wbali-series df base-series)
-
-  (define sid (df-get-property df 'session-id))
-  (define-values (cp wprime)
-    (match (df-get-property df 'critical-power)
-      (#f (values #f #f))
-      ((cp2 cp wprime) (values cp wprime))
-      ((cp3 cp wprime k) (values cp wprime))))
-
-  (when (and (df-contains? df "elapsed" base-series) cp wprime)
-
-    (define sum-count
-      (df-fold
-       df
-       (list "elapsed" base-series)
-       '(0 0)
-       (lambda (accum prev current)
-         (if (and prev current)
-             (match-let (((list t1 v1) prev)
-                         ((list t2 v2) current))
-               (if (and t1 v1 t2 v2)
-                   (let ((dt (- t2 t1))
-                         (v (* 0.5 (+ v1 v2))))
-                     (if (< v cp)
-                         (match-let (((list sum count) accum))
-                           (list (+ sum v) (+ count dt)))
-                         accum))
-                   accum))
-             accum))))
-
-    (define avg-below-cp (/ (first sum-count) (second sum-count)))
-    (define tau
-      (+ 316.0 (* 546 (exp (- (* 1.0 (- cp avg-below-cp)))))))
-    (define integral 0)
-    (define wbal wprime)
-
-    (df-add-lazy!
-     df
-     "wbali"
-     (list "elapsed" base-series)
-     (lambda (prev current)
-       (when (and prev current)
-         (match-let (((list t1 v1) prev)
-                     ((list t2 v2) current))
-           (when (and t1 v1 t2 v2)
-             (define dt (- t2 t1))
-             (define v (* 0.5 (+ v1 v2)))
-             (when (> v cp)
-               (set! integral (+ integral (* (exp (/ t2 tau)) (* (- v cp) dt)))))
-             (set! wbal (- wprime (* integral (exp (- (/ t2 tau)))))))))
-       wbal))))
-
 
 ;;................................................................ other ....
 
@@ -1363,9 +1226,9 @@
                  (df-del-property! new-df 'dirty-wbal)
                  (df-put-property! new-df 'critical-power new-cp-data)
                  (cond ((eqv? (vector-ref sport 0) 1) ; running
-                        (add-wbald-series new-df "spd"))
+                        (maybe-add-wbald-series/gap! new-df))
                        ((eqv? (vector-ref sport 0) 2) ; biking
-                        (add-wbald-series new-df "pwr")))
+                        (maybe-add-wbald-series! new-df "pwr")))
                  (hash-set! df-cache sid new-df)
                  new-df)))
           (#t
