@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -312,7 +312,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
 
 (define view-session%
   (class* object% (activity-operations<%>)
-    (init parent database)
+    (init parent database select-activity-callback)
     (super-new)
 
     (define session-panel (new vertical-panel%
@@ -436,7 +436,8 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
        (lambda (panel)
          (new similar-routes-panel%
               [parent panel]
-              [database database]))))
+              [database database]
+              [select-activity-callback select-activity-callback]))))
 
     (define installed-tabs '())
 

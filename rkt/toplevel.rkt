@@ -1014,7 +1014,13 @@
       ;; will appear in the `section-selector'
 
       (add-section "Session" 'session-view
-                   (lambda (parent) (new view-session% [parent parent] [database database])))
+                   (lambda (parent)
+                     (new view-session%
+                          [parent parent]
+                          [database database]
+                          [select-activity-callback
+                           (lambda (dbid)
+                             (inspect-session dbid))])))
 
       (add-section "Equipment" 'equipment
                    (lambda (parent)
