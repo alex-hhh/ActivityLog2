@@ -43,3 +43,9 @@
 [submodule "pkgs/colormaps"]
 	path = pkgs/colormaps
 	url = https://github.com/alex-hhh/colormaps.git
+[submodule "pkgs/actor"]
+	path = pkgs/actor
+	url = https://github.com/Bogdanp/racket-actor.git
+[submodule "pkgs/monocle"]
+	path = pkgs/monocle
+	url = https://github.com/Bogdanp/racket-monocle.git

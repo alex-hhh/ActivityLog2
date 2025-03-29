@@ -37,6 +37,8 @@ steps:
       set -e
       raco pkg install --auto http-easy-test
       raco pkg install --auto resource-pool
+      raco pkg install --auto actor-test
+      raco pkg install --auto monocle-test
       PACKAGES=`raco pkg show --user --all | awk 'NR > 1 { print gensub(/\*/, "", "g", $1);  }'`
       for p in $PACKAGES; do
          echo "*** Running tests in $p..."
