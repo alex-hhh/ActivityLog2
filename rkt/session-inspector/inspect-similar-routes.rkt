@@ -36,15 +36,17 @@
 
 (provide similar-routes-panel%)
 
-;; Find the first LAT/LON for the session in DF and return its GEOID.  Note
-;; that, due to start of recording before the GPS is initialized, the first
-;; few samples might not contain valid lat/lon coordinates, so we have to
-;; search.
-(define (get-start-geoid df)
+;; Find the a good LAT/LON for the session in DF and return its GEOID.  We
+;; return a point around the middle of the path, to attempt to filter out as
+;; many routes as possible, since many very different routes may start and end
+;; in the same location, those geoids will produce too many bad candidates
+;; which will need to be filtered out.
+(define (get-search-geoid df)
   (and (df-contains? df "lat" "lon")
-       (for/first ([(lat lng) (in-data-frame df "lat" "lon")]
-                   #:when (and (rational? lat) (rational? lng)))
-         (lat-lng->geoid lat lng))))
+       (let ([search-start (exact-truncate (/ (df-row-count df) 2))])
+         (for/first ([(lat lng) (in-data-frame df "lat" "lon" #:start search-start)]
+                     #:when (and (rational? lat) (rational? lng)))
+         (lat-lng->geoid lat lng)))))
 
 ;; Return a vector of summary values from the database DB for the session id
 ;; SID -- these are the values which we show in the GUI list box.
@@ -149,7 +151,7 @@
   ;; location (geoid) of our session, not just the ones that start in the same
   ;; place
   (define candidate-sessions
-    (let ([start-geoid (get-start-geoid this-session-df)])
+    (let ([start-geoid (get-search-geoid this-session-df)])
       (if start-geoid
           (find-nearby-sessions db start-geoid #:search-geoid-level 15)
           null)))
@@ -185,7 +187,10 @@
                    ;; session distance, same start and end, so we do a proper
                    ;; alignment cost (which is expensive) to find if it is
                    ;; actually similar.
-                   (let ([cost (waypoint-alignment-cost (this-session-geoids) geoids)])
+                   ;;
+                   ;; We use `dtw/window` here, since we expect the paths to
+                   ;; either closely match or be wildly different.
+                   (let ([cost (dtw/window (this-session-geoids) geoids)])
                      (define are-similar?
                        (good-segment-match?
                         cost

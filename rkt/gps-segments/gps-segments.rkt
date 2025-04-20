@@ -3,7 +3,7 @@
 ;; gps-segment.rkt -- GPS Segments implementation
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021-2022, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -503,7 +503,7 @@ where T.length_id = L.id
                      dtw-cost
                      interval-length (- end-index start-index)
                      segment-length (vector-length waypoints)
-                     6.0))
+                     15.0))
       (list start-index
             end-index
             (- end-index start-index)
