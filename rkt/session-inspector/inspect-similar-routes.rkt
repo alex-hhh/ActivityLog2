@@ -116,7 +116,7 @@
 ;; Return #t if TRACK1 and TRACK2 (which are vectors of geoids) start and end
 ;; in the same place, that is their start and end locations are within
 ;; THRESHOLD meters of each other.
-(define (same-start-and-end? track1 track2 (threshold 100.0))
+(define (same-start-and-end? track1 track2 (threshold 200.0))
   (and
    (> (vector-length track1) 0)
    (> (vector-length track2) 0)
