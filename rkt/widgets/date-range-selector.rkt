@@ -223,6 +223,15 @@
                (select-custom-date-panel #f (cons start end))
                (time-selection-callback (cons start end))))))
 
+    ;; Callback when a new season is selected (INDEX is the position in the
+    ;; SEASONS list).
+    (define (on-season-selected control _event)
+      (unless (null? seasons)
+        (let* ([index (send control get-selection)]
+               [season (list-ref seasons index)])
+          (time-selection-callback
+           (cons (vector-ref season 1) (vector-ref season 2))))))
+
     ;; Callback for the custom-range-start widget, invoked with a new, valid
     ;; start range.  Note that this can be 'empty as well.
     (define (on-valid-custom-start-date v)
@@ -323,15 +332,6 @@
              (send custom-date-panel show #t))
             (#t
              (send custom-date-panel show #f))))
-
-    ;; Callback when a new season is selected (INDEX is the position in the
-    ;; SEASONS list).
-    (define (on-season-selected control _event)
-      (unless (null? seasons)
-        (let* ([index (send control get-selection)]
-               [season (list-ref seasons index)])
-          (time-selection-callback
-           (cons (vector-ref season 1) (vector-ref season 2))))))
 
     ;; Return the current date range as a (CONS start-timestamp
     ;; end-timestamp), or #f if no valid date range is selected.
