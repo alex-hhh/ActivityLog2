@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2019, 2021, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -865,7 +865,8 @@
           ;; correctly computed (w/ exponential averaging, all past TSS values
           ;; have a contribution to the present)
           (let ((start (max 0 (- start-date (* 4 default-ctl-range 24 3600))))
-                (end end-date))
+                (end (max end-date
+                          (+ (current-seconds) (* 7 6 24 3600)))))
             (set! pmc-data (prepare-pmc database start end))
             (set! pmc-sessions (fetch-pmc-sessions database start end)))
           (set! session-markers (read-session-markers database params))
