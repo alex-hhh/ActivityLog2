@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2020, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,7 +16,7 @@
          racket/date
          racket/gui/base
          racket/list
-         racket/unit
+         racket/vector
          "date-input-field.rkt")
 
 (provide date-range-selector%)
@@ -122,42 +122,54 @@
 
 ;; Defines a time period, with a tag, name and functions to generate the start
 ;; and end UNIX timestamps for the periods
-(struct tperiod (tag name start-ts end-ts))
+(struct tp (tag name start-ts end-ts))
 
-;; List of time periods available in the date-range-selector%.  Note that we
-;; have some special ones: 'current-dates and 'seasons -- these receive
-;; special treatment in the date-range-selector%.
-(define the-time-periods
-  (list
-   (tperiod 'all-days "all days" (lambda () 0) this-day-end)
-   (tperiod 'custom-dates "custom dates" (lambda () 'custom-dates) this-day-end)
-   (tperiod 'seasons "seasons" (lambda () 'seasons) this-day-end)
-   (tperiod 'last-7-days "last 7 days" last-7-days-start this-day-end)
-   (tperiod 'this-week "this week" this-week-start this-day-end)
-   (tperiod 'last-week "last week" last-week-start this-week-start)
-   (tperiod 'last-30-days "last 30 days" last-30-days-start this-day-end)
-   (tperiod 'this-month "this month" this-month-start this-day-end)
-   (tperiod 'last-month "last month" last-month-start this-month-start)
-   (tperiod 'last-6-weeks "last 6 weeks" last-6-weeks-start this-day-end)
-   (tperiod 'last-6-months "last 6 months" last-6-months-start this-day-end)
-   (tperiod 'last-365-days "last 12 months" last-365-days-start this-day-end)
-   (tperiod 'this-year "this year" this-year-start this-day-end)
-   (tperiod 'last-year "last year" last-year-start this-year-start)))
+(define-values
+  (tp-index-from-tag
+   tp-tag-from-index
+   tp-time-range
+   tp-period-names)
 
-;; Return the position in THE-TIME-PERIODS of the time period identified by
-;; TAG.
-(define (get-time-period-index tag)
-  (for/first (((tp index) (in-indexed (in-list the-time-periods)))
-              #:when (eq? (tperiod-tag tp) tag))
-    index))
-
-;; Return a date range, a (CONS START-TIMESTAMP END-TIMESTAMP) corresponding
-;; to the time period at TIME-PERIOD-INDEX.  Note that START-TIMESTAMP might
-;; not necessarily be a UNIX timestamp (see the 'custom-dates and 'seasons
-;; time period definitions)
-(define (get-date-range time-period-index)
-      (let ((range (list-ref the-time-periods time-period-index)))
-        (cons ((tperiod-start-ts range)) ((tperiod-end-ts range)))))
+  ;; List of time periods available in the date-range-selector%.  Note that we
+  ;; have some special ones: 'current-dates and 'seasons -- these receive
+  ;; special treatment in the date-range-selector%.
+  (let ([the-time-periods
+         (vector
+          (tp 'all-days "all days" (lambda () 0) (lambda () #f))
+          (tp 'custom-dates "custom dates" (lambda () 'custom-dates) (lambda () #f))
+          (tp 'seasons "seasons" (lambda () 'seasons) (lambda () #f))
+          (tp 'last-7-days "last 7 days" last-7-days-start (lambda () #f))
+          (tp 'this-week "this week" this-week-start (lambda () #f))
+          (tp 'last-week "last week" last-week-start this-week-start)
+          (tp 'last-30-days "last 30 days" last-30-days-start (lambda () #f))
+          (tp 'this-month "this month" this-month-start (lambda () #f))
+          (tp 'last-month "last month" last-month-start this-month-start)
+          (tp 'last-6-weeks "last 6 weeks" last-6-weeks-start (lambda () #f))
+          (tp 'last-6-months "last 6 months" last-6-months-start (lambda () #f))
+          (tp 'last-365-days "last 12 months" last-365-days-start (lambda () #f))
+          (tp 'this-year "this year" this-year-start (lambda () #f))
+          (tp 'last-year "last year" last-year-start this-year-start))])
+    (values
+     ;; Return the position in THE-TIME-PERIODS of the time period identified by
+     ;; TAG.
+     (lambda (tag)
+       (for/first ([tp (in-vector the-time-periods)]
+                   [index (in-naturals)]
+                   #:when (eq? (tp-tag tp) tag))
+         index))
+     ;; Return the tag from THE-TIME-PERIODS identified by index
+     (lambda (index)
+       (tp-tag (vector-ref the-time-periods index)))
+     ;; Return a date range, as two values START-TIMESTAMP END-TIMESTAMP
+     ;; corresponding to the time period at TIME-PERIOD-INDEX.  Note that
+     ;; START-TIMESTAMP might not necessarily be a UNIX timestamp (see the
+     ;; 'custom-dates and 'seasons time period definitions)
+     (lambda (index)
+       (let ((range (vector-ref the-time-periods index)))
+         (values ((tp-start-ts range)) ((tp-end-ts range)))))
+     ;; Return a list of time period names, to populate the list control
+     (lambda ()
+       (vector->list (vector-map tp-name the-time-periods))))))
 
 ;; GUI widget to select a date range, which is a start-end UNIX timestamp.
 ;; The widget presents a drop-down box with predefined ranges (see
@@ -169,7 +181,13 @@
 (define date-range-selector%
   (class object%
     (init parent [initial-selection #f])
-    (init-field [callback (lambda (x) #f)])
+    (init-field
+     [callback (lambda (_x) #f)]
+     ;; Defines how to handle the "end" range for ranges such as "last week",
+     ;; "last month", etc.  When #t, the end range will be the timestamp of
+     ;; the end of today, when #f, it will be simply #f and the user must
+     ;; handle receiving a non-numeric value.
+     [this-day-end-as-seconds #t])
     (super-new)
 
     ;; Keep the last selected date range here, a (CONS start end).  When the
@@ -191,26 +209,36 @@
     (define (time-selection-callback date-range)
       (set! last-selected-date-range date-range)
       (when callback
-        (callback date-range)))
+        (if (or (not this-day-end-as-seconds) (number? (cdr date-range)))
+            (callback date-range)
+            (callback (cons (car date-range) (this-day-end))))))
 
     ;; Callback for the time-period-choice, it is invoked when a new time
     ;; period is selected.  Sets up the custom date widgets as necessary and
     ;; calls the user callback with the newly selected date range.
-    (define (on-time-period-selected control event)
-      (let* ((time-period-index (send control get-selection))
-             (date-range (get-date-range time-period-index)))
-        (cond ((eq? (car date-range) 'custom-dates)
+    (define (on-time-period-selected control _event)
+      (let-values ([(start end) (tp-time-range (send control get-selection))])
+        (cond ((eq? start 'custom-dates)
                (select-custom-date-panel 'custom-dates last-selected-date-range)
                (when (and (number? start-date)
                           (number? end-date)
                           (> end-date start-date))
                  (time-selection-callback (cons start-date end-date))))
-              ((eq? (car date-range) 'seasons)
+              ((eq? end 'seasons)
                (select-custom-date-panel 'seasons)
                (on-season-selected (send season-choice get-selection)))
               (#t
-               (select-custom-date-panel #f date-range)
-               (time-selection-callback date-range)))))
+               (select-custom-date-panel #f (cons start end))
+               (time-selection-callback (cons start end))))))
+
+    ;; Callback when a new season is selected (INDEX is the position in the
+    ;; SEASONS list).
+    (define (on-season-selected control _event)
+      (unless (null? seasons)
+        (let* ([index (send control get-selection)]
+               [season (list-ref seasons index)])
+          (time-selection-callback
+           (cons (vector-ref season 1) (vector-ref season 2))))))
 
     ;; Callback for the custom-range-start widget, invoked with a new, valid
     ;; start range.  Note that this can be 'empty as well.
@@ -248,7 +276,7 @@
            [parent pane]
            [label "Time period "]
            [callback on-time-period-selected]
-           [choices (map tperiod-name the-time-periods)]))
+           [choices (tp-period-names)]))
 
     ;; Panel that holds the custom start/end date input widgets
     (define custom-date-panel
@@ -284,7 +312,7 @@
            [stretchable-width #t]
            [style '(deleted)]
            [choices '()]
-           [callback (lambda (c event) (on-season-selected (send c get-selection)))]))
+           [callback on-season-selected]))
 
     ;; Select a custom date selection panel based on MODE.  If MODE is
     ;; 'custom-dates, the start/end date input fields are shown, if it is
@@ -300,32 +328,24 @@
                  ;; if the start/end custom dates are not set, set them now
                  ;; from whatever the previous selection was.
                  (set! start-date (car current-date-range))
-                 (set! end-date (car current-date-range))
+                 (set! end-date (cdr current-date-range))
                  (send custom-range-start set-date-value start-date)
                  (send custom-range-end set-date-value end-date)))
              (send custom-date-panel change-children
-                   (lambda (old) (list custom-range-start custom-range-end)))
+                   (lambda (_old) (list custom-range-start custom-range-end)))
              (send custom-date-panel show #t))
             ((eq? mode 'seasons)
              (send custom-date-panel change-children
-                   (lambda (old) (list season-choice)))
+                   (lambda (_old) (list season-choice)))
              (send custom-date-panel show #t))
             (#t
              (send custom-date-panel show #f))))
 
-    ;; Callback when a new season is selected (INDEX is the position in the
-    ;; SEASONS list).
-    (define (on-season-selected index)
-      (unless (null? seasons)
-        (let ((season (list-ref seasons index)))
-          (time-selection-callback
-           (cons (vector-ref season 1) (vector-ref season 2))))))
-
     ;; Return the current date range as a (CONS start-timestamp
     ;; end-timestamp), or #f if no valid date range is selected.
     (define/public (get-selection)
-      (let ((dr (get-date-range (send time-period-choice get-selection))))
-        (cond ((eq? (car dr) 'custom-dates)
+      (let-values ([(start end) (tp-time-range (send time-period-choice get-selection))])
+        (cond ((eq? start 'custom-dates)
                (if (and (send custom-range-start has-valid-value?)
                         (send custom-range-end has-valid-value?))
                    (let ((start (if (number? start-date) start-date 0))
@@ -334,13 +354,15 @@
                          (cons start end)
                          #f))
                    #f))
-              ((eq? (car dr) 'seasons)
+              ((eq? start 'seasons)
                (if (pair? seasons)
                    (let ((season (list-ref seasons (send season-choice get-selection))))
                      (cons (vector-ref season 1) (vector-ref season 2)))
                    #f))
               (#t
-               dr))))
+               (if (or (not this-day-end-as-seconds) (number? end))
+                   (cons start end)
+                   (cons start (this-day-end)))))))
 
     ;; Set a new list of seasons and attempt to select the same season again.
     ;; This is needed since set-seasons will can be called repeatedly on
@@ -366,10 +388,9 @@
     ;; saved somewhere and can later be used to set this, or another
     ;; date-range-selector% to the same values by calling RESTORE-FROM.
     (define/public (get-restore-data)
-      (let ((tp (list-ref the-time-periods (send time-period-choice get-selection)))
-            (sn (and (pair? seasons) (send season-choice get-selection))))
+      (let ((sn (and (pair? seasons) (send season-choice get-selection))))
         (list
-         (tperiod-tag tp)
+         (tp-tag-from-index (send time-period-choice get-selection))
          (and sn (vector-ref (list-ref seasons sn) 0))
          (send custom-range-start get-converted-value)
          (send custom-range-end get-converted-value))))
@@ -383,7 +404,7 @@
             (start (third data))
             (end (fourth data)))
         (when tag
-          (let ((index (get-time-period-index tag)))
+          (let ((index (tp-index-from-tag tag)))
             (when index
               (send time-period-choice set-selection index)))
           (select-custom-date-panel tag))

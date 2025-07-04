@@ -2,7 +2,7 @@
 ;; trends-chart.rkt -- common trend chart functionality
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -482,17 +482,21 @@
 ;; label of each type for a day, this means, for example we won't show
 ;; multiple "race" labels in a triathlon, just because the swim, bike and run
 ;; legs were on the same day and all were labeled "race".
+;;
+;; Note also that we can handle null values for start and end times by
+;; selecting a date a long time in the past or a long time in the future...
 
 (define session-marker-query-template
   "
 select date(S.start_time, 'unixepoch', 'localtime', 'start of day') as period,
-        min(S.start_time),
-        L.name
+       min(S.start_time),
+       L.name
   from A_SESSION S, SESSION_LABEL SL, LABEL L, ACTIVITY A
  where SL.session_id = S.id
    and SL.label_id = L.id
    and S.activity_id = A.id
-   and S.start_time between ? and ?
+   and S.start_time between ifnull(?, strftime('%s', '1900-01-01'))
+                        and ifnull(?, strftime('%s', '2500-01-01'))
    and SL.label_id in (~a)
 group by period
 order by S.start_time")
@@ -516,7 +520,7 @@ order by S.start_time")
       '()                 ; if no labels are selected, don't show any sessions
       (let ([q (format session-marker-query-template
                        (string-join (map ~a labels) ","))])
-        (query-rows db q start end))))
+        (query-rows db q (or start sql-null) (or end sql-null)))))
 
 (define (make-marker-badge label timestamp)
   (define font (send the-font-list find-or-create-font 8 'default 'normal 'bold))

@@ -3,7 +3,7 @@
 ;; trend-pmc.rkt -- "Performance Management Chart"
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2019, 2021, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -99,7 +99,9 @@
 
     (define date-range-selector
       (let ([gb (make-group-box-panel (send this get-client-pane))])
-        (new date-range-selector% [parent gb])))
+        (new date-range-selector%
+             [parent gb]
+             [this-day-end-as-seconds #f])))
 
     (define labels-input
       (let ([gb (make-group-box-panel (send this get-client-pane))])
@@ -865,7 +867,11 @@
           ;; correctly computed (w/ exponential averaging, all past TSS values
           ;; have a contribution to the present)
           (let ((start (max 0 (- start-date (* 4 default-ctl-range 24 3600))))
-                (end end-date))
+                (end (if (number? end-date)
+                         end-date
+                         ;; Add a future period if the date range extends to
+                         ;; today -- this makes the plot look nicer.
+                         (+ (current-seconds) (* 6 7 24 3600)))))
             (set! pmc-data (prepare-pmc database start end))
             (set! pmc-sessions (fetch-pmc-sessions database start end)))
           (set! session-markers (read-session-markers database params))
