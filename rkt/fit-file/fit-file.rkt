@@ -2,7 +2,7 @@
 ;; fit-file.rkt -- read and write .FIT files.
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -1155,17 +1155,17 @@
           (if (null? sessions)
               (begin
                 (unless (null? laps)
-                  (printf "*** leftover laps (~a items)~%" (length laps)))
+                  (dbglog "leftover laps (~a items)~%" (length laps)))
                 (unless (null? lengths)
-                  (printf "*** leftover lengths (~a items)~%" (length lengths)))
+                  (dbglog "leftover lengths (~a items)~%" (length lengths)))
                 (unless (null? records)
-                  (printf "*** leftover records (1) (~a items)~%" (length records)))
+                  (dbglog "leftover records (1) (~a items)~%" (length records)))
                 (unless (null? devices)
-                  (printf "*** leftover devices (~a items)~%" (length devices)))
+                  (dbglog "leftover devices (~a items)~%" (length devices)))
                 (unless (null? weather)
-                  (printf "*** leftover weather conditions (~a items)~%" (length weather)))
+                  (dbglog "leftover weather conditions (~a items)~%" (length weather)))
                 (unless (null? gear-change)
-                  (printf "*** leftover gear change events (~a items)~%" (length gear-change)))
+                  (dbglog "leftover gear change events (~a items)~%" (length gear-change)))
                 rsessions)
               (let* ([s (car sessions)]
                      [session-stc (make-start-time-checker (get-start-time s))])
