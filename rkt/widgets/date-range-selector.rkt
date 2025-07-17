@@ -224,9 +224,9 @@
                           (number? end-date)
                           (> end-date start-date))
                  (time-selection-callback (cons start-date end-date))))
-              ((eq? end 'seasons)
+              ((eq? start 'seasons)
                (select-custom-date-panel 'seasons)
-               (on-season-selected (send season-choice get-selection)))
+               (on-season-selected season-choice #f))
               (#t
                (select-custom-date-panel #f (cons start end))
                (time-selection-callback (cons start end))))))
