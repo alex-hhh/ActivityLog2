@@ -331,7 +331,11 @@
                     (define previous-point (vector-ref sdata (sub1 index)))
                     (define x0 (vector-ref previous-point 0))
                     (define y0 (vector-ref previous-point 1))
-                    (define alpha (/ (- end x0) (- x x0)))
+                    (define alpha
+                      ;; handle bad data, two points with same X value, see AB#82
+                      (if (zero? (- x x0))
+                          0.5
+                          (/ (- end x0) (- x x0))))
                     (define end-y (+ y0 (* alpha (- y y0))))
                     (define split-point (vector end end-y))
                     (define npoints (cons split-point points))
