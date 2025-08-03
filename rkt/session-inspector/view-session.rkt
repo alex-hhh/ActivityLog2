@@ -562,14 +562,16 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
     ;; even if the view is not active, so there is the potential of slowing
     ;; things down when there are a lot of updates.  Unfortunately, hooking
     ;; into 'activated' does not work, as updates while this view is active
-    ;; (e.g. changing critical power params) will not work.
-    (define change-processing-thread
+    ;; (e.g. changing critical power params) will not cause that method to be
+    ;; invoked.
+    (define _change-processing-thread
       (thread/dbglog
        #:name "view-session%/change-notification-thread"
        (lambda ()
          (let loop ((item (async-channel-get change-notification-source)))
            (when item
              (match-define (list tag data) item)
+             (send (tdata-contents similar-routes) on-session-changed tag data)
              (case tag
                ((session-deleted)
                 (queue-callback

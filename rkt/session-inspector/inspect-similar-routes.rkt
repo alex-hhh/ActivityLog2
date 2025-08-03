@@ -333,6 +333,8 @@
       (send sessions-lv save-visual-layout))
 
     (define generation 0)
+    (define search-in-progress? #f)
+    (define delayed-session-updates null)
 
     (define/public (set-session session df)
       (define this-session-sid (df-get-property df 'session-id))
@@ -342,6 +344,7 @@
         (send progress-bar set-value 0)
         (send progress-message set-label "Looking for similar sessions...")
         (send panel change-children (lambda (_old) (list progress-bar-panel)))
+        (set! search-in-progress? #t)
         (define this-generation generation)
         (thread/dbglog
          (lambda ()
@@ -376,6 +379,7 @@
            (when (equal? this-generation generation)
              (queue-callback
               (lambda ()
+                (set! search-in-progress? #f)
                 (if have-similar-sessions?
                     (let* ([sport (df-get-property df 'sport)]
                            [column-definitions
@@ -388,8 +392,44 @@
                                similar-routes-cycling-columns))])
                       (send sessions-lv setup-column-defs column-definitions)
                       (send sessions-lv set-data similar-sessions)
-                      (send panel change-children (lambda (_old) (list data-panel))))
+                      (send panel change-children (lambda (_old) (list data-panel)))
+                      ;; re-process any session updates that happened while we
+                      ;; were searching for sessions...
+                      (for ([update (in-list delayed-session-updates)])
+                        (on-session-changed (car update) (cdr update)))
+                      (set! delayed-session-updates null))
                     (send panel change-children (lambda (_old) (list no-similar-sessions-panel)))))))
 
            ))))
+
+    ;; This is really inefficient, but qresults-list% sorts and reorders the
+    ;; data -- I really need to update qresults-list%
+    (define/private (row-index-for-sid sid)
+      (for/or ([pos (in-range (send sessions-lv get-row-count))])
+        (let ([data (send sessions-lv get-data-for-row pos)])
+          (if (and data (= sid (vector-ref data 0)))
+              pos #f))))
+
+    ;; called by view-session% when sessions in the application are changed
+    ;; (see the `change-processing-thread`) we check if the SESSION-ID is
+    ;; displayed in our list and update it if necessary.  CHANGE is one of
+    ;; 'session-deleted 'session-updated, etc, see docs/gui-consistency.md for
+    ;; possible values.
+    (define/public (on-session-changed change session-id)
+      (if search-in-progress?
+          (set! delayed-session-updates (cons (cons change session-id) delayed-session-updates))
+          (case change
+            ((session-updated session-id)
+             (let ([index (row-index-for-sid session-id)])
+               (when index
+                 (let ([data (fetch-session-summary database session-id)])
+                   (send sessions-lv update-row index data)))))
+            ((session-deleted session-id)
+             (let ([index (row-index-for-sid session-id)])
+               (when index
+                 (send sessions-lv delete-row index))))
+            (else                       ; don't handle anything else
+             (void))
+            )))
+
     ))
