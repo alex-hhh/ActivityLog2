@@ -2,7 +2,7 @@
 ;; about-frame.rkt -- show the about dialog for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019-2020, 2022-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2020, 2022-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -23,9 +23,10 @@
          "../app-info.rkt"
          "../dbapp.rkt")
 
-; SQLite Version Number
+
 (define-runtime-path logo-file "../../img/logo/ActivityLog2.png")
 
+; SQLite Version Number
 (define (sqlite-version-as-string)
   ;; https://sqlite.org/c3ref/c_source_id.html
   (define v (sqlite3_libversion_number))
@@ -96,7 +97,7 @@
 
   (insert-newline editor)
   (insert-heading editor "ActivityLog2 - analyze data from swim, bike and run activities")
-  (insert-text editor "Copyright (C) 2015 - 2024, Alex Harsányi")
+  (insert-text editor "Copyright (C) 2015 - 2025, Alex Harsányi")
   (insert-newline editor)
   (insert-newline editor)
   (insert-text editor "Project source: ")

@@ -9,6 +9,25 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2025.08 (August 2025)
+
+* Support for showing gear shift data recorded in FIT files.  New plots
+  available for the charts view: front/rear gear index, front/rear gear teeth
+  count and gear ratio.
+
+* Support reading wind speed data from FIT files recorded with the Wahoo Ace
+  device.  More generally, the FIT reader recognizes developer fields in FIT
+  files which are not associated with a specific application GUID.  (AB#70)
+
+* Add "Similar Routes" tab to Session Inspector, showing activities that
+  follow the same route as the current activity.
+
+* The PMC chart how shows 6 weeks future time-line when one of the "last x
+  days/months" option is selected (AB#78)
+
+* Fixed a bug that could prevent showing the elevation profile in the map view
+  for some activities (AB#82)
+
 # Release 2024.09 (September 2024)
 
 * Update FIT file reader to handle lap records at the start for lap swimming
