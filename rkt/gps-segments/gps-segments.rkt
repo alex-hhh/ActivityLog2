@@ -22,18 +22,87 @@
          data-frame/gpx
          db/base
          geoid
+         geoid/geodesy
          geoid/waypoint-alignment
          math/statistics
          racket/async-channel
          racket/contract
+         racket/generator
          racket/match
+         racket/math
          racket/port
          "../database.rkt"
          "../dbutil.rkt"
-         "../intervals.rkt"  ; for total-ascent-descent, make-interval-summary
+         "../intervals.rkt"
          "../models/fiets-score.rkt"
          "../models/grade-series.rkt"
          "../utilities.rkt")
+
+;; Return a new gps segment that follows the same course in the data frame df,
+;; but interpolated so there is at most MAX-STEP-DISTANCE meters between
+;; adjacent points.  This version assumes the data frame has an altitude
+;; series ("alt") which is interpolated between newly generated points
+(define (upsample-segment-data/alt df max-step-distance)
+  (for/data-frame (lat lon alt geoid)
+    (((lat1 lon1 alt1) (in-data-frame df "lat" "lon" "alt" #:start 0))
+     ((lat2 lon2 alt2) (in-sequences
+                        (in-data-frame df "lat" "lon" "alt" #:start 1)
+                        ;; add an extra element to the end of the sequence, so the
+                        ;; last element in the data frame is included in the
+                        ;; interpolation.
+                        (in-generator #:arity 3 (yield #f #f #f))))
+     #:do ((define-values (lat1^ lon1^ lat2^ lon2^)
+             (values (degrees->radians lat1)
+                     (degrees->radians lon1)
+                     (and lat2 (degrees->radians lat2))
+                     (and lon2 (degrees->radians lon2))))
+           (define-values (distance bearing _final-bearing)
+             (if (and lat2^ lon2^)
+                 (vincenty-inverse lon1^ lat1^ lon2^ lat2^ #:ellipsoid (geodesy-ellipsoid))
+                 (values max-step-distance 0.0 0.0)))
+           (define step-count (exact-ceiling (/ distance max-step-distance)))
+           (define step-length (if (zero? step-count) 0 (/ distance step-count)))
+           (define alt-delta (if (or (zero? step-count)
+                                     (not (rational? alt1))
+                                     (not (rational? alt2)))
+                                 0
+                                 (/ (- alt2 alt1) step-count))))
+     (step (in-range step-count)))
+    (define-values (nlon nlat _new-bearing)
+      (vincenty-direct lon1^ lat1^ bearing (* step step-length)))
+    (define-values (lat lon)
+      (values (radians->degrees nlat) (radians->degrees nlon)))
+    (values lat lon (and alt1 (+ alt1 (* step alt-delta)))
+            (lat-lng->geoid lat lon))))
+
+;; Same as upsample-segment-data/alt, but no altitude series is interpolated
+;; and generated in the returned data frame
+(define (upsample-segment-data/no-alt df max-step-distance)
+  (for/data-frame (lat lon geoid)
+    (((lat1 lon1) (in-data-frame df "lat" "lon" #:start 0))
+     ((lat2 lon2) (in-sequences
+                   (in-data-frame df "lat" "lon" #:start 1)
+                   ;; add an extra element to the end of the sequence, so the
+                   ;; last element in the data frame is included in the
+                   ;; interpolation.
+                   (in-generator #:arity 2 (yield #f #f))))
+     #:do ((define-values (lat1^ lon1^ lat2^ lon2^)
+             (values (degrees->radians lat1)
+                     (degrees->radians lon1)
+                     (and lat2 (degrees->radians lat2))
+                     (and lon2 (degrees->radians lon2))))
+           (define-values (distance bearing _final-bearing)
+             (if (and lat2^ lon2^)
+                 (vincenty-inverse lon1^ lat1^ lon2^ lat2^ #:ellipsoid (geodesy-ellipsoid))
+                 (values max-step-distance 0.0 0.0)))
+           (define step-count (exact-ceiling (/ distance max-step-distance)))
+           (define step-length (if (zero? step-count) 0 (/ distance step-count))))
+     (step (in-range step-count)))
+    (define-values (nlon nlat _new-bearing)
+      (vincenty-direct lon1^ lat1^ bearing (* step step-length)))
+    (define-values (lat lon)
+      (values (radians->degrees nlat) (radians->degrees nlon)))
+    (values lat lon (lat-lng->geoid lat lon))))
 
 ;; Add all necessary data series and properties to a segment -- the segment
 ;; must have latitude and longitude data, and this function will construct all
@@ -133,8 +202,12 @@
 ;; `fixup-segment-data` to add any series and properties which are missing.
 (define (gps-segment-from-gpx input)
   (define df (df-read/gpx input))
-  (fixup-segment-data df)
-  df)
+  (define df1
+    (if (df-contains? df "alt")
+        (upsample-segment-data/alt df 20)
+        (upsample-segment-data/no-alt df 20)))
+  (fixup-segment-data df1)
+  df1)
 
 ;; Create a new GPS segment by reversing ORIGINAL, that is we traverse this
 ;; segment in the opposite direction for the latitude, longitude and altitude

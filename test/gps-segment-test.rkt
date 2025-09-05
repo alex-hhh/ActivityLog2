@@ -3,7 +3,7 @@
 ;; gps-segment-test.rkt -- tests for the GPS Segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,6 +21,7 @@
 (require al2-test-runner
          rackunit
          data-frame
+         data-frame/gpx
          db
          racket/match
          "../rkt/utilities.rkt"
@@ -37,7 +38,7 @@
 
 ;; Verify the sanity of the ecc.gpx segment
 (define (check-ecc-segment segment)
-  (check = (df-row-count segment) 42)
+  (check > (df-row-count segment) 0)
   (check-true (df-contains? segment "lat" "lon" "geoid" "dst" "alt" "grade"))
   (check-pred number? (df-get-property segment 'segment-length #f))
   (check-pred number? (df-get-property segment 'segment-height #f))
@@ -51,7 +52,7 @@
 
 ;; Verify the sanity of the ecc-no-alt.gpx segment
 (define (check-ecc-no-alt-segment segment)
-  (check = (df-row-count segment) 42)
+  (check > (df-row-count segment) 0)
   (check-true (df-contains? segment "lat" "lon" "geoid" "dst"))
   (check-false (df-contains/any? segment "alt" "grade"))
   (check-pred number? (df-get-property segment 'segment-length #f))
@@ -68,13 +69,19 @@
   (test-suite
    "GPS Segments"
    (test-case "get/put segment (ecc)"
-     (define segment (gps-segment-from-gpx "./test-data/ecc.gpx"))
+     (define gpx-file "./test-data/ecc.gpx")
+     (define raw-gpx (df-read/gpx gpx-file))
+     (define segment (gps-segment-from-gpx gpx-file))
+     ;; Reading the GPX file as a segment should have interpolated points to
+     ;; not have big distances between adjacent data points
+     (check > (df-row-count segment) (df-row-count raw-gpx))
      (check-ecc-segment segment)
      (with-fresh-database
        (lambda (db)
          (define segment-id (put-new-gps-segment db segment))
          (check = (query-value db "select count(*) from GPS_SEGMENT") 1)
-         (check = (query-value db "select count(*) from GPS_SEGMENT_WAYPOINT where segment_id = ?" segment-id) 42)
+         (check = (query-value db "select count(*) from GPS_SEGMENT_WAYPOINT where segment_id = ?" segment-id)
+                (df-row-count segment))
          (define nsegment (fetch-gps-segment db segment-id))
          (check-ecc-segment nsegment)
          (delete-gps-segment db segment-id)
@@ -82,13 +89,19 @@
          (check = (query-value db "select count(*) from GPS_SEGMENT_WAYPOINT") 0))))
 
    (test-case "get/put segment (ecc-no-alt)"
-     (define segment (gps-segment-from-gpx "./test-data/ecc-no-alt.gpx"))
+     (define gpx-file "./test-data/ecc-no-alt.gpx")
+     (define raw-gpx (df-read/gpx gpx-file))
+     (define segment (gps-segment-from-gpx gpx-file))
+     ;; Reading the GPX file as a segment should have interpolated points to
+     ;; not have big distances between adjacent data points
+     (check > (df-row-count segment) (df-row-count raw-gpx))
      (check-ecc-no-alt-segment segment)
      (with-fresh-database
        (lambda (db)
          (define segment-id (put-new-gps-segment db segment))
          (check = (query-value db "select count(*) from GPS_SEGMENT") 1)
-         (check = (query-value db "select count(*) from GPS_SEGMENT_WAYPOINT where segment_id = ?" segment-id) 42)
+         (check = (query-value db "select count(*) from GPS_SEGMENT_WAYPOINT where segment_id = ?" segment-id)
+                (df-row-count segment))
          (define nsegment (fetch-gps-segment db segment-id))
          (check-ecc-no-alt-segment nsegment)
          (delete-gps-segment db segment-id)
