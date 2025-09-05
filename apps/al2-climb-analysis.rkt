@@ -5,7 +5,7 @@
 ;; see https://alex-hhh.github.io/2021/04/climb-analysis-tool.html
 ;;
 ;; This file is part of AL2-Climb-Analysis
-;; Copyright (c) 2021, 2022, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -396,12 +396,12 @@
         (send cll current-location #f)
         (return (void)))
 
-      (define location (df-lookup df "dst/km" '("lat" "lon") dst))
+      (define location (df-lookup/interpolated df "dst/km" '("lat" "lon") dst))
       (if (and (vector-ref location 0) (vector-ref location 1))
           (send cll current-location location)
           (send cll current-location #f))
 
-      (match-define (vector alt grade) (df-lookup df "dst/km" '("alt" "grade") dst))
+      (match-define (vector alt grade) (df-lookup/interpolated df "dst/km" '("alt" "grade") dst))
 
       (define renderers
         (if (and alt grade)
@@ -418,7 +418,7 @@
                                   ("Grade" ,(~r* grade #:precision 1) "%")))])
             (list (vrule dst #:style 'long-dash)
                   (point-pict
-                   (vector dst _alt)
+                   (vector dst alt)
                    (if climb-badge
                        (hc-append 3 main-badge climb-badge)
                        main-badge)
