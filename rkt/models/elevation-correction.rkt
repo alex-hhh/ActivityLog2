@@ -2,7 +2,7 @@
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2022, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -48,6 +48,106 @@
 ;; (which is passed into `elevation-correction`, the geoid, distance from the
 ;; start (DST) and the corrected altitude (CALT)
 (struct ecpoint (id geoid dst (calt #:mutable)) #:transparent)
+
+;; Smooth the altitude in TRACKPOINTS using a g-h filter (I think).  It
+;; smooths by tracking both elevation and slope and dynamically adjusts the g
+;; and h factors.  Also, smooths the points in both directions and merges the
+;; result -- this works since the elevation profile works both ways...
+;;
+;; interpolate-missing-data? controls whether to interpolate altitude where
+;; data is missing, or leave those values as #f.
+(define (smooth-altitude! trackpoints interpolate-missing-data?)
+  ;; The filter with determines the distance at which we have a 50% split
+  ;; between measurement and prediction.  For distances greater than this, we
+  ;; trust the measurement more, for distances less than this, we trust the
+  ;; prediction more.
+  (define filter-width 50.0)
+  (define point-count (vector-length trackpoints))
+  (define forward (make-vector point-count #f)) ; smoothed points moving forward
+  (define backward (make-vector point-count #f)) ; smoothed points in reverse
+
+  (for/fold ([pdst 0.0]
+             [prior #f]
+             [slope 0.0])
+            ([p (in-vector trackpoints)]
+             [n (in-naturals)])
+    (match-define (ecpoint _id _geoid dst measured) p)
+    (if prior
+        (let* ([delta (- dst pdst)]
+               [predicted (+ prior (* slope delta))])
+          (cond ((zero? delta) ; yes, some data sets have duplicate points
+                 (vector-set! forward n prior)
+                 (values dst prior slope))
+                (measured
+                 (let* ([alpha (/ delta (+ delta filter-width))]
+                        [updated (+ (* alpha measured)
+                                    (* (- 1.0 alpha) predicted))]
+                        [measured-slope (/ (- updated prior) delta)]
+                        [updated-slope (+ (* alpha measured-slope)
+                                          (* (- 1.0 alpha) slope))])
+                   (vector-set! forward n updated)
+                   (values dst updated updated-slope)))
+                (interpolate-missing-data?
+                 ;; use the slope prediction to create some "best guess"
+                 ;; values.
+                 (vector-set! forward n predicted)
+                 (values dst predicted slope))
+                (#t
+                 ;; we had no measurement and this is a separate point
+                 ;; (delta > 0), and we were asked not to interpolate.
+                 ;; Reset the filter, and don't update the data, leaving
+                 ;; the #f in there -- the caller could back-fill them if
+                 ;; they so choose, as it is risky to make up new values
+                 ;; without reference measurements.
+                 (values dst #f 0.0))))
+        (begin
+          (vector-set! forward n measured)
+          (values dst measured 0.0))))
+
+  (for/fold ([pdst 0.0]
+             [prior #f]
+             [slope 0.0])
+            ([p (in-vector trackpoints (sub1 point-count) -1 -1)]
+             [n (in-naturals)])
+    (match-define (ecpoint _id _geoid dst measured) p)
+    (if prior
+        (let* ([delta (- pdst dst)]
+               [predicted (+ prior (* slope delta))])
+          (cond ((zero? delta) ; yes, some data sets have duplicate points
+                 (vector-set! backward (- point-count n 1) prior)
+                 (values dst prior slope))
+                (measured
+                 (let* ([alpha (/ delta (+ delta filter-width))]
+                        [updated (+ (* alpha measured)
+                                    (* (- 1.0 alpha) predicted))]
+                        [measured-slope (/ (- updated prior) delta)]
+                        [updated-slope (+ (* alpha measured-slope)
+                                          (* (- 1.0 alpha) slope))])
+                   (vector-set! backward (- point-count n 1) updated)
+                   (values dst updated updated-slope)))
+                (interpolate-missing-data?
+                 ;; use the slope prediction to create some "best guess"
+                 ;; values.
+                 (vector-set! backward (- point-count n 1) predicted)
+                 (values dst predicted slope))
+                (#t
+                 ;; we had no measurement and this is a separate point
+                 ;; (delta > 0), and the user asked not to interpolate.
+                 ;; Reset the filter, and don't update the data, leaving
+                 ;; the #f in there -- the caller could back-fill them if
+                 ;; they so choose, as it is risky to make up new values
+                 ;; without reference measurements.
+                 (values dst #f 0.0))))
+        (begin
+          (vector-set! backward (- point-count n 1) measured)
+          (values dst measured 0.0))))
+
+  ;; Combine the smoothed points from the forward and backward runs to
+  ;; produce the final smoothed result.
+  (for ([p (in-vector trackpoints)]
+        [f (in-vector forward)]
+        [b (in-vector backward)])
+    (set-ecpoint-calt! p (if (and f b) (* 0.5 (+ f b)) #f))))
 
 ;; Helper class to manage the averaging of altitude data from GEOIDs.  To
 ;; avoid retrieving the same data repeatedly, we cache various intermediate
@@ -208,8 +308,8 @@
                   ([g (in-list (cons area-geoid (adjacent-geoids area-geoid)))])
           (define avg-alt (average-altitude g))
           (if avg-alt
-              (let* [(distance (distance-between-geoids geoid g))
-                     [weight (flmax 0.0 (fl/ hw-distance (fl+ distance hw-distance)))]]
+              (let* ([distance (distance-between-geoids geoid g)]
+                     [weight (flmax 0.0 (fl/ hw-distance (fl+ distance hw-distance)))])
                 (values (fl+ (fl* weight avg-alt) sum) (fl+ div weight)))
               (values sum div))))
 
@@ -238,102 +338,19 @@
               (set! prev-geoid geoid)
               (ecpoint id geoid distance (weighted-average-altitude geoid))))))
 
-    ;; Smooth the altitude in TRACKPOINTS using a g-h filter (I think).  It
-    ;; smooths by tracking both elevation and slope and dynamically adjusts
-    ;; the g and h factors.  Also, smooths the points in both directions and
-    ;; merges the result -- this works since the elevation profile works both
-    ;; ways...
-    (define/private (smooth-altitude trackpoints)
-      ;; The filter with determines the distance at which we have a 50% split
-      ;; between measurement and prediction.  For distances greater than this,
-      ;; we trust the measurement more, for distances less than this, we trust
-      ;; the prediction more.
-      (define filter-width 50.0)
-      (define point-count (vector-length trackpoints))
-      (define forward (make-vector point-count #f)) ; smoothed points moving forward
-      (define backward (make-vector point-count #f)) ; smoothed points in reverse
-
-      (for/fold ([pdst 0.0]
-                 [prior #f]
-                 [slope 0.0])
-                ([p (in-vector trackpoints)]
-                 [n (in-naturals)])
-        (match-define (ecpoint _id _geoid dst measured) p)
-        (if prior
-            (let* ([delta (- dst pdst)]
-                   [predicted (+ prior (* slope delta))])
-              (cond ((zero? delta) ; yes, some data sets have duplicate points
-                     (vector-set! forward n prior)
-                     (values dst prior slope))
-                    (measured
-                     (let* ([alpha (/ delta (+ delta filter-width))]
-                            [updated (+ (* alpha measured)
-                                        (* (- 1.0 alpha) predicted))]
-                            [measured-slope (/ (- updated prior) delta)]
-                            [updated-slope (+ (* alpha measured-slope)
-                                              (* (- 1.0 alpha) slope))])
-                       (vector-set! forward n updated)
-                       (values dst updated updated-slope)))
-                    (#t
-                     ;; we had no measurement and this is a separate point
-                     ;; (delta > 0), so we reset the filter, but don't update
-                     ;; the data, leaving the #f in there -- the caller can
-                     ;; back-fill them if they so choose, but it is risky to
-                     ;; make up new values without reference measurements.
-                     (values dst #f 0.0))))
-            (begin
-              (vector-set! forward n measured)
-              (values dst measured 0.0))))
-
-      (for/fold ([pdst 0.0]
-                 [prior #f]
-                 [slope 0.0])
-                ([p (in-vector trackpoints (sub1 point-count) -1 -1)]
-                 [n (in-naturals)])
-        (match-define (ecpoint _id _geoid dst measured) p)
-        (if prior
-            (let* ([delta (- pdst dst)]
-                   [predicted (+ prior (* slope delta))])
-              (cond ((zero? delta) ; yes, some data sets have duplicate points
-                     (vector-set! backward (- point-count n 1) prior)
-                     (values dst prior slope))
-                    (measured
-                     (let* ([alpha (/ delta (+ delta filter-width))]
-                            [updated (+ (* alpha measured)
-                                        (* (- 1.0 alpha) predicted))]
-                            [measured-slope (/ (- updated prior) delta)]
-                            [updated-slope (+ (* alpha measured-slope)
-                                              (* (- 1.0 alpha) slope))])
-                       (vector-set! backward (- point-count n 1) updated)
-                       (values dst updated updated-slope)))
-                    (#t
-                     ;; we had no measurement and this is a separate point
-                     ;; (delta > 0), so we reset the filter, but don't update
-                     ;; the data, leaving the #f in there -- the caller can
-                     ;; back-fill them if they so choose, but it is risky to
-                     ;; make up new values without reference measurements.
-                     (values dst #f 0.0))))
-            (begin
-              (vector-set! backward (- point-count n 1) measured)
-              (values dst measured 0.0))))
-
-      ;; Combine the smoothed points from the forward and backward runs to
-      ;; produce the final smoothed result.
-      (for ([p (in-vector trackpoints)]
-            [f (in-vector forward)]
-            [b (in-vector backward)])
-        (set-ecpoint-calt! p (if (and f b) (* 0.5 (+ f b)) #f))))
-
     ;; trackpoints is a list of vectors, each vector has at least 2 slots: the
     ;; first one is an ID (copied in the returned ecpoint vector and the second
     ;; one is a GEOID representing the location.
     (define/public (elevation-correction/geoid
                     trackpoints
+                    #:smooth-altitude? (smooth-altitude? #t)
+                    #:interpolate-missing-data? [interpolate-missing-data? #f]
                     #:progress-monitor [progress-monitor #f]
                     #:progress-step [progress-step 100])
       (define tp (weighted-altitude-for-trackpoints
                   trackpoints progress-monitor progress-step))
-      (smooth-altitude tp)
+      (when smooth-altitude?
+        (smooth-altitude! tp interpolate-missing-data?))
       tp)
 
     ))
@@ -346,9 +363,14 @@
 ;; trackpoints is a list of vectors, each vector has at least 2 slots: the
 ;; first one is an ID (copied in the returned ecpoint vector and the second
 ;; one is a GEOID representing the location.
-(define (elevation-correction/geoid db trackpoints)
+(define (elevation-correction/geoid
+         db trackpoints
+         #:smooth-altitude? (smooth-altitude? #t)
+         #:interpolate-missing-data? (interpolate-missing-data? #f))
   (define helper (new ec-helper% [database db]))
-  (send helper elevation-correction/geoid trackpoints))
+  (send helper elevation-correction/geoid trackpoints
+        #:smooth-altitude? smooth-altitude?
+        #:interpolate-missing-data? interpolate-missing-data?))
 
 
 ;;............................................................. provides ....
@@ -360,13 +382,18 @@
    (init [database connection?])
    (elevation-correction/geoid
     (->*m ((listof (vector/c any/c valid-geoid?)))
-          (#:progress-monitor (or/c #f object?)
+          (#:smooth-altitude? boolean?
+           #:interpolate-missing-data? boolean?
+           #:progress-monitor (or/c #f object?)
            #:progress-step positive-integer?)
           (vectorof ecpoint?)))))
 
 (provide/contract
  [elevation-correction/geoid
-  (-> connection?
-      (listof (vector/c any/c valid-geoid?))
-      (vectorof ecpoint?))]
+  (->* (connection?
+        (listof (vector/c any/c valid-geoid?)))
+       (#:smooth-altitude? boolean?
+        #:interpolate-missing-data? boolean?)
+       (vectorof ecpoint?))]
+ [smooth-altitude! (-> (vectorof ecpoint?) boolean? void?)]
  [ec-helper% ec-helper%/c])
