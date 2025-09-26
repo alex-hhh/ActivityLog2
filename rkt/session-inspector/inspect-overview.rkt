@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -200,43 +200,7 @@
                     session-total-vertical-travel
                     (lambda (v) (vertical-distance->string v #t)))))
 
-(define *run-badge-definitions*
-  (list
-   (badge-def "Summary" 1 *color-16* *run-summary-fields*)
-   (badge-def "Timing"  2 *timing-color* *run-timing-fields*)
-   (badge-def "Elevation"  3 *elevation-color* *elevation-fields*)
-   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
-   (badge-def "Run Cadence" 5 *cadence-color* *run-cadence-fields*)
-   (badge-def "Weather" 6 *weather-color* *weather-fields*)))
-
-
-;;................................................... info fields biking ....
-
-(define *bike-summary-fields*
-  (list
-   (badge-field-def "Distance: " session-distance (lambda (v) (distance->string v #t)))
-   (badge-field-def "Time: " session-time duration->string)
-   (badge-field-def "Avg Speed: " session-avg-speed (lambda (v) (speed->string v #t)))
-   (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
-   (badge-field-def "Calories: " session-calories calories->string)
-   (badge-field-def "Training Effect: " session-training-effect number->string)
-   (badge-field-def "Effort: " session-training-stress-score
-                    (lambda (v) (format "~a" (exact-round v))))
-   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))))
-
-(define *bike-timing-fields*
-  (list
-   (badge-field-def "Time: " session-time duration->string)
-   (badge-field-def "Elapsed Time: " session-elapsed-time duration->string)
-   (badge-field-def "Avg Speed: " session-avg-speed (lambda (v) (speed->string v #t)))
-   (badge-field-def "Max Speed: " session-max-speed (lambda (v) (speed->string v #t)))))
-
-(define *bike-cadence-fields*
-  (list
-   (badge-field-def "Avg Bike Cadence: " session-avg-cadence (lambda (v) (cadence->string v 'biking)))
-   (badge-field-def "Max Bike Cadence: " session-max-cadence (lambda (v) (cadence->string v 'biking)))))
-
-(define *bike-power-fields*
+(define *power-fields*
   (list
    (badge-field-def "Avg Power: " session-avg-power (lambda (v) (power->string v #t)))
    (badge-field-def "Max Power: " session-max-power (lambda (v) (power->string v #t)))
@@ -312,6 +276,43 @@
                        (power-phase->string (list-ref v 2) (list-ref v 3)))))))
 
 
+(define *run-badge-definitions*
+  (list
+   (badge-def "Summary" 1 *color-16* *run-summary-fields*)
+   (badge-def "Timing"  2 *timing-color* *run-timing-fields*)
+   (badge-def "Elevation"  3 *elevation-color* *elevation-fields*)
+   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Power" 6 *power-color* *power-fields*)
+   (badge-def "Run Cadence" 5 *cadence-color* *run-cadence-fields*)
+   (badge-def "Weather" 6 *weather-color* *weather-fields*)))
+
+
+;;................................................... info fields biking ....
+
+(define *bike-summary-fields*
+  (list
+   (badge-field-def "Distance: " session-distance (lambda (v) (distance->string v #t)))
+   (badge-field-def "Time: " session-time duration->string)
+   (badge-field-def "Avg Speed: " session-avg-speed (lambda (v) (speed->string v #t)))
+   (badge-field-def "Elevation Gain: " session-total-ascent (lambda (v) (vertical-distance->string v #t)))
+   (badge-field-def "Calories: " session-calories calories->string)
+   (badge-field-def "Training Effect: " session-training-effect number->string)
+   (badge-field-def "Effort: " session-training-stress-score
+                    (lambda (v) (format "~a" (exact-round v))))
+   (badge-field-def "Intensity: " session-intensity-factor (lambda (v) (pct->string (* v 100))))))
+
+(define *bike-timing-fields*
+  (list
+   (badge-field-def "Time: " session-time duration->string)
+   (badge-field-def "Elapsed Time: " session-elapsed-time duration->string)
+   (badge-field-def "Avg Speed: " session-avg-speed (lambda (v) (speed->string v #t)))
+   (badge-field-def "Max Speed: " session-max-speed (lambda (v) (speed->string v #t)))))
+
+(define *bike-cadence-fields*
+  (list
+   (badge-field-def "Avg Bike Cadence: " session-avg-cadence (lambda (v) (cadence->string v 'biking)))
+   (badge-field-def "Max Bike Cadence: " session-max-cadence (lambda (v) (cadence->string v 'biking)))))
+
 (define *bike-badge-definitions*
   (list
    (badge-def "Summary" 1 *color-16* *bike-summary-fields*)
@@ -319,7 +320,7 @@
    (badge-def "Elevation" 3 *elevation-color* *elevation-fields*)
    (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
    (badge-def "Bike Cadence" 5 *cadence-color* *bike-cadence-fields*)
-   (badge-def "Power" 6 *power-color* *bike-power-fields*)
+   (badge-def "Power" 6 *power-color* *power-fields*)
    (badge-def "Weather" 7 *weather-color* *weather-fields*)))
 
 

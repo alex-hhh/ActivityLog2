@@ -2,7 +2,7 @@
 ;; tss.rkt -- calculate TSS (effort) for a session
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -184,11 +184,14 @@
       #f))
 
 (define (calculate-session-tss effort df sid db)
+  ;; NP (and NP based TSS) is updated only for Cycling, as AL2 can only store
+  ;; one FTP value, which is for cycling -- see also AB#95 and AB#33
   (let ((duration (effort-duration  effort)))
     (if duration
         (or (let ((np (effort-np effort))
-                  (ftp (get-athlete-ftp db)))
-              (and np ftp (np->tss ftp np duration)))
+                  (ftp (get-athlete-ftp db))
+                  (cycling? (is-cycling? (df-get-property df 'sport))))
+              (and cycling? np ftp (np->tss ftp np duration)))
             (let ((sport (sql-column-ref effort 0 #f))
                   (dist (effort-distance effort))
                   (tpace (get-athlete-swim-tpace db)))
@@ -220,10 +223,13 @@
       np ssid))))
 
 (define (maybe-update-session-tss session-id df db [force? #f])
+  ;; NP (and NP based TSS) is updated only for Cycling, as AL2 can only store
+  ;; one FTP value, which is for cycling -- see also AB#95 and AB#33
   (let ((effort (get-session-effort session-id db)))
     (cond ((and (eq? #f (effort-np effort)) ; No Normalized Power available
-                (get-athlete-ftp)           ; ... but we have an FTP value
-                (df-contains? df "pwr"))    ; and we have a power series
+                (is-cycling? (df-get-property df 'sport))
+                (get-athlete-ftp)           ; ... we have an FTP value
+                (df-contains? df "pwr"))
            (define metrics
              (cg-metrics df
                          #:ftp (get-athlete-ftp)
