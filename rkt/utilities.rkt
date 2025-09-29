@@ -2,7 +2,7 @@
 ;; utilities.rkt -- various utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,9 +33,9 @@
  (get-pref (-> symbol? any/c any/c))
 
  (set-dbglog-to-standard-output (-> boolean? any/c))
- (dbglog (->* (string?) () #:rest (listof any/c) any/c))
+ (dbglog (->* (any/c) () #:rest (listof any/c) any/c))
  (ignore-errors (->* ((-> any/c)) (#:name string?) any/c))
- (dbglog-exception (-> string? any/c any/c))
+ (dbglog-exception (-> any/c any/c any/c))
  (thread/dbglog (->* ((-> any/c))
                      (#:name string?
                       #:log-start boolean?
