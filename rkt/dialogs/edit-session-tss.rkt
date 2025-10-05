@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,6 +27,7 @@
          "../models/sport-zone.rkt"
          "../models/tss.rkt"
          "../models/coggan.rkt"
+         "../models/rpe-and-feel.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt")
 

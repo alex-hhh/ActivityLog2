@@ -69,9 +69,10 @@
 (define-runtime-path p50-file "../sql/migrations/p50-prefs.sql")
 (define-runtime-path p51-file "../sql/migrations/p51-gears.sql")
 (define-runtime-path p52-file "../sql/migrations/p52-similar.sql")
+(define-runtime-path p53-file "../sql/migrations/p53-feel.sql")
 
 ;; The schema version we expect in all databases we open.
-(define (schema-version) 52)
+(define (schema-version) 53)
 
 ;; Map a schema version to an upgrade file to the next version.
 (define upgrade-patches
@@ -109,7 +110,8 @@
    48 p49-file
    49 p50-file
    50 p51-file
-   51 p52-file))
+   51 p52-file
+   52 p53-file))
 
 (define the-current-database #f)
 
@@ -119,8 +121,6 @@
   (set! the-current-database db)
   ;; NOTE: send this message even when DB is #f
   (log-event 'database-opened db))
-
-
 
 ;; The current database connection, if any.  NOTE: needs to be explicitly
 ;; set. `open-activity-log' will not set it!

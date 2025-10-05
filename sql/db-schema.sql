@@ -14,7 +14,7 @@
 -- more details.
 
 create table SCHEMA_VERSION(version integer);
-insert into SCHEMA_VERSION(version) values(52);
+insert into SCHEMA_VERSION(version) values(53);
 
 
 --........................................................ Enumerations ....
@@ -356,7 +356,8 @@ create table A_SESSION (
   training_stress_score real,
   intensity_factor real,
 
-  rpe_scale integer check (rpe_scale >= 1 and rpe_scale <= 10), -- Rating of Perceived Extertion
+  rpe_scale integer check (rpe_scale >= 1 and rpe_scale <= 10), -- Rating of Perceived Exertion
+  feel_scale real check (feel_scale >= 0 and feel_scale <= 10),
 
   summary_id integer,
 
@@ -1502,6 +1503,7 @@ create view V_ACTIVITY_LIST as
          S.sport_id as sport,
          S.sub_sport_id as sub_sport,
          S.rpe_scale as rpe,
+         S.feel_scale as feel,
          S.training_effect as te,
          S.training_stress_score as tss,
          S.pool_length as pl,

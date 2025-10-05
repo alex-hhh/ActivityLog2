@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2020, 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,6 +27,7 @@
          "fmt-util-ut.rkt"
          "fmt-util.rkt"
          "models/humidex.rkt"
+         "models/rpe-and-feel.rkt"
          "sport-charms.rkt"
          "utilities.rkt"
          "widgets/main.rkt")
@@ -602,6 +603,14 @@ select X.session_id
                       (if (> v 0) (rpe->string v) "")))
                   fn
                   #:default-visible? #t))
+
+       (let ((fn (lambda (row) (db-row-ref row "feel" headers 0))))
+         (qcolumn "Feel"
+                  (lambda (row)
+                    (let ((v (fn row)))
+                      (if (> v 0) (feel->string v) "")))
+                  fn
+                  #:default-visible? #f))
 
        (let ((fn (lambda (row) (db-row-ref row "tss" headers 0))))
          (qcolumn "Effort"

@@ -31,6 +31,7 @@
          "../fmt-util.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
+         "../models/rpe-and-feel.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "inspect-aerolab.rkt"
@@ -69,6 +70,7 @@
     (define sport #f)
     (define sub-sport #f)
     (define perceived-effort 0)
+    (define athlete-feel 0)
 
     (define panel0 (new horizontal-panel%
                         [parent parent]
@@ -138,7 +140,21 @@
 
     (define rpe-name
       (new message% [parent sport-panel]
-           [stretchable-width #t]
+           [stretchable-width #f]
+           [auto-resize #t]
+           [label "Not Specified"]
+           [font *data-font*]))
+
+    (make-spacer sport-panel 10)
+
+    (new message% [parent sport-panel]
+         [stretchable-width #f]
+         [label "Feel:"]
+         [font *label-font*])
+
+    (define feel-name
+      (new message%
+           [parent sport-panel]
            [auto-resize #t]
            [label "Not Specified"]
            [font *data-font*]))
@@ -179,6 +195,22 @@
            [callback (lambda (control event)
                        (set! perceived-effort (send control get-selection))
                        (send rpe-name set-label (rpe->string perceived-effort)))]))
+
+    (new message% [parent sport-panel-edit]
+         [stretchable-width #f]
+         [label "Feel:"]
+         [font *label-font*])
+
+    (define feel-name-choice
+      (new choice%
+           [parent sport-panel-edit]
+           [label ""]
+           [choices (feel-string-values)]
+           [callback
+            (lambda (control _event)
+              (define selection (send control get-selection))
+              (set! athlete-feel (index->feel selection))
+              (send feel-name set-label (feel->string athlete-feel)))]))
 
     (define edit-button
       (new button%
@@ -228,6 +260,7 @@
       (send session-title-edit set-value headline)
       (send sport-name-edit set-selected-sport sport sub-sport)
       (send rpe-name-choice set-selection perceived-effort)
+      (send feel-name-choice set-selection (feel->index athlete-feel))
       (send panel change-children
             (lambda (old)
               (list session-title-edit sport-panel-edit)))
@@ -244,6 +277,7 @@
       (send sport-name set-label (get-sport-name sport sub-sport))
       (send session-title set-label headline)
       (send rpe-name set-label (rpe->string perceived-effort))
+      (send feel-name set-label (feel->string athlete-feel))
       (send panel change-children
             (lambda (old)
               (list session-title start-time sport-panel)))
@@ -264,9 +298,21 @@
         (call-with-transaction
          db
          (lambda ()
-           (query-exec db "
-update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
- where id = ?" headline (or sport sql-null) (or sub-sport sql-null) (if (> perceived-effort 0) perceived-effort sql-null) sid)))))
+           (query-exec
+            db
+            "update A_SESSION
+                set name = ?,
+                    sport_id = ?,
+                    sub_sport_id = ?,
+                    rpe_scale = ?,
+                    feel_scale = ?
+              where id = ?"
+            headline
+            (or sport sql-null)
+            (or sub-sport sql-null)
+            (if (> perceived-effort 0) perceived-effort sql-null)
+            athlete-feel
+            sid)))))
 
     (define/public (set-session session)
       (if session
@@ -276,6 +322,7 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
             (set! sub-sport (session-sub-sport session))
             (set! session-id (dict-ref session 'database-id #f))
             (set! perceived-effort (or (session-rpe session) 0))
+            (set! athlete-feel (session-feel session))
             (send rpe-name set-label (rpe->string perceived-effort))
             (send start-time set-label
                   (format-date (session-start-time session)
@@ -286,7 +333,9 @@ update A_SESSION set name = ?, sport_id = ?, sub_sport_id = ?, rpe_scale = ?
             (set! sub-sport #f)
             (set! session-id #f)
             (set! perceived-effort 0)
+            (set! athlete-feel #f)
             (send rpe-name set-label (rpe->string perceived-effort))
+            (send feel-name set-label (feel->string athlete-feel))
             (send start-time set-label "")))
       (switch-to-view-mode))
 
