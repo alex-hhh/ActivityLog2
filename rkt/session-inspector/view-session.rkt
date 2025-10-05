@@ -28,7 +28,6 @@
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util-ut.rkt"
-         "../fmt-util.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../models/rpe-and-feel.rkt"
@@ -311,7 +310,7 @@
             (or sport sql-null)
             (or sub-sport sql-null)
             (if (> perceived-effort 0) perceived-effort sql-null)
-            athlete-feel
+            (or athlete-feel sql-null)
             sid)))))
 
     (define/public (set-session session)
