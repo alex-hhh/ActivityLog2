@@ -2,7 +2,7 @@
 ;; activity-util.rkt -- various utilities for inspecting activity structures
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -312,6 +312,7 @@
  session-training-stress-score
  session-intensity-factor
  session-rpe
+ session-feel
 
  session-max-cadence
  session-total-cycles
@@ -426,7 +427,10 @@
   (dict-ref session 'intensity-factor #f))
 
 (define (session-rpe session)
-  (dict-ref session 'rpe-scale #f))
+  (dict-ref session 'workout-rpe #f))
+
+(define (session-feel session)
+  (dict-ref session 'workout-feel #f))
 
 (define (session-max-cadence session)
   (dict-ref session 'max-cadence #f))

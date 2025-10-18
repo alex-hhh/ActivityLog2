@@ -4,7 +4,7 @@
 ;; the SDK from https://www.thisisant.com/resources/fit/
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2020, 2022-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -443,7 +443,9 @@
     (128 . enhanced-max-altitude)
     (132 . avg-vertical-ratio)
     (133 . stance-time-balance)
-    (134 . avg-stride-length)))
+    (134 . avg-stride-length)
+    (192 . workout-feel)
+    (193 . workout-rpe)))
 
 (define *activity-fields*
   '((253 . timestamp)
@@ -1210,7 +1212,9 @@
     (min-altitude          . ,(lambda (v) (- (/ v 5.0) 500)))
     (max-altitude          . ,(lambda (v) (- (/ v 5.0) 500)))
     (enhanced-min-altitude . ,(lambda (v) (- (/ v 5.0) 500)))
-    (enhanced-max-altitude . ,(lambda (v) (- (/ v 5.0) 500)))))
+    (enhanced-max-altitude . ,(lambda (v) (- (/ v 5.0) 500)))
+    (workout-feel . ,div-by-10)
+    (workout-rpe . ,div-by-10)))
 
 (define *lap-conversions*
   `((timestamp             . ,fit-time->unix-time)

@@ -253,8 +253,8 @@
                (lambda (dbsys)
                  "insert into A_SESSION(activity_id, summary_id, name, description,
                                         start_time, sport_id, sub_sport_id, pool_length, pool_length_unit,
-                                        training_effect, training_stress_score, intensity_factor)
-                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))))
+                                        training_effect, training_stress_score, intensity_factor, rpe_scale, feel_scale)
+                  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))))
     (lambda (session activity-id db)
       (let ((summary-id (db-insert-section-summary session db))
             (name (dict-ref session 'name sql-null))
@@ -266,7 +266,25 @@
             (pool-length-unit (rassq1 (dict-ref session 'pool-length-unit #f) *pool-length-unit*))
             (training-effect (dict-ref session 'total-training-effect sql-null))
             (training-stress-score (dict-ref session 'training-stress-score sql-null))
-            (intensity-factor (dict-ref session 'intensity-factor sql-null)))
+            (intensity-factor (dict-ref session 'intensity-factor sql-null))
+            (rpe-scale (let ([r (dict-ref session 'workout-rpe #f)])
+                         ;; Clamp RPE to 1 .. 10 (inclusive) range
+                         (if (rational? r)
+                             (if (< r 1)
+                                 1
+                                 (if (> r 10)
+                                     10
+                                     r))
+                             sql-null)))
+            (feel-scale (let ([r (dict-ref session 'workout-feel #f)])
+                          ;; Clamp workout feel to 0 .. 10 (inclusive) range
+                          (if (rational? r)
+                              (if (< r 0)
+                                  0
+                                  (if (> r 10)
+                                      10
+                                      r))
+                              sql-null))))
 
         ;; HACK: Garmin devices started putting in 0 for the sub-sport field,
         ;; but the rest of the activity-log code relies on NULL to mean
@@ -281,7 +299,7 @@
           (db-insert
            db stmt activity-id summary-id name description
            start-time sport-id sub-sport pool-length pool-length-unit training-effect
-           training-stress-score intensity-factor))
+           training-stress-score intensity-factor rpe-scale feel-scale))
         (xdata-store-summary-values db session summary-id (xdata-fields))
         (for ([lap (in-list (dict-ref session 'laps '()))])
           (db-insert-lap lap session-id db))
@@ -935,6 +953,7 @@
             S.training_stress_score,
             S.intensity_factor,
             S.rpe_scale,
+            S.feel_scale,
             SS.avg_left_pco,
             SS.avg_right_pco,
             SS.avg_left_pp_start,
@@ -971,7 +990,7 @@
                   left-right-balance
                   avg-left-torque-effectiveness avg-right-torque-effectiveness
                   avg-left-pedal-smoothness avg-right-pedal-smoothness avg-combined-pedal-smoothness
-                  training-stress-score intensity-factor rpe-scale
+                  training-stress-score intensity-factor workout-rpe workout-feel
                   avg-left-pco avg-right-pco
                   avg-left-pp-start avg-left-pp-end avg-right-pp-start avg-right-pp-end
                   avg-left-ppp-start avg-left-ppp-end avg-right-ppp-start avg-right-ppp-end

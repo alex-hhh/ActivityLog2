@@ -2,7 +2,7 @@
 ;; fmt-util.rkt -- formatting utilities
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -56,7 +56,6 @@
          power-phase->string
          run-pace-string->mps
          swim-pace-string->mps
-         rpe->string
 
          pace-label
          swim-pace-label
@@ -318,9 +317,11 @@
 ;; (: speed->string (->* (Real) (Boolean) String))
 (define (speed->string speed/mps [unit-label #f])
   (let ((speed (m/s->speed speed/mps)))
-    (string-append
-     (~r speed #:precision '(= 1))
-     (if unit-label (string-append " " speed-label) ""))))
+    (if (rational? speed)
+        (string-append
+         (~r speed #:precision '(= 1))
+         (if unit-label (string-append " " speed-label) ""))
+        "")))
 
 ;; (: pace->string (->* (Real) (Boolean) String))
 (define (pace->string speed/mps [unit-label #f])
@@ -355,15 +356,19 @@
 
 ;; (: distance->string (->* (Real) (Boolean) String))
 (define (distance->string distance/m [unit-label #f])
-  (string-append
-   (~r (m->distance distance/m) #:precision 2)
-   (if unit-label (string-append " " distance-label) "")))
+  (if (rational? distance/m)
+      (string-append
+       (~r (m->distance distance/m) #:precision 2)
+       (if unit-label (string-append " " distance-label) ""))
+      (~a distance/m)))
 
 ;; (: short-distance->string (->* (Real) (Boolean) String))
 (define (short-distance->string distance/m [unit-label #f])
-  (string-append
-   (~r (m->short-distance distance/m) #:precision 0)
-   (if unit-label (string-append " " short-distance-label)  "")))
+  (if (rational? distance/m)
+      (string-append
+       (~r (m->short-distance distance/m) #:precision 0)
+       (if unit-label (string-append " " short-distance-label)  ""))
+      (~a distance/m)))
 
 ;; (: vertical-distance->string (->* (Real) (Boolean) String))
 (define (vertical-distance->string distance/m [unit-label #f])
@@ -382,44 +387,46 @@
 
 ;; (: duration->string (->* (Real) (Boolean) String))
 (define (duration->string duration [high-precision? #f])
-  (define-values (h m s ms)
-    (let ([seconds (exact-round (* duration 10))])
-      (let-values ([(h m+s) (quotient/remainder seconds 36000)])
-        (let-values ([(m s+ms) (quotient/remainder m+s 600)])
-          (let-values ([(s ms) (quotient/remainder s+ms 10)])
-            (values h
-                    m
-                    (cond (high-precision? s)
-                          ((>= ms 5) (add1 s))
-                          (else s))
-                    (if high-precision? ms 0)))))))
-  (if high-precision?
-      (if (> h 0)
-          (string-append
-           (~r h #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r s #:precision 0 #:min-width 2 #:pad-string "0")
-           "."
-           (~r ms #:precision 0))
-          (string-append
-           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r s #:precision 0 #:min-width 2 #:pad-string "0")
-           "."
-           (~r ms #:precision 0)))
-      (if (> h 0)
-          (string-append
-           (~r h #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r s #:precision 0 #:min-width 2 #:pad-string "0"))
-          (string-append
-           (~r m #:precision 0 #:min-width 2 #:pad-string "0")
-           ":"
-           (~r s #:precision 0 #:min-width 2 #:pad-string "0")))))
+  (if (rational? duration)
+      (let-values ([(h m s ms)
+                    (let ([seconds (exact-round (* duration 10))])
+                      (let-values ([(h m+s) (quotient/remainder seconds 36000)])
+                        (let-values ([(m s+ms) (quotient/remainder m+s 600)])
+                          (let-values ([(s ms) (quotient/remainder s+ms 10)])
+                            (values h
+                                    m
+                                    (cond (high-precision? s)
+                                          ((>= ms 5) (add1 s))
+                                          (else s))
+                                    (if high-precision? ms 0))))))])
+        (if high-precision?
+            (if (> h 0)
+                (string-append
+                 (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+                 "."
+                 (~r ms #:precision 0))
+                (string-append
+                 (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r s #:precision 0 #:min-width 2 #:pad-string "0")
+                 "."
+                 (~r ms #:precision 0)))
+            (if (> h 0)
+                (string-append
+                 (~r h #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r s #:precision 0 #:min-width 2 #:pad-string "0"))
+                (string-append
+                 (~r m #:precision 0 #:min-width 2 #:pad-string "0")
+                 ":"
+                 (~r s #:precision 0 #:min-width 2 #:pad-string "0")))))
+      (~a duration)))
 
 
 ;;................................................... cadence and stride ....
@@ -515,10 +522,12 @@
       ""))
 
 ;; (: pco->string (->* (Real) (Boolean) String))
-(define (pco->string vosc [unit-label #f])
-  (string-append
-   (~r (m->vertical-oscillation vosc) #:precision 1)
-   (if unit-label (string-append " " vertical-oscillation-label) "")))
+(define (pco->string pco [unit-label #f])
+  (if (rational? pco)
+      (string-append
+       (~r (m->vertical-oscillation pco) #:precision 1)
+       (if unit-label (string-append " " vertical-oscillation-label) ""))
+      (~a pco)))
 
 
 ;; (: power-phase->string (-> Real Real String))
@@ -528,28 +537,15 @@
 
 ;;................................................................ other ....
 
-(define (rpe->string rpe)
-  (case rpe
-    ((0) "Not Specified (0)")
-    ((1) "Rest (1)")
-    ((2) "Very Easy (2)")
-    ((3) "Easy (3)")
-    ((4) "Confortable (4)")
-    ((5) "Somewhat Difficult (5)")
-    ((6) "Difficult (6)")
-    ((7) "Hard (7)")
-    ((8) "Very Hard (8)")
-    ((9) "Extremely Hard (9)")
-    ((10) "Maximal (10)")
-    (else (format "Unknwon (~a)" rpe))))
-
 ;; (: n->string (-> Real String))
 (define (n->string val)
   (if (= val 0) "" (number->string (exact-round val))))
 
 ;; (: pct->string (-> Real String))
 (define (pct->string val)
-  (string-append (~r val #:precision 1) " %"))
+  (if (rational? val)
+      (string-append (~r val #:precision 1) " %")
+      (~a val)))
 
 
 ;.............................................................. readers ....

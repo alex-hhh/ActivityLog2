@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -645,6 +645,19 @@ select count(*)
         (check-xdata-field-count db "manufacturer-32-5" 1)
         (check-xdata-field-count db "manufacturer-32-2" 1)
         (check-xdata-field-count db "manufacturer-32-1" 1))))
+   (test-case "f0062.fit"
+     (do-basic-checks
+      "./test-fit/f0062.fit" 29 2126
+      #:extra-db-checks
+      (lambda (db)
+        ;; Check that values were correctly inserted into the database
+        (define row (query-row db "select rpe_scale, feel_scale from A_SESSION"))
+        (check-equal? 4 (vector-ref row 0) "DB RPE mismatch")
+        (check-equal? 5.0 (vector-ref row 1) "DB FEEL mismatch")
+        ;; Fetching the session correctly retrieves the values...
+        (define s (db-fetch-session 1 db))
+        (check-equal? 4 (session-rpe s) "Session RPE mismatch")
+        (check-equal? 5.0 (session-feel s) "Session FEEL mismatch"))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -672,5 +685,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0061.fit"))
+             ;; #:only '(("FIT file reading" "f0062.fit"))
              fit-files-test-suite))

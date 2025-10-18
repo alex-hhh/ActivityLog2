@@ -2,7 +2,7 @@
 ;; edit-session-summary.rkt -- edit summary information about a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2019, 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,8 +24,8 @@
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
          "../widgets/main.rkt"
-         "../fmt-util.rkt"
-         "../models/tss.rkt")
+         "../models/tss.rkt"
+         "../models/rpe-and-feel.rkt")
 
 (provide get-edit-session-summary-dialog)
 
@@ -42,6 +42,7 @@
     (define title-field #f)
     (define sport-choice #f)
     (define rpe-scale-choice #f)
+    (define feel-scale-choice #f)
     (define start-date-field #f)
     (define start-time-field #f)
     (define time-zone-field #f)
@@ -110,7 +111,12 @@
                    [label "Perceived Effort: "]
                    [choices
                     (for/list ([rpe (in-range 11)])
-                      (rpe->string rpe))])))
+                      (rpe->string rpe))]))
+        (set! feel-scale-choice
+              (new choice%
+                   [parent p0]
+                   [label "Feel: "]
+                   [choices (feel-string-values)])))
 
       (let ((p0 (new vertical-pane% [parent p]
                      [border 0] [spacing 5] [stretchable-height #f])))
@@ -150,11 +156,12 @@ select S.name as title,
        SS.total_distance,
        S.description,
        ifnull(S.rpe_scale, 0),
+       S.feel_scale,
        (select name from E_TIME_ZONE ETZ where ETZ.id = S.time_zone_id) as time_zone
   from A_SESSION S, SECTION_SUMMARY SS
  where S.summary_id = SS.id
    and S.id = ?" session-id))
-             [tz (sql-column-ref r 8 #f)])
+             [tz (sql-column-ref r 9 #f)])
         (set! timestamp (sql-column-ref r 3 0))
         (send title-field set-value (sql-column-ref r 0 ""))
         (send start-date-field set-date-value timestamp tz)
@@ -166,6 +173,8 @@ select S.name as title,
         (send distance-field set-numeric-value (/ (sql-column-ref r 5 0) 1000.0))
         (send description-field set-value (sql-column-ref r 6 ""))
         (send rpe-scale-choice set-selection (sql-column-ref r 7 0))
+        (let ([feel (sql-column-ref r 8 #f)])
+          (send feel-scale-choice set-selection (feel->index feel)))
         (let ((sport (sql-column-ref r 1 #f))
               (sub-sport (sql-column-ref r 2 #f)))
           (send sport-choice set-selected-sport sport sub-sport)
@@ -198,6 +207,7 @@ select S.name as title,
       (send distance-field set-value "")
       (send description-field set-value "")
       (send rpe-scale-choice set-selection 4) ; moderate
+      (send feel-scale-choice set-selection (feel->index 5.0)) ; normal
       (send sport-choice set-selected-sport #f #f)
       (send this set-icon (get-sport-bitmap-colorized #f #f))
       (send labels-input setup-for-session db #f)
@@ -212,6 +222,7 @@ select S.name as title,
                (desc (send description-field get-value))
                (timestamp (get-gui-timestamp))
                (rpe-scale (send rpe-scale-choice get-selection))
+               (feel-scale (index->feel (send feel-scale-choice get-selection)))
                (ssid (query-value db "select summary_id from A_SESSION where id = ?" session-id))
                (duration (if (send duration-field has-changed?)
                              (send duration-field get-converted-value)
@@ -226,11 +237,12 @@ select S.name as title,
               "update A_SESSION
                 set name = ?, description = ?, time_zone_id = ?,
                     start_time = ?, sport_id = ?, sub_sport_id = ?,
-                    rpe_scale = ?
+                    rpe_scale = ?, feel_scale = ?
                where id = ?"
               name desc tzid timestamp
               (or (car sport) sql-null) (or (cdr sport) sql-null)
               (if (eqv? rpe-scale 0) sql-null rpe-scale)
+              (if (eqv? feel-scale #f) sql-null feel-scale)
               session-id))
            (when duration
              (query-exec
@@ -266,7 +278,7 @@ select S.name as title,
              (desc (send description-field get-value))
              (start-time (get-gui-timestamp))
              (rpe-scale (send rpe-scale-choice get-selection)))
-        (let-values ([(tzid tzname) (send time-zone-field get-selection)])
+        (let-values ([(tzid _tzname) (send time-zone-field get-selection)])
           (call-with-transaction
            db
            (lambda ()
