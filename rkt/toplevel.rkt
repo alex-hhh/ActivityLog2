@@ -1441,38 +1441,47 @@
                     #:dialog-mixin al2-message-box-mixin))
 
                   ((eq? ecode 'already-exists)
-                   (let ((mresult (message-box/custom
-                                   "Import failed"
-                                   (format "~a was previously imported. Force re-import?" file)
-                                   "Re-import"
-                                   "Cancel"
-                                   #f
-                                   tl-frame
-                                   '(caution default=2)
-                                   #:dialog-mixin al2-message-box-mixin)))
-                     (when (eqv? mresult 1)
-                       (let ((aid (db-get-activity-id edata database)))
-                         (db-delete-activity-hard aid database)
-                         (let ((iresult (db-import-activity-from-file file database)))
-                           (refresh-current-view)
-                           (if (eq? (car iresult) 'ok)
-                               (begin
-                                 (do-post-import-tasks database)
-                                 (let ((equipment (get-section-by-tag 'equipment)))
-                                   (send (send equipment get-content) log-due-items)))
-                               (message-box
-                                "Import failed"
-                                (format "Failed to import ~a: ~a" file ecode)
-                                tl-frame
-                                '(stop ok)
-                                #:dialog-mixin al2-message-box-mixin)))))))
+                   (define session-count
+                     (query-value database "
+                        select count(S.id)
+                          from A_SESSION S, ACTIVITY A
+                         where S.activity_id = A.id and A.guid = ?" edata))
+                   (define message
+                     (if (> session-count 0)
+                         (format "~a is already imported.  Discard previous activity and re-import?" file)
+                         (format "~a was previously imported and deleted.  Re-import?" file)))
+                   (define mresult (message-box/custom
+                                    "Import failed"
+                                    message
+                                    "Re-import"
+                                    "Cancel"
+                                    #f
+                                    tl-frame
+                                    '(caution default=2)
+                                    #:dialog-mixin al2-message-box-mixin))
+                   (when (eqv? mresult 1)
+                     (let ((aid (db-get-activity-id edata database)))
+                       (db-delete-activity-hard aid database)
+                       (let ((iresult (db-import-activity-from-file file database)))
+                         (refresh-current-view)
+                         (if (eq? (car iresult) 'ok)
+                             (begin
+                               (do-post-import-tasks database)
+                               (let ((equipment (get-section-by-tag 'equipment)))
+                                 (send (send equipment get-content) log-due-items)))
+                             (message-box
+                              "Import failed"
+                              (format "Failed to import ~a: ~a" file ecode)
+                              tl-frame
+                              '(stop ok)
+                              #:dialog-mixin al2-message-box-mixin))))))
 
                   ((eq? ecode 'retired-device)
                    ;; TODO: force the re-import by un-retiring the device and
                    ;; retiring it back again.
                    (message-box
                     "Import failed"
-                    (format "Failed to import ~a: retired device" file)
+                    (format "Failed to import ~a: activity is recorded with a retired device.  Undo the device retirement and try again." file)
                     tl-frame
                     '(stop ok)
                     #:dialog-mixin al2-message-box-mixin))
