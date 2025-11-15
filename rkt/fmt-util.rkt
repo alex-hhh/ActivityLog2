@@ -539,7 +539,11 @@
 
 ;; (: n->string (-> Real String))
 (define (n->string val)
-  (if (= val 0) "" (number->string (exact-round val))))
+  (if (rational? val)
+      (if (= val 0)
+          ""
+          (number->string (exact-round val)))
+      (~a val)))
 
 ;; (: pct->string (-> Real String))
 (define (pct->string val)

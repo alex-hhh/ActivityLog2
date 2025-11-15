@@ -298,11 +298,12 @@
            ;; can have 40-70 seconds between samples) and consider a stop
            ;; point any sample that is at least 3 times longer than the
            ;; current average...
-           (if (and (> (statistics-count st) 1)
+           (if (and (> (statistics-count st) 3)
                     (> dt (* 3 (statistics-mean st))))
                (set! stop-points (cons ptimestamp stop-points))
                (begin
-                 (set! st (update-statistics st dt))
+                 (when (> dt 1)       ; don't count 1 second gaps
+                   (set! st (update-statistics st dt)))
                  (set! timer (+ timer dt)))))
          timer)))
 
