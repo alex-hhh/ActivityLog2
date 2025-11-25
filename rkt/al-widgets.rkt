@@ -698,11 +698,12 @@ values (?, ?)" session-id id))
    (mk-qcolumn "Power" lap-avg-power n->string)
    (mk-qcolumn "FIETS" (lambda (v) (dict-ref v 'fiets-score #f)) fiets-score->string)))
 
-(define *swim-lap-fields*
+(define (swim-lap-fields sport-charms)
   (list
    ;; (mk-qcolumn "Lap #" lap-num lap-num-fmt)
    (qcolumn "Lap" lap-num-pretty lap-num)
-   (mk-qcolumn "Swim Stroke" lap-swim-stroke get-swim-stroke-name)
+   (mk-qcolumn "Swim Stroke" lap-swim-stroke
+               (lambda (v) (send sport-charms get-swim-stroke-name v)))
    #;(qcolumn "Time of day"
             (lambda (entry)
               (let ([timestamp (lap-start-time entry)]
@@ -746,10 +747,11 @@ values (?, ?)" session-id id))
   (format "~a" num))
 
 ;; For swimming activitites, we display the lengths of the selected lap
-(define *swim-length-fields*
+(define (swim-length-fields sport-charms)
   (list
    (mk-qcolumn "Length" length-num length-num-fmt)
-   (mk-qcolumn "Swim Stroke" length-swim-stroke get-swim-stroke-name)
+   (mk-qcolumn "Swim Stroke" length-swim-stroke
+               (lambda (v) (send sport-charms get-swim-stroke-name v)))
    (mk-qcolumn "Duration" length-time (lambda (v) (duration->string v #t)))
    (mk-qcolumn "Strokes" length-total-cycles n->string)
    (mk-qcolumn "SWOLF" length-swolf n->string)
@@ -757,13 +759,13 @@ values (?, ?)" session-id id))
    (mk-qcolumn "HR" length-avg-hr n->string)
    (mk-qcolumn "Max HR" length-max-hr n->string)))
 
-(define *lap-definitions*
+(define (lap-definitions sport-charms)
   (hash
    1 *run-lap-fields*
    (cons 1 'gps-segments) *run-segment-fields*
    2 *bike-lap-fields*
    (cons 2 'gps-segments) *bike-segment-fields*
-   5 *swim-lap-fields*))
+   5 (swim-lap-fields sport-charms)))
 
 (define *default-lap-fields* *bike-lap-fields*)
 (define *default-segment-fields* *bike-segment-fields*)
@@ -798,8 +800,8 @@ values (?, ?)" session-id id))
 (define *default-mini-lap-fields* *bike-mini-lap-fields*)
 (define *default-mini-segment-fields* *run-mini-segment-fields*)
 
-(define (get-lap-field-definitions sport (topic 'default))
-  (define (href key) (hash-ref *lap-definitions* key #f))
+(define (get-lap-field-definitions sport sport-charms (topic 'default))
+  (define (href key) (hash-ref (lap-definitions sport-charms) key #f))
   (or (href (cons sport topic))
       (href sport)
       (and (vector? sport)
@@ -827,7 +829,7 @@ values (?, ?)" session-id id))
 ;; notifications when a lap is selected.
 (define interval-view%
   (class object%
-    (init-field parent tag callback)
+    (init-field parent tag callback sport-charms)
     (super-new)
 
     (define lb
@@ -842,7 +844,7 @@ values (?, ?)" session-id id))
            [parent parent]))
 
     (define/public (lap-field-definitions sport topic)
-      (get-lap-field-definitions sport topic))
+      (get-lap-field-definitions sport sport-charms topic))
 
     ;; Add lap numbers to the laps, if a lap has 0 distance, label it as
     ;; "Rest"
@@ -900,7 +902,7 @@ values (?, ?)" session-id id))
 ;; Display information about swim lengths in a list box.
 (define swim-lengths-view%
   (class object%
-    (init parent tag)
+    (init parent tag sport-charms)
     (super-new)
 
     (define parent-panel parent)
@@ -924,7 +926,7 @@ values (?, ?)" session-id id))
                     [paint-callback paint-label]))
     (define lb (new qresults-list% [pref-tag tag] [parent p]))
 
-    (send lb setup-column-defs *swim-length-fields*)
+    (send lb setup-column-defs (swim-length-fields sport-charms))
 
     (define/public (show! flag)
       ;; (display (format "Show ~a (vs ~a)~%" flag deleted?))  Ignore a

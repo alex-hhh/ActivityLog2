@@ -88,7 +88,12 @@
                          renderer2d?))
 
  (make-plot-renderer/factors (-> factor-data/c y-range/c factor-colors/c (treeof renderer2d?)))
- (make-plot-renderer/swim-stroke (-> ts-data/c y-range/c (vectorof (or/c #f integer?)) (treeof renderer2d?)))
+ (make-plot-renderer/swim-stroke
+  (-> ts-data/c
+      y-range/c
+      (vectorof (or/c #f integer?))
+      (is-a?/c sport-charms%)
+      (treeof renderer2d?)))
  (get-series/ordered (-> data-frame? (listof string?)))
  (session-df (-> connection? number? (or/c data-frame? #f)))
  (reorder-sids (-> (listof integer?) (listof integer?))))
@@ -1077,11 +1082,11 @@
 ;; has already been processed by `add-verticals', SWIM-STROKES is the swim
 ;; stroke series from the data frame.
 ;;
-(define (make-plot-renderer/swim-stroke data y-range swim-strokes)
+(define (make-plot-renderer/swim-stroke data y-range swim-strokes sport-charms)
   ;; NOTE: data has verticals added, swim-strokes does not.
   (for/list ([range (find-ranges swim-strokes)])
     (match-define (vector start end stroke) range)
-    (let ((color (get-swim-stroke-color stroke))
+    (let ((color (send sport-charms get-swim-stroke-color stroke))
           (first? (equal? start 0))
           (items (vector-copy
                   data
