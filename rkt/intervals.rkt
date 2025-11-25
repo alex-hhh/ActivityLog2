@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -198,7 +198,7 @@
 ;; interval, and has the same structure as the stored laps for a session, the
 ;; usual 'lap-*' accessors from "activity-util.rkt" will work on the returned
 ;; object.
-(define (make-interval-summary df start-index end-index)
+(define (make-interval-summary df start-index end-index #:ftp ftp)
   (define stats-cache (make-hash))
 
   (define (get-stats series)
@@ -256,7 +256,7 @@
       (set! base (cons (cons 'aerobic-decoupling adec) base))))
 
   ;; Normalized power is only available if a FTP value is set.
-  (when (and (df-contains? df "pwr") (get-athlete-ftp))
+  (when (and (df-contains? df "pwr") ftp)
     (let ([cg (cg-metrics df #:start start-index #:stop end-index)])
       (set! base (cons (cons 'normalized-power (cg-np cg)) base))))
 

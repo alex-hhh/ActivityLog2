@@ -2,7 +2,7 @@
 ;; sport-charms.rkt -- utilities related to individual sports
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2020, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,51 +16,43 @@
 
 (require db/base
          pict
-         racket/async-channel
          racket/class
          racket/contract
          racket/draw
          racket/list
-         racket/match
+         racket/class
          "color-theme.rkt"
-         "dbapp.rkt"
-         "dbutil.rkt"
-         "utilities.rkt")
+         "dbutil.rkt")
 
 (define (color? c) (is-a? c color%))
 (define (bitmap? b) (is-a? b bitmap%))
 (define sport-id? (or/c exact-nonnegative-integer? #f))
-(define zone-metric? (or/c 1 2 3))
 (define swim-stroke? (or/c 0 1 2 3 4 5 6 #f))
-(define sport-zones? (or/c #f (listof number?)))
 
-(provide/contract
- [get-sport-color (->* (sport-id? sport-id?) (boolean?) color?)]
- [get-sport-name (-> sport-id? sport-id? string?)]
- [get-sport-letter (-> sport-id? sport-id? string?)]
- [get-sport-bitmap (-> sport-id? sport-id? bitmap?)]
- [get-sport-bitmap-colorized (-> sport-id? sport-id? bitmap?)]
- [get-swim-stroke-name (-> swim-stroke? string?)]
- [get-swim-stroke-names (-> (listof (cons/c swim-stroke? string?)))]
- [get-swim-stroke-color (-> swim-stroke? color?)]
- [get-sport-names (-> (listof (vector/c string? sport-id? sport-id?)))]
- [get-sport-names-in-use (-> (listof (vector/c string? sport-id? sport-id?)))]
- [get-athlete-ftp (->* () (connection?) (or/c #f positive?))]
- [put-athlete-ftp (->* (positive?) (connection?) any/c)]
- [get-athlete-swim-tpace (->* () (connection?) (or/c #f positive?))]
- [put-athlete-swim-tpace (->* (positive?) (connection?) any/c)]
- [get-athlete-gender (->* (connection?) () (or/c #f 0 1))]
- [put-athlete-gender (->* ((or/c 0 1)) (connection?) any/c)]
- [get-athlete-dob (->* (connection?) () (or/c #f positive?))]
- [put-athlete-dob (->* (positive?) (connection?) any/c)]
- [get-athlete-height (->* (connection?) () (or/c #f positive?))]
- [put-athlete-height (->* (positive?) (connection?) any/c)]
- )
+(define sport-charms%/c
+  (class/c
+   (init [dbc connection?])
+   [get-sport-color (->*m (sport-id? sport-id?) (boolean?) color?)]
+   [get-sport-name (->m sport-id? sport-id? string?)]
+   [get-sport-letter (->m sport-id? sport-id? string?)]
+   [get-sport-bitmap (->m sport-id? sport-id? bitmap?)]
+   [get-sport-bitmap-colorized (->m sport-id? sport-id? bitmap?)]
+   [get-swim-stroke-name (->m swim-stroke? string?)]
+   [get-swim-stroke-names (->m (listof (cons/c swim-stroke? string?)))]
+   [get-swim-stroke-color (->m swim-stroke? color?)]
+   [get-sport-names (->m (listof (vector/c string? sport-id? sport-id?)))]
+   [get-sport-names-in-use (->m (listof (vector/c string? sport-id? sport-id?)))]
+   [get-athlete-ftp (->m (or/c #f positive?))]
+   [put-athlete-ftp (->m positive? any/c)]
+   [get-athlete-swim-tpace (->m (or/c #f positive?))]
+   [put-athlete-swim-tpace (->m positive? any/c)]
+   [get-athlete-gender (->m (or/c #f 0 1))]
+   [put-athlete-gender (->m (or/c 0 1) any/c)]
+   [get-athlete-dob (->m (or/c #f positive?))]
+   [put-athlete-dob (->m positive? any/c)]
+   [get-athlete-height (->m (or/c #f positive?))]
+   [put-athlete-height (->m positive? any/c)]))
 
-(provide is-runnig?
-         is-cycling?
-         is-lap-swimming?
-         is-swimming?)
 
 
 ;;...................................................... get-sport-color ....
@@ -114,184 +106,159 @@
 
 (struct sport-info (id parent-id name icon))
 
-(define *sport-info* #f)
-(define *sub-sport-info* #f)
-(define *swim-stroke-names* #f)
-(define *sport-names* '())
-
 (define (init-sport-charms db)
 
-  (let ((h (make-hash)))
-    (for (((id name icon)
-           (in-query db "select id, name, icon from E_SPORT where id != 254")))
-      (hash-set! h id (sport-info id #f name icon)))
-    (set! *sport-info* h))
+  (define sport-info
+    (for/hash (((id name icon)
+                (in-query db "select id, name, icon from E_SPORT where id != 254")))
+      (values id (sport-info id #f name icon))))
 
-  (let ((h (make-hash)))
-    (for (((id parent-id name icon)
-           (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
-      (hash-set! h id (sport-info id parent-id name icon)))
-    (set! *sub-sport-info* h))
+   (define sub-sport-info
+     (for/hash (((id parent-id name icon)
+                 (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
+       (values id (sport-info id parent-id name icon))))
 
-  (let ((h (make-hash)))
-    (for (((id name)
-           (in-query db "select id, name from E_SWIM_STROKE")))
-      (hash-set! h id name))
-    (set! *swim-stroke-names* h))
+    (define swim-stroke-names
+      (for/hash (((id name)
+                  (in-query db "select id, name from E_SWIM_STROKE")))
+        (values id name)))
 
-  (let ((sport-names (list (vector "All Sports" #f #f))))
-    (for ((sid (in-list (sort (hash-keys *sport-info*) <))))
-      (let ((sport (hash-ref *sport-info* sid)))
-        (set! sport-names (cons (vector (sport-info-name sport) (sport-info-id sport) #f)
-                                sport-names))
-        (for ((sub-sport (in-hash-values *sub-sport-info*)))
-          (when (eqv? (sport-info-id sport) (sport-info-parent-id sub-sport))
-            (set! sport-names (cons (vector
-                                     (sport-info-name sub-sport)
-                                     (sport-info-id sport) (sport-info-id sub-sport))
-                                    sport-names)))))
-      (set! *sport-names* (reverse sport-names)))))
+    (define sport-names
+      (let ((sport-names (list (vector "All Sports" #f #f))))
+        (for ((sid (in-list (sort (hash-keys sport-info) <))))
+          (let ((sport (hash-ref sport-info sid)))
+            (set! sport-names (cons (vector (sport-info-name sport) (sport-info-id sport) #f)
+                                    sport-names))
+            (for ((sub-sport (in-hash-values sub-sport-info)))
+              (when (eqv? (sport-info-id sport) (sport-info-parent-id sub-sport))
+                (set! sport-names (cons (vector
+                                         (sport-info-name sub-sport)
+                                         (sport-info-id sport) (sport-info-id sub-sport))
+                                        sport-names))))))
+        (reverse sport-names)))
 
-(define log-event-source (make-log-event-source))
+  (values sport-info sub-sport-info swim-stroke-names sport-names))
 
-(define (maybe-init-sport-charms)
+(define sport-charms%
+  (class object%
+    (init-field dbc)
 
-  (let loop ((item (async-channel-try-get log-event-source)))
-    (when item
-      (match-define (list tag data) item)
-      (when (eq? tag 'database-opened)
-        (set! *sport-info* #f)
-        (set! *sub-sport-info* #f)
-        (set! *swim-stroke-names* #f)
-        (set! *sport-names* '()))
-      (loop (async-channel-try-get log-event-source))))
+    (define-values (sport-info sub-sport-info swim-stroke-names sport-names)
+      (init-sport-charms dbc))
 
-  (unless *sport-info*
-    (when (current-database)
-      (init-sport-charms (current-database)))))
+    (define/private (get-sport-info sport sub-sport)
+      (if (or (not sub-sport) (= sub-sport 0))
+          (hash-ref sport-info sport #f)
+          (hash-ref sub-sport-info sub-sport #f)))
 
-(define (get-sport-info sport sub-sport)
-  (maybe-init-sport-charms)
-  (if (or (not sub-sport) (= sub-sport 0))
-      (if (hash? *sport-info*)
-          (hash-ref *sport-info* sport #f)
-          #f)
-      (if (hash? *sub-sport-info*)
-          (hash-ref *sub-sport-info* sub-sport #f)
-          #f)))
+    (define/public (get-sport-name sport sub-sport)
+      (let ((info (get-sport-info sport sub-sport)))
+        (if info
+            (sport-info-name info)
+            "Other")))
 
-(define (get-sport-name sport sub-sport)
-  (let ((info (get-sport-info sport sub-sport)))
-    (if info
-        (sport-info-name info)
-        "Other")))
+    (define/public (get-sport-color sport sub-sport [dark? #f])
+      (let ((color-map (if dark? (sport-colors-dark) (sport-colors))))
+        (or (hash-ref color-map (vector sport sub-sport) #f)
+            (hash-ref color-map (vector sport #f) #f)
+            (hash-ref color-map (vector 0 #f) #f))))
 
-(define (get-sport-color sport sub-sport [dark? #f])
-  (let ((color-map (if dark? (sport-colors-dark) (sport-colors))))
-    (or (hash-ref color-map (vector sport sub-sport) #f)
-        (hash-ref color-map (vector sport #f) #f)
-        (hash-ref color-map (vector 0 #f) #f))))
+    (define/public (get-sport-bitmap sport sub-sport)
+      (let ((info (get-sport-info sport sub-sport)))
+        (hash-ref *large-bitmaps*
+                  (if info (sport-info-icon info) *default-bitmap*)
+                  (hash-ref *large-bitmaps* *default-bitmap*))))
 
-(define (get-sport-bitmap sport sub-sport)
-  (let ((info (get-sport-info sport sub-sport)))
-    (hash-ref *large-bitmaps*
-              (if info (sport-info-icon info) *default-bitmap*)
-              (hash-ref *large-bitmaps* *default-bitmap*))))
+    (define/public (get-sport-letter sport sub-sport)
+      (let ((info (get-sport-info sport sub-sport)))
+        (hash-ref *sport-letters*
+                  (if info (sport-info-icon info) *default-bitmap*)
+                  (hash-ref *sport-letters* *default-bitmap*))))
 
-(define (get-sport-letter sport sub-sport)
-  (let ((info (get-sport-info sport sub-sport)))
-    (hash-ref *sport-letters*
-              (if info (sport-info-icon info) *default-bitmap*)
-              (hash-ref *sport-letters* *default-bitmap*))))
+    (define/public (get-sport-bitmap-colorized sport sub-sport)
+      (let* ((b (bitmap (get-sport-bitmap sport sub-sport)))
+             (r (filled-rounded-rectangle (+ (pict-width b) 10)
+                                          (+ (pict-height b) 10)
+                                          -0.05
+                                          #:draw-border? #f)))
+        (pict->bitmap
+         (cc-superimpose (colorize r (get-sport-color sport sub-sport)) b))))
 
-(define (get-sport-bitmap-colorized sport sub-sport)
-  (let* ((b (bitmap (get-sport-bitmap sport sub-sport)))
-         (r (filled-rounded-rectangle (+ (pict-width b) 10)
-                                      (+ (pict-height b) 10)
-                                      -0.05
-                                      #:draw-border? #f)))
-    (pict->bitmap
-     (cc-superimpose (colorize r (get-sport-color sport sub-sport)) b))))
+    (define/public (get-swim-stroke-name swim-stroke-id)
+      (hash-ref swim-stroke-names swim-stroke-id "Unknown"))
 
-(define (get-swim-stroke-name swim-stroke-id)
-  (maybe-init-sport-charms)
-  (hash-ref *swim-stroke-names*
-            swim-stroke-id
-            "Unknown"))
+    (define/public (get-swim-stroke-names)
+      (for/list (((k v) (in-hash swim-stroke-names)))
+        (cons k v)))
 
-(define (get-swim-stroke-names)
-  (maybe-init-sport-charms)
-  (for/list (((k v) (in-hash *swim-stroke-names*)))
-    (cons k v)))
+    (define/public (get-swim-stroke-color stroke)
+      (cond ((assq stroke (swim-stroke-colors)) => cdr)
+            (#t "gray")))
 
-(define (get-swim-stroke-color stroke)
-  (cond ((assq stroke (swim-stroke-colors)) => cdr)
-        (#t "gray")))
+    (define/public (get-sport-names)
+      sport-names)
 
-(define (get-sport-names)
-  (maybe-init-sport-charms)
-  *sport-names*)
+    ;; Implementation detail: We add the "generic" sports to the list if any of
+    ;; their sub-sports show up.  E.g. if we have "Lap Swimming" activities (5,
+    ;; 17) we add the "Swimming" activity (5, #f)
 
-;; Implementation detail: We add the "generic" sports to the list if any of
-;; their sub-sports show up.  E.g. if we have "Lap Swimming" activities (5,
-;; 17) we add the "Swimming" activity (5, #f)
+    (define/public (get-sport-names-in-use)
+      (let ((in-use (query-rows dbc "select distinct S.sport_id, S.sub_sport_id from A_SESSION S")))
+        (filter (lambda (s)
+                  (let ((sport (vector-ref s 1))
+                        (sub-sport (vector-ref s 2)))
+                    (or (and (eq? sport #f) (eq? sub-sport #f)) ; all sports always gets through
+                        (findf (lambda (u)
+                                 (let ((u-sport (vector-ref u 0))
+                                       (u-sub-sport (vector-ref u 1)))
+                                   (set! u-sport (if (sql-null? u-sport) #f u-sport))
+                                   (set! u-sub-sport (if (sql-null? u-sub-sport) #f u-sub-sport))
+                                   (and (eq? sport u-sport)
+                                        (or (eq? sub-sport #f)
+                                            (eq? sub-sport u-sub-sport)))))
+                               in-use))))
+                sport-names)))
 
-(define (get-sport-names-in-use)
-  (maybe-init-sport-charms)
-  (let ((in-use (query-rows (current-database) "select distinct S.sport_id, S.sub_sport_id from A_SESSION S")))
-    (filter (lambda (s)
-              (let ((sport (vector-ref s 1))
-                    (sub-sport (vector-ref s 2)))
-                (or (and (eq? sport #f) (eq? sub-sport #f)) ; all sports always gets through
-                    (findf (lambda (u)
-                             (let ((u-sport (vector-ref u 0))
-                                   (u-sub-sport (vector-ref u 1)))
-                               (set! u-sport (if (sql-null? u-sport) #f u-sport))
-                               (set! u-sub-sport (if (sql-null? u-sub-sport) #f u-sub-sport))
-                               (and (eq? sport u-sport)
-                                    (or (eq? sub-sport #f)
-                                        (eq? sub-sport u-sub-sport)))))
-                           in-use))))
-            *sport-names*)))
+    (define/public (get-athlete-ftp)
+      (let ((v (query-maybe-value dbc "select ftp from ATHLETE")))
+        (if (sql-null? v) #f v)))
 
-(define (get-athlete-ftp (db (current-database)))
-  (let ((v (query-maybe-value db "select ftp from ATHLETE")))
-    (if (sql-null? v) #f v)))
+    (define/public (put-athlete-ftp ftp)
+      (query-exec dbc "update ATHLETE set ftp = ?" (or ftp sql-null)))
 
-(define (put-athlete-ftp ftp (db (current-database)))
-  (query-exec db "update ATHLETE set ftp = ?" (or ftp sql-null)))
+    (define/public (get-athlete-swim-tpace)
+      (let ((v (query-maybe-value dbc "select swim_tpace from ATHLETE")))
+        (if (sql-null? v) #f v)))
 
-(define (get-athlete-swim-tpace (db (current-database)))
-  (let ((v (query-maybe-value db "select swim_tpace from ATHLETE")))
-    (if (sql-null? v) #f v)))
+    (define/public (put-athlete-swim-tpace swim-tpace)
+      (query-exec dbc "update ATHLETE set swim_tpace = ?" (or swim-tpace sql-null)))
 
-(define (put-athlete-swim-tpace swim-tpace (db (current-database)))
-  (query-exec db "update ATHLETE set swim_tpace = ?" (or swim-tpace sql-null)))
+    (define/public (get-athlete-gender)
+      (let ((v (query-maybe-value dbc "select gender from ATHLETE")))
+        (if (sql-null? v) #f v)))
 
-(define (get-athlete-gender (db (current-database)))
-  (let ((v (query-maybe-value db "select gender from ATHLETE")))
-    (if (sql-null? v) #f v)))
+    (define/public (put-athlete-gender gender)
+      (query-exec dbc "update ATHLETE set gender = ?" (or gender sql-null)))
 
-(define (put-athlete-gender gender (db (current-database)))
-  (query-exec db "update ATHLETE set gender = ?" (or gender sql-null)))
+    (define/public (get-athlete-dob)
+      (let ((v (query-maybe-value dbc "select strftime('%s', dob) from ATHLETE")))
+        (cond
+          ((sql-null? v) #f)
+          ((string? v) (string->number v))
+          ((number? v) v)
+          (#t (error "get-athlete-dob")))))
 
-(define (get-athlete-dob (db (current-database)))
-  (let ((v (query-maybe-value db "select strftime('%s', dob) from ATHLETE")))
-    (cond
-      ((sql-null? v) #f)
-      ((string? v) (string->number v))
-      ((number? v) v)
-      (#t (error "get-athlete-dob")))))
+    (define/public (put-athlete-dob dob)
+      (query-exec dbc "update ATHLETE set dob = date(?, 'unixepoch', 'localtime')" (or dob sql-null)))
 
-(define (put-athlete-dob dob (db (current-database)))
-  (query-exec db "update ATHLETE set dob = date(?, 'unixepoch', 'localtime')" (or dob sql-null)))
+    (define/public (get-athlete-height)
+      (let ((v (query-maybe-value dbc "select height from ATHLETE")))
+        (if (sql-null? v) #f v)))
 
-(define (get-athlete-height (db (current-database)))
-  (let ((v (query-maybe-value db "select height from ATHLETE")))
-    (if (sql-null? v) #f v)))
+    (define/public (put-athlete-height height)
+      (query-exec dbc "update ATHLETE set height = ?" (or height sql-null)))
 
-(define (put-athlete-height height (db (current-database)))
-  (query-exec db "update ATHLETE set height = ?" (or height sql-null)))
+    ))
 
 ;; We use too many ways to represent sport ids :-(
 (define (sport-id sport)
@@ -320,3 +287,9 @@
 
 (define (is-swimming? sport)
   (eqv? (sport-id sport) 5))
+
+(provide is-runnig?
+         is-cycling?
+         is-lap-swimming?
+         is-swimming?
+         (contract-out [sport-charms% sport-charms%/c]))

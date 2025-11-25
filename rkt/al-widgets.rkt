@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2019, 2021-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2019, 2021-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -77,7 +77,9 @@
 
 (define sport-selector%
   (class object%
-    (init parent [label "Sport: "])
+    (init parent
+          sport-charms
+          [label "Sport: "])
     (init-field [callback #f]
                 [sports-in-use-only? #t]
                 [sport-filter values])
@@ -86,8 +88,8 @@
     (define sports
       (filter sport-filter
               (if sports-in-use-only?
-                  (get-sport-names-in-use)
-                  (get-sport-names))))
+                  (send sport-charms get-sport-names-in-use)
+                  (send sport-charms get-sport-names))))
 
     (define (get-sport-ids selection)
       (let ((sport (list-ref sports selection)))
