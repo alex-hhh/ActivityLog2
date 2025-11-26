@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2025 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -58,7 +58,7 @@
     ;; The icon displayed on the dialog (created later).  It can be changed by
     ;; calling `set-icon`.
     (define dialog-icon #f)
-    
+
     ;; client-pane contains the user widgets for this dialog (created later).
     ;; A derived class may obtain this using `get-client-pane` and populate it
     ;; with widgets.

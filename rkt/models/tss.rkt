@@ -21,8 +21,9 @@
 (require db/base
          data-frame
          racket/match
-         "../sport-charms.rkt"
+         racket/class
          "../dbutil.rkt"
+         "../sport-charms.rkt"
          "coggan.rkt")
 
 ;; NOTE: these functions were moved out from edit-session-tss.rkt and were
@@ -183,18 +184,18 @@
              tss)))
       #f))
 
-(define (calculate-session-tss effort df sid db)
+(define (calculate-session-tss effort df sid sport-charms)
   ;; NP (and NP based TSS) is updated only for Cycling, as AL2 can only store
   ;; one FTP value, which is for cycling -- see also AB#95 and AB#33
   (let ((duration (effort-duration  effort)))
     (if duration
         (or (let ((np (effort-np effort))
-                  (ftp (get-athlete-ftp db))
+                  (ftp (send sport-charms get-athlete-ftp))
                   (cycling? (is-cycling? (df-get-property df 'sport))))
               (and cycling? np ftp (np->tss ftp np duration)))
             (let ((sport (sql-column-ref effort 0 #f))
                   (dist (effort-distance effort))
-                  (tpace (get-athlete-swim-tpace db)))
+                  (tpace (send sport-charms get-athlete-swim-tpace)))
               (and sport (eq? sport 5) dist tpace
                    ;; For swim sessions, we use the normalized speed (total
                    ;; distance/total time), which includes pauses.  The
@@ -222,17 +223,18 @@
       "update SECTION_SUMMARY set normalized_power = ? where id = ?"
       np ssid))))
 
-(define (maybe-update-session-tss session-id df db [force? #f])
+(define (maybe-update-session-tss session-id df db sport-charms [force? #f])
   ;; NP (and NP based TSS) is updated only for Cycling, as AL2 can only store
   ;; one FTP value, which is for cycling -- see also AB#95 and AB#33
-  (let ((effort (get-session-effort session-id db)))
+  (let ([effort (get-session-effort session-id db)]
+        [ftp (send sport-charms get-athlete-ftp)])
     (cond ((and (eq? #f (effort-np effort)) ; No Normalized Power available
                 (is-cycling? (df-get-property df 'sport))
-                (get-athlete-ftp)           ; ... we have an FTP value
+                ftp
                 (df-contains? df "pwr"))
            (define metrics
              (cg-metrics df
-                         #:ftp (get-athlete-ftp)
+                         #:ftp ftp
                          #:series "pwr"
                          #:weight-series "timer"))
            (put-session-cg-metrics session-id metrics #:database db))

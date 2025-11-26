@@ -2,7 +2,7 @@
 ;; edit-lap-swim.rkt -- edit recording errors in lap swimming sessions
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,11 +24,10 @@
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
-(provide get-lap-swim-editor)
+(provide lap-swim-edit%)
 
 
 ;;........................................................... swl-model% ....
@@ -38,9 +37,9 @@
 
 ;; Produce a string representation of L, a SWL struct.  This is used in the
 ;; dialog to print user friendly information about a SWL.
-(define (swl->string l)
+(define (swl->string l sport-charms)
   (format "~a ~a seconds~a~a"
-          (get-swim-stroke-name (swl-stroke-type l))
+          (send sport-charms get-swim-stroke-name (swl-stroke-type l))
           (~r (swl-duration l) #:precision 1)
           (if (and (swl-strokes l) (> (swl-strokes l) 0))
               (format ", ~a strokes" (swl-strokes l))
@@ -401,7 +400,7 @@ select LE.start_time as timestamp,
 ;; information about the selected item.
 (define swl-view%
   (class object%
-    (init parent)
+    (init parent sport-charms)
     (init-field [on-hover-callback #f] [on-select-callback #f])
     (super-new)
 
@@ -496,7 +495,7 @@ select LE.start_time as timestamp,
     ;; Return the brush used to paint an item, this depends on the swim stroke
     ;; and whether the item is a newly created one or not.
     (define (get-item-brush item index)
-      (let ((color (if #f "red" (get-swim-stroke-color (swl-stroke-type item)))))
+      (let ((color (if #f "red" (send sport-charms get-swim-stroke-color (swl-stroke-type item)))))
         (send the-brush-list find-or-create-brush color
               ;; Items that were already split/joined are drawn in a special
               ;; way
@@ -585,8 +584,10 @@ select LE.start_time as timestamp,
 
 (define lap-swim-edit%
   (class edit-dialog-base%
-    (init)
-    (super-new [title "Edit Swim Lengths"] [icon (edit-icon)])
+    (init-field parent sport-charms dbc sid)
+    (super-new
+     [title "Edit Swim Lengths"]
+     [icon (edit-icon)])
 
     (define msg-headline #f)
     (define msg-start-time #f)
@@ -597,7 +598,8 @@ select LE.start_time as timestamp,
     (define pool-length 0)
 
     (define swl-view #f)
-    (define swl-model #f)
+
+    (define swl-model (new swl-model% [database dbc] [session-id sid]))
 
     ;; Brief description about the selected or hovered swim length, see
     ;; swl->string.
@@ -614,7 +616,7 @@ select LE.start_time as timestamp,
     (define btn-join-prev #f)
     (define btn-delete #f)
 
-    (define swim-stroke-types (get-swim-stroke-names))
+    (define swim-stroke-types (send sport-charms get-swim-stroke-names))
 
     ;; Things to do when a new swim length is selected in the view.  Enable /
     ;; Disable the various edit buttons and set the description label for it,
@@ -736,19 +738,19 @@ select LE.start_time as timestamp,
         (set! btn-delete (new button% [parent hp] [label "Delete"] [callback on-delete])))
       (let ((hp (make-horizontal-pane p #t)))
         (send hp min-height 200)
-        (set! swl-view (new swl-view% [parent hp]
+        (set! swl-view (new swl-view%
+                            [parent hp]
+                            [sport-charms sport-charms]
                             [on-hover-callback on-swl-hovered]
                             [on-select-callback on-swl-selected])))
 
       (let ((hp (make-horizontal-pane p #f)))
         (set! swl-desc (new message% [parent hp] [label ""]
                             [stretchable-width #t]
-                            [font message-font])))
-      )
+                            [font message-font]))))
 
-    (define (setup database sid)
-      (define row (query-row database
-                             "select S.name as headline,
+    (define row (query-row dbc
+                           "select S.name as headline,
                                      S.start_time as start_time,
                                      S.pool_length as pool_length,
                                      SS.total_timer_time as duration,
@@ -757,28 +759,26 @@ select LE.start_time as timestamp,
                                 from A_SESSION S, SECTION_SUMMARY SS
                                where S.summary_id = SS.id
                                  and S.id = ?" sid))
-      (send msg-headline set-label (sql-column-ref row 0 ""))
-      (send msg-start-time set-label (date-time->string (sql-column-ref row 1 (current-seconds))
-                                                        #:time-zone (sql-column-ref row 5)))
-      (send msg-pool-length set-label (short-distance->string (sql-column-ref row 2 0) #t))
-      (send msg-duration set-label (duration->string (sql-column-ref row 3 0)))
-      (set! pool-length (sql-column-ref row 2 0))
-      (set! swl-model (new swl-model% [database database] [session-id sid]))
-      (send msg-distance set-label
-            (short-distance->string (* pool-length (send swl-model get-num-lengths))))
-      (send swl-view set-model swl-model)
-      (on-swl-selected #f))
+    (send msg-headline set-label (sql-column-ref row 0 ""))
+    (send msg-start-time set-label (date-time->string (sql-column-ref row 1 (current-seconds))
+                                                      #:time-zone (sql-column-ref row 5)))
+    (send msg-pool-length set-label (short-distance->string (sql-column-ref row 2 0) #t))
+    (send msg-duration set-label (duration->string (sql-column-ref row 3 0)))
+    (set! pool-length (sql-column-ref row 2 0))
+    (send msg-distance set-label
+          (short-distance->string (* pool-length (send swl-model get-num-lengths))))
+    (send swl-view set-model swl-model)
+    (on-swl-selected #f)
 
     (define/override (has-valid-data?)
       ;; Only allow saving if we actually have a plan to execute.
       (> (length (send swl-model get-plan)) 0))
 
-    (define/public (begin-edit parent database sid)
-      (setup database sid)
+    (define/public (run)
       (let ((result (send this do-edit parent)))
         (if (and result (has-valid-data?))
             (let ((plan (send swl-model get-plan)))
-              (fixup-swim-session database sid plan)
+              (fixup-swim-session dbc sid plan)
               #t)
             #f)))
 
@@ -1231,13 +1231,3 @@ delete from SECTION_SUMMARY
          (update-lap-summary db pool-length lap-id))
        ;; Update summary data for the session itself
        (update-session-summary db pool-length session-id)))))
-
-
-;;............................................... the-swim-lengts-editor ....
-
-(define the-lap-swim-editor #f)
-
-(define (get-lap-swim-editor)
-  (unless the-lap-swim-editor
-    (set! the-lap-swim-editor (new lap-swim-edit%)))
-  the-lap-swim-editor)
