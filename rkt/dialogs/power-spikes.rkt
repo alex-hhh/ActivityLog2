@@ -3,7 +3,7 @@
 ;; metrics for an activity
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -425,10 +425,15 @@
 ;; with them, they can clear the selected outlier points.
 (define power-spikes-dashboard%
   (class object%
-    (init-field [min-width 1000] [min-height 625])
+    (init-field
+     parent
+     dbc
+     sport-charms
+     session-id
+     [min-width 1000]
+     [min-height 625])
     (super-new)
 
-    (define database #f)
     (define df #f)
 
     (define/private (make-toplevel-dialog parent)
@@ -443,7 +448,7 @@
     (define message-font
       (send the-font-list find-or-create-font 12 'default 'normal 'normal))
 
-    (define toplevel-window (make-toplevel-dialog #f))
+    (define toplevel-window (make-toplevel-dialog parent))
 
     (define plot #f)
 
@@ -584,13 +589,13 @@
           (send plot-container set-background-message "Clearing power spikes...")
           (thread/dbglog
            (lambda ()
-             (fix-power-spikes df cutoff #:database database #:ftp ftp)
+             (fix-power-spikes df cutoff #:database dbc #:ftp ftp)
              (define sid (df-get-property df 'session-id))
-             (put-athlete-ftp ftp)
+             (send sport-charms put-athlete-ftp ftp)
              ;; Save the IQR scale as a preference
              (let ([iqr-scale (/ (send iqr-scale-slider get-value) 10.0)])
                (put-pref 'power-spikes-iqr-scale iqr-scale))
-             (load-data database sid)
+             (load-data)
              (queue-callback
               (lambda ()
                 (send plot-container set-background-message "")
@@ -608,10 +613,9 @@
     (define (on-close-dashboard)
       (void))
 
-    (define/private (load-data db sid)
-      (set! database db)
-      (set! df (session-df db sid))
-      (define sinfo (get-session-info sid db))
+    (define/private (load-data)
+      (set! df (session-df dbc session-id))
+      (define sinfo (get-session-info session-id dbc))
       (send dashboard-contents begin-container-sequence)
       (when sinfo
         (send headline set-pict (and sinfo (pp-session-info/pict sinfo))))
@@ -629,7 +633,7 @@
       (send iqr-scale-value set-label (~r iqr-scale #:precision 2))
       (send cutoff-value set-label (~a (exact-round (if plot (send plot get-cutoff) 0))))
       (send outlier-count set-label (~a (exact-round (if plot (send plot get-outlier-count) 0))))
-      (let ((ftp (get-athlete-ftp db)))
+      (let ((ftp (send sport-charms get-athlete-ftp dbc)))
         (when ftp
           (send ftp-input set-value (n->string ftp))))
       (if plot
@@ -640,25 +644,27 @@
             (send do-fixups-button enable #f)))
       (send dashboard-contents end-container-sequence))
 
-    (define/public (show-dashboard parent db sid)
-      (let ((old-toplevel toplevel-window))
-        (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
-          (send dashboard-contents reparent toplevel)
-          (set! toplevel-window toplevel))
-        (thread/dbglog (lambda () (load-data db sid)))
-        (send close-button enable #t)
-        (send plot-container set-background-message "")
-        (send do-fixups-button enable #t)
-        (send toplevel-window show #t) ; will block until finish-dialog is called
-        (set! toplevel-window old-toplevel)))
+    (define/public (show-dashboard)
+      (thread/dbglog (lambda () (load-data)))
+      (send close-button enable #t)
+      (send plot-container set-background-message "")
+      (send do-fixups-button enable #t)
+      (send toplevel-window show #t) ; will block until finish-dialog is called
+      )
 
     ))
 
-(define (show-power-spikes-dashboard toplevel database sid)
-  (define dashboard (new power-spikes-dashboard%))
-  (send dashboard show-dashboard toplevel database sid))
+(define (show-power-spikes-dashboard toplevel database sport-charms sid)
+  (define dashboard
+    (new power-spikes-dashboard%
+         [parent toplevel]
+         [dbc database]
+         [sport-charms sport-charms]
+         [session-id sid]))
+  (send dashboard show-dashboard))
 
 (provide/contract
  (show-power-spikes-dashboard (-> (or/c #f (is-a?/c top-level-window<%>))
                                   connection?
+                                  (is-a?/c sport-charms%)
                                   exact-positive-integer? any/c)))
