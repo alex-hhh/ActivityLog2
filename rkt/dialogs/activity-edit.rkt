@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -61,7 +61,7 @@
     show-or-hide-aerolab-tab
     ))
 
-(define (get-session-headline db sid)
+(define (get-session-headline db sid sport-charms)
   (let ((row (query-row db "
 select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
   from A_SESSION S
@@ -70,8 +70,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
           (sport (vector-ref row 1))
           (sub-sport (vector-ref row 2)))
       (format "~a (~a)" name
-              (get-sport-name (if (sql-null? sport) #f sport)
-                              (if (sql-null? sub-sport) #f sub-sport))))))
+              (send sport-charms get-sport-name
+                    (if (sql-null? sport) #f sport)
+                    (if (sql-null? sub-sport) #f sub-sport))))))
 
 (define (get-activity-original-file-name db guid)
   (query-value
@@ -81,7 +82,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
 
 (define activity-operations-menu%
   (class object%
-    (init-field target)
+    (init-field target sport-charms)
     (init [menu-bar #f])
     (super-new)
 
@@ -144,15 +145,17 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define (on-edit m e)
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
-            (toplevel (send target get-top-level-window)))
-        (when (send (get-edit-session-summary-dialog) show-dialog toplevel db sid)
+            (toplevel (send target get-top-level-window))
+            (ess (new edit-session-summary-dialog% [sport-charms sport-charms])))
+        (when (send ess show-dialog toplevel db sid)
           (log-event 'session-updated sid)
           (send target after-update sid))))
 
     (define (on-new m e)
       (let ((db (send target get-database))
-            (toplevel (send target get-top-level-window)))
-        (let ((sid (send (get-edit-session-summary-dialog) show-dialog toplevel db #f)))
+            (toplevel (send target get-top-level-window))
+            (ess (new edit-session-summary-dialog% [sport-charms sport-charms])))
+        (let ((sid (send ess show-dialog toplevel db #f)))
           (when sid
             (log-event 'session-created sid)
             (send target after-new sid)))))
@@ -216,18 +219,24 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
         (when (equal? sport '(5 . 17))  ; lap swimming
-          (when (send (get-lap-swim-editor) begin-edit toplevel db sid)
-            (log-event 'session-updated sid)
-            (log-event 'session-updated-data sid)
-            (send target after-update sid)))))
+          (let ([ls (new lap-swim-edit%
+                         [parent toplevel]
+                         [dbc db]
+                         [sport-charms sport-charms]
+                         [sid sid])])
+            (when (send ls run)
+              (log-event 'session-updated sid)
+              (log-event 'session-updated-data sid)
+              (send target after-update sid))))))
 
     (define (on-edit-tss m e)
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (when (send (get-edit-session-tss-dialog) run toplevel db sid)
-          (log-event 'session-updated sid)
-          (send target after-update sid))))
+        (let ([es (new edit-session-tss-dialog% [sport-charms sport-charms])])
+          (when (send es run toplevel db sid)
+            (log-event 'session-updated sid)
+            (send target after-update sid)))))
 
     (define (on-delete m e)
       (let ((sid (send target get-selected-sid))
