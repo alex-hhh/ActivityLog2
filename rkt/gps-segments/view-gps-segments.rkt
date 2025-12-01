@@ -4,7 +4,7 @@
 ;; view-gps-segments.rkt -- the GPS segments view on the side panel
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -158,7 +158,7 @@
 ;; application.
 (define view-gps-segments%
   (class* object% (gps-segment-operations<%>)
-    (init-field parent database select-activity-callback)
+    (init-field parent database sport-charms select-activity-callback)
     (super-new)
 
     (define pref-tag 'al2-view-gps-segments)
@@ -294,7 +294,7 @@
             (let ((fn (lambda (row)
                         (let ((sport (column-ref-by-name row "sport" 0))
                               (sub-sport (column-ref-by-name row "sub_sport" 0)))
-                          (get-sport-name sport sub-sport)))))
+                          (send sport-charms get-sport-name sport sub-sport)))))
               (qcolumn "Sport" fn fn #:default-visible? #t))
             (make-mcolumn "Moving Time" "duration" 0 duration->string #:default-visible? #t)
             (make-mcolumn "Elapsed Time" "elapsed" 0 duration->string #:default-visible? #f)

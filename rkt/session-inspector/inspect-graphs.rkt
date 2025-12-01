@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -581,14 +581,14 @@
 ;; color plots by swim stroke.  This means the function can be safely called
 ;; for any data frame + x-axis + y-axis combination and will only return a
 ;; swim stroke if appropriate.
-(define (find-swim-stroke plot-state x)
+(define (find-swim-stroke plot-state x sport-charms)
   (define df (ps-df plot-state))
   (define xseries (send (ps-x-axis plot-state) series-name))
   (and
    (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
    (df-contains? df xseries "swim_stroke")
    (let ((stroke (df-lookup df xseries "swim_stroke" x)))
-     (and stroke (get-swim-stroke-name stroke)))))
+     (and stroke (send sport-charms get-swim-stroke-name stroke)))))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
@@ -896,6 +896,7 @@
     (init parent)
     (init-field
      primary-y-axis
+     sport-charms
      [headline #f]           ; see get-headline
      [preferences-tag #f]    ; see get-preferences-tag
      [min-height 10]
@@ -1070,7 +1071,7 @@
                      (add-renderer (hover-label x y-min label))))
                   (y1
                    (let ((label (string-append ylab1 " @ " xlab))
-                         (swim-stroke (find-swim-stroke plot-state x)))
+                         (swim-stroke (find-swim-stroke plot-state x sport-charms)))
                      (add-renderer (hover-label x y-min label swim-stroke))))
                   (y2
                    (let ((label (string-append ylab2 " @ " xlab)))

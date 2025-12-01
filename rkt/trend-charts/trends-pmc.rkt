@@ -662,7 +662,7 @@
 
 (define pmc-trends-chart%
   (class trends-chart%
-    (init-field database)
+    (init-field database sport-charms)
     (super-new)
 
     (define *sea-green-hl* (make-object color% #x2e #x8b #x57 0.2))
@@ -722,7 +722,7 @@
                         ([(h t sport sub-sport)
                           (in-data-frame pmc-sessions "headline" "tss" "sport" "sub_sport"
                                          #:start start #:stop stop)])
-                (cons (list #f (get-sport-name sport sub-sport))
+                (cons (list #f (send sport-charms get-sport-name sport sub-sport))
                       (cons (list (~r t #:precision 0) (or h "Unnamed session"))
                             result))))
             (set! b (make-hover-badge sessions))

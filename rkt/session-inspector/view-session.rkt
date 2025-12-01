@@ -61,6 +61,7 @@
 (define session-header%
   (class object%
     (init parent)
+    (init-field sport-charms)
     (super-new)
 
     (define database #f)
@@ -81,7 +82,7 @@
     (define begining-spacer (make-spacer panel0))
 
     (define sport-icon (new message% [parent panel0]
-                            [label (get-sport-bitmap-colorized 0 0)]
+                            [label (send sport-charms get-sport-bitmap-colorized 0 0)]
                             [stretchable-width #f]
                             [stretchable-height #f]))
 
@@ -177,7 +178,7 @@
            [sports-in-use-only? #f]
            [label ""]
            [callback (lambda (v)
-                       (send sport-icon set-label (get-sport-bitmap-colorized (car v) (cdr v))))]))
+                       (send sport-icon set-label (send sport-charms get-sport-bitmap-colorized (car v) (cdr v))))]))
 
     (new message% [parent sport-panel-edit]
          [stretchable-width #f]
@@ -272,8 +273,8 @@
     (define (switch-to-view-mode)
       (set! is-editing? #f)
       (send sport-icon set-label
-            (get-sport-bitmap-colorized sport sub-sport))
-      (send sport-name set-label (get-sport-name sport sub-sport))
+            (send sport-charms get-sport-bitmap-colorized sport sub-sport))
+      (send sport-name set-label (send sport-charms get-sport-name sport sub-sport))
       (send session-title set-label headline)
       (send rpe-name set-label (rpe->string perceived-effort))
       (send feel-name set-label (feel->string athlete-feel))
