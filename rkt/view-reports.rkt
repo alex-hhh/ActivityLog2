@@ -2,7 +2,7 @@
 ;; view-reports.rkt -- provide reporting on activities in the database.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -817,14 +817,14 @@
               (lambda (row) (n->string (vector-ref row index)))
               (lambda (row) (vector-ref row index))))))
 
-(define (get-activity-distribution-columns sport type)
+(define (get-activity-distribution-columns sport type sport-charms)
   (cons
    (let ((fn (lambda (row)
                (let ((sport (vector-ref row 1))
                      (sub-sport (vector-ref row 2)))
                  (when (sql-null? sub-sport)
                    (set! sub-sport #f))
-                 (get-sport-name sport (if (eq? type 'detailed) sub-sport #f))))))
+                 (send sport-charms get-sport-name sport (if (eq? type 'detailed) sub-sport #f))))))
      (qcolumn "Sport" fn fn))
    adist-columns))
 
@@ -1064,7 +1064,7 @@
 
 (define view-reports%
   (class object%
-    (init parent database)
+    (init parent database sport-charms)
     (super-new)
 
     (define the-database database)
@@ -1118,7 +1118,7 @@
                 the-database 'normal
                 date-range-filter (car sport-filter) (cdr sport-filter)))
              (lambda (sport)
-               (get-activity-distribution-columns sport 'normal))
+               (get-activity-distribution-columns sport 'normal sport-charms))
              (lambda ()
                (get-activity-distribution-sql
                 'normal
@@ -1129,7 +1129,7 @@
                 the-database 'detailed
                 date-range-filter (car sport-filter) (cdr sport-filter)))
              (lambda (sport)
-               (get-activity-distribution-columns sport 'detailed))
+               (get-activity-distribution-columns sport 'detailed sport-charms))
              (lambda ()
                (get-activity-distribution-sql
                 'detailed

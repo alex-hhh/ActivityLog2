@@ -152,7 +152,7 @@ select X.session_id
 (define view-activities%
   (class* object% (activity-operations<%>)
     (init parent)
-    (init-field database [select-activity-callback #f])
+    (init-field database sport-charms [select-activity-callback #f])
     (super-new)
 
     (define tag 'activity-log:view-activities-visual-layout)
@@ -322,7 +322,7 @@ select X.session_id
        (let ((fn (lambda (row)
                    (let ((sport (db-row-ref row "sport" headers 0))
                          (sub-sport (db-row-ref row "sub_sport" headers 0)))
-                     (get-sport-name sport sub-sport)))))
+                     (send sport-charms get-sport-name sport sub-sport)))))
          (qcolumn "Sport" fn fn #:default-visible? #t))
 
        (let ((fn (lambda (row) (db-row-ref row "start_time" headers 0))))
