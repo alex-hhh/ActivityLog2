@@ -445,7 +445,7 @@
 
 (define calendar-pasteboard%
   (class pasteboard%
-    (init-field double-click-callback activity-operations)
+    (init-field double-click-callback activity-operations sport-charms)
     (super-new)
     (inherit get-canvas move-to find-first-snip insert delete set-before
              begin-edit-sequence end-edit-sequence)
@@ -456,7 +456,9 @@
       (end-edit-sequence))
 
     (define aop-menu
-      (new activity-operations-menu% [target activity-operations]))
+      (new activity-operations-menu%
+           [target activity-operations]
+           [sport-charms sport-charms]))
 
     (define/public (get-calendar-operations-menu citem)
       (send activity-operations set-calendar-item citem)
@@ -906,6 +908,7 @@
     (define the-calendar
       (let ((calendar (new calendar-pasteboard%
                            [activity-operations this]
+                           [sport-charms sport-charms]
                            [double-click-callback select-activity-callback])))
         (new editor-canvas%
              [parent pane]

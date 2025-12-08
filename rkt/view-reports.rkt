@@ -1237,7 +1237,9 @@
                          (set! selected-report (send c get-selection))
                          (on-filter-changed))])
 
-        (new sport-selector% [parent filter-pane]
+        (new sport-selector%
+             [parent filter-pane]
+             [sport-charms sport-charms]
              [callback (lambda (s)
                          (set! sport-filter s)
                          (on-filter-changed))])
@@ -1253,7 +1255,7 @@
           (set! date-range-field drs)))
 
       (make-spacer sel-pane))
-    
+
 
     (define the-list-box (new qresults-list%
                               [parent the-pane]

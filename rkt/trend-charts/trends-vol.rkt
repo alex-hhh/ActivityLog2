@@ -2,7 +2,7 @@
 ;; trends-vol.rkt -- Activity volume chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -34,6 +34,7 @@
 (define vol-chart-settings%
   (class edit-dialog-base%
     (init-field database
+                sport-charms
                 [default-name "Trends"]
                 [default-title "Trends Chart"])
     (super-new [title "Chart Settings"] [icon (edit-icon)] [min-height 10])
@@ -45,7 +46,11 @@
     (send title-field set-value default-title)
 
     (define time-gb (make-group-box-panel (send this get-client-pane)))
-    (define sport-selector (new sport-selector% [parent time-gb] [sports-in-use-only? #t]))
+    (define sport-selector
+      (new sport-selector%
+           [parent time-gb]
+           [sport-charms sport-charms]
+           [sports-in-use-only? #t]))
     (define date-range-selector (new date-range-selector% [parent time-gb]))
 
     (define grouping-gb (make-group-box-panel (send this get-client-pane)))
@@ -193,7 +198,7 @@
 
 (define vol-trends-chart%
   (class trends-chart%
-    (init-field database)
+    (init-field database sport-charms)
     (super-new)
 
     (define data-valid? #f)
@@ -207,6 +212,7 @@
     (define/override (make-settings-dialog)
       (new vol-chart-settings%
            [default-name "Vol"]
+           [sport-charms sport-charms]
            [default-title "Training Volume"]
            [database database]))
 

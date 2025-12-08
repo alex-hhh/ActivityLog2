@@ -94,6 +94,7 @@
         (set! sport-choice
               (new sport-selector% [parent p0]
                    [sports-in-use-only? #f]
+                   [sport-charms sport-charms]
                    [callback
                     (lambda (v)
                       (let ((icon (send sport-charms get-sport-bitmap-colorized (car v) (cdr v))))

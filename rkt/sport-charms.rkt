@@ -108,40 +108,41 @@
 
 (define (init-sport-charms db)
 
-  (define sport-info
+  (define si
     (for/hash (((id name icon)
                 (in-query db "select id, name, icon from E_SPORT where id != 254")))
       (values id (sport-info id #f name icon))))
 
-   (define sub-sport-info
-     (for/hash (((id parent-id name icon)
-                 (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
-       (values id (sport-info id parent-id name icon))))
+  (define ssi
+    (for/hash (((id parent-id name icon)
+                (in-query db "select id, sport_id, name, icon from E_SUB_SPORT where id != 254")))
+      (values id (sport-info id parent-id name icon))))
 
-    (define swim-stroke-names
-      (for/hash (((id name)
-                  (in-query db "select id, name from E_SWIM_STROKE")))
-        (values id name)))
+  (define swim-stroke-names
+    (for/hash (((id name)
+                (in-query db "select id, name from E_SWIM_STROKE")))
+      (values id name)))
 
-    (define sport-names
-      (let ((sport-names (list (vector "All Sports" #f #f))))
-        (for ((sid (in-list (sort (hash-keys sport-info) <))))
-          (let ((sport (hash-ref sport-info sid)))
-            (set! sport-names (cons (vector (sport-info-name sport) (sport-info-id sport) #f)
-                                    sport-names))
-            (for ((sub-sport (in-hash-values sub-sport-info)))
-              (when (eqv? (sport-info-id sport) (sport-info-parent-id sub-sport))
-                (set! sport-names (cons (vector
-                                         (sport-info-name sub-sport)
-                                         (sport-info-id sport) (sport-info-id sub-sport))
-                                        sport-names))))))
-        (reverse sport-names)))
+  (define sport-names
+    (let ((sport-names (list (vector "All Sports" #f #f))))
+      (for ((sid (in-list (sort (hash-keys si) <))))
+        (let ((sport (hash-ref si sid)))
+          (set! sport-names (cons (vector (sport-info-name sport) (sport-info-id sport) #f)
+                                  sport-names))
+          (for ((sub-sport (in-hash-values ssi)))
+            (when (eqv? (sport-info-id sport) (sport-info-parent-id sub-sport))
+              (set! sport-names (cons (vector
+                                       (sport-info-name sub-sport)
+                                       (sport-info-id sport) (sport-info-id sub-sport))
+                                      sport-names))))))
+      (reverse sport-names)))
 
-  (values sport-info sub-sport-info swim-stroke-names sport-names))
+  (values si ssi swim-stroke-names sport-names))
 
 (define sport-charms%
   (class object%
     (init-field dbc)
+    (super-new)
 
     (define-values (sport-info sub-sport-info swim-stroke-names sport-names)
       (init-sport-charms dbc))

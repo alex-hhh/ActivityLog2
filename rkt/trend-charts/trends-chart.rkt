@@ -63,6 +63,7 @@
   (class object%
     (init parent)
     (init-field database
+                sport-charms
                 [sport-selected-callback #f]
                 [sport-filter values])
     (super-new)
@@ -73,6 +74,7 @@
     (define sport-selector
       (new sport-selector%
            [parent left-pane]
+           [sport-charms sport-charms]
            [sports-in-use-only? #t]
            [callback sport-selected-callback]
            [sport-filter sport-filter]))

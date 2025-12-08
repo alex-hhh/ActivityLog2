@@ -211,7 +211,9 @@ select X.session_id
 
           (let ((p (new vertical-pane% [parent q] [alignment '(left top)] [stretchable-width #f])))
             (set! sport-selector
-                  (new sport-selector% [parent p]
+                  (new sport-selector%
+                       [parent p]
+                       [sport-charms sport-charms]
                        [callback (lambda (s)
                                    (set! sport-filter s)
                                    (on-filter-changed))]))
@@ -264,7 +266,10 @@ select X.session_id
            [put-preference (lambda (name value)
                              (db-put-pref database name value))]
            [right-click-menu
-            (send (new activity-operations-menu% [target this]) get-popup-menu)]))
+            (send (new activity-operations-menu%
+                       [target this]
+                       [sport-charms sport-charms])
+                  get-popup-menu)]))
 
     (send lb set-default-export-file-name "activities.csv")
 

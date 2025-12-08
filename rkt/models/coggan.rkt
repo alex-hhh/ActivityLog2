@@ -199,9 +199,9 @@
 
 (provide (struct-out cg))
 (provide/contract
- (cg-metrics (->* (data-frame?)
-                  (#:ftp (and/c real? positive?)
-                   #:series string?
+ (cg-metrics (->* (data-frame?
+                   #:ftp (and/c real? positive?))
+                  (#:series string?
                    #:weight-series string?
                    #:include-partial? boolean?
                    #:start exact-integer?

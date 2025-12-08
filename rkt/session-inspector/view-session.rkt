@@ -175,6 +175,7 @@
     (define sport-name-edit
       (new sport-selector%
            [parent sport-panel-edit]
+           [sport-charms sport-charms]
            [sports-in-use-only? #f]
            [label ""]
            [callback (lambda (v)

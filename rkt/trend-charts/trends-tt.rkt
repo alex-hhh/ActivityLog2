@@ -35,6 +35,7 @@
 (define tt-chart-settings%
   (class edit-dialog-base%
     (init-field database
+                sport-charms
                 [default-name "Trends"]
                 [default-title "Trends Chart"])
 
@@ -50,7 +51,11 @@
 
     (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define sport-hp (make-horizontal-pane time-gb))
-    (define sport-selector (new sport-selector% [parent sport-hp] [sports-in-use-only? #t]))
+    (define sport-selector
+      (new sport-selector%
+           [parent sport-hp]
+           [sport-charms sport-charms]
+           [sports-in-use-only? #t]))
     (define tri-checkbox
       (new check-box% [parent sport-hp] [label "Tri Activities"]
            [value #f]
@@ -324,6 +329,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
       (new tt-chart-settings%
            [default-name "Training Times"]
            [default-title "TrainingTimes"]
+           [sport-charms sport-charms]
            [database database]))
 
     (define/override (invalidate-data)

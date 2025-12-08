@@ -334,9 +334,12 @@
 
 ;;................................................... make-activtiy-menu ....
 
-(define (make-activtiy-menu menu-bar target)
+(define (make-activtiy-menu menu-bar sport-charms target)
   (define activity-menu
-    (new activity-operations-menu% [menu-bar menu-bar] [target target]))
+    (new activity-operations-menu%
+         [menu-bar menu-bar]
+         [sport-charms sport-charms]
+         [target target]))
   (send activity-menu get-popup-menu))
 
 
@@ -1060,8 +1063,10 @@
 
       (add-section "Activities" 'activity-list
                    (lambda (parent)
-                     (new view-activities% [parent parent]
+                     (new view-activities%
+                          [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
       )
 
@@ -1100,7 +1105,7 @@
       (make-edit-menu mb this)
       (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
       (make-athlete-menu mb sport-charms amop)
-      (make-activtiy-menu mb aop)
+      (make-activtiy-menu mb sport-charms aop)
       (make-gps-segments-menu mb gsop)
       (make-workout-menu mb wop)
       (make-tools-menu mb this)
