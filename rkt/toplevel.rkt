@@ -53,7 +53,8 @@
          "view-equipment.rkt"
          "view-reports.rkt"
          "widgets/main.rkt"
-         "workout-editor/view-workouts.rkt")
+         "workout-editor/view-workouts.rkt"
+         "sport-charms.rkt")
 
 (provide toplevel-window%)
 
@@ -299,7 +300,7 @@
 
 ;;.................................................... make-athlete-menu ....
 
-(define (make-athlete-menu menu-bar target)
+(define (make-athlete-menu menu-bar sport-charms target)
 
   (define operations-menu
     (new athlete-metrics-operations-menu% [menu-bar menu-bar] [target target]))
@@ -310,7 +311,8 @@
          [parent menu] [label "Edit Sport Zones..."]
          [callback
           (lambda (m e)
-            (send (get-sz-editor) show-dialog
+            (send (new edit-sz-dialog% [sport-charms sport-charms])
+                  show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
     (new menu-item%
@@ -324,7 +326,7 @@
          [parent menu] [label "Export Settings to Device..."]
          [callback
           (lambda (m e)
-            (send (get-export-settings-dialog) show-dialog
+            (send (new export-settings-dialog% [sport-charms sport-charms]) show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
     menu))
@@ -955,6 +957,7 @@
     (unless database
       (raise (format "failed to open database at ~a" database-path)))
     (set-current-database database)     ; set this as current
+    (define sport-charms (new sport-charms% [dbc database]))
 
     ;;; Construct the toplevel frame and initial panels
     (define tl-frame
@@ -1096,7 +1099,7 @@
       (make-file-menu mb this)
       (make-edit-menu mb this)
       (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
-      (make-athlete-menu mb amop)
+      (make-athlete-menu mb sport-charms amop)
       (make-activtiy-menu mb aop)
       (make-gps-segments-menu mb gsop)
       (make-workout-menu mb wop)

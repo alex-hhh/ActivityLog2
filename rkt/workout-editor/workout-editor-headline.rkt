@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2025 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -27,7 +27,7 @@
 ;; Widget to display or edit the workout title and sport
 (define workout-editor-headline%
   (class object%
-    (init-field parent [headline-updated-callback #f])
+    (init-field parent sport-charms [headline-updated-callback #f])
     (super-new)
 
     (define headline "")
@@ -43,7 +43,7 @@
     (define begining-spacer (make-spacer panel0))
 
     (define sport-icon (new message% [parent panel0]
-                            [label (get-sport-bitmap-colorized 1 #f)]
+                            [label (send sport-charms get-sport-bitmap-colorized 1 #f)]
                             [stretchable-width #f]
                             [stretchable-height #f]))
 
@@ -82,7 +82,7 @@
     (define sport-name
       (new message% [parent sport-panel]
            [stretchable-width #t]
-           [label (get-sport-name 1 #f)]
+           [label (send sport-charms get-sport-name 1 #f)]
            [font *data-font*]))
 
     (define sport-panel-edit
@@ -101,7 +101,7 @@
     (define (on-sport-selected control event)
       (define index (send control get-selection))
       (define sport (add1 index))       ; funny, but works
-      (send sport-icon set-label (get-sport-bitmap-colorized sport #f)))
+      (send sport-icon set-label (send sport-charms get-sport-bitmap-colorized sport #f)))
 
     (define sport-name-edit
       (new choice%
@@ -166,8 +166,8 @@
 
     (define (switch-to-view-mode)
       (set! is-editing? #f)
-      (send sport-icon set-label (get-sport-bitmap-colorized sport #f))
-      (send sport-name set-label (get-sport-name sport #f))
+      (send sport-icon set-label (send sport-charms get-sport-bitmap-colorized sport #f))
+      (send sport-name set-label (send sport-charms get-sport-name sport #f))
       (send workout-title set-label headline)
       (send panel change-children
             (lambda (old)

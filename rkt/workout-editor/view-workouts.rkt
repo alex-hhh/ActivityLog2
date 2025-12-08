@@ -2,7 +2,7 @@
 ;; view-workouts.rkt -- workouts management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -289,14 +289,14 @@
     (define/public (get-popup-menu) the-menu)
     ))
 
-(define workout-colums
+(define (workout-colums sport-charms)
   (list
    (let ((fn (lambda (v) (sql-column-ref v 1))))
      (qcolumn "Name" fn fn))
    (let ((fn (lambda (v)
                (let ((sport (sql-column-ref v 2))
                      (sub-sport (sql-column-ref v 3)))
-                 (get-sport-name sport sub-sport)))))
+                 (send sport-charms get-sport-name sport sub-sport)))))
      (qcolumn "Sport" fn fn))))
 
 (define (get-workout-libraries db)
@@ -319,7 +319,7 @@ select id, name, sport_id, sub_sport_id, serial, library_id
 
 (define view-workouts%
   (class* object% (workout-operations<%>)
-    (init-field parent database)
+    (init-field parent sport-charms database)
     (super-new)
 
     (define tag 'activity-log:view-workouts)
@@ -457,7 +457,7 @@ select id, name, sport_id, sub_sport_id, serial, library_id
 
     (define/public (activated)
       (when first-activation?
-        (send workouts-list setup-column-defs workout-colums)
+        (send workouts-list setup-column-defs (workout-colums sport-charms))
         (let ((selection (send library-choice get-selection)))
           (when selection
             (on-library-selected selection)))
