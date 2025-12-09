@@ -291,19 +291,19 @@ select body_weight
       ;; DOB, gender, height and FTP are stored in the database, fetch them
       ;; from there.
 
-      (let ((dob (send sport-charms get-athlete-dob db)))
+      (let ((dob (send sport-charms get-athlete-dob)))
         (when dob
           (send dob-field set-date-value dob)))
 
-      (let ((gender (send sport-charms get-athlete-gender db)))
+      (let ((gender (send sport-charms get-athlete-gender)))
         (when gender
           (send gender-field set-selection gender)))
 
-      (let ((height (send sport-charms get-athlete-height db)))
+      (let ((height (send sport-charms get-athlete-height)))
         (when height
           (send height-field set-numeric-value height)))
 
-      (let ((ftp (send sport-charms get-athlete-ftp db)))
+      (let ((ftp (send sport-charms get-athlete-ftp)))
         (when ftp
           (send bike-ftp-field set-numeric-value ftp)))
 

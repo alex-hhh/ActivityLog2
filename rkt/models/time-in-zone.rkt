@@ -2,7 +2,7 @@
 ;; time-in-zone.rkt -- time spent in each sport zone for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,12 +16,14 @@
 
 (require data-frame
          db/base
+         racket/class
          racket/contract
          racket/match
          racket/runtime-path
          "../dbutil.rkt"
          "../session-df/hrv.rkt"
          "../session-df/session-df.rkt"
+         "../sport-charms.rkt"
          "aerobic-decoupling.rkt"
          "tss.rkt")
 
@@ -117,7 +119,7 @@ select P.id
 ;; NOTE: This function is called for sessions that have been freshly imported,
 ;; and should probably be moved in import.rkt.
 ;;
-(define (update-some-session-metrics sid db)
+(define (update-some-session-metrics sid db sport-charms)
   (let* ((session (session-df db sid))
          (sport (df-get-property session 'sport))
          (pwr-zone-id (get-zone-id sid 3 db))
@@ -139,7 +141,7 @@ select P.id
           (store-time-in-zone sid hr-zone-id data db))))
 
     ;; Training Stress Score
-    (maybe-update-session-tss sid session db)
+    (maybe-update-session-tss sid session db sport-charms)
 
     ;; Aerobic Decoupling
     (let ([adec (aerobic-decoupling session)])
@@ -174,4 +176,4 @@ select P.id
 
 (provide/contract
  (get-tiz-outdated-sessions (-> connection? (listof exact-nonnegative-integer?)))
- (update-some-session-metrics (-> exact-nonnegative-integer? connection? any/c)))
+ (update-some-session-metrics (-> exact-nonnegative-integer? connection? (is-a?/c sport-charms%) any/c)))

@@ -2,7 +2,7 @@
 ;; import.rkt -- import acivities into the database
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2020, 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -30,9 +30,10 @@
          "session-df/session-df.rkt"
          "utilities.rkt")
 
-(provide import-new-activities-from-directory do-post-import-tasks)
+(provide import-new-activities-from-directory
+         do-post-import-tasks)
 
-(define (import-new-activities-from-directory dir db [file-callback #f] [global-callback #f])
+(define (import-new-activities-from-directory dir db sport-charms [file-callback #f] [global-callback #f])
   (query-exec db "delete from LAST_IMPORT")
   (dbglog "importing activities from ~a" dir)
   (when global-callback
@@ -40,12 +41,12 @@
   (db-import-activities-from-directory dir db file-callback)
   (let ((num-imported (query-value db "select count(*) from LAST_IMPORT")))
     (when (> num-imported 0)
-      (do-post-import-tasks db global-callback))
+      (do-post-import-tasks db sport-charms global-callback))
     (dbglog "import complete (~a activities imported)" num-imported)))
 
 ;; Perform database maintenance tasks after an import.  `global-callback' will
 ;; be used to report progress.
-(define (do-post-import-tasks db [global-callback #f])
+(define (do-post-import-tasks db sport-charms [global-callback #f])
   (define (show-progress msg)
     (dbglog msg)
     (when global-callback (global-callback msg)))
@@ -69,7 +70,7 @@
         (update-elevation-for-new-sessions sessions db))
       (show-progress "skipping corrected elevation (disabled in settings)..."))
   (show-progress "updating time in zone...")
-  (update-tiz-for-new-sessions sessions db)
+  (update-tiz-for-new-sessions sessions db sport-charms)
   ;; NOTE: these fixes load sessions, and should be after the elevation
   ;; correction (which adds the "calt" series).  Otherwise, the corrected
   ;; elevation will not show up right after import...
@@ -168,13 +169,13 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
   (when progress-monitor
     (send progress-monitor set-progress (- (length sessions) 1))))
 
-(define (update-tiz-for-new-sessions sessions db [progress-monitor #f])
+(define (update-tiz-for-new-sessions sessions db sport-charms [progress-monitor #f])
   (when progress-monitor
     (send progress-monitor
           begin-stage "Updating metrics for new sessions" (length sessions)))
   (for ((sid (in-list sessions))
         (n (in-range (length sessions))))
-    (update-some-session-metrics sid db)
+    (update-some-session-metrics sid db sport-charms)
     (when progress-monitor
       (send progress-monitor set-progress (+ n 1)))))
 

@@ -4,7 +4,7 @@
 ;; al2-activity-import.rkt -- command line tool to import activities
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,12 +21,14 @@
 
 (require racket/cmdline
          db
+         racket/class
          racket/format
          "../rkt/dbapp.rkt"
          "../rkt/import.rkt"
          "../rkt/database.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/app-info.rkt")
+         "../rkt/app-info.rkt"
+         "../rkt/sport-charms.rkt")
 
 (define start-timestamp (current-inexact-milliseconds))
 (define database-file (make-parameter #f))
@@ -95,12 +97,14 @@
      (log "~a (~a of ~a)" text n total))))
 
 (set-current-database db) ; Sadly, some code still uses the global (current-database)
+(define sport-charms (new sport-charms% [dbc db]))
 
 (if (import-directory)
     ;; NOTE: this call uses dbglog to output log messages already
     (import-new-activities-from-directory
      (import-directory)
      db
+     sport-charms
      (lambda (file-name status extra)
        (log "Importing ~a: ~a (~a)" file-name status extra))
      (lambda (msg)
@@ -117,6 +121,7 @@
         ;; NOTE: the call below already uses dbglog
         (do-post-import-tasks
          db
+         sport-charms
          (lambda (msg)
            (log "~a" msg))))))
 

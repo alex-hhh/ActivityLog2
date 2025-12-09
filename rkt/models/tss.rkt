@@ -22,6 +22,7 @@
          data-frame
          racket/match
          racket/class
+         racket/contract
          "../dbutil.rkt"
          "../sport-charms.rkt"
          "coggan.rkt")
@@ -30,6 +31,12 @@
 ;; written a long time ago.  It would be good to make the interface nicer
 ;; (e.g. get-session-effort returns a vector of "stuff"), plus add some
 ;; contracts to the exports.
+
+(provide/contract
+ (maybe-update-session-tss
+  (->* (positive? data-frame? connection? (is-a?/c sport-charms%))
+       (boolean?)
+       any/c)))
 
 (provide
  get-session-effort
@@ -40,7 +47,6 @@
  effort-avg-speed
  effort-tss
  effort-distance
- maybe-update-session-tss
  rpe->tss
  swim-speed->tss
  np->tss

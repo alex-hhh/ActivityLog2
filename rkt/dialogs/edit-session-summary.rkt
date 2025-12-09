@@ -307,7 +307,7 @@ select S.name as title,
                 (if (eqv? rpe-scale 0) sql-null rpe-scale)
                 ssid))
              (let* ((df (session-df db sid)))
-               (maybe-update-session-tss sid df db)
+               (maybe-update-session-tss sid df db sport-charms)
                (send labels-input update-session-tags sid)
                (send equipment-input update-session-tags sid)
                sid))))))

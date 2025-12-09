@@ -91,6 +91,7 @@
         p))
 
     (define database #f)
+    (define sport-charms #f)
     (define import-directory #f)
 
     (define (begin-import)
@@ -110,6 +111,7 @@
            (import-new-activities-from-directory
             import-directory
             database
+            sport-charms
             (lambda (file status detail)
               (queue-callback
                (lambda () (on-file-progress file status detail))))
@@ -138,12 +140,13 @@
     (define (on-close-dialog)
       (send toplevel-window show #f))
 
-    (define/public (run parent db import-dir)
+    (define/public (run parent db sport-charms import-dir)
       (let ((old-toplevel toplevel-window))
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send import-pane reparent toplevel)
           (set! toplevel-window toplevel))
         (set! database db)
+        (set! sport-charms sport-charms)
         (set! import-directory import-dir)
         (send close-button enable #f)
         (send export-button enable #f)

@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -26,6 +26,7 @@
          "../rkt/intervals.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/session-df/series-metadata.rkt"
+         "../rkt/sport-charms.rkt"
          ;; Even though we don't need this, native series are not registered
          ;; unless this module is required somewhere...
          "../rkt/session-df/native-series.rkt"
@@ -188,12 +189,13 @@ where S.time_zone_id = ETZ.id
                                             #:delete-sessions? (delete? #f))
   (check-pred null? (leaked-section-summaries db)
               "Having leaked SECTION_SUMMARY entries before import")
+  (define sport-charms (new sport-charms% [dbc db]))
   (let ((result (db-import-activity-from-file file db)))
     (check-pred cons? result "Bad import result format")
     (check-eq? (car result) 'ok (format "~a" (cdr result)))
     (unless bc
       ;; Do some extra checks on this imported file
-      (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
+      (do-post-import-tasks db sport-charms #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
       ;; (printf "... done with the post import tasks~%")(flush-output)
       (when db-check
         (db-check db))

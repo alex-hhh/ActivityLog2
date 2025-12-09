@@ -23,12 +23,14 @@
          data-frame
          data-frame/gpx
          db
+         racket/class
          racket/match
          "../rkt/utilities.rkt"
          "test-util.rkt"
          "../rkt/gps-segments/gps-segments.rkt"
          "../rkt/session-df/session-df.rkt"
          "../rkt/database.rkt"
+         "../rkt/sport-charms.rkt"
          (only-in "../rkt/import.rkt" do-post-import-tasks))
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
@@ -156,9 +158,10 @@
      (check-ecc-segment segment)
      (with-fresh-database
        (lambda (db)
+         (define sport-charms (new sport-charms% [dbc db]))
          (define segment-id (put-new-gps-segment db segment))
          (db-import-activity-from-file "./test-data/310xt-run.fit" db)
-         (do-post-import-tasks db) ; this should find a match on the segment we imported
+         (do-post-import-tasks db sport-charms) ; this should find a match on the segment we imported
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1))))
 
    ))

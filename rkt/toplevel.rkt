@@ -1474,7 +1474,7 @@
                          (refresh-current-view)
                          (if (eq? (car iresult) 'ok)
                              (begin
-                               (do-post-import-tasks database)
+                               (do-post-import-tasks database sport-charms)
                                (let ((equipment (get-section-by-tag 'equipment)))
                                  (send (send equipment get-content) log-due-items)))
                              (message-box
@@ -1495,7 +1495,7 @@
                     #:dialog-mixin al2-message-box-mixin))
 
                   ((eq? ecode 'ok)
-                   (do-post-import-tasks database)
+                   (do-post-import-tasks database sport-charms)
                    (let ((equipment (get-section-by-tag 'equipment)))
                      (send (send equipment get-content) log-due-items)))
 
@@ -1523,7 +1523,7 @@
           (if (directory-exists? dir)
               (begin
                 (db-put-pref database 'activity-log:last-import-dir (path->string dir))
-                (send (new import-dialog%) run tl-frame database dir)
+                (send (new import-dialog%) run tl-frame database sport-charms dir)
                 (refresh-current-view)
                 (let ((equipment (get-section-by-tag 'equipment)))
                   (send (send equipment get-content) log-due-items))

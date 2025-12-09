@@ -633,7 +633,7 @@
       (send iqr-scale-value set-label (~r iqr-scale #:precision 2))
       (send cutoff-value set-label (~a (exact-round (if plot (send plot get-cutoff) 0))))
       (send outlier-count set-label (~a (exact-round (if plot (send plot get-outlier-count) 0))))
-      (let ((ftp (send sport-charms get-athlete-ftp dbc)))
+      (let ((ftp (send sport-charms get-athlete-ftp)))
         (when ftp
           (send ftp-input set-value (n->string ftp))))
       (if plot
