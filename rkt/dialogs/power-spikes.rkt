@@ -165,7 +165,7 @@
 ;; metrics + averages are recalculated.  The fix is done directly to database
 ;; and the data-frame corresponding to this session will be invalid after
 ;; calling this function and would have to be re-read using `session-df`.
-(define (fix-power-spikes df cutoff #:database db #:ftp ftp)
+(define (fix-power-spikes df cutoff #:database db #:ftp ftp #:sport-charms sport-charms)
   (call-with-transaction
    db
    (lambda ()
@@ -193,7 +193,7 @@
        (query-exec db "delete from BAVG_CACHE where session_id = ?" sid)
        (query-exec db "delete from HIST_CACHE where session_id = ?" sid)
        (query-exec db "delete from SCATTER_CACHE where session_id = ?" sid)
-       (update-some-session-metrics sid db)))))
+       (update-some-session-metrics sid db sport-charms)))))
 
 ;; Maintain a plot snip showing the power data (actually any specified
 ;; SERIES), marking the outliers and showing a box and whiskers plot for the
@@ -589,7 +589,7 @@
           (send plot-container set-background-message "Clearing power spikes...")
           (thread/dbglog
            (lambda ()
-             (fix-power-spikes df cutoff #:database dbc #:ftp ftp)
+             (fix-power-spikes df cutoff #:database dbc #:ftp ftp #:sport-charms sport-charms)
              (define sid (df-get-property df 'session-id))
              (send sport-charms put-athlete-ftp ftp)
              ;; Save the IQR scale as a preference

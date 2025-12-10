@@ -273,12 +273,12 @@
 ;; (make-split-intervals df "timer" 300) ; lap every 5 minutes
 ;;
 ;; See also the "AMBIGUITIES" section at the beginning of the file.
-(define (make-split-intervals df series amount)
+(define (make-split-intervals df series amount #:ftp ftp)
   (if (df-contains? df series)
       (let ((positions (split-by df series amount)))
         (for/list ([start positions]
                    [end (cdr positions)])
-          (make-interval-summary df start end)))
+          (make-interval-summary df start end #:ftp ftp)))
       '()))
 
 
@@ -289,7 +289,8 @@
 (define (make-climb-intervals df
                               #:descents (descents? #f)
                               #:min-grade (mg 0.5)
-                              #:min-length (ml 100))
+                              #:min-length (ml 100)
+                              #:ftp ftp)
 
   ;; A segment between points p1 and p2 is valid if it is a climb or descent,
   ;; as per DESCENTS?, and has a grade greater than the minimum grade MG.
@@ -329,7 +330,7 @@
       (define d1 (vector-ref (car s) 2))
       (define d2 (vector-ref (cdr s) 2))
       (match-define (list start end) (df-index-of* df "timestamp" d1 d2))
-      (define summary (make-interval-summary df start end))
+      (define summary (make-interval-summary df start end #:ftp ftp))
       (define fiets (fiets-score df #:start start #:stop end))
       (if fiets
           (cons
@@ -373,13 +374,13 @@
 ;; (e.g. the fastest 1km in a 5 km run).
 ;;
 ;; See also the "AMBIGUITIES" section at the beginning of the file.
-(define (make-best-pace-intervals df)
+(define (make-best-pace-intervals df #:ftp ftp)
   (if (df-contains? df "spd" "dst")
       (let ((bavg (df-mean-max df "spd" #:weight-series "dst" #:durations best-pace-distances)))
         (for/list ((item (in-list bavg)))
           (match-define (vector duration value position) item)
           (match-define (list start end) (df-index-of* df "dst" position (+ position duration)))
-          (make-interval-summary df start end)))
+          (make-interval-summary df start end #:ftp ftp)))
       '()))
 
 
@@ -390,11 +391,11 @@
 
 ;; Return intervals based on the best power maintained for a set of predefined
 ;; durations (e.g. the best 20 minute power)
-(define (make-best-power-intervals df)
+(define (make-best-power-intervals df #:ftp ftp)
   (if (df-contains? df "pwr" "elapsed")
       (let ((bavg (df-mean-max df "pwr" #:weight-series "elapsed" #:durations best-power-durations)))
         (for/list ((item (in-list bavg)))
           (match-define (vector duration value position) item)
           (match-define (list start end) (df-index-of* df "elapsed" position (+ position duration)))
-          (make-interval-summary df start end)))
+          (make-interval-summary df start end #:ftp ftp)))
       '()))

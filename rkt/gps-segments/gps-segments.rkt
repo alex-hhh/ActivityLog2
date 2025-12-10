@@ -356,9 +356,9 @@
 ;;
 ;; Returns the id of the new match row (GPS_SEGMENT_MATCH.id)
 ;;
-(define (put-new-segment-match database segment-id df start-index end-index match-cost)
+(define (put-new-segment-match database segment-id df start-index end-index match-cost #:ftp ftp)
   (define session-id (df-get-property df 'session-id))
-  (define summary (make-interval-summary df start-index end-index))
+  (define summary (make-interval-summary df start-index end-index #:ftp ftp))
   (define start-trackpoint-id
     (query-value database (gs-find-trackpoint) session-id (df-ref df start-index "timestamp")))
   (define end-trackpoint-id
@@ -724,7 +724,7 @@ where T.length_id = L.id
 
  (put-new-segment-match (-> connection? exact-nonnegative-integer? data-frame?
                             exact-nonnegative-integer? exact-nonnegative-integer?
-                            positive? exact-nonnegative-integer?))
+                            positive? #:ftp positive? exact-nonnegative-integer?))
  (delete-segment-match (-> connection? exact-nonnegative-integer? any/c))
 
  (find-nearby-sessions (->* (connection? exact-nonnegative-integer?)

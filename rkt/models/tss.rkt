@@ -245,7 +245,7 @@
                          #:weight-series "timer"))
            (put-session-cg-metrics session-id metrics #:database db))
           ((or force? (not (effort-tss effort)))
-           (define tss (calculate-session-tss effort df session-id db))
+           (define tss (calculate-session-tss effort df session-id sport-charms))
            (when tss
              (query-exec
               db

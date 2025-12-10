@@ -322,7 +322,8 @@ values (?, ?)" session-id id))
 (define interval-choice%
   (class object%
     (init-field parent
-                [database (current-database)] ; !!! FIXME
+                database
+                sport-charms
                 [tag 'lap-type-selector]
                 [label "Show Split Types: "]
                 [callback (lambda () (void))])
@@ -359,7 +360,8 @@ values (?, ?)" session-id id))
     (define (on-xm-splits x property-key)
       (define splits (df-get-property data-frame property-key))
       (unless splits
-        (set! splits (add-time-zone (make-split-intervals data-frame "dst" x)))
+        (define ftp (send sport-charms get-athlete-ftp))
+        (set! splits (add-time-zone (make-split-intervals data-frame "dst" x #:ftp ftp)))
         (df-put-property! data-frame property-key splits))
       (send interval-view set-intervals sport 'default splits sid))
 

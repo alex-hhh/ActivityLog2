@@ -123,23 +123,23 @@
 
 ;; Check that we can obtain intervals from a data frame.  For now, we only
 ;; check if the code runs without throwing any exceptions.
-(define (check-intervals df)
+(define (check-intervals df ftp)
   (let ((sport (df-get-property df 'sport)))
     (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
-      (make-split-intervals df "elapsed" (* 5 60)) ; 5 min splits
+      (make-split-intervals df "elapsed" (* 5 60) #:ftp ftp) ; 5 min splits
       ;; (printf "make-split-intervals elapsed done~%")(flush-output)
-      (make-split-intervals df "dst" 1600)         ; 1 mile splits
+      (make-split-intervals df "dst" 1600 #:ftp ftp)         ; 1 mile splits
       ;; (printf "make-split-intervals dst done~%")(flush-output)
-      (make-climb-intervals df)
+      (make-climb-intervals df #:ftp ftp)
       ;; (printf "make-climb-intervals done~%")(flush-output)
       ;; (printf "sport: ~a~%" sport)(flush-output)
       (if (eq? (vector-ref sport 0) 1)
           (begin
-            (make-best-pace-intervals df)
+            (make-best-pace-intervals df #:ftp ftp)
             ;; (printf "make-best-pace-intervals done~%")(flush-output))
             )
           (begin
-            (make-best-power-intervals df)
+            (make-best-power-intervals df #:ftp ftp)
             ;; (printf "make-best-power-intervals done~%")(flush-output))
             )))))
 
@@ -209,7 +209,7 @@ where S.time_zone_id = ETZ.id
           (check-session-df df
                             #:expected-row-count expected-row-count
                             #:expected-series-count expected-series-count)
-          (check-intervals df)
+          (check-intervals df (send sport-charms get-athlete-ftp))
           (check-time-in-zone df db file)
           (check-time-zone df db)
           (when df-check
