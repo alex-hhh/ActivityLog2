@@ -115,6 +115,9 @@
      (define first-geoid (df-ref segment 0 "geoid"))
      (with-fresh-database
        (lambda (db)
+         (define sport-charms (new sport-charms% [dbc db]))
+         (define ftp (send sport-charms get-athlete-ftp))
+
          (db-import-activity-from-file "./test-data/310xt-run.fit" db)
          (define matching-sessions (find-nearby-sessions db first-geoid))
          (check = (length matching-sessions) 1)
@@ -127,7 +130,7 @@
          ;; Store everything in the database
          (define segment-id (put-new-gps-segment db segment))
          (match-define (list _df start stop cost) (car matches))
-         (define match-id (put-new-segment-match db segment-id df start stop cost))
+         (define match-id (put-new-segment-match db segment-id df start stop cost #:ftp ftp))
 
          ;; 1 Match should be stored in the database
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
@@ -137,7 +140,7 @@
                      "Leaking SECTION_SUMMARY entries after deleting segment match")
 
          (define segment-id2 (put-new-gps-segment db segment))
-         (define match-id2 (put-new-segment-match db segment-id2 df start stop cost))
+         (define match-id2 (put-new-segment-match db segment-id2 df start stop cost #:ftp ftp))
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
          (delete-gps-segment db segment-id2)
          ;; Match should be gone after deleting the segment
@@ -145,7 +148,7 @@
 
 
          (define segment-id3 (put-new-gps-segment db segment))
-         (define match-id3 (put-new-segment-match db segment-id3 df start stop cost))
+         (define match-id3 (put-new-segment-match db segment-id3 df start stop cost #:ftp ftp))
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
          (db-delete-session (df-get-property df 'session-id #f) db)
          ;; Match should be gone after deleting the session

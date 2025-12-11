@@ -137,6 +137,7 @@
   (interface ()
     get-top-level-window
     get-database
+    get-sport-charms
     before-popup
     after-popdown
     switch-to-view
@@ -649,6 +650,9 @@
     (define/public (get-database)
       database)
 
+    (define/public (get-sport-charms)
+      sport-charms)
+
     (define/public (before-popup)
       (set! selected-segment-row-index (send segment-lv get-selected-row-index))
       (set! selected-match-row-index (send match-lv get-selected-row-index)))
@@ -736,13 +740,15 @@
 
     (define (on-create-from-gpx m e)
       (let ((db (send target get-database))
+            (sport-charms (send target get-sport-charms))
             (toplevel (send target get-top-level-window)))
         (define file-name (get-file "Read GPX file" toplevel #f #f "gpx" '()
                                     '(("GPX Files" "*.gpx") ("Any" "*.*"))))
         (when file-name
+          (define ftp (send sport-charms get-athlete-ftp))
           (define segment (gps-segment-from-gpx file-name))
           (define dlg (get-create-segment-dialog))
-          (define gsid (send dlg show-dialog toplevel segment db))
+          (define gsid (send dlg show-dialog toplevel segment db ftp))
           (when gsid
             (log-event 'gps-segment-created gsid)
             (send target after-new gsid)))))
@@ -800,10 +806,12 @@
 
     (define (on-rescan-for-matches m e)
       (let ((db (send target get-database))
+            (sport-charms (send target get-sport-charms))
             (toplevel (send target get-top-level-window))
             (segment-id (send target get-selected-segment)))
         (define segment (gps-segment-df db segment-id))
-        (when (send (get-rescan-for-matches-dialog) show-dialog toplevel segment segment-id db)
+        (define ftp (send sport-charms get-athlete-ftp))
+        (when (send (get-rescan-for-matches-dialog) show-dialog toplevel segment segment-id db ftp)
           ;; NOTE: should we flood the event system with a
           ;; 'gps-segment-match-created and 'gps-segment-match-deleted
           ;; messages?

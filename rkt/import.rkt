@@ -79,7 +79,7 @@
   (show-progress "add summary heart rate to lap swim lengths...")
   (add-summary-hr-to-swim-lengths sessions db)
   (show-progress "searching for GPS segment matches...")
-  (find-new-segment-matches #:db db)
+  (find-new-segment-matches #:db db #:ftp (send sport-charms get-athlete-ftp))
   (for ([sid (in-list sessions)])
     (log-event 'session-created sid)))
 
@@ -366,7 +366,7 @@ select S.id from A_SESSION S, LAST_IMPORT LI where S.activity_id = LI.activity_i
 
 ;; Find any GPS matches for the sessions we just imported, using the existing
 ;; segments from GPS_SEGMENT.
-(define (find-new-segment-matches #:db db)
+(define (find-new-segment-matches #:db db #:ftp ftp)
   (define segment-info
     (query-rows db "\
 select GSW.segment_id, GSW.geoid, min(GSW.pos)
@@ -399,5 +399,5 @@ select GSW.segment_id, GSW.geoid, min(GSW.pos)
          (define segment-id (car entry))
          (for ([segment-match (in-list (cdr entry))])
            (match-define (list df start stop cost) segment-match)
-           (put-new-segment-match db segment-id df start stop cost))
+           (put-new-segment-match db segment-id df start stop cost #:ftp ftp))
          (log-event 'gps-segment-updated-matches segment-id))))))

@@ -724,7 +724,7 @@ where T.length_id = L.id
 
  (put-new-segment-match (-> connection? exact-nonnegative-integer? data-frame?
                             exact-nonnegative-integer? exact-nonnegative-integer?
-                            positive? #:ftp positive? exact-nonnegative-integer?))
+                            positive? #:ftp (or/c positive? #f) exact-nonnegative-integer?))
  (delete-segment-match (-> connection? exact-nonnegative-integer? any/c))
 
  (find-nearby-sessions (->* (connection? exact-nonnegative-integer?)
