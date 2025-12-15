@@ -2,7 +2,7 @@
 ;; trends-test.rkt -- test the trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2019, 2020, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -56,6 +56,7 @@
          "../rkt/trend-charts/trends-tt.rkt"
          "../rkt/trend-charts/trends-vol.rkt"
          "../rkt/utilities.rkt"
+         "../rkt/sport-charms.rkt"
          "test-util.rkt")
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
@@ -279,7 +280,8 @@
     (delete-file test-image-file))
   (when (file-exists? test-data-file)
     (delete-file test-data-file))
-  (define c (new chart-class [database db]))
+  (define sc (new sport-charms% [dbc db]))
+  (define c (new chart-class [database db] [sport-charms sc]))
   (send c put-chart-settings settings)
   (define canvas (make-test-snip-canvas snip-canvas-class))
   (send c put-plot-snip canvas)

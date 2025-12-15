@@ -2,7 +2,7 @@
 ;; trends-bw.rkt -- bodyweight trend chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -309,7 +309,7 @@
 
 (define bw-trends-chart%
   (class trends-chart%
-    (init-field database)
+    (init-field database sport-charms)
     (super-new)
 
     ;; Data frame holding bodyweight data, retrieved from the database

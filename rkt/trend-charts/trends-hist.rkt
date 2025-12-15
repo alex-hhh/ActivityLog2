@@ -3,7 +3,7 @@
 ;; trends-hist.rkt -- aggregate histogram chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018-2020, 2023-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2020, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -108,6 +108,7 @@
 (define hist-chart-settings%
   (class* edit-dialog-base% (chart-settings-interface<%>)
     (init-field database
+                sport-charms
                 [default-name "Hist"]
                 [default-title "Histogram Chart"])
 
@@ -161,10 +162,12 @@
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define session-filter (new session-filter%
-                                [parent (send this get-client-pane)]
-                                [database database]
-                                [sport-selected-callback on-sport-selected]))
+    (define session-filter
+      (new session-filter%
+           [parent (send this get-client-pane)]
+           [database database]
+           [sport-charms sport-charms]
+           [sport-selected-callback on-sport-selected]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (set! series-selector
@@ -395,7 +398,8 @@
 
 (define hist-trends-chart%
   (class trends-chart%
-    (init-field database) (super-new)
+    (init-field database sport-charms)
+    (super-new)
 
     (define cached-data #f)
     (define histogram-data #f)
@@ -409,7 +413,8 @@
       (new hist-chart-settings%
            [default-name "Histogram"]
            [default-title "Histogram"]
-           [database database]))
+           [database database]
+           [sport-charms sport-charms]))
 
     (define/override (invalidate-data)
       (set! cached-data #f)
