@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -283,7 +283,7 @@
 
 (define map-panel%
   (class object%
-    (init parent)
+    (init parent database sport-charms)
     (init-field
      [get-preference get-pref]
      [put-preference put-pref])
@@ -369,6 +369,8 @@
              [font header-font])
         (new interval-choice%
              [parent p]
+             [database database]
+             [sport-charms sport-charms]
              [tag 'interval-choice-map]
              [label ""]
              [callback (lambda () (unhighlight-lap))])))
@@ -376,6 +378,7 @@
     (define interval-view
       (new mini-interval-view%
            [parent interval-view-panel]
+           [sport-charms sport-charms]
            [tag 'activity-log:map-mini-lap-view]
            [callback (lambda (n lap selected?)
                        (if selected?
@@ -456,6 +459,7 @@
     (define grade+alt-graph
       (new alt+shaded-grade-graph%
            [parent elevation-graph-pane]
+           [sport-charms sport-charms]
            [min-height 150]
            [style '(deleted)]
            [hover-callback (lambda (x) (on-hover x))]))
@@ -463,6 +467,7 @@
     (define grade+calt-graph
       (new calt+shaded-grade-graph%
            [parent elevation-graph-pane]
+           [sport-charms sport-charms]
            [min-height 150]
            [style '(deleted)]
            [hover-callback (lambda (x) (on-hover x))]))

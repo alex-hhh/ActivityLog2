@@ -1267,7 +1267,7 @@
 ;; geographically.
 (define map-graph%
   (class* object% (graph-view-interface<%>)
-    (init parent)
+    (init parent sport-charms)
     (init-field
      [style '()]
      [hover-callback (lambda (x) (void))]
@@ -2012,7 +2012,7 @@
   `(("Distance" . ,axis-swim-distance)
     ("Time" . ,axis-swim-time)))
 
-(define (make-default-graphs parent hover-callback)
+(define (make-default-graphs parent sport-charms hover-callback)
   ;; NOTE: all graphs are created as 'deleted, so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
@@ -2059,9 +2059,13 @@
                                 spd-hr-reserve-graph%
                                 adecl-graph%
                                 map-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
-(define (make-swim-graphs parent hover-callback)
+(define (make-swim-graphs parent sport-charms hover-callback)
   ;; NOTE: all graphs are created as '(deleted), so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
@@ -2072,12 +2076,16 @@
                                 heart-rate-graph%
                                 heart-rate-zones-graph%
                                 heart-rate-pct-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
 
 ;; These are the graps used for Open Water Swimming -- some Pool Swimming
 ;; graphs don't make sense, but neither do the full graphs.
-(define (make-owswim-graphs parent hover-callback)
+(define (make-owswim-graphs parent sport-charms hover-callback)
   (for/list ([c% (in-list (list swim-pace-graph%
                                 swim-cadence-graph%
                                 speed-graph%
@@ -2087,19 +2095,24 @@
                                 heart-rate-pct-graph%
                                 stride-graph%
                                 temperature-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
-(define (make-xdata-graphs parent hover-callback)
+(define (make-xdata-graphs parent sport-charms hover-callback)
   (for/list ([md (get-available-xdata-metadata)])
     (new graph-view%
          [parent parent]
+         [sport-charms sport-charms]
          [style '(deleted)]
          [hover-callback hover-callback]
          [primary-y-axis md])))
 
 (define graph-panel%
   (class object%
-    (init parent)
+    (init parent database sport-charms)
     (init-field
      [get-preference get-pref]
      [put-preference put-pref])
@@ -2264,12 +2277,15 @@
         (new interval-choice%
              [tag 'interval-choice-graphs]
              [parent p]
+             [database database]
+             [sport-charms sport-charms]
              [label ""]
              [callback (lambda () (unhighlight-lap))])))
 
     (define interval-view
       (new mini-interval-view%
            [parent interval-view-panel]
+           [sport-charms sport-charms]
            [tag 'activity-log:charts-mini-lap-view]
            [callback (lambda (n lap selected?)
                        (if selected?
@@ -2358,22 +2374,22 @@
 
     (define (default-graphs)
       (unless default-graphs-1
-        (set! default-graphs-1 (make-default-graphs graphs-panel hover-callback)))
+        (set! default-graphs-1 (make-default-graphs graphs-panel sport-charms hover-callback)))
       default-graphs-1)
 
     (define (swim-graphs)
       (unless swim-graphs-1
-        (set! swim-graphs-1 (make-swim-graphs graphs-panel hover-callback)))
+        (set! swim-graphs-1 (make-swim-graphs graphs-panel sport-charms hover-callback)))
       swim-graphs-1)
 
     (define (owswim-graphs)
       (unless owswim-graphs-1
-        (set! owswim-graphs-1 (make-owswim-graphs graphs-panel hover-callback)))
+        (set! owswim-graphs-1 (make-owswim-graphs graphs-panel sport-charms hover-callback)))
       owswim-graphs-1)
 
     (define (xdata-graphs)
       (unless xdata-graphs-1
-        (set! xdata-graphs-1 (make-xdata-graphs graphs-panel hover-callback)))
+        (set! xdata-graphs-1 (make-xdata-graphs graphs-panel sport-charms hover-callback)))
       xdata-graphs-1)
 
     (define sds-dialog #f)

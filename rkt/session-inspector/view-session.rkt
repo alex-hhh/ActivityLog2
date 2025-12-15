@@ -362,7 +362,7 @@
 
 (define view-session%
   (class* object% (activity-operations<%>)
-    (init parent database select-activity-callback)
+    (init parent database sport-charms select-activity-callback)
     (super-new)
 
     (define session-panel (new vertical-panel%
@@ -391,12 +391,16 @@
       (make-tdata "Laps" detail-panel
                   (lambda (panel)
                     (new laps-panel%
-                         [parent panel]))))
+                         [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]))))
     (define charts
       (make-tdata "Charts" detail-panel
                   (lambda (panel)
                     (new graph-panel%
                          [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]
                          [get-preference
                           (lambda (name fail-thunk)
                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
@@ -452,6 +456,8 @@
                   (lambda (panel)
                     (new map-panel%
                          [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]
                          [get-preference
                           (lambda (name fail-thunk)
                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]

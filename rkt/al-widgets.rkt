@@ -890,8 +890,11 @@ values (?, ?)" session-id id))
 
 (define mini-interval-view%
   (class interval-view%
-    (init parent callback)
-    (super-new [parent parent] [callback callback])
+    (init parent callback sport-charms)
+    (super-new
+     [parent parent]
+     [callback callback]
+     [sport-charms sport-charms])
 
     (define/override (lap-field-definitions sport topic)
       (get-mini-lap-field-definitions sport topic))
