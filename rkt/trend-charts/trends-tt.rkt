@@ -371,7 +371,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
         (define params (send this get-chart-settings))
         (define sport (hash-ref params 'sport))
         (define tri? (hash-ref params 'tri?))
-        (define rt (make-renderer-tree tri? tt-data sport))
+        (define rt (make-renderer-tree tri? tt-data sport sport-charms))
         (save-plot-to-file file-name width height rt)))
 
     (define (maybe-fetch-data)
