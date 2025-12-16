@@ -224,7 +224,7 @@
       #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
    data markers y-label sport-charms))
 
-(define (save-plot-to-file file-name width height data markers y-label)
+(define (save-plot-to-file file-name width height data markers y-label sport-charms)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-file renderer-tree file-name #:width width #:height height
@@ -322,7 +322,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-          (save-plot-to-file file-name width height chart-data session-markers (get-y-label))))
+          (save-plot-to-file file-name width height chart-data session-markers (get-y-label) sport-charms)))
 
     (define/override (export-data-to-file file formatted?)
       (when chart-data
