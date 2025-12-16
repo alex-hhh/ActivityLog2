@@ -232,7 +232,7 @@
                 #:x-max max-x
                 #:y-min min-y
                 #:y-max max-y))
-   data markers y-label))
+   data markers y-label sport-charms))
 
 (define trivol-trends-chart%
   (class trends-chart%
