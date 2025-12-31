@@ -18,11 +18,11 @@
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #lang racket/base
-(require db/base
-         data-frame
-         racket/match
+(require data-frame
+         db/base
          racket/class
          racket/contract
+         racket/match
          "../dbutil.rkt"
          "../sport-charms.rkt"
          "coggan.rkt")

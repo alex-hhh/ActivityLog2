@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -13,27 +13,26 @@
 ;; more details.
 
 (require al2-test-runner
-         db/base
-         rackunit
-         racket/match
          data-frame
+         data-frame/gpx
+         db/base
+         geoid
          racket/class
          racket/draw
          racket/file
-         data-frame/gpx
-         data-frame
-         geoid
+         racket/match
+         rackunit
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/fit-file/activity-util.rkt"
-         "../rkt/session-df/session-df.rkt"
          "../rkt/models/sport-zone.rkt"
+         "../rkt/models/time-in-zone.rkt"
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/sport-charms.rkt"
+         "../rkt/utilities.rkt"
          "../rkt/workout-editor/wk-db.rkt"
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
-         "../rkt/utilities.rkt"
-         "../rkt/models/time-in-zone.rkt"
-         "../rkt/sport-charms.rkt"
          "test-util.rkt")
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
@@ -600,7 +599,7 @@ where S.id = CPFS.session_id
                   ;; latitude/longitude, etc, so the GPX export may loose
                   ;; data...  here we only check that at least some data was
                   ;; exported.
-                  (check-true (> (df-row-count df1) 0)) 
+                  (check-true (> (df-row-count df1) 0))
                   (delete-file path)))))
            (check = 1 (activity-count db))
            (db-check-geoids db)))))

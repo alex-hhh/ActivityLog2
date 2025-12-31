@@ -19,16 +19,14 @@
          db/base
          racket/class
          racket/gui/base
-         racket/match
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../session-df/session-df.rkt"
-         "../models/sport-zone.rkt"
-         "../models/tss.rkt"
          "../models/coggan.rkt"
          "../models/rpe-and-feel.rkt"
-         "../sport-charms.rkt"
+         "../models/sport-zone.rkt"
+         "../models/tss.rkt"
+         "../session-df/session-df.rkt"
          "../widgets/main.rkt")
 
 (provide edit-session-tss-dialog%)

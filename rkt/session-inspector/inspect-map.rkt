@@ -2,7 +2,7 @@
 ;; inspect-map.rkt -- map view for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -17,24 +17,24 @@
 (require data-frame
          map-widget
          map-widget/utils
+         pict
+         plot
          racket/class
          racket/contract
          racket/dict
+         racket/format
          racket/gui/base
          racket/match
-         racket/format
          racket/math
-         pict
-         plot
          "../al-widgets.rkt"
-         "../widgets/dragable-split-panel.rkt"
          "../fit-file/activity-util.rkt"
-         "../session-df/native-series.rkt"
-         "../utilities.rkt"
-         "../fmt-util.rkt"
          "../fmt-util-ut.rkt"
-         "inspect-graphs.rkt"
-         "../session-df/traffic.rkt")
+         "../fmt-util.rkt"
+         "../session-df/native-series.rkt"
+         "../session-df/traffic.rkt"
+         "../utilities.rkt"
+         "../widgets/dragable-split-panel.rkt"
+         "inspect-graphs.rkt")
 
 (provide map-panel%)
 

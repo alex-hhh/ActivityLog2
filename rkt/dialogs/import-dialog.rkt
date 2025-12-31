@@ -20,7 +20,6 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../import.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 

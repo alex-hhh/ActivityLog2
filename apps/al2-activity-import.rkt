@@ -19,16 +19,16 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/cmdline
-         db
+(require db
          racket/class
+         racket/cmdline
          racket/format
+         "../rkt/app-info.rkt"
+         "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/import.rkt"
-         "../rkt/database.rkt"
-         "../rkt/utilities.rkt"
-         "../rkt/app-info.rkt"
-         "../rkt/sport-charms.rkt")
+         "../rkt/sport-charms.rkt"
+         "../rkt/utilities.rkt")
 
 (define start-timestamp (current-inexact-milliseconds))
 (define database-file (make-parameter #f))

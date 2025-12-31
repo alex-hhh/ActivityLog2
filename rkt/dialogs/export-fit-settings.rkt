@@ -24,7 +24,6 @@
          racket/string
          "../fit-file/fit-file.rkt"
          "../models/sport-zone.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -432,4 +431,3 @@ select body_weight
         result))
 
     ))
-

@@ -45,6 +45,7 @@
          "models/time-in-zone-gui.rkt"
          "models/time-in-zone.rkt"
          "session-inspector/view-session.rkt"
+         "sport-charms.rkt"
          "trend-charts/view-trends.rkt"
          "utilities.rkt"
          "view-activities.rkt"
@@ -53,8 +54,7 @@
          "view-equipment.rkt"
          "view-reports.rkt"
          "widgets/main.rkt"
-         "workout-editor/view-workouts.rkt"
-         "sport-charms.rkt")
+         "workout-editor/view-workouts.rkt")
 
 (provide toplevel-window%)
 

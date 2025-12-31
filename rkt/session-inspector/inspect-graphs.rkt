@@ -14,9 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require data-frame
+(require colormaps
+         data-frame
          data-frame/private/bsearch
          data-frame/slr
+         map-widget
          math/statistics
          plot-container
          plot-container/hover-util
@@ -31,21 +33,19 @@
          racket/match
          racket/math
          racket/vector
-         map-widget
-         colormaps                      ; needed to register the color maps
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
+         "../models/aerobic-decoupling.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
-         "../session-df/xdata-series.rkt"
          "../session-df/shifting.rkt"
+         "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt"
          "../widgets/dragable-split-panel.rkt"
-         "../models/aerobic-decoupling.rkt")
+         "../widgets/main.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph% grade+calt-graph% grade+alt-graph%

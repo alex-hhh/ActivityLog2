@@ -3,7 +3,7 @@
 ;; gps-segment-test.rkt -- tests for the GPS Segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,19 +19,20 @@
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require al2-test-runner
-         rackunit
          data-frame
          data-frame/gpx
          db
          racket/class
          racket/match
-         "../rkt/utilities.rkt"
-         "test-util.rkt"
-         "../rkt/gps-segments/gps-segments.rkt"
-         "../rkt/session-df/session-df.rkt"
+         rackunit
          "../rkt/database.rkt"
+         "../rkt/gps-segments/gps-segments.rkt"
+         (only-in "../rkt/import.rkt"
+                  do-post-import-tasks)
+         "../rkt/session-df/session-df.rkt"
          "../rkt/sport-charms.rkt"
-         (only-in "../rkt/import.rkt" do-post-import-tasks))
+         "../rkt/utilities.rkt"
+         "test-util.rkt")
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 ;; Use 1 worker thread, so we can determine when tasks finish (See

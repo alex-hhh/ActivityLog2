@@ -14,7 +14,6 @@
 
 (require racket/class
          racket/gui/base
-         "../sport-charms.rkt"
          "../widgets/main.rkt"
          "wkstep.rkt")
 
@@ -34,11 +33,11 @@
     (define sport 1)
 
     (define panel0 (new horizontal-panel%
-			[parent parent]
-			[border 0]
-			[spacing 5]
-			[stretchable-height #f]
-			[alignment '(left center)]))
+                        [parent parent]
+                        [border 0]
+                        [spacing 5]
+                        [stretchable-height #f]
+                        [alignment '(left center)]))
 
     (define begining-spacer (make-spacer panel0))
 

@@ -3,7 +3,7 @@
 ;; coggan.rkt -- Coggan Metrics calculations for a session (NP, IF, TSS)
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020-2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,9 +18,9 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/contract
-         data-frame
+(require data-frame
          data/queue
+         racket/contract
          racket/match)
 
 ;;; Commentary

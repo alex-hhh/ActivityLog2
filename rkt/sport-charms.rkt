@@ -20,7 +20,6 @@
          racket/contract
          racket/draw
          racket/list
-         racket/class
          "color-theme.rkt"
          "dbutil.rkt")
 

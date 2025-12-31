@@ -21,10 +21,10 @@
          tzinfo
          "../al-widgets.rkt"
          "../dbutil.rkt"
-         "../session-df/session-df.rkt"
-         "../widgets/main.rkt"
+         "../models/rpe-and-feel.rkt"
          "../models/tss.rkt"
-         "../models/rpe-and-feel.rkt")
+         "../session-df/session-df.rkt"
+         "../widgets/main.rkt")
 
 (provide edit-session-summary-dialog%)
 
@@ -322,4 +322,3 @@ select S.name as title,
               (insert-session db))
           #f))
     ))
-

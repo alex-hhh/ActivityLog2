@@ -2,7 +2,7 @@
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2020, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,14 +15,13 @@
 ;; more details.
 
 (require db/base
-         racket/class
-         racket/gui/base
          gui-widget-mixins
+         racket/class
          racket/format
+         racket/gui/base
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../weather.rkt"
          "../widgets/main.rkt")

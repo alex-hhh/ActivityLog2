@@ -5,7 +5,7 @@
 ;; gps-segments-dialogs -- various GUI dialogs for GPS segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,11 +28,11 @@
          racket/match
          racket/math
          "../fmt-util.rkt"
+         "../models/fiets-score.rkt"
          "../session-df/session-df.rkt"
          "../widgets/edit-dialog-base.rkt"
          "../widgets/grid-pane.rkt"
          "../widgets/icon-resources.rkt"
-         "../models/fiets-score.rkt"
          "gps-segments.rkt"
          "map-and-elevation-widget.rkt")
 

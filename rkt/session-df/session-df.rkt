@@ -1,4 +1,3 @@
-
 #lang racket/base
 
 ;; session-df.rkt --create a data-frame% from a session's trackpoints, plus

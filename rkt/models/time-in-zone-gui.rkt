@@ -24,9 +24,9 @@
          racket/contract
          racket/gui/base
          racket/math
+         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
-         "../sport-charms.rkt"
          "time-in-zone.rkt")
 
 ;; Update some session metrics (by calling `update-some-session-metrics` for

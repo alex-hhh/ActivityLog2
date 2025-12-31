@@ -3,7 +3,7 @@
 ;; dashboard-common.rkt -- common utilities for various dashboard dialogs
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -35,8 +35,8 @@
          "../dbapp.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
-         "../models/humidex.rkt")
+         "../models/humidex.rkt"
+         "../sport-charms.rkt")
 
 ;; Fetch session information about a session id SID from the database DB and
 ;; return it as a hash.  Session information include the session name, start

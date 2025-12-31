@@ -291,8 +291,8 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
    zone-id))
 
 (define (get-sport-zone db zone-id)
-  (for/list (([name value] (in-query db "select zone_name, zone_value 
-                                          from SPORT_ZONE_ITEM 
+  (for/list (([name value] (in-query db "select zone_name, zone_value
+                                          from SPORT_ZONE_ITEM
                                          where sport_zone_id = ? order by zone_number" zone-id)))
     (list (if (sql-null? name) "" (~a name)) value)))
 
@@ -351,13 +351,13 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 (define (get-default-zones db sport metric)
   (define zids (query-list db "select id
                                 from SPORT_ZONE
-                               where sport_id = ? and zone_metric_id = ? 
+                               where sport_id = ? and zone_metric_id = ?
                                order by valid_from desc" sport metric))
   (cond
     ((> (length zids) 0)
-     (for/list (([name] (in-query db "select zone_name 
-                                        from SPORT_ZONE_ITEM 
-                                       where sport_zone_id = ? 
+     (for/list (([name] (in-query db "select zone_name
+                                        from SPORT_ZONE_ITEM
+                                       where sport_zone_id = ?
                                        order by zone_number" (car zids))))
        (list name #f)))
     (#t
@@ -513,7 +513,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                         (delete-sport-zones (sz-id data) #:database database)
                         (put-sport-zone database sport metric (car zones) (cdr zones))
                         (refresh-contents))))))))
-    
+
     ;; Called when the user clicks the "Delete" button.  Deletes the selected
     ;; entry from the database.  A transaction is started if needed, so if the
     ;; user cancels the dialog, all changes are rolled back.
@@ -601,4 +601,3 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
       (set! database #f))
 
     ))
-

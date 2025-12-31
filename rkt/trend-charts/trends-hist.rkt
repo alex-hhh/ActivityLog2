@@ -31,8 +31,8 @@
          "../metrics.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
-         "../session-df/xdata-series.rkt"
          "../session-df/shifting.rkt"
+         "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
@@ -514,7 +514,7 @@
                (define ws (or (send (list-ref (hist-axis data) 0) weight-series)
                               "timer"))
                (define yvf (let ([y-axis (and ws (find-series-metadata ws))])
-                             (and y-axis (send y-axis value-formatter 
+                             (and y-axis (send y-axis value-formatter
                                                (hash-ref params 'sport)
                                                #:show-unit-label? #t))))
                (queue-callback

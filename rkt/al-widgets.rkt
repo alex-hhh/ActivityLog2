@@ -965,7 +965,7 @@ values (?, ?)" session-id id))
 (define text-export-dialog%
   (class object%
     (init) (super-new)
-    
+
     (define (make-toplevel-dialog parent title #:width [w 400] #:height [h 300])
       (new
        (class dialog% (init) (super-new)

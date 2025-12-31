@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018-2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -13,24 +13,22 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
-         racket/list
+(require data-frame
+         db/base
          racket/class
+         racket/list
          rackunit
          tzgeolookup
-         data-frame
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"
+         "../rkt/fit-file/activity-util.rkt"
          "../rkt/import.rkt"
          "../rkt/intervals.rkt"
-         "../rkt/session-df/session-df.rkt"
-         "../rkt/session-df/series-metadata.rkt"
-         "../rkt/sport-charms.rkt"
-         ;; Even though we don't need this, native series are not registered
-         ;; unless this module is required somewhere...
          "../rkt/session-df/native-series.rkt"
-         "../rkt/fit-file/activity-util.rkt")
+         "../rkt/session-df/series-metadata.rkt"
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/sport-charms.rkt")
 
 (define (with-fresh-database thunk)
   (let ((db (open-activity-log 'memory)))

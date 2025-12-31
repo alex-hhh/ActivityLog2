@@ -19,7 +19,6 @@
          racket/gui/base
          racket/match
          "../dbutil.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "wk-db.rkt"

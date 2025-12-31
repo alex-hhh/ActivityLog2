@@ -2,7 +2,7 @@
 ;; view-reports.rkt -- provide reporting on activities in the database.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2022-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-;;; Comentary:
+;;; Commentary:
 ;;
 ;; Several reports are provided and they can be customized using various
 ;; filters.  Data can also be exported as CSV (thans to the qresults-list%

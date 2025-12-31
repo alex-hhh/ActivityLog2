@@ -408,7 +408,7 @@
 ;; according to the tsb-key-points above (e.g. a TSB greater than the first
 ;; value in that list has a label, or index of 0
 (define (tsb->label tsb)
-  (or 
+  (or
    (for/first ([kp (in-list tsb-key-points)]
                [index (in-naturals)]
                #:when (> tsb kp))
