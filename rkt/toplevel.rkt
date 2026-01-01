@@ -1297,7 +1297,7 @@
       (interactive-fixup-elevation database #f tl-frame))
 
     (define/public (rebuild-time-in-zone-data)
-      (update-tiz/interactive database tl-frame))
+      (update-tiz/interactive database sport-charms tl-frame))
 
     (define/public (auto-detect-time-zones)
       (interactive-update-time-zones database tl-frame))
