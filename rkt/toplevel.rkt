@@ -1048,7 +1048,10 @@
 
       (add-section "Trends" 'trends
                    (lambda (parent)
-                     (new view-trends% [parent parent] [database database])))
+                     (new view-trends%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "Reports" 'reports
                    (lambda (parent)

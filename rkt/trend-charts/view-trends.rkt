@@ -2,7 +2,7 @@
 ;; view-trends.rkt -- trends graphs
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2019, 2020, 2021, 2023, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -187,7 +187,7 @@
 
 (define trend-chart-pane%
   (class panel%
-    (init-field parent info-tag trend-chart-class database [restore-data #f])
+    (init-field parent info-tag trend-chart-class database sport-charms [restore-data #f])
     (super-new [parent parent] [style '(deleted)])
 
     (define trend-chart #f)
@@ -196,7 +196,9 @@
 
     (define (maybe-initialize)
       (unless trend-chart
-        (set! trend-chart (new trend-chart-class [database database]))
+        (set! trend-chart (new trend-chart-class
+                               [database database]
+                               [sport-charms sport-charms]))
         (when restore-data
           (if (hash? restore-data)
               (send trend-chart put-chart-settings restore-data)
@@ -259,7 +261,7 @@
 
 (define view-trends%
   (class object%
-    (init-field parent database)
+    (init-field parent database sport-charms)
     (super-new)
 
     (define preferences-tag 'activity-log:view-trends)
@@ -331,6 +333,7 @@
                              [info-tag (tdecl-tag ci)]
                              [trend-chart-class (tdecl-class ci)]
                              [database database]
+                             [sport-charms sport-charms]
                              [restore-data restore-data])))
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name)))
@@ -353,7 +356,8 @@
                            [parent trend-charts-panel]
                            [info-tag (tdecl-tag ct)]
                            [trend-chart-class (tdecl-class ct)]
-                           [database database])))
+                           [database database]
+                           [sport-charms sport-charms])))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name))
