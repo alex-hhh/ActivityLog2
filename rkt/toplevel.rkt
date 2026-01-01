@@ -655,6 +655,9 @@
     (define/public (get-database)
       (send toplevel-application get-database))
 
+    (define/public (get-sport-charms)
+      (send toplevel-application get-sport-charms))
+
     ;; Return the selected section, but only if it implements the
     ;; workout-operations<%> interface, return #f otherwise.  The workout menu
     ;; items will be disabled if the selected section does not support workout
@@ -1275,6 +1278,7 @@
 
     (define/public (get-frame) tl-frame)
     (define/public (get-database) database)
+    (define/public (get-sport-charms) sport-charms)
     (define/public (get-selected-section)
       (and the-selected-section (send the-selected-section get-content)))
 

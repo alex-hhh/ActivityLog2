@@ -258,18 +258,18 @@ select body_weight
        (lambda ()
          (let ((ftp (send bike-ftp-field get-converted-value)))
            (when (and ftp (not (eq? ftp 'empty)))
-             (send sport-charms put-athlete-ftp ftp db)))
+             (send sport-charms put-athlete-ftp ftp)))
 
          (let ((dob (send dob-field get-converted-value)))
            (when (and dob (not (eq? dob 'empty)))
-             (send sport-charms put-athlete-dob dob db)))
+             (send sport-charms put-athlete-dob dob)))
 
          (let ((gender (send gender-field get-selection)))
-           (send sport-charms put-athlete-gender gender db))
+           (send sport-charms put-athlete-gender gender))
 
          (let ((height (send height-field get-converted-value)))
            (when (and height (not (eq? height 'empty)))
-             (send sport-charms put-athlete-height height db))))))
+             (send sport-charms put-athlete-height height))))))
 
     (define (restore-preferences)
       (let ((prefs (get-pref tag (lambda () #f))))
