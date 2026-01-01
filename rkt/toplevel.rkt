@@ -1052,7 +1052,10 @@
 
       (add-section "Reports" 'reports
                    (lambda (parent)
-                     (new view-reports% [parent parent] [database database])))
+                     (new view-reports%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "Athlete" 'athlete-metrics
                    (lambda (parent)
