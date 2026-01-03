@@ -2,7 +2,7 @@
 ;; intervals.rkt -- find various types of intervals in session data frame
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017-2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -256,7 +256,7 @@
 
   ;; Normalized power is only available if a FTP value is set.
   (when (and (df-contains? df "pwr") ftp)
-    (let ([cg (cg-metrics df #:start start-index #:stop end-index)])
+    (let ([cg (cg-metrics df #:start start-index #:stop end-index #:ftp ftp)])
       (set! base (cons (cons 'normalized-power (cg-np cg)) base))))
 
   ;; Mark this lap as custom

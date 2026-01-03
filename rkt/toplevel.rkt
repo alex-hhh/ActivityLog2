@@ -1044,6 +1044,7 @@
                      (new view-gps-segments%
                           [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
       (add-section "Trends" 'trends
