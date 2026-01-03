@@ -361,6 +361,7 @@ select id, name, sport_id, sub_sport_id, serial, library_id
     (define workout-editor
       (new workout-editor%
            [parent pane]
+           [sport-charms sport-charms]
            [workout-changed-callback (lambda (wk) (on-workout-changed wk))]))
 
     (define (get-current-workout-library-id)

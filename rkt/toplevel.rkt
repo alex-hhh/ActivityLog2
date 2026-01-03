@@ -1037,7 +1037,10 @@
 
       (add-section "Workouts" 'workouts
                    (lambda (parent)
-                     (new view-workouts% [parent parent] [database database])))
+                     (new view-workouts%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "GPS Segments" 'gps-segments
                    (lambda (parent)
@@ -1069,6 +1072,7 @@
                    (lambda (parent)
                      (new view-calendar% [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
       (add-section "Activities" 'activity-list
