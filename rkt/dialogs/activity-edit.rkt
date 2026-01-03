@@ -2,7 +2,7 @@
 ;; activity-edit.rkt -- implement operations on an activity
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -373,13 +373,13 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (show-fthr-analisys-dashboard toplevel db sid)))
+        (show-fthr-analisys-dashboard toplevel db sport-charms sid)))
 
     (define (on-power-spikes m e)
       (let ([sid (send target get-selected-sid)]
             [db (send target get-database)]
             [toplevel (send target get-top-level-window)])
-        (show-power-spikes-dashboard toplevel db sid)))
+        (show-power-spikes-dashboard toplevel db sport-charms sid)))
 
     (define (on-show-hide-aerolab m e)
       (send target show-or-hide-aerolab-tab))

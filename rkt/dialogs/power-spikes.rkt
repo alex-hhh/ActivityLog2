@@ -3,7 +3,7 @@
 ;; metrics for an activity
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -113,7 +113,8 @@
   (query-exec
    db
    (format "update SECTION_SUMMARY set ~a = ? where id = ?" field-name)
-   value ssid))
+   (or value sql-null)
+   ssid))
 
 ;; Store/Update the Coggan metrics CGMETRICS for session SID.
 (define (put-session-cg-metrics sid cgmetrics #:database db)
@@ -125,7 +126,9 @@
      (query-exec
       db
       "update A_SESSION set intensity_factor = ?, training_stress_score = ? where id = ?"
-      if tss sid)
+      (or if sql-null)
+      (or tss sql-null)
+      sid)
      (put-section-summary-value db ssid "normalized_power" np))))
 
 ;; Update the section summary SSID based on the data-frame averages from START
@@ -617,7 +620,7 @@
       (define sinfo (get-session-info session-id dbc))
       (send dashboard-contents begin-container-sequence)
       (when sinfo
-        (send headline set-pict (and sinfo (pp-session-info/pict sinfo))))
+        (send headline set-pict (and sinfo (pp-session-info/pict sinfo sport-charms))))
       (define iqr-scale (get-pref 'power-spikes-iqr-scale (lambda () 4.0)))
       (define-values (w h) (send plot-container cell-dimensions 1))
       (if (df-contains? df "pwr")

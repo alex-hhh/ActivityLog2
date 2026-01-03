@@ -43,7 +43,6 @@
          "metrics.rkt"
          "models/ec-util-gui.rkt"
          "models/time-in-zone-gui.rkt"
-         "models/time-in-zone.rkt"
          "session-inspector/view-session.rkt"
          "sport-charms.rkt"
          "trend-charts/view-trends.rkt"
@@ -1027,6 +1026,7 @@
                      (new view-session%
                           [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback
                            (lambda (dbid)
                              (inspect-session dbid))])))

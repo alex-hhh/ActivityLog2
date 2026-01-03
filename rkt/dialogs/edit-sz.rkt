@@ -2,7 +2,7 @@
 ;; edit-sz.rkt -- Edit the Sport Zones stored in the database
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2020, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2020, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -578,6 +578,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                    (update-tiz-for-sessions/interactive
                     sessions
                     database
+                    sport-charms
                     (send this get-top-level-window))
                    #t)
                   (else

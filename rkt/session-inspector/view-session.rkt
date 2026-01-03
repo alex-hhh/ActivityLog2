@@ -371,7 +371,9 @@
                                [spacing 1]
                                [alignment '(center top)]))
 
-    (define header (new session-header% [parent session-panel]))
+    (define header (new session-header%
+                        [parent session-panel]
+                        [sport-charms sport-charms]))
 
     (define detail-panel
       (new tab-panel%
