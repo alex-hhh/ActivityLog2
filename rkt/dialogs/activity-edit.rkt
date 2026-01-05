@@ -209,7 +209,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
              toplevel
              '(stop default=3)
              #:dialog-mixin al2-message-box-mixin)
-            (when (send (get-weather-editor) begin-edit toplevel db sid)
+            (when (send (get-weather-editor) begin-edit toplevel db sport-charms sid)
               ;; NOTE: weather-data-changed event is raised by the weather editor!
               (send target after-update sid)))))
 
