@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -592,8 +592,8 @@
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
-(define/contract (plot-data-renderer-tree pd ps)
-  (-> pd? ps? (or/c #f (treeof renderer2d?)))
+(define/contract (plot-data-renderer-tree pd ps sport-charms)
+  (-> pd? ps? (is-a?/c sport-charms%) (or/c #f (treeof renderer2d?)))
   (let ((df (ps-df ps))
         (y (ps-y-axis ps))
         (y2 (ps-y-axis2 ps))
@@ -605,7 +605,7 @@
                 (send y plot-color-by-swim-stroke?)
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
-            sdata y-range (df-select df "swim_stroke")))
+            sdata y-range (df-select df "swim_stroke") sport-charms))
           ((and sdata sdata2 (ps-shade-area ps))
            (list
             (make-plot-renderer/shade-area sdata sdata2 y-range ps)
@@ -710,8 +710,8 @@
 ;; indicating if the renderer tree has changed.  This function determines what
 ;; has changed between OLD-PS and NEW-PS and re-computes only what is needed,
 ;; the remaining data is taken from OLD-PD.
-(define/contract (update-plot-data old-pd old-ps new-ps)
-  (-> pd? ps? ps? (values pd? boolean?))
+(define/contract (update-plot-data old-pd old-ps new-ps sport-charms)
+  (-> pd? ps? ps? (is-a?/c sport-charms%) (values pd? boolean?))
   (unless (equal? (ps-token old-ps) (pd-token old-pd))
     (error (format "update-plot-data: token mismatch PS: ~a, PD: ~a"
                    (ps-token old-ps) (pd-token old-pd))))
@@ -845,7 +845,7 @@
        (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
                    (not (equal? (ps-color? old-ps) (ps-color? new-ps))))
-               (values (plot-data-renderer-tree tmp-pd new-ps) #t)
+               (values (plot-data-renderer-tree tmp-pd new-ps sport-charms) #t)
                (values (pd-plot-rt old-pd) #f))
            (values #f (if (pd-plot-rt old-pd) #t #f))))
 
@@ -1097,7 +1097,7 @@
          "graph-view%/refresh-plot"
          (lambda ()
            (define-values (npdata new-render-tree?)
-             (update-plot-data pdata ppstate pstate))
+             (update-plot-data pdata ppstate pstate sport-charms))
            (queue-callback
             (lambda ()
               (when (= (pd-token npdata) (ps-token plot-state))

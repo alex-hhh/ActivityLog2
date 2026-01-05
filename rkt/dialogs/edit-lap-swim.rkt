@@ -2,7 +2,7 @@
 ;; edit-lap-swim.rkt -- edit recording errors in lap swimming sessions
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021, 2025-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -623,7 +623,7 @@ select LE.start_time as timestamp,
     ;; the label is also locked, so that hovering over other swim lengths will
     ;; not update it.
     (define (on-swl-selected swl)
-      (send swl-desc set-label (if swl (swl->string swl) ""))
+      (send swl-desc set-label (if swl (swl->string swl sport-charms) ""))
       (set! swl-desc-locked (not (eq? swl #f)))
       (send btn-undo enable (send swl-model can-undo?))
       (send choice-stroke clear)
@@ -653,7 +653,7 @@ select LE.start_time as timestamp,
     ;; selected).
     (define (on-swl-hovered swl)
       (unless swl-desc-locked
-        (send swl-desc set-label (if swl (swl->string swl) ""))))
+        (send swl-desc set-label (if swl (swl->string swl sport-charms) ""))))
 
     ;; Update any relevant widtgets after an edit operation on the swl-model.
     (define (after-edit)
