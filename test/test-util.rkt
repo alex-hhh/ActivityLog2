@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018-2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -13,23 +13,22 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require db/base
-         racket/list
+(require data-frame
+         db/base
          racket/class
+         racket/list
          rackunit
          tzgeolookup
-         data-frame
          "../rkt/database.rkt"
          "../rkt/dbapp.rkt"
          "../rkt/dbutil.rkt"
+         "../rkt/fit-file/activity-util.rkt"
          "../rkt/import.rkt"
          "../rkt/intervals.rkt"
-         "../rkt/session-df/session-df.rkt"
-         "../rkt/session-df/series-metadata.rkt"
-         ;; Even though we don't need this, native series are not registered
-         ;; unless this module is required somewhere...
          "../rkt/session-df/native-series.rkt"
-         "../rkt/fit-file/activity-util.rkt")
+         "../rkt/session-df/series-metadata.rkt"
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/sport-charms.rkt")
 
 (define (with-fresh-database thunk)
   (let ((db (open-activity-log 'memory)))
@@ -122,23 +121,23 @@
 
 ;; Check that we can obtain intervals from a data frame.  For now, we only
 ;; check if the code runs without throwing any exceptions.
-(define (check-intervals df)
+(define (check-intervals df ftp)
   (let ((sport (df-get-property df 'sport)))
     (when (or (eq? (vector-ref sport 0) 1) (eq? (vector-ref sport 0) 2))
-      (make-split-intervals df "elapsed" (* 5 60)) ; 5 min splits
+      (make-split-intervals df "elapsed" (* 5 60) #:ftp ftp) ; 5 min splits
       ;; (printf "make-split-intervals elapsed done~%")(flush-output)
-      (make-split-intervals df "dst" 1600)         ; 1 mile splits
+      (make-split-intervals df "dst" 1600 #:ftp ftp)         ; 1 mile splits
       ;; (printf "make-split-intervals dst done~%")(flush-output)
-      (make-climb-intervals df)
+      (make-climb-intervals df #:ftp ftp)
       ;; (printf "make-climb-intervals done~%")(flush-output)
       ;; (printf "sport: ~a~%" sport)(flush-output)
       (if (eq? (vector-ref sport 0) 1)
           (begin
-            (make-best-pace-intervals df)
+            (make-best-pace-intervals df #:ftp ftp)
             ;; (printf "make-best-pace-intervals done~%")(flush-output))
             )
           (begin
-            (make-best-power-intervals df)
+            (make-best-power-intervals df #:ftp ftp)
             ;; (printf "make-best-power-intervals done~%")(flush-output))
             )))))
 
@@ -188,12 +187,13 @@ where S.time_zone_id = ETZ.id
                                             #:delete-sessions? (delete? #f))
   (check-pred null? (leaked-section-summaries db)
               "Having leaked SECTION_SUMMARY entries before import")
+  (define sport-charms (new sport-charms% [dbc db]))
   (let ((result (db-import-activity-from-file file db)))
     (check-pred cons? result "Bad import result format")
     (check-eq? (car result) 'ok (format "~a" (cdr result)))
     (unless bc
       ;; Do some extra checks on this imported file
-      (do-post-import-tasks db #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
+      (do-post-import-tasks db sport-charms #;(lambda (msg) (printf "~a~%" msg) (flush-output)))
       ;; (printf "... done with the post import tasks~%")(flush-output)
       (when db-check
         (db-check db))
@@ -207,7 +207,7 @@ where S.time_zone_id = ETZ.id
           (check-session-df df
                             #:expected-row-count expected-row-count
                             #:expected-series-count expected-series-count)
-          (check-intervals df)
+          (check-intervals df (send sport-charms get-athlete-ftp))
           (check-time-in-zone df db file)
           (check-time-zone df db)
           (when df-check

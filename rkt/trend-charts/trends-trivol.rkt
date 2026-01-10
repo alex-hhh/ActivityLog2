@@ -3,7 +3,7 @@
 ;; trends-trivol.rkt -- triathlon activity volume chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2019, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,8 +15,7 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require data-frame/private/colors
-         db/base
+(require db/base
          plot-container/hover-util
          plot/no-gui
          racket/class
@@ -27,7 +26,6 @@
          "../al-widgets.rkt"
          "../database.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../widgets/main.rkt"
          "trends-chart.rkt")
 
@@ -175,7 +173,7 @@
 (define (get-data db sql-query)
   (query-rows db sql-query))
 
-(define (generate-plot output-fn data markers y-label)
+(define (generate-plot output-fn data markers y-label sport-charms)
   (define max-y 0)
   (define pdata
     (for/list ([row data]
@@ -207,24 +205,24 @@
             pdata
             #:y-max max-y
             #:colors
-            (list (get-sport-color 4 20)
-                  (get-sport-color 5 #f)
-                  (get-sport-color 2 #f)
-                  (get-sport-color 1 #f))
+            (list (send sport-charms get-sport-color 4 20)
+                  (send sport-charms get-sport-color 5 #f)
+                  (send sport-charms get-sport-color 2 #f)
+                  (send sport-charms get-sport-color 1 #f))
             #:labels '("Weights" "Swim" "Bike" "Run")
             #:line-widths '(0 0 0 0)
             #:gap histogram-gap))
      0 (length pdata) 0 max-y)))
 
-(define (insert-plot-snip canvas data markers y-label)
+(define (insert-plot-snip canvas data markers y-label sport-charms)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-to-canvas
       renderer-tree canvas
       #:x-min min-x #:x-max max-x #:y-min min-y #:y-max max-y))
-   data markers y-label))
+   data markers y-label sport-charms))
 
-(define (save-plot-to-file file-name width height data markers y-label)
+(define (save-plot-to-file file-name width height data markers y-label sport-charms)
   (generate-plot
    (lambda (renderer-tree min-x max-x min-y max-y)
      (plot-file renderer-tree file-name #:width width #:height height
@@ -232,10 +230,12 @@
                 #:x-max max-x
                 #:y-min min-y
                 #:y-max max-y))
-   data markers y-label))
+   data markers y-label sport-charms))
 
 (define trivol-trends-chart%
-  (class trends-chart% (init-field database) (super-new)
+  (class trends-chart%
+    (init-field database sport-charms)
+    (super-new)
 
     (define data-valid? #f)
     (define sql-query #f)
@@ -311,7 +311,7 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (let ((snip (insert-plot-snip canvas chart-data session-markers (get-y-label))))
+          (let ((snip (insert-plot-snip canvas chart-data session-markers (get-y-label) sport-charms)))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas clear-all)
@@ -320,7 +320,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-          (save-plot-to-file file-name width height chart-data session-markers (get-y-label))))
+          (save-plot-to-file file-name width height chart-data session-markers (get-y-label) sport-charms)))
 
     (define/override (export-data-to-file file formatted?)
       (when chart-data

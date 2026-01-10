@@ -3,7 +3,7 @@
 ;; coggan.rkt -- Coggan Metrics calculations for a session (NP, IF, TSS)
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020-2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,12 +18,10 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/contract
-         data-frame
+(require data-frame
          data/queue
-         racket/match
-         "../sport-charms.rkt"          ; for `get-athlete-ftp`
-         )
+         racket/contract
+         racket/match)
 
 ;;; Commentary
 
@@ -152,8 +150,7 @@
 ;;
 ;; In addition to the data-frame DF, the following arguments are used:
 ;;
-;; FTP -- the athlete FTP, if missing it is retrieved from the database using
-;; `get-athlete-ftp`
+;; FTP -- the athlete FTP
 ;;
 ;; SERIES -- the "power" series on which to calculate the metrics (defaults to
 ;; "pwr")
@@ -171,7 +168,7 @@
 ;; can be used to calculate the metrics for an interval.
 (define (cg-metrics
          df
-         #:ftp (ftp (get-athlete-ftp))
+         #:ftp ftp
          #:series (series "pwr")
          #:weight-series (weight "timer")
          #:include-partial? (include-partial? #f) ; set to #t for GC style NP calculation
@@ -202,9 +199,9 @@
 
 (provide (struct-out cg))
 (provide/contract
- (cg-metrics (->* (data-frame?)
-                  (#:ftp (and/c real? positive?)
-                   #:series string?
+ (cg-metrics (->* (data-frame?
+                   #:ftp (and/c real? positive?))
+                  (#:series string?
                    #:weight-series string?
                    #:include-partial? boolean?
                    #:start exact-integer?

@@ -2,7 +2,7 @@
 ;; trends-scatter.rkt -- aggregate scatter chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017-2019, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -16,18 +16,18 @@
 
 (require data-frame
          data-frame/slr
-         plot-container/hover-util
-         plot-container
-         plot
          pict
+         plot
+         plot-container
+         plot-container/hover-util
          racket/class
+         racket/format
          racket/gui/base
          racket/hash
          racket/list
          racket/match
          racket/math
          racket/string
-         racket/format
          "../al-widgets.rkt"
          "../metrics.rkt"
          "../session-df/native-series.rkt"
@@ -107,6 +107,7 @@
 (define scatter-chart-settings%
   (class edit-dialog-base%
     (init-field database
+                sport-charms
                 [default-name "Scatter"]
                 [default-title "Scatter Plot"])
 
@@ -175,10 +176,12 @@
     (define title-field (new text-field% [parent name-gb] [label "Title "]))
     (send title-field set-value default-title)
 
-    (define session-filter (new session-filter%
-                                [database database]
-                                [parent (send this get-client-pane)]
-                                [sport-selected-callback on-sport-selected]))
+    (define session-filter
+      (new session-filter%
+           [database database]
+           [sport-charms sport-charms]
+           [parent (send this get-client-pane)]
+           [sport-selected-callback on-sport-selected]))
 
     (define series-gb (make-group-box-panel (send this get-client-pane)))
     (set! series1-selector
@@ -309,7 +312,7 @@
 ;; from a database cache, or calculates it from the session data and updates
 ;; the cache.  This means that the first run for a large data set will be
 ;; slow, but subsequent ones should be much faster.
-;; 
+;;
 (define (fetch-data db params progress)
 
   ;; Series can be dual series, separated by a "+" sign, like "lteff+rteff"
@@ -445,7 +448,7 @@
 (define (pict->png the-pict name kind)
   (define bm (pict->bitmap the-pict))
   (send bm save-file name kind))
-  
+
 (define (save-plot-to-file file-name width height data params rt)
   (let ([plot-count (if rt (length rt) 0)])
     (cond
@@ -475,7 +478,8 @@
 (provide scatter-trends-chart%)
 (define scatter-trends-chart%
   (class trends-chart%
-    (init-field database) (super-new)
+    (init-field database sport-charms)
+    (super-new)
 
     (define cached-data #f)
     (define cached-renderer-tree #f)
@@ -487,7 +491,8 @@
       (new scatter-chart-settings%
            [default-name "Scatter"]
            [default-title "Scatter Plot"]
-           [database database]))
+           [database database]
+           [sport-charms sport-charms]))
 
     (define/override (invalidate-data)
       (set! cached-data #f))

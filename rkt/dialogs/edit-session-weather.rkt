@@ -2,7 +2,7 @@
 ;; edit-session-weather.rkt -- edit weather data for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2020, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,14 +15,13 @@
 ;; more details.
 
 (require db/base
-         racket/class
-         racket/gui/base
          gui-widget-mixins
+         racket/class
          racket/format
+         racket/gui/base
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../weather.rkt"
          "../widgets/main.rkt")
@@ -303,14 +302,15 @@
       (set-wind-direction 0)
       (put-value 'pressure ""))
 
-    (define (setup-activity-info db sid)
+    (define (setup-activity-info db sport-charms sid)
       (let ((row (query-row db "
 select name, sport_id, sub_sport_id, start_time from A_SESSION where id = ?"
                             sid)))
         (let ((headline (format "~a (~a)"
                                 (sql-column-ref row 0 "Untitled")
-                                (get-sport-name (sql-column-ref row 1 #f)
-                                                (sql-column-ref row 2 #f)))))
+                                (send sport-charms get-sport-name
+                                      (sql-column-ref row 1 #f)
+                                      (sql-column-ref row 2 #f)))))
           (put-value 'activity-headline headline))
         (set! start-time (sql-column-ref row 3 0))
         (put-value 'activity-start-time (date-time->string start-time))))
@@ -366,14 +366,14 @@ order by timestamp" sid)))
            (valid? (value-of 'wind-gusts))
            (valid? (value-of 'pressure))))
 
-    (define/public (begin-edit parent database session-id)
+    (define/public (begin-edit parent database sport-charms session-id)
       (clear-weather-fields)
       (set! db database)
       (set! sid session-id)
 
       (with-busy-cursor
         (lambda ()
-          (setup-activity-info database sid)
+          (setup-activity-info database sport-charms sid)
           ;; Retrieve previous weather data, if any, for this activity and
           ;; setup dialog mode accordingly.
           (setup-activity-weather database sid)))

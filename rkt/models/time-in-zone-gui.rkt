@@ -4,7 +4,7 @@
 ;; time-in-zone-gui.rkt -- gui based section of "time-in-zone.rkt"
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,7 @@
          racket/contract
          racket/gui/base
          racket/math
+         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "time-in-zone.rkt")
@@ -35,7 +36,7 @@
 ;; intended to be used from the "Tools" menu of AL2, and should not normally
 ;; be needed, since the application keeps this data consistent -- it might be
 ;; useful if the user modifies the database outside the application.
-(define (update-tiz/interactive database [parent-window #f])
+(define (update-tiz/interactive database sport-charms [parent-window #f])
 
   (define progress-dialog
     (new progress-dialog%
@@ -58,7 +59,7 @@
           (lambda (e)                   ; log the exception, than propagate it
             (dbglog "while updating session ~a: ~a" sid e)
             (raise e))))
-        (update-some-session-metrics sid database)))
+        (update-some-session-metrics sid database sport-charms)))
     (dbglog "interactive-update-time-in-zone-data complete"))
 
   (send progress-dialog run parent-window task))
@@ -72,7 +73,7 @@
 ;; need to update the affected sessions.  See also `get-tiz-outdated-sessions`
 ;; to determine which sessions need to be updated.
 ;;
-(define (update-tiz-for-sessions/interactive sessions database parent-window)
+(define (update-tiz-for-sessions/interactive sessions database sport-charms parent-window)
 
   (define frame #f)
   (define message-field #f)
@@ -101,7 +102,7 @@
             (lambda (e)                   ; log the exception, than propagate it
               (dbglog "while updating session ~a: ~a" sid e)
               (raise e))))
-          (update-some-session-metrics sid database)
+          (update-some-session-metrics sid database sport-charms)
           (cb (format "Updating session ~a" sid) n num-sessions)))
       (dbglog "interactive-update-time-in-zone completed")
       (send frame show #f)))
@@ -133,8 +134,10 @@
 (provide/contract
  (update-tiz-for-sessions/interactive (-> (listof exact-nonnegative-integer?)
                                           connection?
+                                          (is-a?/c sport-charms%)
                                           (or/c (is-a?/c frame%) (is-a?/c dialog%) #f)
                                           any/c))
  (update-tiz/interactive (-> connection?
+                             (is-a?/c sport-charms%)
                              (or/c (is-a?/c frame%) (is-a?/c dialog%) #f)
                              any/c)))

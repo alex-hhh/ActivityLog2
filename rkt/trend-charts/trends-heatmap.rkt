@@ -3,7 +3,7 @@
 ;; trends-heatmap.rkt -- route heat maps displayed on a map
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -335,6 +335,7 @@
 (define heatmap-settings%
   (class* edit-dialog-base% (chart-settings-interface<%>)
     (init-field database
+                sport-charms
                 [default-name "Heatmap"]
                 [default-title "Heatmap"])
     (super-new [title "Heatmap Settings"]
@@ -350,10 +351,12 @@
     (define (on-sport-selected sport)
       #f)
 
-    (define session-filter (new session-filter%
-                                [parent (send this get-client-pane)]
-                                [database database]
-                                [sport-selected-callback on-sport-selected]))
+    (define session-filter
+      (new session-filter%
+           [parent (send this get-client-pane)]
+           [database database]
+           [sport-charms sport-charms]
+           [sport-selected-callback on-sport-selected]))
 
     (define/public (get-chart-settings)
       (hash-union
@@ -375,7 +378,8 @@
 
 (define heatmap-chart%
   (class trends-chart%
-    (init-field database) (super-new)
+    (init-field database sport-charms)
+    (super-new)
 
     (define cached-data #f)
     (define generation 0)
@@ -386,7 +390,9 @@
     (define (get-generation) generation)
 
     (define/override (make-settings-dialog)
-      (new heatmap-settings% [database database]))
+      (new heatmap-settings%
+           [database database]
+           [sport-charms sport-charms]))
 
     (define/override (invalidate-data)
       (set! cached-data #f)

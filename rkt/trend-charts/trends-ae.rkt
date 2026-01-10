@@ -2,7 +2,7 @@
 ;; trends-ae.rkt -- aerobic efficiency trend charts
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2018, 2019, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -289,6 +289,7 @@
 (define chart-settings-dialog%
   (class edit-dialog-base%
     (init-field database
+                sport-charms
                 [default-name "AE"]
                 [default-title "Aerobic Efficiency"])
 
@@ -314,6 +315,7 @@
       (new session-filter%
            [parent (send this get-client-pane)]
            [database database]
+           [sport-charms sport-charms]
            ;; Only show running and cycling (and their
            ;; sub-sports in the selector.
            [sport-filter (lambda (sport)
@@ -369,7 +371,7 @@
 ;; Aerobic efficiency trends chart
 (define ae-trends-chart%
   (class trends-chart%
-    (init-field database)
+    (init-field database sport-charms)
     (super-new)
 
     ;; Data frame holding aerobic efficiency data, retrieved from the database
@@ -379,7 +381,8 @@
       (new chart-settings-dialog%
            [default-name "Aerobic Efficiency"]
            [default-title "Aerobic Efficiency"]
-           [database database]))
+           [database database]
+           [sport-charms sport-charms]))
 
     (define/override (invalidate-data)
       (set! df #f))

@@ -3,7 +3,7 @@
 ;; FIT files that can be uploaded to a device.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2020, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,11 +24,10 @@
          racket/string
          "../fit-file/fit-file.rkt"
          "../models/sport-zone.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
-(provide get-export-settings-dialog)
+(provide export-settings-dialog%)
 
 (define activity-class-names
   (list
@@ -140,7 +139,7 @@ select body_weight
 ;; Return a byte string containing the FIT data with HR and Power zones for
 ;; cycling.  hr-zones? and power-zones? control what zones are stored.  In
 ;; addition, the athlete's FTP is also stored.
-(define (get-cycling-fit-settings hr-zones? power-zones?)
+(define (get-cycling-fit-settings hr-zones? power-zones? ftp)
   (define sport 2)                    ; bike
   (define hr-zones (sport-zones-for-sport 2 #f 'heart-rate))
   (define power-zones (sport-zones-for-sport 2 #f 'power))
@@ -151,7 +150,7 @@ select body_weight
   (let ((builder (new fit-sport-file%
                       [sport sport]
                       [max-hr (and hr-zone-data (last hr-zone-data))]
-                      [ftp (get-athlete-ftp)]
+                      [ftp ftp]
                       [power-zones (and power-zone-data (cdr power-zone-data))]
                       [hr-zones (and hr-zone-data (cdr hr-zone-data))])))
     (send builder get-fit-data)))
@@ -179,7 +178,7 @@ select body_weight
 
 (define export-settings-dialog%
   (class edit-dialog-base%
-    (init)
+    (init-field sport-charms)
     (super-new [title "Export FIT Settings"]
                [icon (edit-icon)]
                [save-button-name "Export"]
@@ -259,18 +258,18 @@ select body_weight
        (lambda ()
          (let ((ftp (send bike-ftp-field get-converted-value)))
            (when (and ftp (not (eq? ftp 'empty)))
-             (put-athlete-ftp ftp db)))
+             (send sport-charms put-athlete-ftp ftp)))
 
          (let ((dob (send dob-field get-converted-value)))
            (when (and dob (not (eq? dob 'empty)))
-             (put-athlete-dob dob db)))
+             (send sport-charms put-athlete-dob dob)))
 
          (let ((gender (send gender-field get-selection)))
-           (put-athlete-gender gender db))
+           (send sport-charms put-athlete-gender gender))
 
          (let ((height (send height-field get-converted-value)))
            (when (and height (not (eq? height 'empty)))
-             (put-athlete-height height db))))))
+             (send sport-charms put-athlete-height height))))))
 
     (define (restore-preferences)
       (let ((prefs (get-pref tag (lambda () #f))))
@@ -291,19 +290,19 @@ select body_weight
       ;; DOB, gender, height and FTP are stored in the database, fetch them
       ;; from there.
 
-      (let ((dob (get-athlete-dob db)))
+      (let ((dob (send sport-charms get-athlete-dob)))
         (when dob
           (send dob-field set-date-value dob)))
 
-      (let ((gender (get-athlete-gender db)))
+      (let ((gender (send sport-charms get-athlete-gender)))
         (when gender
           (send gender-field set-selection gender)))
 
-      (let ((height (get-athlete-height db)))
+      (let ((height (send sport-charms get-athlete-height)))
         (when height
           (send height-field set-numeric-value height)))
 
-      (let ((ftp (get-athlete-ftp db)))
+      (let ((ftp (send sport-charms get-athlete-ftp)))
         (when ftp
           (send bike-ftp-field set-numeric-value ftp)))
 
@@ -417,7 +416,7 @@ select body_weight
               (get-running-fit-settings)))
         (when (or export-bike-hrz export-bike-pwrz)
           (wr (build-path export-directory "bike-settings.fit")
-              (get-cycling-fit-settings export-bike-hrz export-bike-pwrz)))
+              (get-cycling-fit-settings export-bike-hrz export-bike-pwrz (send sport-charms get-athlete-ftp))))
         (wr (build-path export-directory "athlete-settings.fit")
             (get-athlete-fit-settings dob gender bw height ac collect-hrv))))
 
@@ -432,10 +431,3 @@ select body_weight
         result))
 
     ))
-
-(define the-export-settings-dialog #f)
-
-(define (get-export-settings-dialog)
-  (unless the-export-settings-dialog
-    (set! the-export-settings-dialog (new export-settings-dialog%)))
-  the-export-settings-dialog)

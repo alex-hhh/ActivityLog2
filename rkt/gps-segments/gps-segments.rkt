@@ -3,7 +3,7 @@
 ;; gps-segment.rkt -- GPS Segments implementation
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021-2022, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2024-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -356,9 +356,9 @@
 ;;
 ;; Returns the id of the new match row (GPS_SEGMENT_MATCH.id)
 ;;
-(define (put-new-segment-match database segment-id df start-index end-index match-cost)
+(define (put-new-segment-match database segment-id df start-index end-index match-cost #:ftp ftp)
   (define session-id (df-get-property df 'session-id))
-  (define summary (make-interval-summary df start-index end-index))
+  (define summary (make-interval-summary df start-index end-index #:ftp ftp))
   (define start-trackpoint-id
     (query-value database (gs-find-trackpoint) session-id (df-ref df start-index "timestamp")))
   (define end-trackpoint-id
@@ -724,7 +724,7 @@ where T.length_id = L.id
 
  (put-new-segment-match (-> connection? exact-nonnegative-integer? data-frame?
                             exact-nonnegative-integer? exact-nonnegative-integer?
-                            positive? exact-nonnegative-integer?))
+                            positive? #:ftp (or/c positive? #f) exact-nonnegative-integer?))
  (delete-segment-match (-> connection? exact-nonnegative-integer? any/c))
 
  (find-nearby-sessions (->* (connection? exact-nonnegative-integer?)

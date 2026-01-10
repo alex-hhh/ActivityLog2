@@ -3,7 +3,7 @@
 ;; gps-segment-test.rkt -- tests for the GPS Segments functionality
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -19,17 +19,20 @@
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require al2-test-runner
-         rackunit
          data-frame
          data-frame/gpx
          db
+         racket/class
          racket/match
-         "../rkt/utilities.rkt"
-         "test-util.rkt"
-         "../rkt/gps-segments/gps-segments.rkt"
-         "../rkt/session-df/session-df.rkt"
+         rackunit
          "../rkt/database.rkt"
-         (only-in "../rkt/import.rkt" do-post-import-tasks))
+         "../rkt/gps-segments/gps-segments.rkt"
+         (only-in "../rkt/import.rkt"
+                  do-post-import-tasks)
+         "../rkt/session-df/session-df.rkt"
+         "../rkt/sport-charms.rkt"
+         "../rkt/utilities.rkt"
+         "test-util.rkt")
 
 (set-dbglog-to-standard-output #t)     ; send dbglog calls to stdout, so we can see them!
 ;; Use 1 worker thread, so we can determine when tasks finish (See
@@ -113,6 +116,9 @@
      (define first-geoid (df-ref segment 0 "geoid"))
      (with-fresh-database
        (lambda (db)
+         (define sport-charms (new sport-charms% [dbc db]))
+         (define ftp (send sport-charms get-athlete-ftp))
+
          (db-import-activity-from-file "./test-data/310xt-run.fit" db)
          (define matching-sessions (find-nearby-sessions db first-geoid))
          (check = (length matching-sessions) 1)
@@ -125,7 +131,7 @@
          ;; Store everything in the database
          (define segment-id (put-new-gps-segment db segment))
          (match-define (list _df start stop cost) (car matches))
-         (define match-id (put-new-segment-match db segment-id df start stop cost))
+         (define match-id (put-new-segment-match db segment-id df start stop cost #:ftp ftp))
 
          ;; 1 Match should be stored in the database
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
@@ -135,7 +141,7 @@
                      "Leaking SECTION_SUMMARY entries after deleting segment match")
 
          (define segment-id2 (put-new-gps-segment db segment))
-         (define match-id2 (put-new-segment-match db segment-id2 df start stop cost))
+         (define match-id2 (put-new-segment-match db segment-id2 df start stop cost #:ftp ftp))
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
          (delete-gps-segment db segment-id2)
          ;; Match should be gone after deleting the segment
@@ -143,7 +149,7 @@
 
 
          (define segment-id3 (put-new-gps-segment db segment))
-         (define match-id3 (put-new-segment-match db segment-id3 df start stop cost))
+         (define match-id3 (put-new-segment-match db segment-id3 df start stop cost #:ftp ftp))
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1)
          (db-delete-session (df-get-property df 'session-id #f) db)
          ;; Match should be gone after deleting the session
@@ -156,9 +162,10 @@
      (check-ecc-segment segment)
      (with-fresh-database
        (lambda (db)
+         (define sport-charms (new sport-charms% [dbc db]))
          (define segment-id (put-new-gps-segment db segment))
          (db-import-activity-from-file "./test-data/310xt-run.fit" db)
-         (do-post-import-tasks db) ; this should find a match on the segment we imported
+         (do-post-import-tasks db sport-charms) ; this should find a match on the segment we imported
          (check = (query-value db "select count(*) from GPS_SEGMENT_MATCH") 1))))
 
    ))

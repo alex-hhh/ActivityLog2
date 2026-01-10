@@ -19,19 +19,17 @@
          db/base
          racket/class
          racket/gui/base
-         racket/match
          "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../session-df/session-df.rkt"
-         "../models/sport-zone.rkt"
-         "../models/tss.rkt"
          "../models/coggan.rkt"
          "../models/rpe-and-feel.rkt"
-         "../sport-charms.rkt"
+         "../models/sport-zone.rkt"
+         "../models/tss.rkt"
+         "../session-df/session-df.rkt"
          "../widgets/main.rkt")
 
-(provide get-edit-session-tss-dialog)
+(provide edit-session-tss-dialog%)
 
 (define calculation-methods
   '(("RPE" . rpe)
@@ -43,7 +41,7 @@
 
 (define edit-session-tss-dialog%
   (class edit-dialog-base%
-    (init)
+    (init-field sport-charms)
     (super-new [title "Session Effort"] [icon (edit-icon)])
 
     (define database #f)
@@ -255,17 +253,18 @@
       (send rpe-scale set-selection
             (let ((rpe (effort-rpe effort)))
               (or rpe 0)))
-      (let ((ftp (get-athlete-ftp db)))
+      (let ((ftp (send sport-charms get-athlete-ftp)))
         (when ftp
           (send threshold-power set-value (n->string ftp))))
-      (let ((tpace (get-athlete-swim-tpace db)))
+      (let ((tpace (send sport-charms get-athlete-swim-tpace)))
         (when tpace
           (send swim-tpace set-pace-value tpace)))
 
       (let ((hl (format "~a (~a)"
                         (sql-column-ref effort 11 "Untitled")
-                        (get-sport-name (sql-column-ref effort 0 #f)
-                                        (sql-column-ref effort 1 #f)))))
+                        (send sport-charms get-sport-name
+                              (sql-column-ref effort 0 #f)
+                              (sql-column-ref effort 1 #f)))))
         (send headline set-label hl))
       (let ([ts (sql-column-ref effort 7 0)]
             [tz (sql-column-ref effort 10 #f)])
@@ -290,7 +289,7 @@
           ((swim-tpace)
            (let ((tpace (send swim-tpace get-converted-value)))
              (when (number? tpace)
-               (put-athlete-swim-tpace tpace db))))
+               (send sport-charms put-athlete-swim-tpace tpace))))
           ((normalized-power)
            (when calculated-cg-metrics
              ;; NOTE: TSS might have changed if FTP has changed, so we need to
@@ -300,7 +299,7 @@
              (put-session-cg-metrics sid umetrics #:database db))
            (let ((ftp (send threshold-power get-converted-value)))
              (when ftp
-               (put-athlete-ftp ftp db)))))))
+               (send sport-charms put-athlete-ftp ftp)))))))
 
     (define/override (has-valid-data?)
       (number? computed-tss))
@@ -319,11 +318,3 @@
     (on-tss-calculation-method 'rpe)
 
     ))
-
-
-(define the-edit-session-tss-dialog #f)
-
-(define (get-edit-session-tss-dialog)
-  (unless the-edit-session-tss-dialog
-    (set! the-edit-session-tss-dialog (new edit-session-tss-dialog%)))
-  the-edit-session-tss-dialog)

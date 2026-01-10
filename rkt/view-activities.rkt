@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2020, 2021, 2022, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -152,7 +152,7 @@ select X.session_id
 (define view-activities%
   (class* object% (activity-operations<%>)
     (init parent)
-    (init-field database [select-activity-callback #f])
+    (init-field database sport-charms [select-activity-callback #f])
     (super-new)
 
     (define tag 'activity-log:view-activities-visual-layout)
@@ -211,7 +211,9 @@ select X.session_id
 
           (let ((p (new vertical-pane% [parent q] [alignment '(left top)] [stretchable-width #f])))
             (set! sport-selector
-                  (new sport-selector% [parent p]
+                  (new sport-selector%
+                       [parent p]
+                       [sport-charms sport-charms]
                        [callback (lambda (s)
                                    (set! sport-filter s)
                                    (on-filter-changed))]))
@@ -264,7 +266,10 @@ select X.session_id
            [put-preference (lambda (name value)
                              (db-put-pref database name value))]
            [right-click-menu
-            (send (new activity-operations-menu% [target this]) get-popup-menu)]))
+            (send (new activity-operations-menu%
+                       [target this]
+                       [sport-charms sport-charms])
+                  get-popup-menu)]))
 
     (send lb set-default-export-file-name "activities.csv")
 
@@ -322,7 +327,7 @@ select X.session_id
        (let ((fn (lambda (row)
                    (let ((sport (db-row-ref row "sport" headers 0))
                          (sub-sport (db-row-ref row "sub_sport" headers 0)))
-                     (get-sport-name sport sub-sport)))))
+                     (send sport-charms get-sport-name sport sub-sport)))))
          (qcolumn "Sport" fn fn #:default-visible? #t))
 
        (let ((fn (lambda (row) (db-row-ref row "start_time" headers 0))))

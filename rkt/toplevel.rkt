@@ -43,8 +43,8 @@
          "metrics.rkt"
          "models/ec-util-gui.rkt"
          "models/time-in-zone-gui.rkt"
-         "models/time-in-zone.rkt"
          "session-inspector/view-session.rkt"
+         "sport-charms.rkt"
          "trend-charts/view-trends.rkt"
          "utilities.rkt"
          "view-activities.rkt"
@@ -299,7 +299,7 @@
 
 ;;.................................................... make-athlete-menu ....
 
-(define (make-athlete-menu menu-bar target)
+(define (make-athlete-menu menu-bar sport-charms target)
 
   (define operations-menu
     (new athlete-metrics-operations-menu% [menu-bar menu-bar] [target target]))
@@ -310,7 +310,8 @@
          [parent menu] [label "Edit Sport Zones..."]
          [callback
           (lambda (m e)
-            (send (get-sz-editor) show-dialog
+            (send (new edit-sz-dialog% [sport-charms sport-charms])
+                  show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
     (new menu-item%
@@ -324,7 +325,7 @@
          [parent menu] [label "Export Settings to Device..."]
          [callback
           (lambda (m e)
-            (send (get-export-settings-dialog) show-dialog
+            (send (new export-settings-dialog% [sport-charms sport-charms]) show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
     menu))
@@ -332,9 +333,12 @@
 
 ;;................................................... make-activtiy-menu ....
 
-(define (make-activtiy-menu menu-bar target)
+(define (make-activtiy-menu menu-bar sport-charms target)
   (define activity-menu
-    (new activity-operations-menu% [menu-bar menu-bar] [target target]))
+    (new activity-operations-menu%
+         [menu-bar menu-bar]
+         [sport-charms sport-charms]
+         [target target]))
   (send activity-menu get-popup-menu))
 
 
@@ -650,6 +654,9 @@
     (define/public (get-database)
       (send toplevel-application get-database))
 
+    (define/public (get-sport-charms)
+      (send toplevel-application get-sport-charms))
+
     ;; Return the selected section, but only if it implements the
     ;; workout-operations<%> interface, return #f otherwise.  The workout menu
     ;; items will be disabled if the selected section does not support workout
@@ -955,6 +962,7 @@
     (unless database
       (raise (format "failed to open database at ~a" database-path)))
     (set-current-database database)     ; set this as current
+    (define sport-charms (new sport-charms% [dbc database]))
 
     ;;; Construct the toplevel frame and initial panels
     (define tl-frame
@@ -1018,6 +1026,7 @@
                      (new view-session%
                           [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback
                            (lambda (dbid)
                              (inspect-session dbid))])))
@@ -1028,22 +1037,32 @@
 
       (add-section "Workouts" 'workouts
                    (lambda (parent)
-                     (new view-workouts% [parent parent] [database database])))
+                     (new view-workouts%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "GPS Segments" 'gps-segments
                    (lambda (parent)
                      (new view-gps-segments%
                           [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
       (add-section "Trends" 'trends
                    (lambda (parent)
-                     (new view-trends% [parent parent] [database database])))
+                     (new view-trends%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "Reports" 'reports
                    (lambda (parent)
-                     (new view-reports% [parent parent] [database database])))
+                     (new view-reports%
+                          [parent parent]
+                          [database database]
+                          [sport-charms sport-charms])))
 
       (add-section "Athlete" 'athlete-metrics
                    (lambda (parent)
@@ -1053,12 +1072,15 @@
                    (lambda (parent)
                      (new view-calendar% [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
       (add-section "Activities" 'activity-list
                    (lambda (parent)
-                     (new view-activities% [parent parent]
+                     (new view-activities%
+                          [parent parent]
                           [database database]
+                          [sport-charms sport-charms]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
       )
 
@@ -1096,8 +1118,8 @@
       (make-file-menu mb this)
       (make-edit-menu mb this)
       (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
-      (make-athlete-menu mb amop)
-      (make-activtiy-menu mb aop)
+      (make-athlete-menu mb sport-charms amop)
+      (make-activtiy-menu mb sport-charms aop)
       (make-gps-segments-menu mb gsop)
       (make-workout-menu mb wop)
       (make-tools-menu mb this)
@@ -1267,6 +1289,7 @@
 
     (define/public (get-frame) tl-frame)
     (define/public (get-database) database)
+    (define/public (get-sport-charms) sport-charms)
     (define/public (get-selected-section)
       (and the-selected-section (send the-selected-section get-content)))
 
@@ -1279,7 +1302,7 @@
       (interactive-fixup-elevation database #f tl-frame))
 
     (define/public (rebuild-time-in-zone-data)
-      (update-tiz/interactive database tl-frame))
+      (update-tiz/interactive database sport-charms tl-frame))
 
     (define/public (auto-detect-time-zones)
       (interactive-update-time-zones database tl-frame))
@@ -1466,7 +1489,7 @@
                          (refresh-current-view)
                          (if (eq? (car iresult) 'ok)
                              (begin
-                               (do-post-import-tasks database)
+                               (do-post-import-tasks database sport-charms)
                                (let ((equipment (get-section-by-tag 'equipment)))
                                  (send (send equipment get-content) log-due-items)))
                              (message-box
@@ -1487,7 +1510,7 @@
                     #:dialog-mixin al2-message-box-mixin))
 
                   ((eq? ecode 'ok)
-                   (do-post-import-tasks database)
+                   (do-post-import-tasks database sport-charms)
                    (let ((equipment (get-section-by-tag 'equipment)))
                      (send (send equipment get-content) log-due-items)))
 
@@ -1515,7 +1538,7 @@
           (if (directory-exists? dir)
               (begin
                 (db-put-pref database 'activity-log:last-import-dir (path->string dir))
-                (send (new import-dialog%) run tl-frame database dir)
+                (send (new import-dialog%) run tl-frame database sport-charms dir)
                 (refresh-current-view)
                 (let ((equipment (get-section-by-tag 'equipment)))
                   (send (send equipment get-content) log-due-items))

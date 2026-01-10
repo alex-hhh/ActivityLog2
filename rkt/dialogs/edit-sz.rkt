@@ -2,7 +2,7 @@
 ;; edit-sz.rkt -- Edit the Sport Zones stored in the database
 
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2020, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2020, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -22,17 +22,15 @@
          racket/match
          racket/math
          racket/string
-         "../dbutil.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../models/sport-zone.rkt"
          "../models/time-in-zone-gui.rkt"
          "../models/time-in-zone.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
-(provide get-sz-editor)
+(provide edit-sz-dialog%)
 
 ;;................................................................. zdef ....
 
@@ -77,6 +75,7 @@
 ;; type).
 (define edit-one-sz-dialog%
   (class edit-dialog-base%
+    (init-field sport-charms)
     (init)
     (super-new [title "Edit Sport Zones"] [icon (edit-icon)])
 
@@ -249,8 +248,7 @@
            (send valid-from-field has-valid-value?)))
 
     (define/public (show-dialog parent sport zmetric valid-from zones)
-
-      (send sport-message set-label (get-sport-name sport #f))
+      (send sport-message set-label (send sport-charms get-sport-name sport #f))
       (send zmetric-message set-label
             (case zmetric
               ((1) "Heart Rate")
@@ -293,8 +291,8 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
    zone-id))
 
 (define (get-sport-zone db zone-id)
-  (for/list (([name value] (in-query db "select zone_name, zone_value 
-                                          from SPORT_ZONE_ITEM 
+  (for/list (([name value] (in-query db "select zone_name, zone_value
+                                          from SPORT_ZONE_ITEM
                                          where sport_zone_id = ? order by zone_number" zone-id)))
     (list (if (sql-null? name) "" (~a name)) value)))
 
@@ -353,13 +351,13 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 (define (get-default-zones db sport metric)
   (define zids (query-list db "select id
                                 from SPORT_ZONE
-                               where sport_id = ? and zone_metric_id = ? 
+                               where sport_id = ? and zone_metric_id = ?
                                order by valid_from desc" sport metric))
   (cond
     ((> (length zids) 0)
-     (for/list (([name] (in-query db "select zone_name 
-                                        from SPORT_ZONE_ITEM 
-                                       where sport_zone_id = ? 
+     (for/list (([name] (in-query db "select zone_name
+                                        from SPORT_ZONE_ITEM
+                                       where sport_zone_id = ?
                                        order by zone_number" (car zids))))
        (list name #f)))
     (#t
@@ -392,6 +390,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
 (define edit-sz-dialog%
   (class edit-dialog-base%
     (init)
+    (init-field sport-charms)
     (super-new [title "Sport Zones"] [icon (edit-icon)] [min-width 600] [min-height 500])
 
     (define database #f)
@@ -399,7 +398,6 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
     (define sport-choice #f)
     (define metric-choice #f)
     (define szlb #f)
-    (define one-sz-edit-dlg #f)
 
     (let ((p (send this get-client-pane)))
       (let ((p1 (new vertical-pane%
@@ -471,9 +469,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
       (refresh-contents))
 
     (define (get-one-sz-edit-dialog)
-      (unless one-sz-edit-dlg
-        (set! one-sz-edit-dlg (new edit-one-sz-dialog%)))
-      one-sz-edit-dlg)
+      (new edit-one-sz-dialog% [sport-charms sport-charms]))
 
     ;; Start a database transaction, if we haven't already started one.  This
     ;; is called the first time the contents of the SPORT_ZONE table are about
@@ -517,7 +513,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                         (delete-sport-zones (sz-id data) #:database database)
                         (put-sport-zone database sport metric (car zones) (cdr zones))
                         (refresh-contents))))))))
-    
+
     ;; Called when the user clicks the "Delete" button.  Deletes the selected
     ;; entry from the database.  A transaction is started if needed, so if the
     ;; user cancels the dialog, all changes are rolled back.
@@ -582,6 +578,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                    (update-tiz-for-sessions/interactive
                     sessions
                     database
+                    sport-charms
                     (send this get-top-level-window))
                    #t)
                   (else
@@ -605,10 +602,3 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
       (set! database #f))
 
     ))
-
-(define the-sz-editor #f)
-
-(define (get-sz-editor)
-  (unless the-sz-editor
-    (set! the-sz-editor (new edit-sz-dialog%)))
-  the-sz-editor)

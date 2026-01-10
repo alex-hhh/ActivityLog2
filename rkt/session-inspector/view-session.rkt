@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020, 2021, 2022, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,9 +28,9 @@
          "../dialogs/activity-edit.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util-ut.rkt"
+         "../models/rpe-and-feel.rkt"
          "../session-df/session-df.rkt"
          "../sport-charms.rkt"
-         "../models/rpe-and-feel.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
          "inspect-aerolab.rkt"
@@ -42,9 +42,9 @@
          "inspect-model-parameters.rkt"
          "inspect-overview.rkt"
          "inspect-quadrant.rkt"
-         "inspect-traffic.rkt"
          "inspect-scatter.rkt"
-         "inspect-similar-routes.rkt")
+         "inspect-similar-routes.rkt"
+         "inspect-traffic.rkt")
 
 (provide view-session%)
 
@@ -61,6 +61,7 @@
 (define session-header%
   (class object%
     (init parent)
+    (init-field sport-charms)
     (super-new)
 
     (define database #f)
@@ -81,7 +82,7 @@
     (define begining-spacer (make-spacer panel0))
 
     (define sport-icon (new message% [parent panel0]
-                            [label (get-sport-bitmap-colorized 0 0)]
+                            [label (send sport-charms get-sport-bitmap-colorized 0 0)]
                             [stretchable-width #f]
                             [stretchable-height #f]))
 
@@ -174,10 +175,11 @@
     (define sport-name-edit
       (new sport-selector%
            [parent sport-panel-edit]
+           [sport-charms sport-charms]
            [sports-in-use-only? #f]
            [label ""]
            [callback (lambda (v)
-                       (send sport-icon set-label (get-sport-bitmap-colorized (car v) (cdr v))))]))
+                       (send sport-icon set-label (send sport-charms get-sport-bitmap-colorized (car v) (cdr v))))]))
 
     (new message% [parent sport-panel-edit]
          [stretchable-width #f]
@@ -272,8 +274,8 @@
     (define (switch-to-view-mode)
       (set! is-editing? #f)
       (send sport-icon set-label
-            (get-sport-bitmap-colorized sport sub-sport))
-      (send sport-name set-label (get-sport-name sport sub-sport))
+            (send sport-charms get-sport-bitmap-colorized sport sub-sport))
+      (send sport-name set-label (send sport-charms get-sport-name sport sub-sport))
       (send session-title set-label headline)
       (send rpe-name set-label (rpe->string perceived-effort))
       (send feel-name set-label (feel->string athlete-feel))
@@ -360,7 +362,7 @@
 
 (define view-session%
   (class* object% (activity-operations<%>)
-    (init parent database select-activity-callback)
+    (init parent database sport-charms select-activity-callback)
     (super-new)
 
     (define session-panel (new vertical-panel%
@@ -369,7 +371,9 @@
                                [spacing 1]
                                [alignment '(center top)]))
 
-    (define header (new session-header% [parent session-panel]))
+    (define header (new session-header%
+                        [parent session-panel]
+                        [sport-charms sport-charms]))
 
     (define detail-panel
       (new tab-panel%
@@ -389,12 +393,16 @@
       (make-tdata "Laps" detail-panel
                   (lambda (panel)
                     (new laps-panel%
-                         [parent panel]))))
+                         [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]))))
     (define charts
       (make-tdata "Charts" detail-panel
                   (lambda (panel)
                     (new graph-panel%
                          [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]
                          [get-preference
                           (lambda (name fail-thunk)
                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
@@ -450,6 +458,8 @@
                   (lambda (panel)
                     (new map-panel%
                          [parent panel]
+                         [database database]
+                         [sport-charms sport-charms]
                          [get-preference
                           (lambda (name fail-thunk)
                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]

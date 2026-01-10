@@ -3,7 +3,7 @@
 ;; dashboard-common.rkt -- common utilities for various dashboard dialogs
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021-2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -35,8 +35,8 @@
          "../dbapp.rkt"
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
-         "../sport-charms.rkt"
-         "../models/humidex.rkt")
+         "../models/humidex.rkt"
+         "../sport-charms.rkt")
 
 ;; Fetch session information about a session id SID from the database DB and
 ;; return it as a hash.  Session information include the session name, start
@@ -77,14 +77,14 @@ select S.start_time,
 
 ;; Pretty print to the current output port, the session info object SINFO, as
 ;; retrieved by `get-session-info`.
-(define (pp-session-info sinfo)
+(define (pp-session-info sinfo sport-charms)
   (printf "Session:    ~a~%Start Time: ~a~%Sport:      ~a~%"
           (hash-ref sinfo 'headline)
           (let ([start-time (hash-ref sinfo 'start-time)])
             (if start-time
                 (date-time->string start-time)
                 "unknown"))
-          (get-sport-name (hash-ref sinfo 'sport-id) (hash-ref sinfo 'sub-sport-id)))
+          (send sport-charms get-sport-name (hash-ref sinfo 'sport-id) (hash-ref sinfo 'sub-sport-id)))
   (let ([temperature (hash-ref sinfo 'temperature)]
         [humidity (hash-ref sinfo 'humidity)]
         [dew-point (hash-ref sinfo 'dew-point)])
@@ -115,7 +115,7 @@ select S.start_time,
 
 ;; Format session information SINFO (as retrieved by `get-session-info`) into
 ;; a pict to be displayed in the GUI.
-(define (pp-session-info/pict sinfo)
+(define (pp-session-info/pict sinfo sport-charms)
   (define b-item-color (make-object color% #x2f #x4f #x4f))
   (define b-label-color (make-object color% #x77 #x88 #x99))
 
@@ -142,7 +142,7 @@ select S.start_time,
     (hbl-append
      5
      (text (~a (hash-ref sinfo 'headline)) b-title-face)
-     (text (let ([sport (get-sport-name sport-id sub-sport-id)]
+     (text (let ([sport (send sport-charms get-sport-name sport-id sub-sport-id)]
                  [start-time (hash-ref sinfo 'start-time)])
              (if start-time
                  (format "(~a on ~a)" sport (date-time->string start-time))
@@ -180,7 +180,7 @@ select S.start_time,
                               (string-append "wind " (wind->string wind-speed wind-direction)))))
                  (#t ""))
            b-item-face)))
-  (define icon (get-sport-bitmap-colorized sport-id sub-sport-id))
+  (define icon (send sport-charms get-sport-bitmap-colorized sport-id sub-sport-id))
   (hc-append 5 (bitmap icon) (vl-append 5 headline weather)))
 
 
@@ -248,7 +248,7 @@ select S.start_time,
 ;; specifies `hash?` for this value, which is a bit vague...
 (provide/contract
  (get-session-info (->* (exact-positive-integer?) (connection?) (or/c hash? #f)))
- (pp-session-info (-> hash? any/c))
- (pp-session-info/pict (-> hash? pict?)))
+ (pp-session-info (-> hash? (is-a?/c sport-charms%) any/c))
+ (pp-session-info/pict (-> hash? (is-a?/c sport-charms%) pict?)))
 
 (provide pict-canvas%)

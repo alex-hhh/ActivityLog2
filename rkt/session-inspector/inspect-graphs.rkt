@@ -2,7 +2,7 @@
 ;; inspect-graphs.rkt -- graphs for various data series for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -14,9 +14,11 @@
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
 ;; more details.
 
-(require data-frame
+(require colormaps
+         data-frame
          data-frame/private/bsearch
          data-frame/slr
+         map-widget
          math/statistics
          plot-container
          plot-container/hover-util
@@ -31,21 +33,19 @@
          racket/match
          racket/math
          racket/vector
-         map-widget
-         colormaps                      ; needed to register the color maps
          "../al-widgets.rkt"
          "../fit-file/activity-util.rkt"
          "../fmt-util.rkt"
+         "../models/aerobic-decoupling.rkt"
          "../session-df/native-series.rkt"
          "../session-df/series-metadata.rkt"
          "../session-df/session-df.rkt"
-         "../session-df/xdata-series.rkt"
          "../session-df/shifting.rkt"
+         "../session-df/xdata-series.rkt"
          "../sport-charms.rkt"
          "../utilities.rkt"
-         "../widgets/main.rkt"
          "../widgets/dragable-split-panel.rkt"
-         "../models/aerobic-decoupling.rkt")
+         "../widgets/main.rkt")
 
 (provide graph-panel%)
 (provide elevation-graph% grade+calt-graph% grade+alt-graph%
@@ -581,19 +581,19 @@
 ;; color plots by swim stroke.  This means the function can be safely called
 ;; for any data frame + x-axis + y-axis combination and will only return a
 ;; swim stroke if appropriate.
-(define (find-swim-stroke plot-state x)
+(define (find-swim-stroke plot-state x sport-charms)
   (define df (ps-df plot-state))
   (define xseries (send (ps-x-axis plot-state) series-name))
   (and
    (send (ps-y-axis plot-state) plot-color-by-swim-stroke?)
    (df-contains? df xseries "swim_stroke")
    (let ((stroke (df-lookup df xseries "swim_stroke" x)))
-     (and stroke (get-swim-stroke-name stroke)))))
+     (and stroke (send sport-charms get-swim-stroke-name stroke)))))
 
 ;; Produce a renderer tree from the data in the PD and PS structures.  We
 ;; assume the PD structure is up-to date w.r.t PD structure.
-(define/contract (plot-data-renderer-tree pd ps)
-  (-> pd? ps? (or/c #f (treeof renderer2d?)))
+(define/contract (plot-data-renderer-tree pd ps sport-charms)
+  (-> pd? ps? (is-a?/c sport-charms%) (or/c #f (treeof renderer2d?)))
   (let ((df (ps-df ps))
         (y (ps-y-axis ps))
         (y2 (ps-y-axis2 ps))
@@ -605,7 +605,7 @@
                 (send y plot-color-by-swim-stroke?)
                 (df-contains? df "swim_stroke"))
            (make-plot-renderer/swim-stroke
-            sdata y-range (df-select df "swim_stroke")))
+            sdata y-range (df-select df "swim_stroke") sport-charms))
           ((and sdata sdata2 (ps-shade-area ps))
            (list
             (make-plot-renderer/shade-area sdata sdata2 y-range ps)
@@ -710,8 +710,8 @@
 ;; indicating if the renderer tree has changed.  This function determines what
 ;; has changed between OLD-PS and NEW-PS and re-computes only what is needed,
 ;; the remaining data is taken from OLD-PD.
-(define/contract (update-plot-data old-pd old-ps new-ps)
-  (-> pd? ps? ps? (values pd? boolean?))
+(define/contract (update-plot-data old-pd old-ps new-ps sport-charms)
+  (-> pd? ps? ps? (is-a?/c sport-charms%) (values pd? boolean?))
   (unless (equal? (ps-token old-ps) (pd-token old-pd))
     (error (format "update-plot-data: token mismatch PS: ~a, PD: ~a"
                    (ps-token old-ps) (pd-token old-pd))))
@@ -845,7 +845,7 @@
        (if (and (ps-df new-ps) (ps-x-axis new-ps) (ps-y-axis new-ps))
            (if (or need-sdata? need-sdata2? need-fdata?
                    (not (equal? (ps-color? old-ps) (ps-color? new-ps))))
-               (values (plot-data-renderer-tree tmp-pd new-ps) #t)
+               (values (plot-data-renderer-tree tmp-pd new-ps sport-charms) #t)
                (values (pd-plot-rt old-pd) #f))
            (values #f (if (pd-plot-rt old-pd) #t #f))))
 
@@ -896,6 +896,7 @@
     (init parent)
     (init-field
      primary-y-axis
+     sport-charms
      [headline #f]           ; see get-headline
      [preferences-tag #f]    ; see get-preferences-tag
      [min-height 10]
@@ -1070,7 +1071,7 @@
                      (add-renderer (hover-label x y-min label))))
                   (y1
                    (let ((label (string-append ylab1 " @ " xlab))
-                         (swim-stroke (find-swim-stroke plot-state x)))
+                         (swim-stroke (find-swim-stroke plot-state x sport-charms)))
                      (add-renderer (hover-label x y-min label swim-stroke))))
                   (y2
                    (let ((label (string-append ylab2 " @ " xlab)))
@@ -1096,7 +1097,7 @@
          "graph-view%/refresh-plot"
          (lambda ()
            (define-values (npdata new-render-tree?)
-             (update-plot-data pdata ppstate pstate))
+             (update-plot-data pdata ppstate pstate sport-charms))
            (queue-callback
             (lambda ()
               (when (= (pd-token npdata) (ps-token plot-state))
@@ -1266,7 +1267,7 @@
 ;; geographically.
 (define map-graph%
   (class* object% (graph-view-interface<%>)
-    (init parent)
+    (init parent sport-charms)
     (init-field
      [style '()]
      [hover-callback (lambda (x) (void))]
@@ -2011,7 +2012,7 @@
   `(("Distance" . ,axis-swim-distance)
     ("Time" . ,axis-swim-time)))
 
-(define (make-default-graphs parent hover-callback)
+(define (make-default-graphs parent sport-charms hover-callback)
   ;; NOTE: all graphs are created as 'deleted, so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
@@ -2058,9 +2059,13 @@
                                 spd-hr-reserve-graph%
                                 adecl-graph%
                                 map-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
-(define (make-swim-graphs parent hover-callback)
+(define (make-swim-graphs parent sport-charms hover-callback)
   ;; NOTE: all graphs are created as '(deleted), so they are not visible.  The
   ;; graphs-panel% will control visibility by adding/removing graphs from the
   ;; parent panel
@@ -2071,12 +2076,16 @@
                                 heart-rate-graph%
                                 heart-rate-zones-graph%
                                 heart-rate-pct-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
 
 ;; These are the graps used for Open Water Swimming -- some Pool Swimming
 ;; graphs don't make sense, but neither do the full graphs.
-(define (make-owswim-graphs parent hover-callback)
+(define (make-owswim-graphs parent sport-charms hover-callback)
   (for/list ([c% (in-list (list swim-pace-graph%
                                 swim-cadence-graph%
                                 speed-graph%
@@ -2086,19 +2095,24 @@
                                 heart-rate-pct-graph%
                                 stride-graph%
                                 temperature-graph%))])
-    (new c% [parent parent] [style '(deleted)] [hover-callback hover-callback])))
+    (new c%
+         [parent parent]
+         [sport-charms sport-charms]
+         [style '(deleted)]
+         [hover-callback hover-callback])))
 
-(define (make-xdata-graphs parent hover-callback)
+(define (make-xdata-graphs parent sport-charms hover-callback)
   (for/list ([md (get-available-xdata-metadata)])
     (new graph-view%
          [parent parent]
+         [sport-charms sport-charms]
          [style '(deleted)]
          [hover-callback hover-callback]
          [primary-y-axis md])))
 
 (define graph-panel%
   (class object%
-    (init parent)
+    (init parent database sport-charms)
     (init-field
      [get-preference get-pref]
      [put-preference put-pref])
@@ -2263,12 +2277,15 @@
         (new interval-choice%
              [tag 'interval-choice-graphs]
              [parent p]
+             [database database]
+             [sport-charms sport-charms]
              [label ""]
              [callback (lambda () (unhighlight-lap))])))
 
     (define interval-view
       (new mini-interval-view%
            [parent interval-view-panel]
+           [sport-charms sport-charms]
            [tag 'activity-log:charts-mini-lap-view]
            [callback (lambda (n lap selected?)
                        (if selected?
@@ -2357,22 +2374,22 @@
 
     (define (default-graphs)
       (unless default-graphs-1
-        (set! default-graphs-1 (make-default-graphs graphs-panel hover-callback)))
+        (set! default-graphs-1 (make-default-graphs graphs-panel sport-charms hover-callback)))
       default-graphs-1)
 
     (define (swim-graphs)
       (unless swim-graphs-1
-        (set! swim-graphs-1 (make-swim-graphs graphs-panel hover-callback)))
+        (set! swim-graphs-1 (make-swim-graphs graphs-panel sport-charms hover-callback)))
       swim-graphs-1)
 
     (define (owswim-graphs)
       (unless owswim-graphs-1
-        (set! owswim-graphs-1 (make-owswim-graphs graphs-panel hover-callback)))
+        (set! owswim-graphs-1 (make-owswim-graphs graphs-panel sport-charms hover-callback)))
       owswim-graphs-1)
 
     (define (xdata-graphs)
       (unless xdata-graphs-1
-        (set! xdata-graphs-1 (make-xdata-graphs graphs-panel hover-callback)))
+        (set! xdata-graphs-1 (make-xdata-graphs graphs-panel sport-charms hover-callback)))
       xdata-graphs-1)
 
     (define sds-dialog #f)

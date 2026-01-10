@@ -21,19 +21,18 @@
          tzinfo
          "../al-widgets.rkt"
          "../dbutil.rkt"
-         "../session-df/session-df.rkt"
-         "../sport-charms.rkt"
-         "../widgets/main.rkt"
+         "../models/rpe-and-feel.rkt"
          "../models/tss.rkt"
-         "../models/rpe-and-feel.rkt")
+         "../session-df/session-df.rkt"
+         "../widgets/main.rkt")
 
-(provide get-edit-session-summary-dialog)
+(provide edit-session-summary-dialog%)
 
 (define edit-session-summary-dialog%
   (class edit-dialog-base%
-    (init)
+    (init-field sport-charms)
     (super-new [title "Session Summary"]
-               [icon (get-sport-bitmap-colorized #f #f)]
+               [icon (send sport-charms get-sport-bitmap-colorized #f #f)]
                [min-width 600]
                [min-height 500])
 
@@ -95,9 +94,10 @@
         (set! sport-choice
               (new sport-selector% [parent p0]
                    [sports-in-use-only? #f]
+                   [sport-charms sport-charms]
                    [callback
                     (lambda (v)
-                      (let ((icon (get-sport-bitmap-colorized (car v) (cdr v))))
+                      (let ((icon (send sport-charms get-sport-bitmap-colorized (car v) (cdr v))))
                         (send this set-icon icon)))])))
 
       (let ((p0 (make-horizontal-pane p #f)))
@@ -178,7 +178,7 @@ select S.name as title,
         (let ((sport (sql-column-ref r 1 #f))
               (sub-sport (sql-column-ref r 2 #f)))
           (send sport-choice set-selected-sport sport sub-sport)
-          (let ((sicon (get-sport-bitmap-colorized sport sub-sport)))
+          (let ((sicon (send sport-charms get-sport-bitmap-colorized sport sub-sport)))
             (send this set-icon sicon)))
         (send labels-input setup-for-session db session-id)
         (send equipment-input setup-for-session db session-id))
@@ -209,7 +209,7 @@ select S.name as title,
       (send rpe-scale-choice set-selection 4) ; moderate
       (send feel-scale-choice set-selection (feel->index 5.0)) ; normal
       (send sport-choice set-selected-sport #f #f)
-      (send this set-icon (get-sport-bitmap-colorized #f #f))
+      (send this set-icon (send sport-charms get-sport-bitmap-colorized #f #f))
       (send labels-input setup-for-session db #f)
       (send equipment-input setup-for-session db #f))
 
@@ -307,7 +307,7 @@ select S.name as title,
                 (if (eqv? rpe-scale 0) sql-null rpe-scale)
                 ssid))
              (let* ((df (session-df db sid)))
-               (maybe-update-session-tss sid df db)
+               (maybe-update-session-tss sid df db sport-charms)
                (send labels-input update-session-tags sid)
                (send equipment-input update-session-tags sid)
                sid))))))
@@ -322,11 +322,3 @@ select S.name as title,
               (insert-session db))
           #f))
     ))
-
-(define the-edit-session-summary-dialog #f)
-
-(define (get-edit-session-summary-dialog)
-  (unless the-edit-session-summary-dialog
-    (set! the-edit-session-summary-dialog
-          (new edit-session-summary-dialog%)))
-  the-edit-session-summary-dialog)

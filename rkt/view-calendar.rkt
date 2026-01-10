@@ -2,7 +2,7 @@
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2021-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -251,7 +251,9 @@
 
 (define calendar-item-snip%
   (class snip%
-    (init db-row) (super-new)
+    (init db-row)
+    (init-field sport-charms)
+    (super-new)
     (inherit get-admin)
 
     ;; snip% specific setup
@@ -300,9 +302,9 @@
     (setup-from-db-row db-row)
 
     (define (make-pict dc)
-      (let* ((badge (make-badge (get-sport-letter the-sport the-sub-sport)
+      (let* ((badge (make-badge (send sport-charms get-sport-letter the-sport the-sub-sport)
                                 (make-headline the-name the-total-time the-total-distance the-sport)
-                                (get-sport-color the-sport the-sub-sport)
+                                (send sport-charms get-sport-color the-sport the-sub-sport)
                                 target-width
                                 #:charm-font the-charm-font
                                 #:headline-font the-normal-font
@@ -443,7 +445,7 @@
 
 (define calendar-pasteboard%
   (class pasteboard%
-    (init-field double-click-callback activity-operations)
+    (init-field double-click-callback activity-operations sport-charms)
     (super-new)
     (inherit get-canvas move-to find-first-snip insert delete set-before
              begin-edit-sequence end-edit-sequence)
@@ -454,7 +456,9 @@
       (end-edit-sequence))
 
     (define aop-menu
-      (new activity-operations-menu% [target activity-operations]))
+      (new activity-operations-menu%
+           [target activity-operations]
+           [sport-charms sport-charms]))
 
     (define/public (get-calendar-operations-menu citem)
       (send activity-operations set-calendar-item citem)
@@ -847,7 +851,7 @@
 (define view-calendar%
   (class* object% (activity-operations<%>)
     (init parent)
-    (init-field database select-activity-callback)
+    (init-field database sport-charms select-activity-callback)
     (super-new)
 
     (define pane (new vertical-pane% [parent parent] [alignment '(left center)]))
@@ -904,6 +908,7 @@
     (define the-calendar
       (let ((calendar (new calendar-pasteboard%
                            [activity-operations this]
+                           [sport-charms sport-charms]
                            [double-click-callback select-activity-callback])))
         (new editor-canvas%
              [parent pane]
@@ -974,7 +979,7 @@
          (let-values (([start end] (calendar-month-range the-month the-year)))
            (send the-calendar set-calendar-range start end)
            (let ((snips (for/list ([session (in-list (get-sessions-between-dates start end database))])
-                          (new calendar-item-snip% [db-row session]))))
+                          (new calendar-item-snip% [db-row session] [sport-charms sport-charms]))))
              (send the-calendar bulk-insert snips))))))
 
     (define dirty? #t)

@@ -2,7 +2,7 @@
 ;; workout-editor.rkt -- workout editor panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2026 Alex Harsanyi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,7 @@
 ;; description.
 (define workout-editor%
   (class object%
-    (init-field parent [workout-changed-callback #f])
+    (init-field parent sport-charms [workout-changed-callback #f])
     (super-new)
 
     ;; the workout being edited in this editor
@@ -42,6 +42,7 @@
     (define pane (make-vertical-pane parent))
     (define headline (new workout-editor-headline%
                           [parent pane]
+                          [sport-charms sport-charms]
                           [headline-updated-callback (lambda (h s) (on-headline-updated h s))]))
 
     (define pane1 (make-horizontal-pane pane))

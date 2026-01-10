@@ -3,7 +3,7 @@
 ;; trends-tt.rkt -- "Training Time chart, a punch card style chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2019, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -35,6 +35,7 @@
 (define tt-chart-settings%
   (class edit-dialog-base%
     (init-field database
+                sport-charms
                 [default-name "Trends"]
                 [default-title "Trends Chart"])
 
@@ -50,7 +51,11 @@
 
     (define time-gb (make-group-box-panel (send this get-client-pane)))
     (define sport-hp (make-horizontal-pane time-gb))
-    (define sport-selector (new sport-selector% [parent sport-hp] [sports-in-use-only? #t]))
+    (define sport-selector
+      (new sport-selector%
+           [parent sport-hp]
+           [sport-charms sport-charms]
+           [sports-in-use-only? #t]))
     (define tri-checkbox
       (new check-box% [parent sport-hp] [label "Tri Activities"]
            [value #f]
@@ -235,45 +240,45 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           #:alpha alpha
           #:x-jitter 0.2))
 
-(define (make-renderer-tree triathlon? tt-data sport)
+(define (make-renderer-tree triathlon? tt-data sport sport-charms)
   (cond (triathlon?
          (list
           (tick-grid)
           (make-renderer
            (make-data tt-data "ncycle")
-           #:color (get-sport-color 2 #f #t)
-           #:label (get-sport-name 2 #f)
+           #:color (send sport-charms get-sport-color 2 #f #t)
+           #:label (send sport-charms get-sport-name 2 #f)
            #:alpha 0.8
            #:size 1.5)
           (make-renderer
            (make-data tt-data "nrun")
-           #:color (get-sport-color 1 #f #t)
-           #:label (get-sport-name 1 #f)
+           #:color (send sport-charms get-sport-color 1 #f #t)
+           #:label (send sport-charms get-sport-name 1 #f)
            #:alpha 0.8
            #:size 1.5)
           (make-renderer
            (make-data tt-data "nswim")
-           #:color (get-sport-color 5 #f #t)
-           #:label (get-sport-name 5 #f)
+           #:color (send sport-charms get-sport-color 5 #f #t)
+           #:label (send sport-charms get-sport-name 5 #f)
            #:alpha 0.8
             #:size 1.5)
           (make-renderer
            (make-data tt-data "nstrength")
-           #:color (get-sport-color 4 20 #t)
-           #:label (get-sport-name 4 20)
+           #:color (send sport-charms get-sport-color 4 20 #t)
+           #:label (send sport-charms get-sport-name 4 20)
            #:alpha 0.8
            #:size 1.5)))
         ((and (eq? (car sport) #f) (eq? (cdr sport) #f)) ; all sports
          (let* ((data (make-data/multisport tt-data))
                 (keys (sort (hash-keys data) string<?
-                            #:key (lambda (k) (get-sport-name (car k) (cdr k))))))
+                            #:key (lambda (k) (send sport-charms get-sport-name (car k) (cdr k))))))
            (append
             (list (tick-grid))
             (for/list ([k keys])
               (make-renderer
                (hash-ref data k '())
-               #:color (get-sport-color (car k) (cdr k) #t)
-               #:label (get-sport-name (car k) (cdr k))
+               #:color (send sport-charms get-sport-color (car k) (cdr k) #t)
+               #:label (send sport-charms get-sport-name (car k) (cdr k))
                #:size 1.5
                #:alpha 0.8)))))
         (#t
@@ -281,8 +286,8 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           (tick-grid)
           (make-renderer
            (make-data tt-data "ntotal")
-           #:color (get-sport-color (car sport) (cdr sport) #t)
-           #:label (get-sport-name (car sport) (cdr sport))
+           #:color (send sport-charms get-sport-color (car sport) (cdr sport) #t)
+           #:label (send sport-charms get-sport-name (car sport) (cdr sport))
            #:size 1.5)))))
 
 (define (generate-plot output-fn renderer-tree)
@@ -314,7 +319,8 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
 
 (define tt-trends-chart%
   (class trends-chart%
-    (init-field database) (super-new)
+    (init-field database sport-charms)
+    (super-new)
 
     (define data-valid? #f)
     (define tt-data #f)                 ; a data-frame%
@@ -323,6 +329,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
       (new tt-chart-settings%
            [default-name "Training Times"]
            [default-title "TrainingTimes"]
+           [sport-charms sport-charms]
            [database database]))
 
     (define/override (invalidate-data)
@@ -353,7 +360,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
           (let* ((params (send this get-chart-settings))
                  (sport (hash-ref params 'sport))
                  (tri? (hash-ref params 'tri?))
-                 (rt (make-renderer-tree tri? tt-data sport)))
+                 (rt (make-renderer-tree tri? tt-data sport sport-charms)))
             (insert-plot-snip canvas rt))
           (begin
             (send canvas clear-all)
@@ -364,7 +371,7 @@ select round(strftime('%w', S.start_time, 'unixepoch', 'localtime'), 0) as dow,
         (define params (send this get-chart-settings))
         (define sport (hash-ref params 'sport))
         (define tri? (hash-ref params 'tri?))
-        (define rt (make-renderer-tree tri? tt-data sport))
+        (define rt (make-renderer-tree tri? tt-data sport sport-charms))
         (save-plot-to-file file-name width height rt)))
 
     (define (maybe-fetch-data)

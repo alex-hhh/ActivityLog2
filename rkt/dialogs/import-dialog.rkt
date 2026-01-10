@@ -2,7 +2,7 @@
 ;; view-last-import.rkt -- panel showing activies that were last imported
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -20,7 +20,6 @@
          "../fmt-util-ut.rkt"
          "../fmt-util.rkt"
          "../import.rkt"
-         "../sport-charms.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt")
 
@@ -91,6 +90,7 @@
         p))
 
     (define database #f)
+    (define sport-charms #f)
     (define import-directory #f)
 
     (define (begin-import)
@@ -110,6 +110,7 @@
            (import-new-activities-from-directory
             import-directory
             database
+            sport-charms
             (lambda (file status detail)
               (queue-callback
                (lambda () (on-file-progress file status detail))))
@@ -138,12 +139,13 @@
     (define (on-close-dialog)
       (send toplevel-window show #f))
 
-    (define/public (run parent db import-dir)
+    (define/public (run parent db sport-charms import-dir)
       (let ((old-toplevel toplevel-window))
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send import-pane reparent toplevel)
           (set! toplevel-window toplevel))
         (set! database db)
+        (set! sport-charms sport-charms)
         (set! import-directory import-dir)
         (send close-button enable #f)
         (send export-button enable #f)
@@ -161,7 +163,7 @@
 
     ))
 
-(define *display-columns*
+(define (display-columns sport-charms)
   (list
    (let ((fn (lambda (row) (vector-ref row 1))))
      (qcolumn "Activity Name" fn fn))
@@ -169,7 +171,7 @@
    (let ((fn (lambda (row)
                (let ((sport (vector-ref row 5))
                      (sub-sport (vector-ref row 6)))
-                 (get-sport-name sport sub-sport)))))
+                 (send sport-charms get-sport-name sport sub-sport)))))
      (qcolumn "Sport" fn fn))
 
    (qcolumn "Start Time"
@@ -224,7 +226,8 @@
 
 (define last-import-dialog%
   (class object%
-    (init) (super-new)
+    (init sport-charms)
+    (super-new)
 
     (define (make-toplevel-dialog parent)
       (new dialog%
@@ -254,7 +257,7 @@
 
         (send import-list set-default-export-file-name "last-import-list.csv")
 
-        (send import-list setup-column-defs *display-columns*)
+        (send import-list setup-column-defs (display-columns sport-charms))
 
         (let ((p1 (make-horizontal-pane p #f)))
           (send p1 set-alignment 'right 'center)

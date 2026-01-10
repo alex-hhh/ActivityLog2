@@ -2,7 +2,7 @@
 ;; fthr-analysis.rkt -- FTHR analysis dashboard
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021, 2022, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020, 2021, 2022, 2023, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -498,6 +498,7 @@
 
     (define fthr-data #f)               ; a FTHR struct
     (define database #f)
+    (define sport-charms #f)
 
     (define (make-toplevel-dialog parent)
       (new
@@ -700,7 +701,7 @@
           zone-id
           session-id)
          (define outdated (get-tiz-outdated-sessions database))
-         (update-tiz-for-sessions/interactive outdated database toplevel-window)))
+         (update-tiz-for-sessions/interactive outdated database sport-charms toplevel-window)))
       (put-description primary-description "Sport zones based on this analysis have been set. You can edit sport zones from the Athlete / Edit Sport Zones menu")
       (send set-primary-button enable #f))
 
@@ -718,7 +719,7 @@
           zone-id
           session-id)
          (define outdated (get-tiz-outdated-sessions database))
-         (update-tiz-for-sessions/interactive outdated database toplevel-window)))
+         (update-tiz-for-sessions/interactive outdated database sport-charms toplevel-window)))
       (put-description secondary-description "Sport zones based on this analysis have been set. You can edit sport zones from the Athlete / Edit Sport Zones menu")
       (send set-secondary-button enable #f))
 
@@ -776,12 +777,13 @@
             (send best-pict-canvas set-pict #f)
             (send zones-canvas set-pict #f))))
 
-    (define/private (load-data db session-id)
+    (define/private (load-data db sc session-id)
       (set! database db)
+      (set! sport-charms sc)
       (set! fthr-data (load-fthr-data db session-id))
       (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
       (when sinfo
-        (send headline set-pict (and sinfo (pp-session-info/pict sinfo))))
+        (send headline set-pict (and sinfo (pp-session-info/pict sinfo sport-charms))))
       (if (or primary secondary)
           (begin
             (send detail-panel enable #t)
@@ -822,6 +824,7 @@
 
     (define/private (on-close-dashboard)
       (set! database #f)
+      (set! sport-charms sport-charms)
       (set! fthr-data #f))
 
     ;; Show the dialog.  PARENT is the parent window for the dialog.  This
@@ -831,23 +834,24 @@
     ;; A derived class might want to provide a "show-dialog" method that wraps
     ;; this one, and sets up the dialog contents for editing and actually
     ;; saves the result when the dialog is closed.
-    (define/public (show-dashboard parent db sid)
+    (define/public (show-dashboard parent db sport-charms sid)
       (let ((old-toplevel toplevel-window))
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send dashboard-contents reparent toplevel)
           (set! toplevel-window toplevel))
-        (thread/dbglog (lambda () (load-data db sid)))
+        (thread/dbglog (lambda () (load-data db sport-charms sid)))
         (send toplevel-window show #t) ; will block until finish-dialog is called
         (set! toplevel-window old-toplevel)
         (void)))
 
     ))
 
-(define (show-fthr-analisys-dashboard toplevel database sid)
+(define (show-fthr-analisys-dashboard toplevel database sport-charms sid)
   (define dashboard (new fthr-dashboard%))
-  (send dashboard show-dashboard toplevel database sid))
+  (send dashboard show-dashboard toplevel database sport-charms sid))
 
 (provide/contract
  (show-fthr-analisys-dashboard (-> (or/c #f (is-a?/c top-level-window<%>))
                                    connection?
+                                   (is-a?/c sport-charms%)
                                    exact-positive-integer? any/c)))

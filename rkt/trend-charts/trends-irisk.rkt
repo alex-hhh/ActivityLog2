@@ -3,7 +3,7 @@
 ;; trends-irisk.rkt -- Injuri Risk Trends chart for swimming, biking and running
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -18,26 +18,25 @@
 ;; You should have received a copy of the GNU General Public License along
 ;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require
- racket/runtime-path
- data-frame
- data-frame/spline
- racket/class
- racket/draw
- racket/format
- racket/math
- math/statistics
- plot
- plot-container/hover-util
- racket/gui/base
- gui-widget-mixins
- racket/match
- plot-container
- "trends-chart.rkt"
- "../dbutil.rkt"
- "../widgets/grid-pane.rkt"
- "../widgets/main.rkt"
- "../utilities.rkt")
+(require data-frame
+         data-frame/spline
+         gui-widget-mixins
+         math/statistics
+         plot
+         plot-container
+         plot-container/hover-util
+         racket/class
+         racket/draw
+         racket/format
+         racket/gui/base
+         racket/match
+         racket/math
+         racket/runtime-path
+         "../dbutil.rkt"
+         "../utilities.rkt"
+         "../widgets/grid-pane.rkt"
+         "../widgets/main.rkt"
+         "trends-chart.rkt")
 
 (define weeks-input-field%
   (validate-mixin
@@ -458,7 +457,7 @@
 
 (define irisk-trends-chart%
   (class trends-chart%
-    (init-field database)
+    (init-field database sport-charms)
     (super-new)
 
     ;; Data frame holding bodyweight data, retrieved from the database
