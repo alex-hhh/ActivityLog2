@@ -4,7 +4,7 @@
 ;; utilities to plot graphs.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -283,10 +283,43 @@
 
     df))
 
+;; Determine the time difference between adjacent timestamps in the session,
+;; which would count as the athlete stopping.  Normally, Garmin records every
+;; 1 second, so technically, any gap larger than 1 second represents a stop,
+;; however, Garmin also has variable recording where it stops writing records
+;; to file when nothing much changes (according to Garmin's internal
+;; algorithms).  This can result in gaps up to 6-8 seconds which are not
+;; actually stops.
+;;
+;; Here we try to sample some points from the session and determine a safe
+;; "stop delta time".
+
+(define (determine-stop-delta-t df)
+  ;; about 10 minutes at 1 second recording, more for variable recording
+  (define sample-count 600)
+  (define nrows (df-row-count df))
+  (define start (max 0 (exact-floor (/ (- nrows sample-count) 2))))
+  (define stop (min nrows (+ start sample-count)))
+  (define samples
+    (df-map df "timestamp"
+            (lambda (prev next)
+              (if prev
+                  (- (list-ref next 0) (list-ref prev 0))
+                  1))
+            #:start start
+            #:stop stop))
+  (vector-sort! samples <)
+  ;; Safe stop point is determined as the 75% quantile plus 1.5 of the
+  ;; inter-quantile range.
+  (define q25 (vector-ref samples (exact-truncate (* 0.25 (vector-length samples)))))
+  (define q75 (vector-ref samples (exact-truncate (* 0.75 (vector-length samples)))))
+  (+ q75 (* 1.5 (max 1 (- q75 q25)))))
+
 (define (add-timer-series df)
   (when (df-contains? df "timestamp")
     (define stop-points '())
-    (define st empty-statistics)
+
+    (define stop-dt (determine-stop-delta-t df))
 
     (df-add-derived!
      df
@@ -302,13 +335,9 @@
            ;; can have 40-70 seconds between samples) and consider a stop
            ;; point any sample that is at least 3 times longer than the
            ;; current average...
-           (if (and (> (statistics-count st) 3)
-                    (> dt (* 3 (statistics-mean st))))
+           (if (> dt stop-dt)
                (set! stop-points (cons ptimestamp stop-points))
-               (begin
-                 (when (> dt 1)       ; don't count 1 second gaps
-                   (set! st (update-statistics st dt)))
-                 (set! timer (+ timer dt)))))
+               (set! timer (+ timer dt))))
          timer)))
 
     (set! stop-points (reverse stop-points))

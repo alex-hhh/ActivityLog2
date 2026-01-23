@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -245,7 +245,7 @@ select count(*)
                       #:extra-df-checks
                       (lambda (df)
                         (define stop-points (df-get-property df 'stop-points '()))
-                        (check = (length stop-points) 2)
+                        (check = (length stop-points) 4)
                         ;; Since this is a small data set, stop points are
                         ;; added to the data, instead of clearing existing
                         ;; points, we could also check that stop points are
@@ -658,6 +658,17 @@ select count(*)
         (define s (db-fetch-session 1 db))
         (check-equal? 4 (session-rpe s) "Session RPE mismatch")
         (check-equal? 5.0 (session-feel s) "Session FEEL mismatch"))))
+   (test-case "f0063.fit"
+     (do-basic-checks
+      "./test-fit/f0063.fit" 16 2332
+      #:extra-df-checks
+      (lambda (df)
+        (define last-row (sub1 (df-row-count df)))
+        (define timer (df-ref df last-row "timer"))
+        (define elapsed (df-ref df last-row "elapsed"))
+        (check-=
+         timer elapsed 109              ; manually calculated, somewhat silly
+         (format "Timer (~a) and Elapsed (~a) series should be mostly identical" timer elapsed)))))
    (test-case "multi-checks"
      (do-multi-checks
       ;; These two files contain data from the same XDATA app, the application
@@ -685,5 +696,5 @@ select count(*)
 
   (run-tests #:package "fit-test"
              #:results-file "test-results/fit-test.xml"
-             ;; #:only '(("FIT file reading" "f0062.fit"))
+             ;; #:only '(("FIT file reading" "f0011.fit"))
              fit-files-test-suite))
