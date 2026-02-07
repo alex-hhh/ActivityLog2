@@ -3,7 +3,7 @@
 ;; aerobic-decoupling.rkt -- Pw:HR and Pa:HR metrics and other related metrics
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2021, 2023, 2024, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -160,11 +160,11 @@
 ;; session.  HR Reserve is defined as the percentage of the heart rate between
 ;; the MIN-HR and MAX-HR, as defined by the sport zones.  Additionally, the
 ;; hr-reserve series is filtered using a moving average filter.
-(define (maybe-add-hr-reserve! df)
+(define (maybe-add-hr-reserve! df szs)
   (when (df-contains? df "hr")
     (define sid (df-get-property df 'session-id))
     (when sid
-      (define zones (sport-zones-for-session sid 'heart-rate))
+      (define zones (send szs sport-zones-for-session sid 'heart-rate))
       (when zones
         (define-values (min-hr max-hr)
           (let ([b (sz-boundaries zones)])
@@ -256,9 +256,9 @@
 ;; Add an "adecl", "hr-reserve", "pwr-reserve" and "spd-reserve" series (if
 ;; possible).  Aerobic decoupling, "adecl", is defined as the ratio between
 ;; hr-reserve and power or speed reserve.
-(define (maybe-add-adecl! df)
+(define (maybe-add-adecl! df szs)
   (unless (df-contains? df "hr-reserve")
-    (maybe-add-hr-reserve! df))
+    (maybe-add-hr-reserve! df szs))
   (unless (df-contains? df "pwr-reserve")
     (maybe-add-pwr-reserve! df))
   (unless (df-contains? df "spd-reserve")
@@ -352,7 +352,7 @@
                            #:stop exact-nonnegative-integer?)
                           (or/c real? #f)))
  (aerobic-decoupling/laps (-> data-frame? (listof (or/c real? #f))))
- (maybe-add-adecl! (-> data-frame? any/c)))
+ (maybe-add-adecl! (-> data-frame? (is-a?/c sport-zones%) any/c)))
 
 (provide axis-hr-reserve
          axis-pwr-reserve

@@ -3,7 +3,7 @@
 ;; built into the application (like heart rate or power).
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020-2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2024, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -28,7 +28,8 @@
          "../models/critical-power.rkt"
          "../models/sport-zone.rkt"
          "../sport-charms.rkt"
-         "series-metadata.rkt")
+         "series-metadata.rkt"
+         "../dbapp.rkt")
 
 ;; Fonts and colors for the Power-Duration information pane
 
@@ -201,10 +202,13 @@
 
          (define/override (factor-fn sport (sid #f))
            (define sz
-             (if sid
-                 (sport-zones-for-session sid 'pace)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
+             ;; NOTE: not ideal to create a new szs object every time, but
+             ;; current-database can change.
+             (let ([szs (new sport-zones% [dbc (current-database)])])
+               (if sid
+                   (send szs sport-zones-for-session sid 'pace)
+                   (and (sport-id sport)
+                        (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))))
            (and sz
                 ;; NOTE: value passed in is in km/h or mi/h, we need to
                 ;; convert it back to meters/sec before we can find the zone.
@@ -244,10 +248,13 @@
     (define/override (histogram-bucket-slot) 1)
     (define/override (factor-fn sport (sid #f))
       (define sz
-             (if sid
-                 (sport-zones-for-session sid 'pace)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
+        ;; NOTE: not ideal to create a new szs object every time, but
+        ;; current-database can change.
+        (let ([szs (new sport-zones% [dbc (current-database)])])
+          (if sid
+              (send szs sport-zones-for-session sid 'pace)
+              (and (sport-id sport)
+                   (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))))
       (and sz
            ;; NOTE: value passed in is in sec/km or sec/mi (NOT
            ;; minutes), we need to convert it back to meters/sec before
@@ -437,10 +444,13 @@
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            (define sz
-             (if sid
-                 (sport-zones-for-session sid 'pace)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace))))
+             ;; NOTE: not ideal to create a new szs object every time, but
+             ;; current-database can change.
+             (let ([szs (new sport-zones% [dbc (current-database)])])
+               (if sid
+                   (send szs sport-zones-for-session sid 'pace)
+                   (and (sport-id sport)
+                        (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'pace)))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
@@ -549,10 +559,13 @@
 
          (define/override (factor-fn sport (sid #f))
            (define sz
-             (if sid
-                 (sport-zones-for-session sid 'heart-rate)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate))))
+             ;; NOTE: not ideal to create a new szs object every time, but
+             ;; current-database can change.
+             (let ([szs (new sport-zones% [dbc (current-database)])])
+               (if sid
+                   (send szs sport-zones-for-session sid 'heart-rate)
+                   (and (sport-id sport)
+                        (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))))
            (and sz
                 (lambda (val)
                   (let ((zone (value->zone sz val)))
@@ -597,10 +610,13 @@
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            (define sz
-             (if sid
-                 (sport-zones-for-session sid 'heart-rate)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate))))
+             ;; NOTE: not ideal to create a new szs object every time, but
+             ;; current-database can change.
+             (let ([szs (new sport-zones% [dbc (current-database)])])
+               (if sid
+                   (send szs sport-zones-for-session sid 'heart-rate)
+                   (and (sport-id sport)
+                        (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'heart-rate)))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))
@@ -794,10 +810,13 @@
 
     (define/override (factor-fn sport (sid #f))
       (define sz
-        (if sid
-            (sport-zones-for-session sid 'power)
-            (and (sport-id sport)
-                 (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power))))
+        ;; NOTE: not ideal to create a new szs object every time, but
+        ;; current-database can change.
+        (let ([szs (new sport-zones% [dbc (current-database)])])
+          (if sid
+              (send szs sport-zones-for-session sid 'power)
+              (and (sport-id sport)
+                   (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))))
       (and sz
            (lambda (val)
              (let ((zone (value->zone sz val)))
@@ -972,10 +991,13 @@
          (define/override (factor-colors) (ct:zone-colors))
          (define/override (value-formatter sport (sid #f) #:show-unit-label? (label? #f))
            (define sz
-             (if sid
-                 (sport-zones-for-session sid 'power)
-                 (and (sport-id sport)
-                      (sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power))))
+             ;; NOTE: not ideal to create a new szs object every time, but
+             ;; current-database can change.
+             (let ([szs (new sport-zones% [dbc (current-database)])])
+               (if sid
+                   (send szs sport-zones-for-session sid 'power)
+                   (and (sport-id sport)
+                        (send szs sport-zones-for-sport (sport-id sport) (sub-sport-id sport) 'power)))))
            (if sz
                (lambda (n) (if (real? n) (zone->zone-name sz n) #f))
                (lambda (n) (format "Zone ~a" (if (real? n) (exact-truncate n) #f)))))

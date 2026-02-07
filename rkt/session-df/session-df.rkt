@@ -122,7 +122,7 @@
 ;; session id is supplied.  Unfortunately, some other code relies on this
 ;; behavior (e.g. when a session is deleted in one thread while another thread
 ;; tries to read in a list of sessions to compute summary values...)
-(define (make-session-data-frame db session-id)
+(define (make-session-data-frame db szs session-id)
 
   (let/ec return
 
@@ -236,17 +236,17 @@
     (add-speed-series df)
     (add-altitude-series df)
     (add-pace-series df)
-    (add-speed-zone-series df)
+    (add-speed-zone-series df szs)
     (maybe-add-grade-series! df)
     (when (is-runnig? sport)
       (add-gap-series df)             ; needs to be added after the grade series
       (add-gaspd-series df))
-    (add-hr-pct-series df)
-    (add-hr-zone-series df)
+    (add-hr-pct-series df szs)
+    (add-hr-zone-series df szs)
     (add-stride-series df)
     (add-vratio-series df)
     (smooth-start-of-series df "vratio")
-    (add-power-zone-series df)
+    (add-power-zone-series df szs)
     (add-lppa-series df)                  ; left power phase angle
     (add-lpppa-series df)                 ; left peak power phase angle
     (fixup-pp-series df "lpps")
@@ -257,7 +257,7 @@
     (add-rpppa-series df)
     (fixup-lrbal-series df)
     (add-torque-series df)
-    (maybe-add-adecl! df)
+    (maybe-add-adecl! df szs)
 
     (when is-lap-swim?
       (add-swolf-series df))
@@ -569,9 +569,9 @@
              (match-define (list spd elapsed) val)
              (combine (pace-fn spd) pace-limit elapsed limit)))))))
 
-(define (add-speed-zone-series df)
+(define (add-speed-zone-series df szs)
   (define sid (df-get-property df 'session-id))
-  (define zones (sport-zones-for-session sid 'pace))
+  (define zones (send szs sport-zones-for-session sid 'pace))
   (when (and zones (df-contains? df "spd"))
     (df-add-lazy!
      df
@@ -581,9 +581,9 @@
        (define spd (car val))
        (if spd (value->zone zones spd) #f)))))
 
-(define (add-hr-pct-series df)
+(define (add-hr-pct-series df szs)
   (define sid (df-get-property df 'session-id))
-  (define zones (sport-zones-for-session sid 'heart-rate))
+  (define zones (send szs sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
     (df-add-lazy!
      df
@@ -593,9 +593,9 @@
        (define hr (car val))
        (if hr (value->pct-of-max zones hr) #f)))))
 
-(define (add-hr-zone-series df)
+(define (add-hr-zone-series df szs)
   (define sid (df-get-property df 'session-id))
-  (define zones (sport-zones-for-session sid 'heart-rate))
+  (define zones (send szs sport-zones-for-session sid 'heart-rate))
   (when (and zones (df-contains? df "hr"))
     (df-add-lazy!
      df
@@ -650,9 +650,9 @@
                  #f))
            #f)))))
 
-(define (add-power-zone-series df)
+(define (add-power-zone-series df szs)
   (define sid (df-get-property df 'session-id))
-  (define zones (sport-zones-for-session sid 'power))
+  (define zones (send szs sport-zones-for-session sid 'power))
   (when (and zones (df-contains? df "pwr"))
     (df-add-lazy!
      df
@@ -1288,7 +1288,8 @@
               (hash-set! df-cache sid df)
               (refresh-df sid df)))
         (#t
-         (let ((df (make-session-data-frame db sid)))
+         (let* ((szs (new sport-zones% [dbc db]))
+                (df (make-session-data-frame db szs sid)))
            (when df                     ; if the session actually exists
              (hash-set! df-cache sid df)
              (when (> (hash-count df-cache) df-cache-limit)

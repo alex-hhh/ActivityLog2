@@ -3,7 +3,7 @@
 ;; apply to the current session.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2017, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2017, 2018, 2019, 2020, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -110,8 +110,8 @@
 
 ;; Insert the sport zone information about the session SID (a session id),
 ;; SPORT is the sport type for the session.
-(define (insert-sport-zone-info editor sid sport)
-  (define zones (all-sport-zones-for-session sid))
+(define (insert-sport-zone-info editor szs sid sport)
+  (define zones (send szs all-sport-zones-for-session sid))
   (if (null? zones)
       (begin
         (insert-heading editor "Sport Zones")
@@ -221,7 +221,9 @@
 ;; ranges, this page provides some helpful information about what zones and CP
 ;; are valid for the current session.
 (define model-parameters-panel%
-  (class object% (init parent) (super-new)
+  (class object%
+    (init-field parent sport-zones)
+    (super-new)
 
     (define canvas (new editor-canvas%
                         [parent parent]
@@ -243,7 +245,7 @@
             (sport (df-get-property df 'sport)))
         (if sid
             (begin
-              (insert-sport-zone-info text sid sport)
+              (insert-sport-zone-info text sport-zones sid sport)
               (insert-critical-power-info text df sport)
               (insert-newline text)
               (insert-remarks text))

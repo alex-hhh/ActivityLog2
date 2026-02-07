@@ -2,7 +2,7 @@
 ;; view-session.rkt -- view information about a sesion (graphs, laps, etc)
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -362,7 +362,7 @@
 
 (define view-session%
   (class* object% (activity-operations<%>)
-    (init parent database sport-charms select-activity-callback)
+    (init parent database sport-charms sport-zones select-activity-callback)
     (super-new)
 
     (define session-panel (new vertical-panel%
@@ -388,7 +388,8 @@
                   (lambda (panel)
                     (new inspect-overview-panel%
                          [parent panel]
-                         [database database]))))
+                         [database database]
+                         [sport-zones sport-zones]))))
     (define laps
       (make-tdata "Laps" detail-panel
                   (lambda (panel)
@@ -447,6 +448,7 @@
                   (lambda (panel)
                     (new quadrant-plot-panel%
                          [parent panel]
+                         [sport-zones sport-zones]
                          [get-preference
                           (lambda (name fail-thunk)
                             (db-get-pref database name (lambda () (get-pref name fail-thunk))))]
@@ -468,7 +470,9 @@
                             (db-put-pref database name value))]))))
     (define model-params
       (make-tdata "Model Params" detail-panel
-                  (lambda (panel) (new model-parameters-panel% [parent panel]))))
+                  (lambda (panel) (new model-parameters-panel%
+                                       [parent panel]
+                                       [sport-zones sport-zones]))))
     (define aerolab
       (make-tdata
        "Aerolab"

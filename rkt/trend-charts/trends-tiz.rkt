@@ -3,7 +3,7 @@
 ;; trends-tiz.rkt -- "Time in Zone" chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018-2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2021, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -247,7 +247,7 @@
 
 (define tiz-trends-chart%
   (class trends-chart%
-    (init-field database sport-charms)
+    (init-field database sport-charms sport-zones)
     (super-new)
 
     (define data-valid? #f)
@@ -255,7 +255,7 @@
     (define sql-query-result #f)
     (define session-markers #f)
     (define chart-data #f)
-    (define sport-zones #f)
+    (define szs #f)
 
     (define/override (make-settings-dialog)
       (new tiz-chart-settings%
@@ -327,7 +327,7 @@
                          (append
                           (for/list (((duration index) (in-indexed (in-vector row 1)))
                                      #:when (> duration 0))
-                            (list (zone->zone-name sport-zones index)
+                            (list (zone->zone-name szs index)
                                   (duration->string (* duration 3600))
                                   (string-append (~r (* 100 (/ duration total)) #:precision 1) " %")))
                           (list (list "Total" (duration->string (* total 3600))))))))
@@ -337,7 +337,7 @@
     (define/override (put-plot-snip canvas)
       (maybe-fetch-data)
       (if data-valid?
-          (let ((snip (insert-plot-snip canvas chart-data session-markers sport-zones)))
+          (let ((snip (insert-plot-snip canvas chart-data session-markers szs)))
             (set-mouse-event-callback snip plot-hover-callback))
           (begin
             (send canvas clear-all)
@@ -346,7 +346,7 @@
     (define/override (save-plot-image file-name width height)
       ;; We assume the data is ready, and don't do anything if it is not.
       (when data-valid?
-        (save-plot-to-file file-name width height chart-data session-markers sport-zones)))
+        (save-plot-to-file file-name width height chart-data session-markers szs)))
 
     (define (maybe-fetch-data)
       (unless data-valid?
@@ -366,7 +366,7 @@
               (when (> (length sql-query-result) 0)
                 (set! chart-data (reverse (pad-data timestamps sql-query-result)))
                 (set! chart-data (simplify-labels chart-data group-by))
-                (set! sport-zones (sport-zones-for-sport sport #f (id->metric zone)))
+                (set! szs (send sport-zones sport-zones-for-sport sport #f (id->metric zone)))
                 (set! data-valid? #t)))))))
 
     ))

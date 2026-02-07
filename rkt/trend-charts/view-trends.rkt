@@ -187,7 +187,7 @@
 
 (define trend-chart-pane%
   (class panel%
-    (init-field parent info-tag trend-chart-class database sport-charms [restore-data #f])
+    (init-field parent info-tag trend-chart-class database sport-charms sport-zones [restore-data #f])
     (super-new [parent parent] [style '(deleted)])
 
     (define trend-chart #f)
@@ -198,7 +198,8 @@
       (unless trend-chart
         (set! trend-chart (new trend-chart-class
                                [database database]
-                               [sport-charms sport-charms]))
+                               [sport-charms sport-charms]
+                               [sport-zones sport-zones]))
         (when restore-data
           (if (hash? restore-data)
               (send trend-chart put-chart-settings restore-data)
@@ -261,7 +262,7 @@
 
 (define view-trends%
   (class object%
-    (init-field parent database sport-charms)
+    (init-field parent database sport-charms sport-zones)
     (super-new)
 
     (define preferences-tag 'activity-log:view-trends)
@@ -334,6 +335,7 @@
                              [trend-chart-class (tdecl-class ci)]
                              [database database]
                              [sport-charms sport-charms]
+                             [sport-zones sport-zones]
                              [restore-data restore-data])))
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name)))
@@ -357,7 +359,8 @@
                            [info-tag (tdecl-tag ct)]
                            [trend-chart-class (tdecl-class ct)]
                            [database database]
-                           [sport-charms sport-charms])))
+                           [sport-charms sport-charms]
+                           [sport-zones sport-zones])))
             (when (send pane interactive-setup parent)
               (set! trend-charts (append trend-charts (list pane)))
               (send trend-charts-panel append (send pane get-name))

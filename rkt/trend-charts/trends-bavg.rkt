@@ -3,7 +3,7 @@
 ;; trends-bavg.rkt -- aggregate best-average chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018-2021, 2023-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2021, 2023-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -576,7 +576,7 @@
 (provide mmax-trends-chart%)
 (define mmax-trends-chart%
   (class trends-chart%
-    (init-field database sport-charms)
+    (init-field database sport-charms sport-zones)
     (super-new)
 
     (define cached-data #f)

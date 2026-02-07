@@ -370,7 +370,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
        ("VO2 Max" #f)
        ("Maximum" #f)))))
 
-(define (put-sport-zone db sport zmetric valid-from zones)
+(define (put-sport-zone szs sport zmetric valid-from zones)
   (define z (sz sport #f
                 (id->metric zmetric)
                 (for/vector ([b (in-list zones)])
@@ -384,13 +384,12 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                 valid-from
                 #f                      ; valid until
                 #f))
-  (put-sport-zones z #:database db))
-
+  (send szs put-sport-zones z))
 
 (define edit-sz-dialog%
   (class edit-dialog-base%
     (init)
-    (init-field sport-charms)
+    (init-field sport-charms sport-zones)
     (super-new [title "Sport Zones"] [icon (edit-icon)] [min-width 600] [min-height 500])
 
     (define database #f)
@@ -490,7 +489,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                  #f (get-default-zones database sport metric))
            => (lambda (zones)
                 (maybe-start-transaction)
-                (put-sport-zone database sport metric (car zones) (cdr zones))
+                (put-sport-zone sport-zones sport metric (car zones) (cdr zones))
                 (refresh-contents))))))
 
     (define (on-edit-sz)
@@ -510,8 +509,8 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                          zones)
                    => (lambda (zones)
                         (maybe-start-transaction)
-                        (delete-sport-zones (sz-id data) #:database database)
-                        (put-sport-zone database sport metric (car zones) (cdr zones))
+                        (send sport-zones delete-sport-zones (sz-id data) #:database database)
+                        (put-sport-zone sport-zones sport metric (car zones) (cdr zones))
                         (refresh-contents))))))))
 
     ;; Called when the user clicks the "Delete" button.  Deletes the selected
@@ -522,7 +521,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
         (when selected-row
           (let ((data (send szlb get-data-for-row selected-row)))
             (maybe-start-transaction)
-            (delete-sport-zones (sz-id data) #:database database)
+            (send sport-zones delete-sport-zones (sz-id data) #:database database)
             (refresh-contents)))))
 
     (define cdefs (make-sz-columns))

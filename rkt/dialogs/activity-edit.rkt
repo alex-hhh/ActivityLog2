@@ -82,7 +82,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
 
 (define activity-operations-menu%
   (class object%
-    (init-field target sport-charms)
+    (init-field target sport-charms sport-zones)
     (init [menu-bar #f])
     (super-new)
 
@@ -146,7 +146,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window))
-            (ess (new edit-session-summary-dialog% [sport-charms sport-charms])))
+            (ess (new edit-session-summary-dialog%
+                      [sport-charms sport-charms]
+                      [sport-zones sport-zones])))
         (when (send ess show-dialog toplevel db sid)
           (log-event 'session-updated sid)
           (send target after-update sid))))
@@ -233,7 +235,9 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (let ([es (new edit-session-tss-dialog% [sport-charms sport-charms])])
+        (let ([es (new edit-session-tss-dialog%
+                       [sport-charms sport-charms]
+                       [sport-zones sport-zones])])
           (when (send es run toplevel db sid)
             (log-event 'session-updated sid)
             (send target after-update sid)))))
@@ -373,7 +377,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (let ((sid (send target get-selected-sid))
             (db (send target get-database))
             (toplevel (send target get-top-level-window)))
-        (show-fthr-analisys-dashboard toplevel db sport-charms sid)))
+        (show-fthr-analisys-dashboard toplevel db sport-charms sport-zones sid)))
 
     (define (on-power-spikes m e)
       (let ([sid (send target get-selected-sid)]

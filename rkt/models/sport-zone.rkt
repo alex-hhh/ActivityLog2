@@ -25,7 +25,6 @@
          racket/format
          pict
          db
-         "../dbapp.rkt"
          "../dbutil.rkt"
          "../color-theme.rkt"
          "../fmt-util.rkt"
@@ -88,6 +87,43 @@
     ((1) 'heart-rate)
     ((2) 'pace)
     ((3) 'power)))
+
+(define (value->zone sz value)
+  (define boundaries (sz-boundaries sz))
+  (define index
+    (for/first ([(e idx) (in-indexed (in-vector boundaries))] #:when (>= e value))
+      idx))
+  (if index
+      (if (> index 0)
+          (let ([low (vector-ref boundaries (sub1 index))]
+                [high (vector-ref boundaries index)])
+            (+ (sub1 index) (exact->inexact (/ (- value low) (- high low)))))
+          0)
+      (vector-length boundaries)))
+
+;; Convert VALUE to a percentage of the maximum value as defined in the sport
+;; zone SZ.
+(define (value->pct-of-max sz value)
+  (define boundaries (sz-boundaries sz))
+  (define max (vector-ref boundaries (sub1 (vector-length boundaries))))
+  (* (/ value max) 100.0))
+
+;; Return the name of the ZONE (a number), as defined by the sport zones SZ.
+;; Note that ZONE can be a fractional number (e.g. 2.5) in which case, the
+;; function will return the name of zone 2.
+(define (zone->zone-name sz zone)
+  (define names (sz-names sz))
+  (if names
+      (vector-ref names (min (max (exact-truncate zone) 0) (sub1 (vector-length names))))
+      (format "Zone ~a" (exact-truncate zone))))
+
+(define zone-labels #(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
+
+;; Return a label corresponding to ZONE.  This is deprecated and new code
+;; should not use this function
+(define (zone->label zone)
+  (define index (max 0 (min (sub1 (vector-length zone-labels)) (exact-truncate zone))))
+  (vector-ref zone-labels index))
 
 ;; Return the ZONE-ID for the sport zone that applies to the session SID and
 ;; the zone METRIC.  Can return #f if no sport zones apply.
@@ -155,134 +191,93 @@ select id, max(valid_from) from SPORT_ZONE
         valid-from (if (> valid-until (current-seconds)) #f valid-until)
         zone-id)))
 
-;; Return the sport zone corresponding to the session id SID and the
-;; METRIC.  Returns #f if there are no such sport zones.
-;;
-;; NOTE that this function returns the sport zones which were in effect at the
-;; time the session was recorded, and may not be the latest sport zones for
-;; this metric.
-;;
-;; DB is the database connection, and default to the current database.
-(define (sport-zones-for-session sid metric #:database (db (current-database)))
-  (define zone-id (get-zone-id-for-session sid metric db))
-  (and zone-id (read-zone zone-id db)))
+(define sport-zones%
+  (class object%
+    (init-field dbc)
+    (super-new)
 
-;; Return a list of all defined sport zones for the session id SID.
-;;
-;; DB is the database connection, and default to the current database.
-(define (all-sport-zones-for-session sid #:database (db (current-database)))
-  (filter
-   values
-   (for/list ([metric (in-list '(pace power heart-rate))])
-     (sport-zones-for-session sid metric #:database db))))
+    ;; Return the sport zone corresponding to the session id SID and the
+    ;; METRIC.  Returns #f if there are no such sport zones.
+    ;;
+    ;; NOTE that this function returns the sport zones which were in effect at
+    ;; the time the session was recorded, and may not be the latest sport
+    ;; zones for this metric.
+    (define/public (sport-zones-for-session sid metric)
+      (define zone-id (get-zone-id-for-session sid metric dbc))
+      (and zone-id (read-zone zone-id dbc)))
 
-;; Return the most recent (currently valid) zones based on METRIC, or return
-;; #f if no sport zones are defined.
-;;
-;; DB is the database connection, and default to the current database.
-(define (sport-zones-for-sport sport sub-sport metric #:database (db (current-database)))
-  (define zone-id (get-zone-id-for-sport sport sub-sport metric db))
-  (and zone-id (read-zone zone-id db)))
+    ;; Return a list of all defined sport zones for the session id SID.
+    (define/public (all-sport-zones-for-session sid)
+      (filter
+       values
+       (for/list ([metric (in-list '(pace power heart-rate))])
+         (sport-zones-for-session sid metric))))
 
-(define (value->zone sz value)
-  (define boundaries (sz-boundaries sz))
-  (define index
-    (for/first ([(e idx) (in-indexed (in-vector boundaries))] #:when (>= e value))
-      idx))
-  (if index
-      (if (> index 0)
-          (let ([low (vector-ref boundaries (sub1 index))]
-                [high (vector-ref boundaries index)])
-            (+ (sub1 index) (exact->inexact (/ (- value low) (- high low)))))
-          0)
-      (vector-length boundaries)))
+    ;; Return the most recent (currently valid) zones based on METRIC, or
+    ;; return #f if no sport zones are defined.
+    (define/public (sport-zones-for-sport sport sub-sport metric)
+      (define zone-id (get-zone-id-for-sport sport sub-sport metric dbc))
+      (and zone-id (read-zone zone-id dbc)))
 
-;; Convert VALUE to a percentage of the maximum value as defined in the sport
-;; zone SZ.
-(define (value->pct-of-max sz value)
-  (define boundaries (sz-boundaries sz))
-  (define max (vector-ref boundaries (sub1 (vector-length boundaries))))
-  (* (/ value max) 100.0))
-
-;; Return the name of the ZONE (a number), as defined by the sport zones SZ.
-;; Note that ZONE can be a fractional number (e.g. 2.5) in which case, the
-;; function will return the name of zone 2.
-(define (zone->zone-name sz zone)
-  (define names (sz-names sz))
-  (if names
-      (vector-ref names (min (max (exact-truncate zone) 0) (sub1 (vector-length names))))
-      (format "Zone ~a" (exact-truncate zone))))
-
-(define zone-labels #(z0 z1 z2 z3 z4 z5 z6 z7 z8 z9 z10))
-
-;; Return a label corresponding to ZONE.  This is deprecated and new code
-;; should not use this function
-(define (zone->label zone)
-  (define index (max 0 (min (sub1 (vector-length zone-labels)) (exact-truncate zone))))
-  (vector-ref zone-labels index))
-
-
-;;................................. insert sport zones into the database ....
-
-;; Store the sport zones Z in the database DB.  If these sport zones were
-;; fetched from the database, that is `sz-id` is not #f, the old zones are
-;; completely deleted and a new set of zones are inserted in the database.
-;; The ID if the SPORT_ZONE entry is returned.
-;;
-;; The behavior if `put-sport-zones` when the zones are fetched from the
-;; database is unusual and by default, it will raise an error if sport zones
-;; are stored back in the database.  The EXISTS parameter controls whether to
-;; replace sport zones or not (i.e. delete previous zones).  It should be set
-;; to 'replace if the caller wants to replace existing sport zones.
-(define (put-sport-zones z #:database (db (current-database))
-                         #:exists (exists 'error))
-  (when (and (sz-id z) (equal? exists 'error))
-    (error (format "put-sport-zones: cowardly refusing to replace existing sport zones")))
-  (call-with-transaction
-   db
-   (lambda ()
-     ;; Delete existing sport zones first, we never actually update sport
-     ;; zones, instead we delete an entry and create a new one instead.
-     (when (sz-id z)
-       (delete-sport-zones z #:database db))
-     (match-define (sz sport sub-sport metric boundaries names _c valid-from _u _id) z)
-     (define zid
-       (db-insert
-        db
-        "insert into SPORT_ZONE (
+    ;; Store the sport zones Z in the database DB.  If these sport zones were
+    ;; fetched from the database, that is `sz-id` is not #f, the old zones are
+    ;; completely deleted and a new set of zones are inserted in the database.
+    ;; The ID if the SPORT_ZONE entry is returned.
+    ;;
+    ;; The behavior if `put-sport-zones` when the zones are fetched from the
+    ;; database is unusual and by default, it will raise an error if sport
+    ;; zones are stored back in the database.  The EXISTS parameter controls
+    ;; whether to replace sport zones or not (i.e. delete previous zones).  It
+    ;; should be set to 'replace if the caller wants to replace existing sport
+    ;; zones.
+    (define/public (put-sport-zones z #:exists (exists 'error))
+      (when (and (sz-id z) (equal? exists 'error))
+        (error (format "put-sport-zones: cowardly refusing to replace existing sport zones")))
+      (call-with-transaction
+       dbc
+       (lambda ()
+         ;; Delete existing sport zones first, we never actually update sport
+         ;; zones, instead we delete an entry and create a new one instead.
+         (when (sz-id z)
+           (delete-sport-zones z))
+         (match-define (sz sport sub-sport metric boundaries names _c valid-from _u _id) z)
+         (define zid
+           (db-insert
+            dbc
+            "insert into SPORT_ZONE (
          sport_id, sub_sport_id, zone_metric_id, valid_from)
        values (?, ?, ?, ?)"
-        sport (or sub-sport sql-null) (metric->id metric) valid-from))
-     (for ([(boundary number) (in-indexed (in-vector boundaries))]
-           [name (in-vector names)])
-       (query-exec db
-                   "insert into SPORT_ZONE_ITEM (
+            sport (or sub-sport sql-null) (metric->id metric) valid-from))
+         (for ([(boundary number) (in-indexed (in-vector boundaries))]
+               [name (in-vector names)])
+           (query-exec dbc
+                       "insert into SPORT_ZONE_ITEM (
                       sport_zone_id, zone_number, zone_name, zone_value)
                     values(?, ?, ?, ?)" zid number name boundary))
-     zid)))
+         zid)))
 
-
-;;................................................. deleting sport zones ....
+    ;; Delete the sport zones Z (either a sz structure or the database id of a
+    ;; SPORT_ZONE entry) from the database DB.  Nothing will be done if the Z
+    ;; structure has #f as the ID, for example when it was created by
+    ;; `sport-zones-from-threshold`
+    (define/public (delete-sport-zones z)
+      (define id (if (sz? z) (sz-id z) z))
+      (when id
+        (call-with-transaction
+         dbc
+         (lambda ()
+           ;; Not technically part of the "sport zone" itself, but
+           ;; TIME_IN_ZONE data for this sport zone must be deleted -- once we
+           ;; do this, some sessions might miss their TIME_IN_ZONE data, the
+           ;; time-in-zone.rkt has functions to re-construct data for sessions
+           ;; which need it, and any program which deletes sport zones will
+           ;; need to deal with that problem.
+           (query-exec dbc "delete from TIME_IN_ZONE where sport_zone_id = ?" id)
+           (query-exec dbc "delete from SPORT_ZONE_ITEM where sport_zone_id = ?" id)
+           (query-exec dbc "delete from SPORT_ZONE where id = ?" id)))))
 
-;; Delete the sport zones Z (either a sz structure or the database id of a
-;; SPORT_ZONE entry) from the database DB.  Nothing will be done if the Z
-;; structure has #f as the ID, for example when it was created by
-;; `sport-zones-from-threshold`
-(define (delete-sport-zones z #:database (db (current-database)))
-  (define id (if (sz? z) (sz-id z) z))
-  (when id
-    (call-with-transaction
-     db
-     (lambda ()
-       ;; Not technically part of the "sport zone" itself, but TIME_IN_ZONE
-       ;; data for this sport zone must be deleted -- once we do this, some
-       ;; sessions might miss their TIME_IN_ZONE data, the time-in-zone.rkt
-       ;; has functions to re-construct data for sessions which need it, and
-       ;; any program which deletes sport zones will need to deal with that
-       ;; problem.
-       (query-exec db "delete from TIME_IN_ZONE where sport_zone_id = ?" id)
-       (query-exec db "delete from SPORT_ZONE_ITEM where sport_zone_id = ?" id)
-       (query-exec db "delete from SPORT_ZONE where id = ?" id)))))
+    ))
+
 
 
 ;;.......................................... threshold based sport zones ....
@@ -604,22 +599,30 @@ select id, max(valid_from) from SPORT_ZONE
 
 (define zone-metric/c (or/c 'heart-rate 'pace 'power))
 
+(define sport-zones%/c
+  (class/c
+   (init [dbc connection?])
+
+   [sport-zones-for-session
+    (->m exact-nonnegative-integer? zone-metric/c (or/c #f sz?))]
+   [all-sport-zones-for-session
+    (->m exact-nonnegative-integer? (listof sz?))]
+   [sport-zones-for-sport
+    (->m exact-nonnegative-integer?
+         (or/c #f exact-nonnegative-integer?)
+         zone-metric/c
+         (or/c #f sz?))]
+   [delete-sport-zones
+    (->m (or/c sz? exact-nonnegative-integer?) any/c)]
+   [put-sport-zones
+    (->*m (sz?) (#:exists (or/c 'replace 'error)) exact-nonnegative-integer?)]))
+
 (provide (struct-out sz))
+
 (provide/contract
  (metric->id (-> symbol? exact-nonnegative-integer?))
  (id->metric (-> exact-nonnegative-integer? symbol?))
 
- (sport-zones-for-session (->* (exact-nonnegative-integer? zone-metric/c)
-                               (#:database connection?)
-                               (or/c #f sz?)))
- (all-sport-zones-for-session (->* (exact-nonnegative-integer?)
-                                   (#:database connection?)
-                                   (listof sz?)))
- (sport-zones-for-sport (->* (exact-nonnegative-integer?
-                              (or/c #f exact-nonnegative-integer?)
-                              zone-metric/c)
-                             (#:database connection?)
-                             (or/c #f sz?)))
 
  (sport-zones-from-threshold (->* (exact-nonnegative-integer?
                                    (or/c #f exact-nonnegative-integer?)
@@ -635,13 +638,6 @@ select id, max(valid_from) from SPORT_ZONE
  (zone->label (-> real? symbol?))
  (sz-count (-> sz? exact-integer?))
 
- (delete-sport-zones (->* ((or/c sz? exact-nonnegative-integer?))
-                          (#:database connection?)
-                          any/c))
- (put-sport-zones (->* (sz?)
-                       (#:database connection?
-                        #:exists (or/c 'replace 'error))
-                       exact-nonnegative-integer?))
  (heart-rate->string/bpm (-> real? string?))
  (heart-rate->string/pct (-> real? sz? string?))
  (heart-rate->string/zone (-> real? sz? string?))
@@ -662,4 +658,5 @@ select id, max(valid_from) from SPORT_ZONE
                        #:title (or/c #f string? 'default)
                        #:show-validity-range? boolean?)
                       any/c))
- )
+
+ (sport-zones% sport-zones%/c))

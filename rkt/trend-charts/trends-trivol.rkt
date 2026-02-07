@@ -3,7 +3,7 @@
 ;; trends-trivol.rkt -- triathlon activity volume chart
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018-2019, 2021, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018-2019, 2021, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -234,7 +234,7 @@
 
 (define trivol-trends-chart%
   (class trends-chart%
-    (init-field database sport-charms)
+    (init-field database sport-charms sport-zones)
     (super-new)
 
     (define data-valid? #f)

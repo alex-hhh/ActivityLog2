@@ -2,7 +2,7 @@
 ;; inspect-overview.rkt -- overview panel for the session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -78,7 +78,7 @@
 
    ))
 
-(define *hr-fields*
+(define (hr-fields szs)
   (list
    (badge-field-def "Avg HR: "
                     (lambda (s)
@@ -86,7 +86,7 @@
                             (avg-hr (session-avg-hr s)))
                         (if avg-hr (list sid avg-hr) #f)))
                     (lambda (v)
-                      (let ((zones (sport-zones-for-session (first v) 'heart-rate)))
+                      (let ((zones (send szs sport-zones-for-session (first v) 'heart-rate)))
                         (heart-rate->string/full (second v) zones))))
    (badge-field-def "Max HR: "
                     (lambda (s)
@@ -94,7 +94,7 @@
                             (max-hr (session-max-hr s)))
                         (if max-hr (list sid max-hr) #f)))
                     (lambda (v)
-                      (let ((zones (sport-zones-for-session (first v) 'heart-rate)))
+                      (let ((zones (send szs sport-zones-for-session (first v) 'heart-rate)))
                         (heart-rate->string/full (second v) zones))))
    (badge-field-def "HRV: "
                     session-hrv
@@ -276,12 +276,12 @@
                        (power-phase->string (list-ref v 2) (list-ref v 3)))))))
 
 
-(define *run-badge-definitions*
+(define (run-badge-definitions szs)
   (list
    (badge-def "Summary" 1 *color-16* *run-summary-fields*)
    (badge-def "Timing"  2 *timing-color* *run-timing-fields*)
    (badge-def "Elevation"  3 *elevation-color* *elevation-fields*)
-   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Heart Rate" 4 *hr-color* (hr-fields szs))
    (badge-def "Power" 6 *power-color* *power-fields*)
    (badge-def "Run Cadence" 5 *cadence-color* *run-cadence-fields*)
    (badge-def "Weather" 6 *weather-color* *weather-fields*)))
@@ -313,12 +313,12 @@
    (badge-field-def "Avg Bike Cadence: " session-avg-cadence (lambda (v) (cadence->string v 'biking)))
    (badge-field-def "Max Bike Cadence: " session-max-cadence (lambda (v) (cadence->string v 'biking)))))
 
-(define *bike-badge-definitions*
+(define (bike-badge-definitions szs)
   (list
    (badge-def "Summary" 1 *color-16* *bike-summary-fields*)
    (badge-def "Timing" 2 *timing-color* *bike-timing-fields*)
    (badge-def "Elevation" 3 *elevation-color* *elevation-fields*)
-   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Heart Rate" 4 *hr-color* (hr-fields szs))
    (badge-def "Bike Cadence" 5 *cadence-color* *bike-cadence-fields*)
    (badge-def "Power" 6 *power-color* *power-fields*)
    (badge-def "Weather" 7 *weather-color* *weather-fields*)))
@@ -353,12 +353,12 @@
    (badge-field-def "Avg Strokes: " session-avg-strokes-per-length (lambda (v) (format "~a strokes/length" v)))
    (badge-field-def "Total Strokes: " session-total-cycles number->string)))
 
-(define *swim-badge-definitions*
+(define (swim-badge-definitions szs)
   (list
    (badge-def "Summary" 1 *color-16* *swim-summary-fields*)
    (badge-def "Timing" 2 *timing-color* *swim-timing-fields*)
    (badge-def "Strokes" 3 *cadence-color* *swim-cadence-fields*)
-   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Heart Rate" 4 *hr-color* (hr-fields szs))
    (badge-def "Weather" 5 *weather-color* *weather-fields*)))
 
 
@@ -390,26 +390,27 @@
    (badge-field-def "Avg Cadence: " session-avg-cadence (lambda (v) (cadence->string v 'running)))
    (badge-field-def "Max Cadence: " session-max-cadence (lambda (v) (cadence->string v 'running)))))
 
-(define *other-badge-definitions*
+(define (other-badge-definitions szs)
   (list
    (badge-def "Summary" 1 *color-16* *other-summary-fields*)
    (badge-def "Timing" 2 *timing-color* *other-timing-fields*)
    (badge-def "Elevation" 3 *elevation-color* *elevation-fields*)
-   (badge-def "Heart Rate" 4 *hr-color* *hr-fields*)
+   (badge-def "Heart Rate" 4 *hr-color* (hr-fields szs))
    (badge-def "Cadence" 5 *cadence-color* *other-cadence-fields*)
    (badge-def "Weather" 6 *weather-color* *weather-fields*)))
 
-(define *sport-badge-definitions*
+(define (sport-badge-definitions szs)
   (list
-   (cons 1 *run-badge-definitions*)
-   (cons 2 *bike-badge-definitions*)
-   (cons 5 *swim-badge-definitions*)))
+   (cons 1 (run-badge-definitions szs))
+   (cons 2 (bike-badge-definitions szs))
+   (cons 5 (swim-badge-definitions szs))))
 
-(define *default-badge-definitions* *other-badge-definitions*)
+(define (default-badge-definitions szs)
+  (other-badge-definitions szs))
 
-(define (get-badge-definitions sport)
-  (cond ((assoc sport *sport-badge-definitions*) => cdr)
-	(#t *default-badge-definitions*)))
+(define (get-badge-definitions sport szs)
+  (cond ((assoc sport (sport-badge-definitions szs)) => cdr)
+	(#t (default-badge-definitions szs))))
 
 (define (make-xdata-badge-definition db)
   (define q
@@ -575,6 +576,7 @@ select ifnull(val, 0)
 (define badge-pb%
   (class pasteboard%
     (init)
+    (init-field sport-zones)
     (super-new)
     (inherit get-canvas move-to find-first-snip insert delete set-before
              begin-edit-sequence end-edit-sequence erase)
@@ -680,7 +682,7 @@ select ifnull(val, 0)
         (lambda ()
           (remove-all-snips)
           (when (and session df)
-            (for ((bdef (in-list (get-badge-definitions (session-sport session)))))
+            (for ((bdef (in-list (get-badge-definitions (session-sport session) sport-zones))))
               (let ((snip (new badge-snip% [badge-definition bdef] [session session] [data-frame df])))
                 (when (send snip good?)
                   (insert snip))))
@@ -705,7 +707,7 @@ select ifnull(val, 0)
 
 (define inspect-overview-panel%
   (class object%
-    (init parent database)
+    (init parent database sport-zones)
     (super-new)
 
     (define the-database database)
@@ -714,7 +716,7 @@ select ifnull(val, 0)
     (define panel (new horizontal-panel% [parent parent] [spacing 5]))
 
     (define badge-pb
-      (let ((badge-pb (new badge-pb%)))
+      (let ((badge-pb (new badge-pb% [sport-zones sport-zones])))
         (new editor-canvas%
              [parent panel]
              [editor badge-pb]

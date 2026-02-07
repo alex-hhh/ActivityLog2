@@ -3,7 +3,7 @@
 ;; session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -41,7 +41,7 @@
 
 (define edit-session-tss-dialog%
   (class edit-dialog-base%
-    (init-field sport-charms)
+    (init-field sport-charms sport-zones)
     (super-new [title "Session Effort"] [icon (edit-icon)])
 
     (define database #f)
@@ -191,7 +191,7 @@
                    (set! computed-tss (rpe->tss rpe (effort-duration effort))))))
               ((hr-zone-2)
                (let ((hr (effort-avg-hr effort))
-                     (zones (sport-zones-for-session session-id 'heart-rate)))
+                     (zones (send sport-zones sport-zones-for-session session-id 'heart-rate)))
                  (cond ((not hr)
                         (send notice set-label "No heart rate data available"))
                        ((not zones)

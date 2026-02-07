@@ -2,7 +2,7 @@
 ;; view-activities.rkt -- activity list panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019-2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -152,7 +152,7 @@ select X.session_id
 (define view-activities%
   (class* object% (activity-operations<%>)
     (init parent)
-    (init-field database sport-charms [select-activity-callback #f])
+    (init-field database sport-charms sport-zones [select-activity-callback #f])
     (super-new)
 
     (define tag 'activity-log:view-activities-visual-layout)
@@ -268,7 +268,8 @@ select X.session_id
            [right-click-menu
             (send (new activity-operations-menu%
                        [target this]
-                       [sport-charms sport-charms])
+                       [sport-charms sport-charms]
+                       [sport-zones sport-zones])
                   get-popup-menu)]))
 
     (send lb set-default-export-file-name "activities.csv")

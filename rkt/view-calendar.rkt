@@ -2,7 +2,7 @@
 ;; view-calendar.rkt -- calendar panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2021-2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2021-2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -445,7 +445,7 @@
 
 (define calendar-pasteboard%
   (class pasteboard%
-    (init-field double-click-callback activity-operations sport-charms)
+    (init-field double-click-callback activity-operations sport-charms sport-zones)
     (super-new)
     (inherit get-canvas move-to find-first-snip insert delete set-before
              begin-edit-sequence end-edit-sequence)
@@ -458,7 +458,8 @@
     (define aop-menu
       (new activity-operations-menu%
            [target activity-operations]
-           [sport-charms sport-charms]))
+           [sport-charms sport-charms]
+           [sport-zones sport-zones]))
 
     (define/public (get-calendar-operations-menu citem)
       (send activity-operations set-calendar-item citem)
@@ -851,7 +852,7 @@
 (define view-calendar%
   (class* object% (activity-operations<%>)
     (init parent)
-    (init-field database sport-charms select-activity-callback)
+    (init-field database sport-charms sport-zones select-activity-callback)
     (super-new)
 
     (define pane (new vertical-pane% [parent parent] [alignment '(left center)]))
@@ -909,6 +910,7 @@
       (let ((calendar (new calendar-pasteboard%
                            [activity-operations this]
                            [sport-charms sport-charms]
+                           [sport-zones sport-zones]
                            [double-click-callback select-activity-callback])))
         (new editor-canvas%
              [parent pane]
@@ -979,7 +981,9 @@
          (let-values (([start end] (calendar-month-range the-month the-year)))
            (send the-calendar set-calendar-range start end)
            (let ((snips (for/list ([session (in-list (get-sessions-between-dates start end database))])
-                          (new calendar-item-snip% [db-row session] [sport-charms sport-charms]))))
+                          (new calendar-item-snip%
+                               [db-row session]
+                               [sport-charms sport-charms]))))
              (send the-calendar bulk-insert snips))))))
 
     (define dirty? #t)
@@ -1015,7 +1019,9 @@
     (define (maybe-add sid)
       (let ([row (get-session-by-id sid database)])
         (when row                    ; maybe it was already deleted, see AB#44
-          (let ([snip (new calendar-item-snip% [db-row row])])
+          (let ([snip (new calendar-item-snip%
+                           [db-row row]
+                           [sport-charms sport-charms])])
             ;; Will silently fail if the new sid is outside the date range of
             ;; the calendar
             (send the-calendar insert snip)

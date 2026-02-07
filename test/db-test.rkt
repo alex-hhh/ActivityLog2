@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2021, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -107,10 +107,9 @@ select count(*)
 ;;
 ;; THIS IS A TEST FUNCTION, use `put-sport-zones` from models/sport-zone.rkt
 ;; for in-application use.
-(define (db-put-sport-zones sport sub-sport zone-metric zones
+(define (db-put-sport-zones sport sub-sport zone-metric zones szs
                             #:zone-names (zone-names #f)
-                            #:valid-from (valid-from (current-seconds))
-                            #:database (db (current-database)))
+                            #:valid-from (valid-from (current-seconds)))
   (define z (sz sport sub-sport
                 (id->metric zone-metric)
                 (list->vector zones)
@@ -122,15 +121,15 @@ select count(*)
                 valid-from
                 #f                      ; valid until
                 #f))
-  (put-sport-zones z #:database db))
-
+  (send szs put-sport-zones z))
 
 (define (fill-sport-zones db #:valid-from (valid-from (current-seconds)))
-  (db-put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220)
+  (define szs (new sport-zones% [dbc db]))
+  (db-put-sport-zones 2 #f 1 '(60 130 140 150 160 170 220) szs
                    #:valid-from valid-from)
-  (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220)
+  (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) szs
                    #:valid-from valid-from)
-  (db-put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600)
+  (db-put-sport-zones 2 #f 3 '(-1 0 100 140 180 220 230 250 600) szs
                    #:valid-from valid-from))
 
 
@@ -484,53 +483,58 @@ where S.id = CPFS.session_id
    (test-case "Get Sport Zones/Empty"
      (with-fresh-database
        (lambda (db)
+         (define szs (new sport-zones% [dbc db]))
          (for ((sport (in-list (query-list db "select id from E_SPORT"))))
            (for ((sub-sport (in-list (cons #f (query-list db "select id from E_SUB_SPORT")))))
              (for ((metric (in-list '(heart-rate pace power))))
-               (check-false (sport-zones-for-sport sport sub-sport metric))))))))
+               (check-false (send szs sport-zones-for-sport sport sub-sport metric))))))))
 
    (test-case "Get Sport Zones For Sport"
      (with-fresh-database
        (lambda (db)
+         (define szs (new sport-zones% [dbc db]))
          (fill-sport-zones db #:valid-from (- (current-seconds) 3600))
-         (check-pred sz? (sport-zones-for-sport 1 #f 'heart-rate))
-         (check-pred sz? (sport-zones-for-sport 2 #f 'heart-rate))
-         (check-pred sz? (sport-zones-for-sport 2 #f 'power)))))
+         (check-pred sz? (send szs sport-zones-for-sport 1 #f 'heart-rate))
+         (check-pred sz? (send szs sport-zones-for-sport 2 #f 'heart-rate))
+         (check-pred sz? (send szs sport-zones-for-sport 2 #f 'power)))))
 
    (test-case "Get Sport Zones For Session"
      (with-fresh-database
        (lambda (db)
+         (define szs (new sport-zones% [dbc db]))
          (db-import-activity-from-file/check a2 db #:basic-checks-only? #t)
          ;; No sport zones yet
-         (check-false (sport-zones-for-session 1 'heart-rate #:database db))
+         (check-false (send szs sport-zones-for-session 1 'heart-rate))
          ;; Put in sport zones which are after the imported session
-         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) szs #:valid-from (current-seconds))
          ;; Still no sport zones
-         (check-false (sport-zones-for-session 1 'heart-rate #:database db))
+         (check-false (send szs sport-zones-for-session 1 'heart-rate))
          ;; Put in sport zones which cover the imported session
-         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from 1)
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) szs #:valid-from 1)
          ;; We should find sport zones for this activity
-         (check-pred sz? (sport-zones-for-session 1 'heart-rate #:database db)))))
+         (check-pred sz? (send szs sport-zones-for-session 1 'heart-rate)))))
 
    (test-case "Delete Sport Zones By Id"
      (with-fresh-database
        (lambda (db)
-         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
-         (define z (sport-zones-for-sport 1 #f 'heart-rate))
+         (define szs (new sport-zones% [dbc db]))
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) szs #:valid-from (current-seconds))
+         (define z (send szs sport-zones-for-sport 1 #f 'heart-rate))
          (check-pred sz? z)
-         (delete-sport-zones (sz-id z) #:database db)
+         (send szs delete-sport-zones (sz-id z))
          ;; They should be no more
-         (check-false (sport-zones-for-sport 1 #f 'heart-rate)))))
+         (check-false (send szs sport-zones-for-sport 1 #f 'heart-rate)))))
 
    (test-case "Delete Sport Zones"
      (with-fresh-database
        (lambda (db)
-         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) #:valid-from (current-seconds))
-         (define z (sport-zones-for-sport 1 #f 'heart-rate))
+         (define szs (new sport-zones% [dbc db]))
+         (db-put-sport-zones 1 #f 1 '(60 130 140 150 160 170 220) szs #:valid-from (current-seconds))
+         (define z (send szs sport-zones-for-sport 1 #f 'heart-rate))
          (check-pred sz? z)
-         (delete-sport-zones z #:database db)
+         (send szs delete-sport-zones z)
          ;; They should be no more
-         (check-false (sport-zones-for-sport 1 #f 'heart-rate)))))
+         (check-false (send szs sport-zones-for-sport 1 #f 'heart-rate)))))
 
    (test-case "Sport Zones From Threshold"
      (define sample-zones

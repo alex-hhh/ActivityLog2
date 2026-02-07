@@ -3,7 +3,7 @@
 ;; trends-irisk.rkt -- Injuri Risk Trends chart for swimming, biking and running
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2020-2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2020-2021, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -457,7 +457,7 @@
 
 (define irisk-trends-chart%
   (class trends-chart%
-    (init-field database sport-charms)
+    (init-field database sport-charms sport-zones)
     (super-new)
 
     ;; Data frame holding bodyweight data, retrieved from the database

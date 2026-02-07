@@ -499,6 +499,7 @@
     (define fthr-data #f)               ; a FTHR struct
     (define database #f)
     (define sport-charms #f)
+    (define sport-zones #f)
 
     (define (make-toplevel-dialog parent)
       (new
@@ -694,7 +695,7 @@
        database
        (lambda ()
          (define session-id (df-get-property df 'session-id))
-         (define zone-id (put-sport-zones pz #:database database))
+         (define zone-id (send sport-zones put-sport-zones pz))
          (query-exec
           database
           "insert into SPORT_ZONE_SOURCE(zone_id, session_id) values(?, ?)"
@@ -712,7 +713,7 @@
        database
        (lambda ()
          (define session-id (df-get-property df 'session-id))
-         (define zone-id (put-sport-zones sz #:database database))
+         (define zone-id (send sport-zones put-sport-zones sz))
          (query-exec
           database
           "insert into SPORT_ZONE_SOURCE(zone_id, session_id) values(?, ?)"
@@ -753,11 +754,10 @@
             (define name (hash-ref segment 'name #f))
             (send group-box set-label (format "~a Zones" name))
             (send button set-label (format "Set These ~a Zones" name))
-            (define actual-zones (sport-zones-for-sport
+            (define actual-zones (send sport-zones sport-zones-for-sport
                                   (hash-ref segment 'sport)
                                   #f ; NOTE: we don't support zones for sub-sports for now
-                                  (hash-ref segment 'zone-metric)
-                                  #:database database))
+                                  (hash-ref segment 'zone-metric)))
             (cond ((and actual-zones
                         (> (sz-valid-from actual-zones) (sz-valid-from zones)))
                    (put-description description "Cannot set sport zones, because newer set of sport zones are installed. You can edit sport zones from the Athlete / Edit Sport Zones menu")
@@ -777,9 +777,10 @@
             (send best-pict-canvas set-pict #f)
             (send zones-canvas set-pict #f))))
 
-    (define/private (load-data db sc session-id)
+    (define/private (load-data db sc szs session-id)
       (set! database db)
       (set! sport-charms sc)
+      (set! sport-zones szs)
       (set! fthr-data (load-fthr-data db session-id))
       (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
       (when sinfo
@@ -824,7 +825,8 @@
 
     (define/private (on-close-dashboard)
       (set! database #f)
-      (set! sport-charms sport-charms)
+      (set! sport-charms #f)
+      (set! sport-zones #f)
       (set! fthr-data #f))
 
     ;; Show the dialog.  PARENT is the parent window for the dialog.  This
@@ -834,24 +836,25 @@
     ;; A derived class might want to provide a "show-dialog" method that wraps
     ;; this one, and sets up the dialog contents for editing and actually
     ;; saves the result when the dialog is closed.
-    (define/public (show-dashboard parent db sport-charms sid)
+    (define/public (show-dashboard parent db sport-charms sport-zones sid)
       (let ((old-toplevel toplevel-window))
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send dashboard-contents reparent toplevel)
           (set! toplevel-window toplevel))
-        (thread/dbglog (lambda () (load-data db sport-charms sid)))
+        (thread/dbglog (lambda () (load-data db sport-charms sport-zones sid)))
         (send toplevel-window show #t) ; will block until finish-dialog is called
         (set! toplevel-window old-toplevel)
         (void)))
 
     ))
 
-(define (show-fthr-analisys-dashboard toplevel database sport-charms sid)
+(define (show-fthr-analisys-dashboard toplevel database sport-charms sport-zones sid)
   (define dashboard (new fthr-dashboard%))
-  (send dashboard show-dashboard toplevel database sport-charms sid))
+  (send dashboard show-dashboard toplevel database sport-charms sport-zones sid))
 
 (provide/contract
  (show-fthr-analisys-dashboard (-> (or/c #f (is-a?/c top-level-window<%>))
                                    connection?
                                    (is-a?/c sport-charms%)
+                                   (is-a?/c sport-zones%)
                                    exact-positive-integer? any/c)))

@@ -3,7 +3,7 @@
 ;; FIT files that can be uploaded to a device.
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2020, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2020, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -91,7 +91,7 @@ select body_weight
 
 ;; Create a canvas which will display zones for SPORT/SUB-SPORT and
 ;; ZONE-METRIC.  zones will be reloaded each time the canvas is refreshed.
-(define (make-zone-display-canvas parent sport sub-sport zone-metric)
+(define (make-zone-display-canvas parent szs sport sub-sport zone-metric)
 
   (define message-font
     (send the-font-list find-or-create-font 14 'default 'normal 'normal))
@@ -107,7 +107,7 @@ select body_weight
 
   (define (on-paint canvas dc)
     (send dc clear)
-    (let ((zones (sport-zones-for-sport sport sub-sport zone-metric)))
+    (let ((zones (send szs sport-zones-for-sport sport sub-sport zone-metric)))
       (if zones
           (let-values ([(w h) (send canvas get-size)])
             (let ((pict (pp-sport-zones/compact-pict zones #:width w #:height h)))
@@ -124,9 +124,9 @@ select body_weight
        [paint-callback on-paint]))
 
 ;; Return a byte string containing the FIT data with HR zones for running.
-(define (get-running-fit-settings)
+(define (get-running-fit-settings szs)
   (define sport 1)                      ; running
-  (define hr-zones (sport-zones-for-sport 1 #f 'heart-rate))
+  (define hr-zones (send szs sport-zones-for-sport 1 #f 'heart-rate))
   (define hr-zone-data
     (and hr-zones (for/list ([zone (in-vector (sz-boundaries hr-zones))]) zone)))
   (let ((builder (new fit-sport-file%
@@ -139,10 +139,10 @@ select body_weight
 ;; Return a byte string containing the FIT data with HR and Power zones for
 ;; cycling.  hr-zones? and power-zones? control what zones are stored.  In
 ;; addition, the athlete's FTP is also stored.
-(define (get-cycling-fit-settings hr-zones? power-zones? ftp)
+(define (get-cycling-fit-settings szs hr-zones? power-zones? ftp)
   (define sport 2)                    ; bike
-  (define hr-zones (sport-zones-for-sport 2 #f 'heart-rate))
-  (define power-zones (sport-zones-for-sport 2 #f 'power))
+  (define hr-zones (send szs sport-zones-for-sport 2 #f 'heart-rate))
+  (define power-zones (send szs sport-zones-for-sport 2 #f 'power))
   (define hr-zone-data
     (and hr-zones (for/list ([zone (in-vector (sz-boundaries hr-zones))]) zone)))
   (define power-zone-data
@@ -178,7 +178,7 @@ select body_weight
 
 (define export-settings-dialog%
   (class edit-dialog-base%
-    (init-field sport-charms)
+    (init-field sport-charms sport-zones)
     (super-new [title "Export FIT Settings"]
                [icon (edit-icon)]
                [save-button-name "Export"]
@@ -309,17 +309,17 @@ select body_weight
       ;; Disable zone export check-boxes if there are no corresponding zones
       ;; defined.
 
-      (let ((z (sport-zones-for-sport 1 #f 'heart-rate)))
+      (let ((z (send sport-zones sport-zones-for-sport 1 #f 'heart-rate)))
         (unless z
           (send run-hrz-chkbox set-value #f))
         (send run-hrz-chkbox enable (not (eq? z #f))))
 
-      (let ((z (sport-zones-for-sport 2 #f 'heart-rate)))
+      (let ((z (send sport-zones sport-zones-for-sport 2 #f 'heart-rate)))
         (unless z
           (send bike-hrz-chkbox set-value #f))
         (send bike-hrz-chkbox enable (not (eq? z #f))))
 
-      (let ((z (sport-zones-for-sport 2 #f 'power)))
+      (let ((z (send sport-zones sport-zones-for-sport 2 #f 'power)))
         (unless z
           (send bike-pwrz-chkbox set-value #f))
         (send bike-pwrz-chkbox enable (not (eq? z #f)))))
@@ -364,14 +364,14 @@ select body_weight
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
 
-        (set! run-hrz-canvas (make-zone-display-canvas p2 1 #f 'heart-rate)))
+        (set! run-hrz-canvas (make-zone-display-canvas p2 sport-zones 1 #f 'heart-rate)))
 
       (let ([p3 (make-group-box-panel p "Cycling")])
         (let ((p (make-horizontal-pane p3)))
           (set! bike-hrz-chkbox
                 (new check-box% [parent p] [label "Export HR Zones"]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
-        (set! bike-hrz-canvas (make-zone-display-canvas p3 2 #f 'heart-rate))
+        (set! bike-hrz-canvas (make-zone-display-canvas p3 sport-zones 2 #f 'heart-rate))
         (let ([p (make-horizontal-pane p3)])
           (set! bike-pwrz-chkbox
                 (new check-box% [parent p] [label "Export Power Zones"]))
@@ -380,7 +380,7 @@ select body_weight
                      [min-value 0] [max-value 1000]
                      [min-width 100] [stretchable-width #f]))
           (new message% [parent p] [label ""] [stretchable-width #t]))
-        (set! bike-pwrz-canvas (make-zone-display-canvas p3 2 #f 'power)))
+        (set! bike-pwrz-canvas (make-zone-display-canvas p3 sport-zones 2 #f 'power)))
 
       (let ([p (make-horizontal-pane p)])
         (set! export-dir-field

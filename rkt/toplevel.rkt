@@ -2,7 +2,7 @@
 ;; toplevel.rkt -- toplevel form for the application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -42,6 +42,7 @@
          "import.rkt"
          "metrics.rkt"
          "models/ec-util-gui.rkt"
+         "models/sport-zone.rkt"
          "models/time-in-zone-gui.rkt"
          "session-inspector/view-session.rkt"
          "sport-charms.rkt"
@@ -299,7 +300,7 @@
 
 ;;.................................................... make-athlete-menu ....
 
-(define (make-athlete-menu menu-bar sport-charms target)
+(define (make-athlete-menu menu-bar sport-charms sport-zones target)
 
   (define operations-menu
     (new athlete-metrics-operations-menu% [menu-bar menu-bar] [target target]))
@@ -310,7 +311,7 @@
          [parent menu] [label "Edit Sport Zones..."]
          [callback
           (lambda (m e)
-            (send (new edit-sz-dialog% [sport-charms sport-charms])
+            (send (new edit-sz-dialog% [sport-charms sport-charms] [sport-zones sport-zones])
                   show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
@@ -325,7 +326,10 @@
          [parent menu] [label "Export Settings to Device..."]
          [callback
           (lambda (m e)
-            (send (new export-settings-dialog% [sport-charms sport-charms]) show-dialog
+            (send (new export-settings-dialog%
+                       [sport-charms sport-charms]
+                       [sport-zones sport-zones])
+                  show-dialog
                   (send target get-top-level-window)
                   (send target get-database)))])
     menu))
@@ -333,11 +337,12 @@
 
 ;;................................................... make-activtiy-menu ....
 
-(define (make-activtiy-menu menu-bar sport-charms target)
+(define (make-activtiy-menu menu-bar sport-charms sport-zones target)
   (define activity-menu
     (new activity-operations-menu%
          [menu-bar menu-bar]
          [sport-charms sport-charms]
+         [sport-zones sport-zones]
          [target target]))
   (send activity-menu get-popup-menu))
 
@@ -963,6 +968,7 @@
       (raise (format "failed to open database at ~a" database-path)))
     (set-current-database database)     ; set this as current
     (define sport-charms (new sport-charms% [dbc database]))
+    (define sport-zones (new sport-zones% [dbc database]))
 
     ;;; Construct the toplevel frame and initial panels
     (define tl-frame
@@ -1027,6 +1033,7 @@
                           [parent parent]
                           [database database]
                           [sport-charms sport-charms]
+                          [sport-zones sport-zones]
                           [select-activity-callback
                            (lambda (dbid)
                              (inspect-session dbid))])))
@@ -1055,7 +1062,8 @@
                      (new view-trends%
                           [parent parent]
                           [database database]
-                          [sport-charms sport-charms])))
+                          [sport-charms sport-charms]
+                          [sport-zones sport-zones])))
 
       (add-section "Reports" 'reports
                    (lambda (parent)
@@ -1073,6 +1081,7 @@
                      (new view-calendar% [parent parent]
                           [database database]
                           [sport-charms sport-charms]
+                          [sport-zones sport-zones]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
 
       (add-section "Activities" 'activity-list
@@ -1081,6 +1090,7 @@
                           [parent parent]
                           [database database]
                           [sport-charms sport-charms]
+                          [sport-zones sport-zones]
                           [select-activity-callback (lambda (dbid) (inspect-session dbid))])))
       )
 
@@ -1118,8 +1128,8 @@
       (make-file-menu mb this)
       (make-edit-menu mb this)
       (make-view-menu mb this visible-sections) ; NOTE: we will miss the Session view here...
-      (make-athlete-menu mb sport-charms amop)
-      (make-activtiy-menu mb sport-charms aop)
+      (make-athlete-menu mb sport-charms sport-zones amop)
+      (make-activtiy-menu mb sport-charms sport-zones aop)
       (make-gps-segments-menu mb gsop)
       (make-workout-menu mb wop)
       (make-tools-menu mb this)

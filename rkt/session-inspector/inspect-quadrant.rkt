@@ -2,7 +2,7 @@
 ;; inspect-quadrant.rkt -- Quadrant Plot for a session
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2018, 2019, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2019, 2020, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -136,7 +136,7 @@
 
 (define quadrant-plot-panel%
   (class object%
-    (init parent)
+    (init-field parent sport-zones)
     (init-field
      [get-preference get-pref]
      [put-preference put-pref])
@@ -471,7 +471,7 @@
               (df-contains? data-frame "spd" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-stride)
-         (set! zones (sport-zones-for-session session-id 'pace))
+         (set! zones (send sport-zones sport-zones-for-session session-id 'pace))
          (set! yval-fn cadence->stride)
          (set! filter-fn filter-cadence)
          (send control-panel change-children
@@ -483,7 +483,7 @@
          (set! x-axis axis-swim-avg-cadence)
          (set! y-axis axis-swim-stroke-length)
          ;; Add the torque series if not present
-         (set! zones (sport-zones-for-session session-id 'pace))
+         (set! zones (send sport-zones sport-zones-for-session session-id 'pace))
          (set! yval-fn cadence->stride)
          (set! filter-fn filter-cadence)
          (send control-panel change-children
@@ -494,7 +494,7 @@
               (df-contains? data-frame "pwr" "cad"))
          (set! x-axis axis-cadence)
          (set! y-axis axis-torque)
-         (set! zones (sport-zones-for-session session-id 'power))
+         (set! zones (send sport-zones sport-zones-for-session session-id 'power))
          (set! yval-fn cadence->torque)
          (set! filter-fn filter-torque)
          (send control-panel change-children
