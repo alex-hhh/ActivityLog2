@@ -1,6 +1,8 @@
 #lang racket/base
+;; dbapp.rkt -- open the application database, fetch and store workouts
+;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2016, 2018, 2020-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -15,19 +17,65 @@
 (require db/base
          racket/contract
          racket/match
+         racket/runtime-path
          "../dbutil.rkt"
          "../utilities.rkt"
          "wk-json.rkt"
          "wkstep.rkt")
 
 (provide/contract
- (store-workout (->* (connection? workout? number?)
+ [wke-schema-version (-> exact-positive-integer?)]
+ [wke-open-database (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)]
+ [store-workout (->* (connection? workout? number?)
                      (#:may-replace-serial? boolean?)
-                     (values number? number?)))
- (fetch-workout (->* (connection? number?)
+                     (values number? number?))]
+ [fetch-workout (->* (connection? number?)
                      (#:workout-version-id (or/c #f number?) #:for-export? boolean?)
-                     workout?))
- (delete-workout (-> connection? number? any/c)))
+                     workout?)]
+ [delete-workout (-> connection? number? any/c)])
+
+
+(define-runtime-path schema-file "../../sql/wke-db-schema.sql")
+
+;; The schema version we expect in all databases we open.
+(define (wke-schema-version) 53)
+
+;; Map a schema version to an upgrade file to the next version.
+(define upgrade-patches
+  (hash))
+
+;; Open the database in DATABASE-FILE, checking that it has the required
+;; version or later.  A database schema will be created if this is a new
+;; database.  If the database is not the expected version, it will be backed
+;; up, than upgraded. Does not set `current-database'.
+(define (wke-open-database database-file [progress-callback #f])
+  (with-handlers
+    ((db-exn-bad-version?
+      (lambda (e)
+        (let* ((expected (db-exn-bad-version-expected e))
+               (actual (db-exn-bad-version-actual e))
+               (patches (for/list ((v (in-range actual expected)))
+                          ;; NOTE: we re-raise exception if we don't have the
+                          ;; required patches.
+                          (hash-ref upgrade-patches v
+                                    (lambda ()
+                                      (raise-missing-migration database-file expected actual v)))))
+               (db (db-open database-file)))
+          (maybe-backup-database database-file #t)
+          (dbglog "upgrading database from version ~a to ~a" actual expected)
+          (db-upgrade db patches #:progress-callback progress-callback)))))
+    (define db
+      (db-open
+       database-file
+       #:schema-file schema-file
+       #:allow-higher-version #t
+       #:expected-version (wke-schema-version)
+       #:progress-callback progress-callback))
+    (define actual-version (query-value db "select version from SCHEMA_VERSION"))
+    (unless (= actual-version (wke-schema-version))
+      (dbglog "Database has newer schema version, expected ~a, actual ~a"
+              (wke-schema-version) actual-version))
+    db))
 
 (define (get-workout-id db serial)
   (query-maybe-value db "select id from WORKOUT where serial = ?" serial))
@@ -118,15 +166,15 @@ select name, sport_id, sub_sport_id, serial from WORKOUT where id = ?" workout-i
   (unless row
     (error (format "no workout with id ~a" workout-id)))
   (match-define (vector name sport sub-sport serial) row)
-  
+
   (define version-id
     (or workout-version-id
         (query-maybe-value db "
-select id from WORKOUT_VERSION 
+select id from WORKOUT_VERSION
  where workout_id = ?
    and timestamp = (
    select max(timestamp) from WORKOUT_VERSION where workout_id = ?)" workout-id workout-id)))
-    
+
   (unless version-id
     (error (format "could not find workout ~a/~a" workout-id workout-version-id)))
 

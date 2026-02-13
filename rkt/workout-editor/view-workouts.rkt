@@ -2,7 +2,7 @@
 ;; view-workouts.rkt -- workouts management panel
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2018, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2018, 2021, 2023, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,7 @@
          "../dbutil.rkt"
          "../utilities.rkt"
          "../widgets/main.rkt"
-         "wk-db.rkt"
+         "wke-db.rkt"
          "wk-fit.rkt"
          "wkstep.rkt"
          "workout-editor.rkt")
@@ -321,7 +321,6 @@ select id, name, sport_id, sub_sport_id, serial, library_id
     (init-field parent sport-charms database)
     (super-new)
 
-    (define tag 'activity-log:view-workouts)
     (define workout-libraries (get-workout-libraries database))
 
     (define pane (new horizontal-pane% [parent parent]))
@@ -350,7 +349,7 @@ select id, name, sport_id, sub_sport_id, serial, library_id
              (define/override (on-select index data)
                (on-workout-selected index data)))
            [parent workouts-pane]
-           [pref-tag 'activity-log:view-workouts-qresults]
+           [pref-tag 'al2-workout-editor:view-workouts-qresults]
            [get-preference
             (lambda (name fail-thunk)
               (db-get-pref database name (lambda () (get-pref name fail-thunk))))]

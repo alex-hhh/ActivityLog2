@@ -3,7 +3,7 @@
 ;; al2-logo.rkt -- generate the logo files for the AL2 application(s)
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2022, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -138,6 +138,45 @@
                                  #:border-width 1))
    logo-text))
 
+(define (make-we-logo-text font font-size spacing)
+  (define W "W")
+  (define K "k")
+  (define E "e")
+  (define TWO "²")
+
+  (hc-append spacing
+             (colorize (text W font font-size) '(51 187 238))
+             (cellophane (colorize (text K  font font-size) '(204 51 17)) 0.9)
+             (cellophane (colorize (text E  font font-size) '(0 153 136)) 0.9)
+             (cellophane (colorize (text TWO font font-size) '(238 119 51)) 0.9)))
+
+(define (make-al2-we-logo dim font font-size spacing)
+  (define logo-text (make-we-logo-text font font-size spacing))
+
+  (define logo-size
+    (let ([w (pict-width logo-text)]
+          [h (pict-height logo-text)])
+      (* 1.01 (max w h))))
+
+  (printf "dim = ~a, logo-size ~a ascent ~a, descent ~a~%" dim logo-size
+          (pict-ascent logo-text) (pict-descent logo-text))
+
+  (cc-superimpose
+   (ghost (rectangle dim dim))
+   ;;(random-rect logo-size logo-size 0.05 (make-color 241 241 241))
+   (if (< dim 32)
+       ;; Don't put a border for very small icons (less than 32 pixels)
+       (filled-rounded-rectangle logo-size logo-size -0.05
+                                 #:color (make-color 241 241 241)
+                                 #:draw-border? #f)
+       (filled-rounded-rectangle logo-size logo-size -0.05
+                                 #:color (make-color 241 241 241)
+                                 #:draw-border? #t
+                                 #:border-color (make-color 51 187 238) #;(make-color 238 119 51)
+                                 #:border-width 1))
+   logo-text))
+
+
 ;; (define face (cons 'bold "Aharoni"))
 ;; Segoe UI Black
 
@@ -214,6 +253,43 @@
 (send (pict->bitmap ca-logo-128) save-file "AL2-Climb-Analysis.png" 'png)
 (write-icos ca-icns "AL2-Climb-Analysis.ico" #:exists 'replace)
 
+(define we-logo-256
+  (make-al2-we-logo 256 "Segoe UI Black" 140 -40))
+(define we-logo-128
+  (make-al2-we-logo 128 "Segoe UI Black" 90 -20))
+(define we-logo-96
+  (make-al2-we-logo 96 "Segoe UI Black" 70 -15))
+(define we-logo-64
+  (make-al2-we-logo 64 "Segoe UI Black" 46 -10))
+(define we-logo-48
+  (make-al2-we-logo 48 "Segoe UI Black" 32 -8))
+(define we-logo-40
+  (make-al2-we-logo 40 "Segoe UI Black" 28 -6))
+(define we-logo-32
+  (make-al2-we-logo 32 "Segoe UI Black" 22 -4))
+(define we-logo-24
+  (make-al2-we-logo 24 "Segoe UI Black" 16 -3))
+(define we-logo-20
+  (make-al2-we-logo 20 "Segoe UI Black" 14 -3))
+(define we-logo-16
+  (make-al2-we-logo 16 "Segoe UI Black" 10 -1))
+
+(define we-bmps (map pict->bitmap (list we-logo-16
+                                        we-logo-20
+                                        we-logo-24
+                                        we-logo-32
+                                        we-logo-40
+                                        we-logo-48
+                                        we-logo-64
+                                        we-logo-128
+                                        we-logo-256)))
+
+(define we-icns (map bitmap->ico we-bmps))
+
+(send (pict->bitmap we-logo-128) save-file "AL2-Workout-Editor.png" 'png)
+(write-icos we-icns "AL2-Workout-Editor.ico" #:exists 'replace)
+
+
 (list
  256 logo-256
  128 logo-128
@@ -237,3 +313,15 @@
  24 ca-logo-24
  20 ca-logo-20
  16 ca-logo-16)
+
+(list
+ 256 we-logo-256
+ 128 we-logo-128
+ 96 we-logo-96
+ 64 we-logo-64
+ 48 we-logo-48
+ 40 we-logo-40
+ 32 we-logo-32
+ 24 we-logo-24
+ 20 we-logo-20
+ 16 we-logo-16)

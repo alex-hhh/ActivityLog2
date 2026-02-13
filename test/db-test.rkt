@@ -30,7 +30,7 @@
          "../rkt/session-df/session-df.rkt"
          "../rkt/sport-charms.rkt"
          "../rkt/utilities.rkt"
-         "../rkt/workout-editor/wk-db.rkt"
+         "../rkt/workout-editor/wke-db.rkt"
          "../rkt/workout-editor/wk-fit.rkt"
          "../rkt/workout-editor/wkstep.rkt"
          "test-util.rkt")

@@ -2,7 +2,7 @@
 ;; first-run.rkt -- dialog displayed when the applicaiton is first run
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2015, 2025 Alex Harsanyi (AlexHarsanyi@gmail.com)
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -32,7 +32,13 @@
 ;; the user with the opportunity to create a new database, open an existing
 ;; one or exit the application.
 (define first-run-dialog%
-  (class object% (init) (super-new)
+  (class object%
+    (init
+     [title "Create/Open Activity Log Database"]
+     [db-file-name "ActivityLog.db"]
+     [backup-db-file-name "ActivityLog-~a.db"]
+     [create-db-callback open-activity-log])
+    (super-new)
 
     (define button-bar #f)
     (define progress-bar #f)
@@ -43,38 +49,49 @@
       (new (class dialog% (init) (super-new)
              (define/augment (can-close?) can-exit?)
              (define/augment (on-close) (on-cancel)))
-           [label "Create/Open Activity Log Database"]
+           [label title]
            [stretchable-width #f]
            [stretchable-height #f]
            [parent #f]))
 
-    (let ((p (new vertical-pane% [parent toplevel]
-                  [spacing 10] [border 10]
+    (let ((p (new vertical-pane%
+                  [parent toplevel]
+                  [spacing 10]
+                  [border 10]
                   [alignment '(center top)])))
-      (let ((icon-bar (new horizontal-pane% [parent p]
+      (let ((icon-bar (new horizontal-pane%
+                           [parent p]
                            [spacing 10]
                            [alignment '(center center)])))
-        (new message% [parent icon-bar]
+        (new message%
+             [parent icon-bar]
              [label (read-bitmap swimming-icon-file)])
-        (new message% [parent icon-bar]
+        (new message%
+             [parent icon-bar]
              [label (read-bitmap biking-icon-file)])
-        (new message% [parent icon-bar]
+        (new message%
+             [parent icon-bar]
              [label (read-bitmap running-icon-file)]))
 
-      (set! button-bar (new horizontal-pane% [parent p]
+      (set! button-bar (new horizontal-pane%
+                            [parent p]
                             [spacing 20]
-                            [min-width 400] [stretchable-width #f]
+                            [min-width 400]
+                            [stretchable-width #f]
                             [alignment '(center center)]))
 
-      (new button% [parent button-bar]
+      (new button%
+           [parent button-bar]
            [label "New database"]
            [callback (lambda (b e) (on-create-new-database))])
 
-      (new button% [parent button-bar]
+      (new button%
+           [parent button-bar]
            [label "Open existing ..."]
            [callback (lambda (b e) (on-open-database))])
 
-      (new button% [parent button-bar]
+      (new button%
+           [parent button-bar]
            [label "Exit"]
            [callback (lambda (b e) (on-cancel))]))
 
@@ -85,24 +102,28 @@
       (set! can-exit? #f)
       ;; Replace the buttons with a progress bar
       (set! progress-bar
-            (new gauge% [parent button-bar]
-                 [label ""] [range 100] [style '(horizontal deleted)]))
+            (new gauge%
+                 [parent button-bar]
+                 [label ""]
+                 [range 100]
+                 [style '(horizontal deleted)]))
       (send button-bar change-children (lambda (old) (list progress-bar)))
 
       (define (progress-callback msg crt max)
         (when (and crt max)
           (let ((completed (exact-round (* 100 (/ crt max)))))
             (send progress-bar set-value completed))))
-      
-      (let ((db-file (build-path (get-default-dir) "ActivityLog.db")))
+
+      (let ((db-file (build-path (get-default-dir) db-file-name)))
         (when (file-exists? db-file)
           (let loop ((try 1))
-            (let ((file (build-path (get-default-dir) (format "ActivityLog-~a.db" try))))
+            (let ((file (build-path (get-default-dir)
+                                    (format backup-db-file-name try))))
               (if (file-exists? file)
                   (loop (+ try 1))
                   (set! db-file file)))))
         (thread (lambda ()
-                  (let ((db (open-activity-log db-file progress-callback)))
+                  (let ((db (create-db-callback db-file progress-callback)))
                     (queue-callback
                      (lambda ()
                        (set! dialog-result db-file)

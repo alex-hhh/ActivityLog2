@@ -1,5 +1,5 @@
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2016, 2024 Alex Harsanyi (AlexHarsanyi@gmail.com)
+;; Copyright (C) 2016, 2024, 2026 Alex Harsanyi (AlexHarsanyi@gmail.com)
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -24,6 +24,8 @@
 #define MyAppNameCA "AL2 Climb Analysis"
 #define MyAppExeNameCA "AL2-Climb-Analysis.exe"
 
+#define MyAppNameWKE "AL2 Workout Editor"
+#define MyAppExeNameWKE "AL2-Workout-Editor.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
@@ -63,6 +65,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\..\dist\ActivityLog2.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\AL2-Climb-Analysis.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\AL2-Workout-Editor.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\AL2-Activity-Import.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\dist\lib\*"; DestDir: "{app}/lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
@@ -75,6 +78,7 @@ Source: "..\..\dist\manifest-sha256.sig"; DestDir: "{app}"; Flags: skipifsourced
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{#MyAppNameCA}"; Filename: "{app}\{#MyAppExeNameCA}"
+Name: "{group}\{#MyAppNameWKE}"; Filename: "{app}\{#MyAppExeNameWKE}"
 Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}"; Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 

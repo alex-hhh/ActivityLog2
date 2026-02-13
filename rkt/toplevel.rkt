@@ -29,6 +29,7 @@
          "database.rkt"
          "dbapp.rkt"
          "dbutil.rkt"
+         "dbutil-gui.rkt"
          "dialogs/about-frame.rkt"
          "dialogs/activity-edit.rkt"
          "dialogs/edit-cp.rkt"
@@ -717,84 +718,6 @@
     ))
 
 
-
-;;....................................................... Open db dialog ....
-
-(define (interactive-open-database database-path)
-
-  (define frame #f)
-  (define message-field #f)
-  (define progress-bar #f)
-  (define last-msg #f)
-
-  (define (make-frame)
-    (shutdown-splash)
-    (close-splash)
-    (set! frame (new frame%
-                     [width 400]
-                     [height 250]
-                     [stretchable-width #f]
-                     [stretchable-height #f]
-                     [label (if (file-exists? database-path)
-                                "Opening database"
-                                "Creating database")]))
-    (let ((pane (new horizontal-pane% [parent frame] [border 20] [spacing 20])))
-      (new message% [parent pane] [label (sql-export-icon)]
-           [stretchable-height #f] [stretchable-width #f])
-      (let ((pane (new vertical-pane% [parent pane] [spacing 20] [alignment '(left top)])))
-        (set! message-field (new message% [parent pane] [label ""] [min-width 200]))
-        (set! progress-bar (new gauge% [parent pane] [label ""] [range 100]))))
-    (send progress-bar set-value 0)
-    (send frame center 'both)
-    (send frame show #t))
-
-  (define (cb msg crt max)
-    ;; Make the frame the first time we are called.  If we are not called at
-    ;; all, the frame it not shown.
-    (unless frame (make-frame))
-    ;; Setting the same message causes it to flicker.  Avoid doing that.
-    (when (and msg (not (equal? last-msg msg)))
-      (set! last-msg msg)
-      (send message-field set-label msg))
-    (when (and crt max)
-      (let ((new-progress (exact-round (* 100 (/ crt max)))))
-        (send progress-bar set-value new-progress))))
-
-  (define database #f)
-
-  (define (db-open-thread)
-    (with-handlers
-      (((lambda (e) #t)
-        (lambda (e)
-          (let ((msg (cond ((db-exn-bad-version? e)
-                            (format (string-append
-                                     "This version of ActivityLog2 requires database version ~a, "
-                                     "and the database file ~a is at version ~a. "
-                                     "Don't know how to upgrade the database.")
-                                    (db-exn-bad-version-expected e)
-                                    database-path
-                                    (db-exn-bad-version-actual e)))
-                           (#t
-                            (format "~a : ~a" database-path e)))))
-            (dbglog "interactive-open-database: ~a" msg)
-            (message-box
-             "Database open error"
-             msg
-             frame
-             '(ok stop)
-             #:dialog-mixin al2-message-box-mixin)))))
-      (let ((db (open-activity-log database-path cb)))
-        (set! database db))))
-
-  (yield
-   (thread/dbglog
-    #:name "interactive-open-database-dialog%/interactive-open-database"
-    db-open-thread))
-
-  ;; Close the frame if it was created.
-  (when frame (send frame show #f))
-
-  database)
 
 
 ;;........................................ interactive-update-time-zones ....
@@ -963,7 +886,7 @@
     (init-field database-path)
     (super-new)
 
-    (define database (interactive-open-database database-path))
+    (define database (interactive-open-database database-path open-activity-log))
     (unless database
       (raise (format "failed to open database at ~a" database-path)))
     (set-current-database database)     ; set this as current

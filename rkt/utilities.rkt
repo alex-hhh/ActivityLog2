@@ -55,7 +55,12 @@
                    #:rest (listof any/c) any/c))
  (retract-user-notification (-> symbol? any/c)))
 
-(provide user-notification-logger)
+(provide user-notification-logger
+         progress-callback/c)
+
+;; Contract for the progress callback passed to db-open
+(define progress-callback/c
+  (-> string? exact-positive-integer? exact-positive-integer? any/c))
 
 (define log-to-standard-output #f)          ; when #t dbglog also prints to stdout
 

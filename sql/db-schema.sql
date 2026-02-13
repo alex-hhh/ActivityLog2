@@ -1105,6 +1105,10 @@ create index IX0_ATHLETE_METRICS on ATHLETE_METRICS(timestamp);
 
 --............................................................ Workouts ....
 
+-- NOTE (Sept 2025): the workout database tables are here for legacy reasons,
+-- the workout editor is not a standalone application with its own schema
+-- file, wke-db-schema.sql.
+
 -- A workout library is a convenient way to group workouts together.  It only
 -- has a name.
 create table WORKOUT_LIBRARY (

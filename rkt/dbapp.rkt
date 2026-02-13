@@ -20,18 +20,11 @@
          "dbutil.rkt"
          "utilities.rkt")
 
-;; Contract for the progress callback passed to db-open
-(define progress-callback/c
-  (-> string? exact-positive-integer? exact-positive-integer? any/c))
-
 (provide/contract
  [schema-version (-> exact-positive-integer?)]
  [current-database (-> (or/c #f connection?))]
  [set-current-database (-> (or/c #f connection?) any/c)]
  [open-activity-log (->* ((or/c 'memory path-string?)) ((or/c #f progress-callback/c)) connection?)])
-
-(define (fail-with msg)
-  (raise (make-exn:fail msg (current-continuation-marks))))
 
 (define-runtime-path schema-file "../sql/db-schema.sql")
 
@@ -116,8 +109,6 @@
 (define the-current-database #f)
 
 (define (set-current-database db)
-  (unless (or (eq? db #f) (connection? db))
-    (fail-with "bad value for current-database"))
   (set! the-current-database db)
   ;; NOTE: send this message even when DB is #f
   (log-event 'database-opened db))

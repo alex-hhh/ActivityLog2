@@ -417,11 +417,11 @@
                                        secondary-mmax-plot))))))))
 
 ;; Return a text representation of FTHR-DATA, suitable for saving to a file.
-(define (fthr->text fthr-data)
+(define (fthr->text fthr-data sport-charms)
   (with-output-to-string
     (lambda ()
       (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
-      (pp-session-info sinfo)
+      (pp-session-info sinfo sport-charms)
       (when primary
         (newline)
         (pp-segment primary)
@@ -437,9 +437,9 @@
 
 ;; Save the FTHR-DATA to a nicely formatted PDF document written to
 ;; OUTPUT-FILE
-(define (fthr->pdf fthr-data output-file)
+(define (fthr->pdf fthr-data sport-charms output-file)
   (match-define (fthr df sinfo primary secondary pz sz) fthr-data)
-  (define header (pp-session-info/pict sinfo))
+  (define header (pp-session-info/pict sinfo sport-charms))
   (define zones1
     (and primary
          (vc-append
@@ -647,7 +647,7 @@
     ;; text.
     (define (on-copy-to-clipboard)
       (when fthr-data
-        (define text (fthr->text fthr-data))
+        (define text (fthr->text fthr-data sport-charms))
         (send the-clipboard set-clipboard-string text (current-seconds))
         (message-box
          "Copied to Clipboard"
@@ -668,7 +668,7 @@
                                       '()
                                       '(("PDF Files" "*.pdf") ("Any" "*.*"))))
         (when output-file
-          (fthr->pdf fthr-data output-file))))
+          (fthr->pdf fthr-data sport-charms output-file))))
 
     ;; Save the FTHR analisys and sport zones to a Text file.  The user is
     ;; prompted for the output file name.
@@ -682,7 +682,7 @@
                                       '()
                                       '(("Txt Files" "*.txt") ("Any" "*.*"))))
         (when output-file
-          (define text (fthr->text fthr-data))
+          (define text (fthr->text sport-charms fthr-data))
           (call-with-output-file
             output-file
             (lambda (out) (write-string text out))
