@@ -54,8 +54,7 @@
          "view-calendar.rkt"
          "view-equipment.rkt"
          "view-reports.rkt"
-         "widgets/main.rkt"
-         "workout-editor/view-workouts.rkt")
+         "widgets/main.rkt")
 
 (provide toplevel-window%)
 
@@ -356,14 +355,6 @@
   (send menu get-popup-menu))
 
 
-;;.................................................... make-workout-menu ....
-
-(define (make-workout-menu menu-bar target)
-  (define workout-menu
-    (new workout-operations-menu% [menu-bar menu-bar] [target target]))
-  (send workout-menu get-popup-menu))
-
-
 ;;...................................................... make-tools-menu ....
 
 (define (make-tools-menu menu-bar toplevel)
@@ -564,86 +555,6 @@
       (send toplevel-application select-section 'athlete-metrics))))
 
 
-;;.................................................. workouts-forwarder% ....
-
-;; Forward methods from the workout-operations<%> interface to the workout
-;; view, if it is the selected section.  This acts as a "glue" between the
-;; Workout menu and the view-workouts% object instance.
-(define workout-forwarder%
-  (class* object% (workout-operations<%>)
-    (init-field toplevel-application)
-    (super-new)
-
-    (define/public (get-top-level-window)
-      (send toplevel-application get-frame))
-
-    (define/public (get-database)
-      (send toplevel-application get-database))
-
-    ;; Return the selected section, but only if it implements the
-    ;; workout-operations<%> interface, return #f otherwise.  The workout menu
-    ;; items will be disabled if the selected section does not support workout
-    ;; operations.
-    (define (get-target-section)
-      (let ((section (send toplevel-application get-selected-section)))
-        (if (and section (is-a? section workout-operations<%>))
-            section
-            #f)))
-
-    (define/public (before-popup)
-      (let ((target (get-target-section)))
-        (and target (send target before-popup))))
-
-    (define/public (after-popdown)
-      (let ((target (get-target-section)))
-        (and target (send target after-popdown))))
-
-    (define/public (switch-to-view)
-      (send toplevel-application select-section 'workouts))
-
-    (define/public (get-selected-library-id)
-      (let ((target (get-target-section)))
-        (and target (send target get-selected-library-id))))
-
-    (define/public (get-selected-workout-id)
-      (let ((target (get-target-section)))
-        (and target (send target get-selected-workout-id))))
-
-    (define/public (after-new-library library-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-new-library library-id))))
-
-    (define/public (after-update-library library-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-update-library library-id))))
-
-    (define/public (can-delete-library? library-id)
-      (let ((target (get-target-section)))
-        (and target (send target can-delete-library? library-id))))
-
-    (define/public (after-delete-library library-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-delete-library library-id))))
-
-    (define/public (after-new-workout workout-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-new-workout workout-id))))
-
-    (define/public (after-update-workout workout-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-update-workout workout-id))))
-
-    (define/public (can-delete-workout? workout-id)
-      (let ((target (get-target-section)))
-        (and target (send target can-delete-workout? workout-id))))
-
-    (define/public (after-delete-workout workout-id)
-      (let ((target (get-target-section)))
-        (and target (send target after-delete-workout workout-id))))
-
-    ))
-
-
 ;;.............................................. gps-segments-forwarder% ....
 
 ;; Forward methods from the gps-segment-operations<%> interface to the
@@ -664,9 +575,9 @@
       (send toplevel-application get-sport-charms))
 
     ;; Return the selected section, but only if it implements the
-    ;; workout-operations<%> interface, return #f otherwise.  The workout menu
-    ;; items will be disabled if the selected section does not support workout
-    ;; operations.
+    ;; gps-segment-operations<%> interface, return #f otherwise.  The workout
+    ;; menu items will be disabled if the selected section does not support
+    ;; workout operations.
     (define (get-target-section)
       (let ((section (send toplevel-application get-selected-section)))
         (if (and section (is-a? section gps-segment-operations<%>))
@@ -965,13 +876,6 @@
                    (lambda (parent)
                      (new view-equipment% [parent parent] [database database])))
 
-      (add-section "Workouts" 'workouts
-                   (lambda (parent)
-                     (new view-workouts%
-                          [parent parent]
-                          [database database]
-                          [sport-charms sport-charms])))
-
       (add-section "GPS Segments" 'gps-segments
                    (lambda (parent)
                      (new view-gps-segments%
@@ -1046,7 +950,6 @@
     (let ((mb (new menu-bar% [parent tl-frame]))
           (aop (new activity-operations-forwarder% [toplevel-application this]))
           (amop (new athlete-metrics-forwarder% [toplevel-application this]))
-          (wop (new workout-forwarder% [toplevel-application this]))
           (gsop (new gps-segment-forwarder% [toplevel-application this])))
       (make-file-menu mb this)
       (make-edit-menu mb this)
@@ -1054,18 +957,11 @@
       (make-athlete-menu mb sport-charms sport-zones amop)
       (make-activtiy-menu mb sport-charms sport-zones aop)
       (make-gps-segments-menu mb gsop)
-      (make-workout-menu mb wop)
       (make-tools-menu mb this)
       (make-help-menu mb this))
 
     (define (can-close-toplevel?)
-      (and (check-unsaved-edits)
-           (let* ((section (get-section-by-tag 'workouts))
-                  (result (send section can-exit?)))
-             (unless result
-               (switch-to-section section)
-               (send section-selector select (get-section-index 'workouts) #t))
-             result)))
+      (check-unsaved-edits))
 
     ;; Check if there are any unsaved edits, and prompts the user if there
     ;; are.  Returns #t if there are no unsaved edits, or the user does not
