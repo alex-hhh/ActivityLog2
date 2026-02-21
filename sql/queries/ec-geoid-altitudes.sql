@@ -1,7 +1,7 @@
 -- geoid-range.sql -- fetch altitude samples for all geoids in a given range.
 --
 -- This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
--- Copyright (c) 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (c) 2020, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -19,4 +19,6 @@
 select altitude
   from A_TRACKPOINT
  where altitude is not null
-   and geoid >= ? and geoid < ?;
+   and geoid >= ? and geoid < ?
+ order by timestamp desc
+ limit 200;

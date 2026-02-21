@@ -2,7 +2,7 @@
 ;; elevation-correction.rkt -- elevation correction for trackpoints
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018, 2020-2022, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018, 2020-2022, 2024, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -36,6 +36,7 @@
          racket/math
          racket/runtime-path
          racket/vector
+         "../utilities.rkt"
          (only-in "../dbutil.rkt" define-sql-statement))
 
 
@@ -167,10 +168,11 @@
     ;; leaf geoid).  Returns a list of numbers representing the altitudes.
     (define/private (fetch-altitude-samples geoid)
       (define-values (start end) (leaf-span geoid))
-      (query-list database
-                  (geoid-altitudes-query)
-                  (geoid->sqlite-integer start)
-                  (geoid->sqlite-integer end)))
+      (define result (query-list database
+                                 (geoid-altitudes-query)
+                                 (geoid->sqlite-integer start)
+                                 (geoid->sqlite-integer end)))
+      result)
 
     ;; Map the altitude samples for a GEOID, this stores results previously
     ;; retrieved by `fetch-altitude-samples`
@@ -183,11 +185,10 @@
     (define/private (altitude-samples geoid)
       ;;(define key (~a geoid))
       (define key geoid)
-      (define data (hash-ref altitude-sample-cache key #f))
-      (unless data
-        (set! data (fetch-altitude-samples geoid))
-        (hash-set! altitude-sample-cache key data))
-      data)
+      (cond ((hash-ref altitude-sample-cache key #f))
+            (else (let ([data (fetch-altitude-samples geoid)])
+                    (hash-set! altitude-sample-cache key data)
+                    data))))
 
     ;; Determine the altitude limits which would be considered outliers based
     ;; on all the altitude data in GEOID and its adjacent neighbors.  This
@@ -242,11 +243,10 @@
     (define/private (outlier-limits geoid)
       ;;(define key (~a geoid))
       (define key geoid)
-      (define limits (hash-ref outlier-limit-cache key #f))
-      (unless limits
-        (set! limits (determine-outlier-limits geoid))
-        (hash-set! outlier-limit-cache key limits))
-      limits)
+      (cond ((hash-ref outlier-limit-cache key #f))
+            (else (let ([limits (determine-outlier-limits geoid)])
+                    (hash-set! outlier-limit-cache key limits)
+                    limits))))
 
     ;; Determine the altitude for GEOID by averaging the altitude values for
     ;; all geoids inside it, after outlier points have been removed.
@@ -275,11 +275,10 @@
     ;; result in `altitude-for-geoid`
     (define/private (average-altitude geoid)
       (define key geoid)
-      (define altitude (hash-ref average-altitude-cache key #f))
-      (unless altitude
-        (set! altitude (determine-average-altitude geoid))
-        (hash-set! average-altitude-cache key altitude))
-      altitude)
+      (cond ((hash-ref average-altitude-cache key #f))
+            (else (let ([altitude (determine-average-altitude geoid)])
+                    (hash-set! average-altitude-cache key altitude)
+                    altitude))))
 
     ;; Return the (weighted) average altitude at GEOID (presumably a leaf
     ;; geoid), based on the average altitude of nearby area geoids (level 10).
