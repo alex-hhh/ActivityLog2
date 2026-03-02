@@ -147,8 +147,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (db (send target get-database))
             (toplevel (send target get-top-level-window))
             (ess (new edit-session-summary-dialog%
-                      [sport-charms sport-charms]
-                      [sport-zones sport-zones])))
+                      [sport-charms sport-charms])))
         (when (send ess show-dialog toplevel db sid)
           (log-event 'session-updated sid)
           (send target after-update sid))))
@@ -156,7 +155,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
     (define (on-new m e)
       (let ((db (send target get-database))
             (toplevel (send target get-top-level-window))
-            (ess (new edit-session-summary-dialog% [sport-charms sport-charms])))
+            (ess (new edit-session-summary-dialog%
+                      [sport-charms sport-charms])))
         (let ((sid (send ess show-dialog toplevel db #f)))
           (when sid
             (log-event 'session-created sid)
@@ -178,7 +178,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (let ((mresult (message-box/custom
                         "Confirm clear corrected elevation"
                         (format "Really clear the corrected elevation for \"~a\"?~%You can re-create this data again using Fixup Elevation."
-                                (get-session-headline db sid))
+                                (get-session-headline db sid sport-charms))
                         #f
                         "Clear"
                         "Cancel"
@@ -204,7 +204,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
             (message-box/custom
              "Cannot edit weather"
              (format "Cowardly refusing to edit weather for ~a: multiple weather records are present"
-                     (get-session-headline db sid))
+                     (get-session-headline db sid sport-charms))
              #f
              #f
              "OK"
@@ -250,7 +250,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
           (let ((mresult (message-box/custom
                           "Confirm delete"
                           (format "Really delete activity \"~a\"?~%This cannot be undone."
-                                  (get-session-headline db sid))
+                                  (get-session-headline db sid sport-charms))
                           #f
                           "Delete"
                           "Cancel"
@@ -365,7 +365,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
                             #:dialog-mixin al2-message-box-mixin))))
                   (call-with-output-file fname
                     (lambda (port)
-                      (df-write/gpx df port #:name (get-session-headline db sid)))
+                      (df-write/gpx df port #:name (get-session-headline db sid sport-charms)))
                     #:mode 'text #:exists 'truncate/replace ))
                 (message-box
                  "Failed to fetch data frame" "Failed to fetch data frame (timeout?)"

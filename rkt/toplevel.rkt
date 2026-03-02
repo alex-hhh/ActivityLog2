@@ -1387,7 +1387,7 @@
           (retract-user-notification 'empty-database))))
 
     (define/public (on-show-last-import)
-      (send (new last-import-dialog%) show-dialog tl-frame database))
+      (send (new last-import-dialog% [sport-charms sport-charms]) show-dialog tl-frame database))
 
     (define about-frame #f)
 
