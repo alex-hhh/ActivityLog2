@@ -4,7 +4,7 @@
 ;; inspect-similar-routes.rkt -- show the routes similar to this one
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -196,7 +196,7 @@
                         cost
                         this-session-length (vector-length (this-session-geoids))
                         (vector-ref summary 5) (vector-length geoids)
-                        25.0))
+                        50))
                      (put-similar-status db sid csid are-similar?)
                      (if are-similar?
                          (cons summary result)
