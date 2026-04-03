@@ -9,6 +9,38 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2026.04 (April 2026)
+
+* Moved the workout editor into a standalone application, available as part of
+  the ActivityLog2 install. It can work both with its own separate database or
+  with the main AL2 database. (AB#80)
+
+* Improve elevation correction speed by only fetching recent samples (AB#99)
+
+* Relax criteria for matching similar routes so that small deviations between
+  routes will still consider the routes to be similar. (AB#101)
+
+* interpolate between data points in `al2-climb-analysis` - this provides
+  better values for routes which have large distances between adjacent data
+  points.
+
+* Up-sample waypoints when creating new GPS segments, this improves segment
+  matching, since the GPS segment will have waypoints at regular intervals,
+  regardless of what application was used to generate the GPX file for the
+  segment.
+
+* Improve handling of running activities with power data (don't calculate FTP
+  based TSS on runs, since we store FTP only for cycling and show power
+  summary values for running activities)
+
+* Read RPE and Feel from FIT files (Garmin devices how prompt the user to
+  provide feedback in the activity)
+
+* Account for variable timestamp recording in timer series.  Some Garmin
+  devices appear to have large gaps when they use variable recording.  This
+  incorrectly triggered as stops in the session data frame, resulting in
+  incorrect speed calculations. (#101)
+
 # Release 2025.08 (August 2025)
 
 * Support for showing gear shift data recorded in FIT files.  New plots
