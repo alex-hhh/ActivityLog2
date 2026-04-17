@@ -49,3 +49,6 @@
 [submodule "pkgs/monocle"]
 	path = pkgs/monocle
 	url = https://github.com/Bogdanp/racket-monocle.git
+[submodule "pkgs/threading"]
+	path = pkgs/threading
+	url = https://github.com/lexi-lambda/threading.git
