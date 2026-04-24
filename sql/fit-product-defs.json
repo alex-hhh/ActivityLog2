@@ -183,7 +183,10 @@
                     3986,
                     4001,
                     4002,
-                    4233
+                    4233,
+                    4647,
+                    4656,
+                    4825
                 ],
                 "name": "Garmin Approach"
             },
@@ -337,7 +340,8 @@
                     3389,
                     3446,
                     3473,
-                    4426
+                    4426,
+                    4625
                 ],
                 "name": "Garmin Vivoactive"
             },
@@ -472,7 +476,9 @@
                     2547,
                     2819,
                     4125,
-                    4556
+                    4556,
+                    4879,
+                    4944
                 ],
                 "name": "Garmin D2"
             },
@@ -711,6 +717,15 @@
                 "name": "Garmin GpsMap66"
             },
             {
+                "product_id": [
+                    3076,
+                    3077,
+                    3145,
+                    3321
+                ],
+                "name": "Garmin FR245"
+            },
+            {
                 "product_id": 3110,
                 "name": "Garmin Fenix 5 +"
             },
@@ -754,17 +769,11 @@
             {
                 "product_id": [
                     3126,
+                    3889,
                     4155,
                     4394
                 ],
                 "name": "Garmin Instinct"
-            },
-            {
-                "product_id": [
-                    3145,
-                    3321
-                ],
-                "name": "Garmin FR245"
             },
             {
                 "product_id": 3192,
@@ -773,6 +782,8 @@
             {
                 "product_id": [
                     3226,
+                    3596,
+                    3599,
                     3600,
                     3703,
                     3704,
@@ -784,7 +795,10 @@
                     3950,
                     4017,
                     4115,
-                    4116
+                    4116,
+                    4603,
+                    4643,
+                    4644
                 ],
                 "name": "Venu"
             },
@@ -811,6 +825,13 @@
                     4472
                 ],
                 "name": "Garmin Marq"
+            },
+            {
+                "product_id": [
+                    3282,
+                    3469
+                ],
+                "name": "Garmin FR45"
             },
             {
                 "product_id": [
@@ -853,12 +874,12 @@
                 "name": "Garmin Swim 2"
             },
             {
-                "product_id": 3466,
-                "name": "Garmin Instinct Solar"
+                "product_id": 3461,
+                "name": "Garmin Index Smart Scale 2"
             },
             {
-                "product_id": 3469,
-                "name": "Garmin FR45"
+                "product_id": 3466,
+                "name": "Garmin Instinct Solar"
             },
             {
                 "product_id": [
@@ -988,7 +1009,7 @@
             },
             {
                 "product_id": 4135,
-                "name": "Tactix7"
+                "name": "Tactix 7"
             },
             {
                 "product_id": 4169,
@@ -1076,12 +1097,102 @@
                 "name": "Garmin Fenix 7x Pro Solar"
             },
             {
-                "product_id": 4380,
+                "product_id": [
+                    4380,
+                    4477
+                ],
                 "name": "Garmin Lily2"
+            },
+            {
+                "product_id": [
+                    4432,
+                    4433
+                ],
+                "name": "Garmin FR165"
+            },
+            {
+                "product_id": 4440,
+                "name": "Garmin Edge 1050"
             },
             {
                 "product_id": 4446,
                 "name": "Garmin HRM Fit"
+            },
+            {
+                "product_id": 4525,
+                "name": "Garmin Rally X10"
+            },
+            {
+                "product_id": [
+                    4532,
+                    4533,
+                    4534,
+                    4536
+                ],
+                "name": "Garmin Fenix 8"
+            },
+            {
+                "product_id": 4575,
+                "name": "Garmin Enduro 3"
+            },
+            {
+                "product_id": [
+                    4583,
+                    4584
+                ],
+                "name": "Garmin Instinct E"
+            },
+            {
+                "product_id": [
+                    4585,
+                    4586,
+                    4587,
+                    4759
+                ],
+                "name": "Garmin Instinct 3"
+            },
+            {
+                "product_id": 4588,
+                "name": "Garmin Descent G2"
+            },
+            {
+                "product_id": 4606,
+                "name": "Garmin HRM 200"
+            },
+            {
+                "product_id": 4631,
+                "name": "Garmin Fenix 8 Pro"
+            },
+            {
+                "product_id": 4633,
+                "name": "Garmin Edge 550"
+            },
+            {
+                "product_id": 4634,
+                "name": "Garmin Edge 850"
+            },
+            {
+                "product_id": 4655,
+                "name": "Garmin Edge MTB"
+            },
+            {
+                "product_id": 4666,
+                "name": "Garmin Fenix E"
+            },
+            {
+                "product_id": 4678,
+                "name": "Garmin Instinct Crossover"
+            },
+            {
+                "product_id": 4745,
+                "name": "Garmin Bounce 2"
+            },
+            {
+                "product_id": [
+                    4775,
+                    4776
+                ],
+                "name": "Tactix 8"
             },
             {
                 "product_id": 10007,
@@ -1365,6 +1476,10 @@
                 "name": "Wahoo ELEMNT BOLT"
             },
             {
+                "product_id": 40,
+                "name": "Wahoo Kickr Core 2"
+            },
+            {
                 "product_id": 41,
                 "name": "Wahoo PowrLink"
             },
@@ -1636,7 +1751,10 @@
                 "name": "Sigma ROX 2.0"
             },
             {
-                "product_id": 52,
+                "product_id": [
+                    52,
+                    69
+                ],
                 "name": "Sigma ROX 4.0"
             },
             {
@@ -1838,8 +1956,12 @@
         "name": "Fitcare",
         "products": [
             {
-                "product_id" : 4,
-                "name" : "Fitcare HRM"
+                "product_id": 4,
+                "name": "Fitcare HRM"
+            },
+            {
+                "product_id": 5,
+                "name": "Fitcare Morpheus M7"
             }
         ]
     },
@@ -2078,6 +2200,21 @@
         "products": []
     },
     {
+        "manufacturer_id": 151,
+        "name": "abawo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 152,
+        "name": "bafang",
+        "products": []
+    },
+    {
+        "manufacturer_id": 153,
+        "name": "luhong",
+        "products": []
+    },
+    {
         "manufacturer_id": 255,
         "name": "Development",
         "products": []
@@ -2132,6 +2269,10 @@
             {
                 "product_id": 12,
                 "name": "Favero Assioma Duo"
+            },
+            {
+                "product_id": 22,
+                "name": "Favero Assioma Pro MX"
             }
         ]
     },
@@ -2462,6 +2603,96 @@
     {
         "manufacturer_id": 327,
         "name": "MagicShine",
+        "products": []
+    },
+    {
+        "manufacturer_id": 328,
+        "name": "ICTrainer",
+        "products": []
+    },
+    {
+        "manufacturer_id": 329,
+        "name": "Absolute Cycling",
+        "products": []
+    },
+    {
+        "manufacturer_id": 330,
+        "name": "EO SwimBetter",
+        "products": []
+    },
+    {
+        "manufacturer_id": 331,
+        "name": "MyWoosh",
+        "products": []
+    },
+    {
+        "manufacturer_id": 332,
+        "name": "Ravemen",
+        "products": []
+    },
+    {
+        "manufacturer_id": 333,
+        "name": "Tektro Racing",
+        "products": []
+    },
+    {
+        "manufacturer_id": 334,
+        "name": "Darad",
+        "products": []
+    },
+    {
+        "manufacturer_id": 335,
+        "name": "Cycloptim",
+        "products": []
+    },
+    {
+        "manufacturer_id": 337,
+        "name": "Runna",
+        "products": []
+    },
+    {
+        "manufacturer_id": 339,
+        "name": "Zepp",
+        "products": []
+    },
+    {
+        "manufacturer_id": 340,
+        "name": "Peleton",
+        "products": []
+    },
+    {
+        "manufacturer_id": 341,
+        "name": "Carv",
+        "products": []
+    },
+    {
+        "manufacturer_id": 342,
+        "name": "Tissot",
+        "products": []
+    },
+    {
+        "manufacturer_id": 345,
+        "name": "Real Velo",
+        "products": []
+    },
+    {
+        "manufacturer_id": 346,
+        "name": "Wetech",
+        "products": []
+    },
+    {
+        "manufacturer_id": 347,
+        "name": "Jespr",
+        "products": []
+    },
+    {
+        "manufacturer_id": 348,
+        "name": "Huawei",
+        "products": []
+    },
+    {
+        "manufacturer_id": 349,
+        "name": "Gotoes",
         "products": []
     },
     {
