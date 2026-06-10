@@ -4,7 +4,7 @@
 ;; dbutil-gui.rkt -- GUI database utilities
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -48,7 +48,7 @@
   (define (make-the-progress-frame)
     (shutdown-splash)
     (close-splash)
-    (set! progress-bar
+    (set! progress-frame
           (new frame%
                [width 400]
                [height 250]
