@@ -2,7 +2,7 @@
 ;; view-last-import.rkt -- panel showing activies that were last imported
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2019, 2021, 2023, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2019, 2021, 2023, 2025-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -140,13 +140,14 @@
       (send toplevel-window show #f))
 
     (define/public (run parent db sport-charms import-dir)
+      (set! database db)
+      (set! sport-charms sport-charms)
+      (set! import-directory import-dir)
+
       (let ((old-toplevel toplevel-window))
         (let ((toplevel (if parent (make-toplevel-dialog parent) toplevel-window)))
           (send import-pane reparent toplevel)
           (set! toplevel-window toplevel))
-        (set! database db)
-        (set! sport-charms sport-charms)
-        (set! import-directory import-dir)
         (send close-button enable #f)
         (send export-button enable #f)
         (send status-message set-label "Importing new activities...")
@@ -159,6 +160,7 @@
         (send import-list save-visual-layout)
         (set! database #f)
         (set! import-directory #f)
+        (set! sport-charms #f)
         #t))
 
     ))
