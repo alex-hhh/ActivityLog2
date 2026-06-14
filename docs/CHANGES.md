@@ -9,6 +9,14 @@ reports and trends from activity data and track equipment usage.
 This file contains a high level summary of changes in each released version of
 the application.
 
+# Release 2026.06 (June 2026)
+
+* Fixed a bug that prevented a database upgrade to complete, rendering the
+  application unusable (#104)
+
+* Also updated the device ID database file, allowing ActivityLog2 to recognize
+  additional devices.
+
 # Release 2026.04 (April 2026)
 
 * Moved the workout editor into a standalone application, available as part of
