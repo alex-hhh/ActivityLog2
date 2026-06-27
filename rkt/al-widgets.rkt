@@ -2,7 +2,7 @@
 ;; al-widgets.rkt -- specific widgets to the ActivityLog2 application
 ;;
 ;; This file is part of ActivityLog2, an fitness activity tracker
-;; Copyright (C) 2015, 2018-2019, 2021-2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (C) 2015, 2018-2019, 2021-2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
@@ -381,7 +381,8 @@ values (?, ?)" session-id id))
     (define (on-climb-splits)
       (define climb-splits (df-get-property data-frame 'intervals-climb-splits))
       (unless climb-splits
-        (set! climb-splits (add-time-zone (make-climb-intervals data-frame)))
+        (define ftp (send sport-charms get-athlete-ftp))
+        (set! climb-splits (add-time-zone (make-climb-intervals data-frame #:ftp ftp)))
         (df-put-property! data-frame 'intervals-climb-splits climb-splits))
       (send interval-view set-intervals sport 'hill-climbs climb-splits sid))
 
@@ -389,7 +390,8 @@ values (?, ?)" session-id id))
     (define (on-descent-splits)
       (define descent-splits (df-get-property data-frame 'intervals-descent-splits))
       (unless descent-splits
-        (set! descent-splits (add-time-zone (make-climb-intervals data-frame #:descents #t)))
+        (define ftp (send sport-charms get-athlete-ftp))
+        (set! descent-splits (add-time-zone (make-climb-intervals data-frame #:descents #t #:ftp ftp)))
         (df-put-property! data-frame 'intervals-descent-splits descent-splits))
       (send interval-view set-intervals sport 'hill-descents descent-splits sid))
 
@@ -400,11 +402,12 @@ values (?, ?)" session-id id))
     (define (on-best-splits)
       (define best-splits (df-get-property data-frame 'intervals-best-splits))
       (unless best-splits
+        (define ftp (send sport-charms get-athlete-ftp))
         (set! best-splits
               (add-time-zone
                (if (eq? (vector-ref sport 0) 2)
-                   (make-best-power-intervals data-frame)
-                   (make-best-pace-intervals data-frame))))
+                   (make-best-power-intervals data-frame #:ftp ftp)
+                   (make-best-pace-intervals data-frame #:ftp ftp))))
         (df-put-property! data-frame 'intervals-best-splits best-splits))
       (send interval-view set-intervals sport 'best-splits best-splits))
 
