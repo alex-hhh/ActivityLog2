@@ -1,10 +1,10 @@
 #lang racket
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
-;; shifting-fixes.rkt -- example racket program to fix gear shifting in sessions
+;; fixup-shifting.rkt -- example racket program to fix gear shifting in sessions
 ;;
 ;; This file is part of ActivityLog2 -- https://github.com/alex-hhh/ActivityLog2
-;; Copyright (c) 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2024, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by the Free
