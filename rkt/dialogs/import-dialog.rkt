@@ -139,9 +139,9 @@
     (define (on-close-dialog)
       (send toplevel-window show #f))
 
-    (define/public (run parent db sport-charms import-dir)
+    (define/public (run parent db sc import-dir)
       (set! database db)
-      (set! sport-charms sport-charms)
+      (set! sport-charms sc)
       (set! import-directory import-dir)
 
       (let ((old-toplevel toplevel-window))
