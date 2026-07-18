@@ -1,7 +1,7 @@
 -- db-schema.sql -- database schema for ActivityLog2
 --
 -- This file is part of ActivityLog2, an fitness activity tracker
--- Copyright (C) 2015 - 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+-- Copyright (C) 2015 - 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 --
 -- This program is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by the Free
@@ -351,7 +351,7 @@ create table A_SESSION (
   sport_id integer,
   sub_sport_id integer,
   pool_length integer,
-  pool_length_unit integer,
+  pool_length_unit integer,             -- 0 - meters; 1 - yards
   training_effect real,
   training_stress_score real,
   intensity_factor real,

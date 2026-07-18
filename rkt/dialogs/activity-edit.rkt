@@ -29,6 +29,7 @@
          "../utilities.rkt"
          "../widgets/widget-utilities.rkt"
          "edit-lap-swim.rkt"
+         "edit-pool-length.rkt"
          "edit-session-summary.rkt"
          "edit-session-tss.rkt"
          "edit-session-weather.rkt"
@@ -108,6 +109,7 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
         (send edit-tss-menu-item enable have-sid?)
         (send edit-weather-menu-item enable have-sid?)
         (send edit-lap-swim-menu-item enable is-lap-swim?)
+        (send edit-pool-length-menu-item enable is-lap-swim?)
         ;; TODO: we need to enable it only if there's an actual file to export.
         (send export-original-menu-item enable have-sid?)
         (send export-csv-menu-item enable have-sid?)
@@ -230,6 +232,18 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
               (log-event 'session-updated sid)
               (log-event 'session-updated-data sid)
               (send target after-update sid))))))
+
+    (define (on-edit-pool-length m e)
+      (let ((sid (send target get-selected-sid))
+            (sport (send target get-selected-sport))
+            (db (send target get-database))
+            (toplevel (send target get-top-level-window)))
+        (when (equal? sport '(5 . 17))  ; lap swimming
+          (define result (interactive-edit-session-pool-length db toplevel sid))
+            (when result
+              (log-event 'session-updated sid)
+              (log-event 'session-updated-data sid)
+              (send target after-update sid)))))
 
     (define (on-edit-tss m e)
       (let ((sid (send target get-selected-sid))
@@ -426,6 +440,8 @@ select ifnull(S.name, 'unnamed'), S.sport_id, S.sub_sport_id
       (make-menu-item "Edit weather ..." on-edit-weather))
     (define edit-lap-swim-menu-item
       (make-menu-item "Edit lap swim ..." on-edit-lap-swim))
+    (define edit-pool-length-menu-item
+      (make-menu-item "Edit swimming pool length ..." on-edit-pool-length))
     (define power-spikes-menu-item
       (make-menu-item "Clear Power Spikes ..." on-power-spikes))
 
