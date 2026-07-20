@@ -173,15 +173,17 @@
         and SSL.swim_stroke_id is not null
       group by S.id"
      sid))
+  (define (sql-or value fallback)
+    (if (sql-null? value) fallback value))
   (values
-   (or headline "Unnamed Session")
-   (or start-time (current-seconds))
-   (or time-zone #f)
-   (or pool-length 50)
-   (or pool-length-unit 0)
-   duration
-   lengths
-   fastest-length))
+   (sql-or headline "Unnamed Session")
+   (sql-or start-time (current-seconds))
+   (sql-or time-zone #f)
+   (sql-or pool-length 50)
+   (sql-or pool-length-unit 0)
+   (sql-or duration 0)
+   (sql-or lengths 0)
+   (sql-or fastest-length 1)))
 
 (define (validate-non-negative-rational v)
   (define n (string->number v))
@@ -191,10 +193,12 @@
   (define meters
     (* pl (if (= plu 0) 1.0 0.9144)))
   (define distance (* length-count meters))
+  (define avg-speed (if (> duration 0) (/ distance duration) 0))
+  (define max-speed (if (> fastest-length 0) (/ meters fastest-length) 0))
   (values
    distance
-   (/ distance duration)
-   (/ meters fastest-length)))
+   avg-speed
+   max-speed))
 
 ;; Show a dialog box that allows the user to provide a new pool length value
 ;; for a swim activity.  Note that this dialog only prompts the user, see
