@@ -509,7 +509,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
                          zones)
                    => (lambda (zones)
                         (maybe-start-transaction)
-                        (send sport-zones delete-sport-zones (sz-id data) #:database database)
+                        (send sport-zones delete-sport-zones (sz-id data))
                         (put-sport-zone sport-zones sport metric (car zones) (cdr zones))
                         (refresh-contents))))))))
 
@@ -521,7 +521,7 @@ select VSZ.zone_id, VSZ.valid_from, VSZ.valid_until,
         (when selected-row
           (let ((data (send szlb get-data-for-row selected-row)))
             (maybe-start-transaction)
-            (send sport-zones delete-sport-zones (sz-id data) #:database database)
+            (send sport-zones delete-sport-zones (sz-id data))
             (refresh-contents)))))
 
     (define cdefs (make-sz-columns))
